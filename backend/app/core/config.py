@@ -8,24 +8,36 @@ Loads environment variables and provides type-safe configuration access.
 import os
 from typing import List
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     Uses Pydantic Settings for validation and type safety.
     """
-    
+
     # Application
     APP_NAME: str = "ContaFlow"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
-    
+
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://contaflow:contaflow_dev_2026@postgres:5432/contaflow_db"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Ensure DATABASE_URL uses the asyncpg driver required by SQLAlchemy async."""
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+asyncpg://", 1)
+            if v.startswith("postgresql://") and "+asyncpg" not in v:
+                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     
     # Redis
     REDIS_URL: str = "redis://:contaflow_redis_2026@redis:6379/0"

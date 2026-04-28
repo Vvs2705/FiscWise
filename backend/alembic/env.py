@@ -36,14 +36,23 @@ target_metadata = Base.metadata
 def get_url():
     """
     Get database URL from environment variable.
-    
+
+    Ensures the URL uses the asyncpg driver required by SQLAlchemy async.
+    Railway (and Heroku) provide DATABASE_URL as 'postgresql://' which must
+    be converted to 'postgresql+asyncpg://' for use with async_engine_from_config.
+
     Returns:
-        str: Database connection URL
+        str: Database connection URL with asyncpg driver specifier
     """
     database_url = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://contaflow:contaflow_dev_2026@localhost:5432/contaflow_db"
     )
+    # Railway/Heroku provide postgres:// or postgresql:// — fix to asyncpg dialect
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return database_url
 
 

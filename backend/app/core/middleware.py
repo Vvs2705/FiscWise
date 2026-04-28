@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 _EXCLUDED_PREFIXES: Set[str] = {
     "/health",
     "/api/v1/health",
+    "/api/v1/widget",        # Public embeddable widget (no auth required)
     "/docs",
     "/redoc",
     "/openapi.json",

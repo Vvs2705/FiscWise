@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
+
+    # Public URL (used for widget script generation)
+    PUBLIC_URL: str = "https://api.contabilidadeflow.com.br"
     
     # AI Services
     ANTHROPIC_API_KEY: str = ""

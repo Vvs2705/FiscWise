@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, knowledge, chat, analytics, health
+from app.api.v1.endpoints import auth, onboarding, knowledge, chat, analytics, health, widget
 
 
 # Create main API router for v1
@@ -51,4 +51,11 @@ api_router.include_router(
 api_router.include_router(
     health.router,
     tags=["Health"]
+)
+
+# Include widget endpoints (public, no auth required)
+api_router.include_router(
+    widget.router,
+    prefix="/widget",
+    tags=["Widget"]
 )

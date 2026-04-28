@@ -1,0 +1,75 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: contaflow_api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://contaflow:contaflow_dev_2026@postgres:5432/contaflow_db
+      - REDIS_URL=redis://:contaflow_redis_2026@redis:6379/0
+      - DEBUG=True
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - contaflow_network
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: contaflow_postgres
+    environment:
+      POSTGRES_USER: contaflow
+      POSTGRES_PASSWORD: contaflow_dev_2026
+      POSTGRES_DB: contaflow_db
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contaflow -d contaflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contaflow_network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: contaflow_redis
+    command: redis-server --appendonly yes --requirepass contaflow_redis_2026
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - contaflow_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  contaflow_network:
+    driver: bridge

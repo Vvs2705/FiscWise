@@ -20,10 +20,10 @@ echo "🔍 Checking pgvector extension..."
 python -c "
 import asyncio
 from sqlalchemy import text
-from app.db.session import async_session_maker
+from app.core.deps import AsyncSessionLocal
 
 async def check_pgvector():
-    async with async_session_maker() as session:
+    async with AsyncSessionLocal() as session:
         result = await session.execute(text(\"SELECT * FROM pg_extension WHERE extname = 'vector'\"))
         if result.fetchone():
             print('✅ pgvector extension is enabled')

@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Routes that don't require tenant isolation
 _EXCLUDED_PREFIXES: Set[str] = {
     "/health",
+    "/api/v1/health",
     "/docs",
     "/redoc",
     "/openapi.json",

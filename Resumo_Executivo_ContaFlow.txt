@@ -1,0 +1,41 @@
+RESUMO TÉCNICO DE EXECUÇÃO - PROJETO CONTAFLOW (SOLO OS)
+Responsável: THE ARCHITECT (Omega v2)
+Diretor Executivo: Vinicius Vieira de Sousa
+Data: 27 de Abril de 2026
+
+1. PADRONIZAÇÃO E GOVERNANÇA (.clinerules)
+- Criação do arquivo de blindagem operacional `.clinerules`.
+- Definição da identidade do Architect: Autonomia total, comunicação em PT-BR, código em EN.
+- Estabelecimento de Zero Trust Architecture: Proibição de imports inventados e validação rigorosa de autenticação.
+- Regras de Migração: Uma revisão por feature para garantir rastreabilidade.
+
+2. SEGURANÇA E AUTENTICAÇÃO (FASE 3.5)
+- TenantMiddleware: Isolamento rigoroso via header 'X-Tenant-ID'.
+- Whitelist de Rotas Públicas: Exclusão de rotas de saúde, documentação, auth e onboarding do middleware.
+- Sistema de Dependências (app/core/deps.py): Implementação do 'get_current_user' com validação completa de JWT.
+- Fluxo de Login: Implementação do POST /api/v1/auth/login compatível com OAuth2 Password Flow.
+- JWT Specs: Assinaturas fixadas com user_id, tenant_id e role (HS256, 30 min exp).
+
+3. ONBOARDING PÚBLICO E MULTI-TENANCY (FASE 4)
+- Registro Automatizado: Criação do endpoint POST /api/v1/onboarding/register.
+- Atomicidade de Banco: Criação simultânea de Tenant (status TRIAL) e Usuário (role OWNER) em única transação.
+- Validação de Dados: Implementação de Pydantic EmailStr com dependência email-validator fixa.
+- Resiliência de Hashing: Correção da falha de 72 bytes do Bcrypt via downgrade para versão 4.1.2 e truncamento seguro.
+
+4. INFRAESTRUTURA DE DADOS E IA (FASE 5 - EM CURSO)
+- Integração PGVector: Preparação do ambiente PostgreSQL para busca semântica.
+- Modelagem RAG:
+    * Document: Gestão de arquivos, URLs e textos brutos por Tenant.
+    * DocumentChunk: Fragmentação de documentos com suporte a embeddings de 1536 dimensões.
+- Automação de Banco: Configuração de migrations para ativação automática da extensão 'vector' no Postgres.
+
+5. INFRAESTRUTURA DE DEPLOY E DEVOPS
+- Railway Integration: Pipeline de CI/CD via push para main.
+- Scripts de Startup: Automação de 'alembic upgrade head' e 'seed_admin.py'.
+- Saúde do Sistema: Endpoint /health configurado para monitoramento de latência e integridade.
+
+ESTADO ATUAL DO PROJETO:
+- Backend Core: 100% Estável
+- Segurança/Auth: 100% Operacional
+- Onboarding: 100% Funcional
+- Base de Conhecimento (RAG): Infraestrutura de Banco de Dados Iniciada.

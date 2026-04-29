@@ -5,8 +5,11 @@ Handles document ingestion, listing, and deletion for the knowledge base.
 All routes require authentication and tenant isolation.
 """
 import uuid
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
@@ -59,9 +62,10 @@ async def ingest_text(
             message=f"Document '{document.title}' ingested successfully with {len(document.chunks)} chunks"
         )
     except Exception as e:
+        logger.error("ingest_text failed: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to ingest text: {str(e)}"
+            detail="Failed to ingest document. Please try again."
         )
 
 
@@ -101,10 +105,13 @@ async def ingest_url(
             chunks_created=len(document.chunks),
             message=f"URL '{document.title}' ingested successfully with {len(document.chunks)} chunks"
         )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        logger.error("ingest_url failed: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to ingest URL: {str(e)}"
+            detail="Failed to ingest URL. Please try again."
         )
 
 

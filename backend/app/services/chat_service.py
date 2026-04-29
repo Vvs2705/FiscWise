@@ -19,8 +19,8 @@ class ChatService:
         self.db = db
         self.rag_service = rag_service
         self.redis_client = redis_client
-        self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-5-haiku-20241022"
+        self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.model = "claude-haiku-4-5-20251001"
 
     async def create_session(self, tenant_id: uuid.UUID, title: str = "Nova conversa") -> ChatSession:
         session = ChatSession(id=uuid.uuid4(), tenant_id=tenant_id, title=title)
@@ -98,17 +98,17 @@ class ChatService:
         input_tokens = 0
         output_tokens = 0
 
-        with self.client.messages.stream(
+        async with self.client.messages.stream(
             model=self.model,
             max_tokens=2048,
             system=system_prompt,
             messages=messages
         ) as stream:
-            for text in stream.text_stream:
+            async for text in stream.text_stream:
                 full_response += text
                 yield f"data: {text}\n\n"
 
-            usage = stream.get_final_message().usage
+            usage = (await stream.get_final_message()).usage
             input_tokens = usage.input_tokens
             output_tokens = usage.output_tokens
 

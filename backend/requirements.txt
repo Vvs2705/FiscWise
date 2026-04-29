@@ -13,7 +13,7 @@ pgvector==0.2.5
 
 # AI Services
 voyageai==0.2.3
-anthropic==0.34.2
+anthropic>=0.40.0
 
 # File Processing
 aiofiles==24.1.0

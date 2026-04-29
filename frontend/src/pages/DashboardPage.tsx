@@ -15,35 +15,35 @@ export function DashboardPage() {
   const stats = [
     {
       title: 'Total de Sessões',
-      value: data?.usage_summary.total_sessions || 0,
+      value: data?.sessions?.total_sessions ?? 0,
       icon: MessageSquare,
       color: 'text-blue-600',
     },
     {
       title: 'Total de Mensagens',
-      value: data?.usage_summary.total_messages || 0,
+      value: data?.sessions?.total_messages ?? 0,
       icon: MessageSquare,
       color: 'text-green-600',
     },
     {
       title: 'Total de Tokens',
-      value: (data?.usage_summary.total_tokens || 0).toLocaleString(),
+      value: (data?.token_usage?.total_tokens ?? 0).toLocaleString(),
       icon: Coins,
       color: 'text-purple-600',
     },
     {
-      title: 'Custo Total',
-      value: `R$ ${(data?.usage_summary.total_cost || 0).toFixed(2)}`,
+      title: 'Custo Total (USD)',
+      value: `$${(data?.token_usage?.total_cost_usd ?? 0).toFixed(4)}`,
       icon: DollarSign,
       color: 'text-orange-600',
     },
   ];
 
-  const chartData = data?.daily_metrics.map((metric) => ({
+  const chartData = data?.daily_metrics?.map((metric) => ({
     date: new Date(metric.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-    sessões: metric.sessions,
-    mensagens: metric.messages,
-  })) || [];
+    sessões: metric.total_sessions,
+    mensagens: metric.total_messages,
+  })) ?? [];
 
   return (
     <div className="space-y-6">
@@ -92,18 +92,16 @@ export function DashboardPage() {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total de Sessões</span>
-              <span className="font-medium">{data?.session_analytics.total_sessions || 0}</span>
+              <span className="font-medium">{data?.sessions?.total_sessions ?? 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total de Mensagens</span>
+              <span className="font-medium">{data?.sessions?.total_messages ?? 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Média de Mensagens/Sessão</span>
               <span className="font-medium">
-                {(data?.session_analytics.avg_messages_per_session || 0).toFixed(1)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Média de Tokens/Sessão</span>
-              <span className="font-medium">
-                {(data?.session_analytics.avg_tokens_per_session || 0).toFixed(0)}
+                {(data?.sessions?.avg_messages_per_session ?? 0).toFixed(1)}
               </span>
             </div>
           </CardContent>
@@ -116,22 +114,22 @@ export function DashboardPage() {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total de Documentos</span>
-              <span className="font-medium">{data?.document_analytics.total_documents || 0}</span>
+              <span className="font-medium">{data?.documents?.total_documents ?? 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total de Chunks</span>
-              <span className="font-medium">{data?.document_analytics.total_chunks || 0}</span>
+              <span className="font-medium">{data?.documents?.total_chunks ?? 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Processados</span>
               <span className="font-medium text-green-600">
-                {data?.document_analytics.by_status?.processed || 0}
+                {data?.documents?.by_status?.['processed'] ?? 0}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Pendentes</span>
               <span className="font-medium text-yellow-600">
-                {data?.document_analytics.by_status?.pending || 0}
+                {data?.documents?.by_status?.['pending'] ?? 0}
               </span>
             </div>
           </CardContent>

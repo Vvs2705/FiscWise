@@ -19,6 +19,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.deps import get_db
 from app.models.tenant import Tenant
+from app.models.chat import ChatSession
 from app.schemas.widget import WidgetMessageRequest
 from app.services.rag_service import RAGService
 from app.services.chat_service import ChatService
@@ -224,16 +225,11 @@ async def widget_chat_ui(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db
           const lines = chunk.split('\\n');
           for (const line of lines) {{
             if (line.startsWith('data: ')) {{
-              const data = line.slice(6).trim();
-              if (data === '[DONE]') break;
-              try {{
-                const json = JSON.parse(data);
-                if (json.content) {{
-                  fullText += json.content;
-                  botMsg.textContent = fullText;
-                  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }}
-              }} catch (e) {{}}
+              const token = line.slice(6);
+              if (token.trim() === '[DONE]') break;
+              fullText += token;
+              botMsg.textContent = fullText;
+              messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }}
           }}
         }}
@@ -271,27 +267,23 @@ async def widget_chat_message(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
+    # Auto-create session if it doesn't exist (widget generates session_id client-side)
+    session_uuid = uuid.UUID(request.session_id)
+    existing = await db.execute(select(ChatSession).where(ChatSession.id == session_uuid))
+    if not existing.scalar_one_or_none():
+        db.add(ChatSession(id=session_uuid, tenant_id=tenant_id, title="Widget Chat"))
+        await db.commit()
+
     rag_service = RAGService(db)
-    chat_service = ChatService(db)
+    chat_service = ChatService(db=db, rag_service=rag_service)
 
-    # Retrieve context from RAG
-    context_docs = await rag_service.search_similar(
-        tenant_id=tenant_id,
-        query=request.message,
-        top_k=5
-    )
-    context = "\\n\\n".join([doc.content for doc in context_docs]) if context_docs else ""
-
-    # Stream response
     async def event_generator():
-        async for chunk in chat_service.stream_chat_response(
+        async for chunk in chat_service.stream_response(
+            session_id=session_uuid,
             tenant_id=tenant_id,
-            user_message=request.message,
-            context=context,
-            session_id=request.session_id
+            message=request.message,
         ):
-            yield f"data: {chunk}\\n\\n"
-        yield "data: [DONE]\\n\\n"
+            yield chunk
 
     return StreamingResponse(
         event_generator(),

@@ -10,20 +10,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, create_access_token
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
-from app.schemas.onboarding import TenantRegistrationRequest, TenantRegistrationResponse
+from app.schemas.onboarding import TenantRegistrationRequest
+from app.schemas.token import AuthResponse, UserInfo
 
 
 router = APIRouter()
 
 
-@router.post("/register", response_model=TenantRegistrationResponse, summary="Register New Tenant")
+@router.post("/register", response_model=AuthResponse, summary="Register New Tenant")
 async def register_tenant(
     registration: TenantRegistrationRequest,
     db: AsyncSession = Depends(get_db)
-) -> TenantRegistrationResponse:
+) -> AuthResponse:
     """
     Public endpoint for tenant registration (onboarding).
     
@@ -95,12 +96,23 @@ async def register_tenant(
         await db.refresh(new_tenant)
         await db.refresh(new_owner)
         
-        # Step 7: Return success response
-        return TenantRegistrationResponse(
-            message="Tenant and owner user created successfully",
-            tenant_id=str(new_tenant.id),
+        # Step 7: Generate access token and return AuthResponse
+        access_token = create_access_token(
             user_id=str(new_owner.id),
-            owner_email=new_owner.email
+            tenant_id=str(new_tenant.id),
+            role=new_owner.role.value,
+        )
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            tenant_id=str(new_tenant.id),
+            user=UserInfo(
+                id=str(new_owner.id),
+                email=new_owner.email,
+                full_name=registration.owner_full_name,
+                role=new_owner.role.value,
+            ),
         )
         
     except Exception as e:

@@ -412,7 +412,7 @@ class AnalyticsService:
             existing_metrics.total_output_tokens = total_output_tokens
             existing_metrics.total_documents = total_documents
             existing_metrics.total_chunks = total_chunks
-            existing_metrics.updated_at = datetime.utcnow()
+            existing_metrics.updated_at = datetime.now()
             await self.db.commit()
             await self.db.refresh(existing_metrics)
             return existing_metrics

@@ -49,6 +49,19 @@ class TenantRegistrationRequest(BaseModel):
         examples=["SecurePass123!"]
     )
 
+    owner_full_name: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Owner full name",
+        examples=["João Silva"]
+    )
+
+    plan_slug: Optional[str] = Field(
+        None,
+        description="Subscription plan slug",
+        examples=["free", "starter", "pro"]
+    )
+
 
 class TenantRegistrationResponse(BaseModel):
     """

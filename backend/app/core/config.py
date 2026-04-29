@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://:contaflow_redis_2026@redis:6379/0"
     
     # JWT Authentication
-    JWT_SECRET_KEY: str = "your-secret-key-here-generate-with-openssl-rand-hex-64"
+    JWT_SECRET_KEY: str = "contaflow_dev_secret_key_2026_do_not_use_in_production_generate_with_openssl_rand_hex_64"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 # Global settings instance

@@ -7,8 +7,10 @@ Responsável por:
 3. Gerar embeddings via EmbeddingService
 4. Salvar Document + DocumentChunks no PostgreSQL
 """
+import ipaddress
 import uuid
 import httpx
+from urllib.parse import urlparse
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -36,9 +38,28 @@ class IngestService:
             start += settings.CHUNK_SIZE - settings.CHUNK_OVERLAP
         return chunks
 
+    def _validate_url(self, url: str) -> None:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"URL scheme '{parsed.scheme}' not allowed. Use http or https.")
+        host = parsed.hostname or ""
+        # Block private/internal networks (SSRF prevention)
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ValueError("Requests to internal network addresses are not allowed.")
+        except ValueError as e:
+            # Not an IP — check known internal hostnames
+            if str(e).startswith("Requests to"):
+                raise
+            blocked = {"localhost", "redis", "postgres", "db", "internal"}
+            if host.lower() in blocked or host.lower().endswith(".local"):
+                raise ValueError(f"Requests to host '{host}' are not allowed.")
+
     async def _fetch_url_content(self, url: str) -> str:
         """Fetch text content from a URL."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        self._validate_url(url)
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
             response = await client.get(url)
             response.raise_for_status()
             return response.text

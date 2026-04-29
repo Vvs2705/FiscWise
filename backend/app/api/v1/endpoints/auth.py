@@ -12,17 +12,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db, get_current_user
 from app.core.security import verify_password, create_access_token
 from app.models.user import User
-from app.schemas.token import Token
+from app.schemas.token import AuthResponse, UserInfo
 
 
 router = APIRouter()
 
 
-@router.post("/login", response_model=Token, summary="User Login")
+@router.post("/login", response_model=AuthResponse, summary="User Login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
-) -> Token:
+) -> AuthResponse:
     """
     OAuth2 compatible token login endpoint.
     
@@ -75,7 +75,17 @@ async def login(
         role=user.role.value
     )
     
-    return Token(access_token=access_token, token_type="bearer")
+    return AuthResponse(
+        access_token=access_token,
+        token_type="bearer",
+        tenant_id=str(user.tenant_id),
+        user=UserInfo(
+            id=str(user.id),
+            email=user.email,
+            full_name=getattr(user, "full_name", None),
+            role=user.role.value,
+        ),
+    )
 
 
 @router.post("/logout", summary="User Logout")

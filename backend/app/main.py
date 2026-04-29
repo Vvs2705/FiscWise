@@ -54,7 +54,7 @@ async def startup_event():
     Executes when the FastAPI application starts.
     """
     logger.info("🚀 ContaFlow API starting up...")
-    logger.info("📊 Environment: development")
+    logger.info("📊 Environment: %s", settings.ENVIRONMENT)
     logger.info("✅ Application initialized successfully")
 
 

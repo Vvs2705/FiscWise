@@ -119,8 +119,8 @@ async def register_tenant(
         # Rollback transaction on any error
         await db.rollback()
         
-        # Log the error (in production, use proper logging)
-        print(f"Error during tenant registration: {str(e)}")
+        # Log the error (internal only, do not expose to client)
+        logger.error("Tenant registration failed", exc_info=True)
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

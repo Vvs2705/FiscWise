@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:8000/api/v1/onboarding/register -X POST -H \"Content-Type: application/json\" -d '{\"company_name\":\"Empresa Teste\",\"owner_email\":\"novo@teste.com\",\"owner_password\":\"senha12345\",\"owner_full_name\":\"João Teste\",\"plan_slug\":\"free\"}')"
+    ]
+  }
+}

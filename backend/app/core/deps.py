@@ -125,6 +125,11 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     
+    # Ensure token tenant_id matches user tenant ownership
+    token_tenant_id = payload.get("tenant_id")
+    if token_tenant_id is None or token_tenant_id != str(user.tenant_id):
+        raise credentials_exception
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

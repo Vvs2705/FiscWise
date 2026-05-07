@@ -8,7 +8,7 @@ Loads environment variables and provides type-safe configuration access.
 import os
 from typing import List
 
-from pydantic import field_validator
+from pydantic import field_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    @field_validator("JWT_SECRET_KEY", mode="before")
+    @classmethod
+    def validate_jwt_secret(cls, v: str, info) -> str:
+        """Ensure JWT_SECRET_KEY is not using development default in production."""
+        environment = info.data.get("ENVIRONMENT", "development")
+        if environment == "production" and "dev_secret" in v.lower():
+            raise ValueError(
+                "JWT_SECRET_KEY must not use development default in production. "
+                "Generate a secure key using: openssl rand -hex 64"
+            )
+        return v
+    
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
 
@@ -56,6 +68,27 @@ class Settings(BaseSettings):
     # AI Services
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
+    
+    @field_validator("ANTHROPIC_API_KEY", "VOYAGE_API_KEY", mode="before")
+    @classmethod
+    def validate_ai_keys(cls, v: str, info) -> str:
+        """Ensure AI API keys are provided in production."""
+        environment = info.data.get("ENVIRONMENT", "development")
+        if environment == "production" and not v:
+            raise ValueError(
+                "AI service API keys (ANTHROPIC_API_KEY, VOYAGE_API_KEY) "
+                "must be set in production environment."
+            )
+        return v
+    
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def validate_debug_mode(cls, v, info) -> bool:
+        """Ensure DEBUG is False in production."""
+        environment = info.data.get("ENVIRONMENT", "development")
+        if environment == "production" and v is True:
+            raise ValueError("DEBUG must be False in production environment.")
+        return v
     
     # RAG Config
     CHUNK_SIZE: int = 1000
@@ -68,10 +101,11 @@ class Settings(BaseSettings):
         """Parse ALLOWED_ORIGINS into a list."""
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 # Global settings instance

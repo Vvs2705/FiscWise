@@ -1,20 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  MessageSquare, 
-  Code, 
-  CreditCard, 
-  Settings 
+import {
+  LayoutDashboard,
+  CreditCard,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Base de Conhecimento', href: '/knowledge', icon: BookOpen },
-  { name: 'Conversas', href: '/chat', icon: MessageSquare },
-  { name: 'Widget', href: '/widget', icon: Code },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
+  { name: 'Planos', href: '/billing', icon: CreditCard },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 

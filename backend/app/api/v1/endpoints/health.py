@@ -80,3 +80,14 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
                 "service": "contaflow-api"
             }
         )
+
+
+@router.get("/db-test", summary="Database Table Test")
+async def db_test(db: AsyncSession = Depends(get_db)):
+    """Test access to users table for diagnosing migration issues."""
+    try:
+        result = await db.execute(text("SELECT COUNT(*) FROM users"))
+        count = result.scalar()
+        return {"status": "success", "users_count": count}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}

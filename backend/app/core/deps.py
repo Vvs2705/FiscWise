@@ -4,8 +4,9 @@ Dependency Injection for ContaFlow
 FastAPI dependencies for database sessions, authentication, and authorization.
 """
 
+import logging
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -16,51 +17,70 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from app.core.config import settings
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-# Database Configuration
-DATABASE_URL = settings.DATABASE_URL
+# ---------------------------------------------------------------------------
+# Lazy engine initialisation — engine is created on first use, not at import
+# time. This prevents the application from crashing during startup if
+# DATABASE_URL is not yet available in the environment (e.g. during the
+# Fly.io healthcheck grace period before secrets are injected).
+# ---------------------------------------------------------------------------
 
-# Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,  # Set to True for SQL query logging in development
-    future=True,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_size=10,  # Connection pool size
-    max_overflow=20,  # Max connections beyond pool_size
-)
+_engine = None
+_AsyncSessionLocal: Optional[async_sessionmaker] = None
 
-# Create async session factory
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+
+def _get_engine():
+    """Return (and lazily create) the shared async engine.
+
+    Raises RuntimeError with a clear message when DATABASE_URL is not
+    configured so that the error surfaces in Fly.io logs instead of a
+    cryptic sqlalchemy exception.
+    """
+    global _engine, _AsyncSessionLocal
+    if _engine is None:
+        if not settings.DATABASE_URL:
+            raise RuntimeError(
+                "DATABASE_URL is not configured. "
+                "Set the secret in Fly.io with: "
+                "flyctl secrets set DATABASE_URL=<your-supabase-connection-string>"
+            )
+        logger.info("Creating database engine for %s...", settings.DATABASE_URL[:40])
+        _engine = create_async_engine(
+            settings.DATABASE_URL,
+            echo=False,
+            future=True,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+        _AsyncSessionLocal = async_sessionmaker(
+            _engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    return _engine, _AsyncSessionLocal
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database session.
-    
+
     Yields an async SQLAlchemy session and ensures it's closed after use.
-    Use this as a FastAPI dependency for database operations.
-    
-    Example:
-        @app.get("/users")
-        async def get_users(db: AsyncSession = Depends(get_db)):
-            result = await db.execute(select(User))
-            return result.scalars().all()
-    
+    The engine is initialised lazily on first call so that import-time errors
+    are avoided when DATABASE_URL is not yet present in the environment.
+
     Yields:
         AsyncSession: SQLAlchemy async session
     """
-    async with AsyncSessionLocal() as session:
+    _, session_factory = _get_engine()
+    async with session_factory() as session:
         try:
             yield session
         finally:

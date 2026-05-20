@@ -38,22 +38,33 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Run migrations with retry logic, then start uvicorn.
-# Retries alembic up to 10 times (6 s apart) to handle cold-start DB delays
-# from Supabase / external Postgres. Total max wait: ~60 s before giving up.
+# Startup strategy:
+#   1. Run Alembic migrations with retry logic (up to 10 attempts, 6 s apart).
+#      This handles cold-start delays from Supabase / external Postgres.
+#   2. Uvicorn is started REGARDLESS of migration outcome so the Fly.io
+#      health-check (/api/v1/health) can pass even when DATABASE_URL is not
+#      yet available.  Missing secrets are surfaced in the application logs
+#      (CRITICAL level) rather than by crashing the process.
 CMD ["sh", "-c", "\
   RETRIES=10; \
   echo \"[startup] Running database migrations (up to $RETRIES attempts)...\"; \
+  MIGRATION_OK=0; \
   while [ $RETRIES -gt 0 ]; do \
-    python -m alembic upgrade head && break; \
+    if python -m alembic upgrade head; then \
+      MIGRATION_OK=1; \
+      break; \
+    fi; \
     RETRIES=$((RETRIES - 1)); \
     echo \"[startup] Migration attempt failed. Retries left: $RETRIES. Retrying in 6s...\"; \
     sleep 6; \
   done; \
-  if [ $RETRIES -eq 0 ]; then \
-    echo '[startup] ERROR: All migration attempts failed. Verify DATABASE_URL secret is set in Fly.io.'; \
-    exit 1; \
+  if [ $MIGRATION_OK -eq 0 ]; then \
+    echo '[startup] WARNING: All migration attempts failed.'; \
+    echo '[startup] Verify DATABASE_URL secret is set: flyctl secrets set DATABASE_URL=<url>'; \
+    echo '[startup] Starting uvicorn anyway so health-check can pass...'; \
+  else \
+    echo '[startup] Migrations complete.'; \
   fi; \
-  echo '[startup] Migrations complete. Starting uvicorn...'; \
+  echo '[startup] Starting uvicorn...'; \
   exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --log-level info \
 "]

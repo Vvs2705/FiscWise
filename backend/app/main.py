@@ -53,9 +53,44 @@ async def startup_event():
     Application startup event handler.
     Executes when the FastAPI application starts.
     """
-    logger.info("🚀 ContaFlow API starting up...")
-    logger.info("📊 Environment: %s", settings.ENVIRONMENT)
-    logger.info("✅ Application initialized successfully")
+    logger.info("ContaFlow API starting up...")
+    logger.info("Environment: %s", settings.ENVIRONMENT)
+
+    # Validate critical secrets and emit clear log lines for each.
+    # These secrets must be set via: flyctl secrets set KEY=value
+    missing_secrets: list[str] = []
+
+    if not settings.DATABASE_URL:
+        logger.critical(
+            "[MISSING SECRET] DATABASE_URL is not set. "
+            "DB-bound endpoints will fail until this secret is configured. "
+            "Run: flyctl secrets set DATABASE_URL=<your-supabase-connection-string>"
+        )
+        missing_secrets.append("DATABASE_URL")
+    else:
+        logger.info("DATABASE_URL: %s...", settings.DATABASE_URL[:40])
+
+    if not settings.JWT_SECRET_KEY:
+        logger.critical(
+            "[MISSING SECRET] JWT_SECRET_KEY is not set. "
+            "All auth endpoints will fail until this secret is configured. "
+            "Run: flyctl secrets set JWT_SECRET_KEY=$(openssl rand -hex 64)"
+        )
+        missing_secrets.append("JWT_SECRET_KEY")
+    else:
+        logger.info("JWT_SECRET_KEY: configured (length=%d)", len(settings.JWT_SECRET_KEY))
+
+    if missing_secrets:
+        logger.critical(
+            "STARTUP WARNING: %d required secret(s) are missing: %s. "
+            "The /api/v1/health endpoint is still healthy but DB/auth endpoints will return 500.",
+            len(missing_secrets),
+            ", ".join(missing_secrets),
+        )
+    else:
+        logger.info("All required secrets are present.")
+
+    logger.info("Application initialized successfully")
 
 
 @app.on_event("shutdown")
@@ -64,8 +99,8 @@ async def shutdown_event():
     Application shutdown event handler.
     Executes when the FastAPI application shuts down.
     """
-    logger.info("🛑 ContaFlow API shutting down...")
-    logger.info("✅ Cleanup completed successfully")
+    logger.info("ContaFlow API shutting down...")
+    logger.info("Cleanup completed successfully")
 
 
 @app.get("/health", tags=["Health"])

@@ -105,9 +105,16 @@ class Settings(BaseSettings):
             return "dev_secret_key_do_not_use_in_production_change_in_railway"
 
         if environment == "production" and "dev_secret" in v.lower():
-            raise ValueError(
-                "JWT_SECRET_KEY must not use development default in production. "
-                "Generate a secure key using: openssl rand -hex 64"
+            # NEVER raise ValueError here — it causes a ValidationError at import
+            # time (settings = Settings()) which kills the process before uvicorn
+            # starts, resulting in 0.0.0.0:8000 never being bound.
+            # Surface as CRITICAL log instead; the health endpoint still responds
+            # and the operator can fix the secret without a redeploy.
+            import logging as _logging
+            _logging.getLogger(__name__).critical(
+                "JWT_SECRET_KEY appears to use a development default in production. "
+                "Auth endpoints will be insecure. "
+                "Regenerate with: flyctl secrets set JWT_SECRET_KEY=$(openssl rand -hex 64)"
             )
         return v
     

@@ -49,25 +49,27 @@ _BENIGN_ERROR_PATTERNS = (
 
 def _build_dsn(database_url: str) -> str:
     """
-    Normalise DATABASE_URL for psycopg3.
+    Normalise DATABASE_URL for psycopg3 using regex to avoid urlparse issues with special chars in passwords.
 
     - postgres:// -> postgresql://
+    - postgresql+asyncpg:// -> postgresql://  (SQLAlchemy async driver prefix)
+    - postgresql+psycopg2:// -> postgresql://  (any other driver variant)
     - ?ssl=require (asyncpg style) -> ?sslmode=require (libpq style)
     """
-    parsed = urlparse(database_url)
-    scheme = "postgresql" if parsed.scheme == "postgres" else parsed.scheme
+    import re
 
-    params = parse_qs(parsed.query, keep_blank_values=True)
+    # Strip any SQLAlchemy driver suffix (e.g. "+asyncpg", "+psycopg2")
+    dsn = re.sub(r'^(postgres(?:ql)?)\+\w+://', r'\1://', database_url)
 
-    # asyncpg-style ?ssl=require -> libpq-style ?sslmode=require
-    if "ssl" in params:
-        ssl_val = params.pop("ssl")[0]
-        if ssl_val in ("require", "true", "1"):
-            params.setdefault("sslmode", ["require"])
+    # postgres:// -> postgresql://
+    if dsn.startswith("postgres://"):
+        dsn = "postgresql://" + dsn[len("postgres://"):]
 
-    new_query = urlencode(params, doseq=True)
-    return urlunparse((scheme, parsed.netloc, parsed.path,
-                       parsed.params, new_query, parsed.fragment))
+    # ?ssl=require -> ?sslmode=require (handle both ?ssl and &ssl)
+    dsn = re.sub(r'([?&])ssl=require', r'\1sslmode=require', dsn)
+    dsn = re.sub(r'([?&])ssl=', lambda m: m.group(1) + 'sslmode=', dsn)
+
+    return dsn
 
 
 def _exec(cur, stmt: str, label: str) -> bool:

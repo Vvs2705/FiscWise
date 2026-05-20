@@ -1,0 +1,49 @@
+# Root-level .dockerignore for Fly.io builds
+# Build context is the project root when fly.toml references ./backend/Dockerfile
+
+# Git
+.git/
+.gitignore
+
+# Environment files (secrets never go into images)
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+# Frontend (not needed in backend image)
+frontend/
+node_modules/
+package-lock.json
+package.json
+
+# Docs
+docs/
+*.md
+!backend/requirements.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local infra
+infra/
+docker-compose.yml
+docker-compose.*.yml
+
+# CI/CD configs (not needed in image)
+.github/

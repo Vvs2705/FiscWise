@@ -1,4 +1,5 @@
 # ContaFlow Backend Dockerfile
+# Build context: project root (fly.toml is at root, dockerfile at ./backend/Dockerfile)
 # Python 3.12 for compatibility with asyncpg and pydantic-core
 
 FROM python:3.12-slim
@@ -20,14 +21,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+# Path is relative to build context (project root)
+COPY backend/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy application code from backend/ subdirectory into WORKDIR
+COPY backend/ .
 
 # Expose port
 EXPOSE 8000

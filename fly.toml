@@ -6,7 +6,6 @@ primary_region = "gru"  # São Paulo - Brasil (mais próximo)
 console_command = "/bin/bash"
 
 [build]
-builder = "docker"
 dockerfile = "./backend/Dockerfile"
 
 [env]
@@ -25,14 +24,6 @@ auto_stop_machines = false
 auto_start_machines = true
 min_machines_running = 1
 
-[[services.ports]]
-port = 443
-handlers = ["tls", "http"]
-
-[[services.ports]]
-port = 80
-handlers = ["http"]
-
 [checks]
 [checks.http]
 grace_period = "10s"
@@ -43,27 +34,13 @@ protocol = "http"
 timeout = "5s"
 type = "http"
 
-[[mounts]]
-source = "contaflow_data"
-destination = "/data"
-
-[[mounts]]
-source = "contaflow_logs"
-destination = "/logs"
-
 # Secrets — set via: flyctl secrets set KEY=value
 # JWT_SECRET_KEY       (required)
 # DATABASE_URL         (required)
-# REDIS_URL            (required)
+# SUPABASE_SERVICE_KEY (required)
 # ANTHROPIC_API_KEY    (optional — only if AI features are active)
-# VOYAGE_API_KEY       (optional — only if RAG is active)
 
 [[vm]]
 cpu_kind = "shared"
 cpus = 1
 memory_mb = 512
-
-[metrics]
-port = 9090
-handlers = ["http"]
-path = "/metrics"

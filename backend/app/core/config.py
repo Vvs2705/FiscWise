@@ -20,10 +20,20 @@ class Settings(BaseSettings):
     """
 
     # Application
+    # IMPORTANT: ENVIRONMENT must be declared FIRST — Pydantic v2 populates
+    # info.data with fields validated so far (in declaration order).  Any
+    # field whose @field_validator reads info.data.get("ENVIRONMENT") must be
+    # declared AFTER this line so that ENVIRONMENT is already in info.data
+    # when those validators run.
+    ENVIRONMENT: str = "development"
+
     APP_NAME: str = "ContaFlow"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
-    ENVIRONMENT: str = "development"
+
+    # DEBUG defaults to False so that a missing DEBUG env var in production
+    # never causes a startup crash.  The validator below overrides to False
+    # whenever ENVIRONMENT=production, regardless of the value supplied.
+    DEBUG: bool = False
 
     # Database
     DATABASE_URL: str = ""
@@ -31,11 +41,28 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: str, info) -> str:
-        """Ensure DATABASE_URL is set and uses the asyncpg driver."""
+        """Ensure DATABASE_URL uses the asyncpg driver.
+
+        In production the value MUST be provided via Fly.io secrets.
+        We intentionally do NOT raise here if the value is missing so
+        that the process can start and the /api/v1/health endpoint (which
+        does NOT touch the database) can respond to the Fly.io health-
+        check while migrations are still running.  The database engine is
+        created lazily (deps.py) so a missing DATABASE_URL only causes an
+        error when the first DB-bound request arrives.
+        """
         if not v:
             environment = info.data.get("ENVIRONMENT", "development")
             if environment == "production":
-                raise ValueError("DATABASE_URL must be set via environment variable in production.")
+                # Log a clear warning but do NOT crash at import time.
+                # The startup_event and migration script will surface the
+                # error with a useful message.
+                import logging as _logging
+                _logging.getLogger(__name__).critical(
+                    "DATABASE_URL secret is not set in Fly.io. "
+                    "Run: flyctl secrets set DATABASE_URL=<your-supabase-url>"
+                )
+                return ""
             # Dev default only if not in production
             return "postgresql+asyncpg://contaflow:dev_password@localhost:5432/contaflow_db"
 
@@ -46,20 +73,9 @@ class Settings(BaseSettings):
                 return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
-    # Redis
+    # Redis — optional; not used in the current MVP feature set.
+    # When rate-limiting or caching is added, set this secret in Fly.io.
     REDIS_URL: str = ""
-
-    @field_validator("REDIS_URL", mode="before")
-    @classmethod
-    def validate_redis_url(cls, v: str, info) -> str:
-        """Ensure REDIS_URL is set in production."""
-        if not v:
-            environment = info.data.get("ENVIRONMENT", "development")
-            if environment == "production":
-                raise ValueError("REDIS_URL must be set via environment variable in production.")
-            # Dev default only if not in production
-            return "redis://localhost:6379/0"
-        return v
     
     # JWT Authentication
     JWT_SECRET_KEY: str = ""
@@ -69,23 +85,30 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY", mode="before")
     @classmethod
     def validate_jwt_secret(cls, v: str, info) -> str:
-        """Ensure JWT_SECRET_KEY is set securely."""
+        """Ensure JWT_SECRET_KEY is set securely.
+
+        Same reasoning as DATABASE_URL: do not crash at import time so
+        that the health endpoint can respond.  A missing key is surfaced
+        as a 500 on the first auth request rather than killing the process.
+        """
+        environment = info.data.get("ENVIRONMENT", "development")
+
         if not v:
-            environment = info.data.get("ENVIRONMENT", "development")
             if environment == "production":
-                raise ValueError(
-                    "JWT_SECRET_KEY must be set via environment variable in production. "
-                    "Generate a secure key using: openssl rand -hex 64"
+                import logging as _logging
+                _logging.getLogger(__name__).critical(
+                    "JWT_SECRET_KEY secret is not set in Fly.io. "
+                    "Run: flyctl secrets set JWT_SECRET_KEY=$(openssl rand -hex 64)"
                 )
+                return ""
             # Dev default only if not in production
             return "dev_secret_key_do_not_use_in_production_change_in_railway"
 
-        if environment := info.data.get("ENVIRONMENT", "development"):
-            if environment == "production" and "dev_secret" in v.lower():
-                raise ValueError(
-                    "JWT_SECRET_KEY must not use development default in production. "
-                    "Generate a secure key using: openssl rand -hex 64"
-                )
+        if environment == "production" and "dev_secret" in v.lower():
+            raise ValueError(
+                "JWT_SECRET_KEY must not use development default in production. "
+                "Generate a secure key using: openssl rand -hex 64"
+            )
         return v
     
     # CORS
@@ -101,10 +124,31 @@ class Settings(BaseSettings):
     @field_validator("DEBUG", mode="before")
     @classmethod
     def validate_debug_mode(cls, v, info) -> bool:
-        """Ensure DEBUG is False in production."""
+        """Ensure DEBUG is False in production.
+
+        Pydantic passes env var values as strings before coercion.
+        Normalise to a real bool here so the comparison is reliable.
+
+        NOTE: We do NOT raise ValueError here.  Raising at import time
+        would crash the process before uvicorn ever starts, resulting in a
+        502 Bad Gateway on Fly.io even though /api/v1/health does not need
+        DEBUG to be set.  Instead we silently force DEBUG=False in
+        production and emit a CRITICAL log so the issue is visible in logs.
+        """
+        import logging as _logging
+
+        # Normalise string → bool  ("False" / "false" / "0" → False)
+        if isinstance(v, str):
+            v = v.lower() not in ("false", "0", "no", "off")
+
         environment = info.data.get("ENVIRONMENT", "development")
         if environment == "production" and v is True:
-            raise ValueError("DEBUG must be False in production environment.")
+            _logging.getLogger(__name__).critical(
+                "DEBUG=True detected in production environment. "
+                "Forcing DEBUG=False. Set DEBUG=False (or omit the var) "
+                "in Fly.io secrets to suppress this warning."
+            )
+            return False
         return v
     
     # RAG Config

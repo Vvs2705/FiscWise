@@ -23,14 +23,6 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 os.environ.setdefault("VOYAGE_API_KEY", "test")
 
 
-@pytest.fixture
-def client() -> TestClient:
-    """FastAPI test client with production middleware enabled."""
-    from app.main import app
-
-    return TestClient(app)
-
-
 # ============================================================================
 # Async Database Fixtures
 # ============================================================================
@@ -66,6 +58,29 @@ async def test_db():
         await session.rollback()
 
     await engine.dispose()
+
+
+@pytest.fixture
+def client(test_db: AsyncSession) -> TestClient:
+    """FastAPI test client with in-memory SQLite database.
+
+    Overrides get_db dependency to use test_db fixture.
+    """
+    from app.main import app
+    from app.core.deps import get_db
+
+    # Override the get_db dependency with our test database
+    async def override_get_db():
+        return test_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    client = TestClient(app)
+
+    yield client
+
+    # Clean up overrides
+    app.dependency_overrides.clear()
 
 
 # ============================================================================

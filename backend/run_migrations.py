@@ -46,9 +46,23 @@ def run_migrations() -> bool:
 
 
 if __name__ == "__main__":
-    # Step 1: Alembic migrations only
-    # Note: Preflight enum fix disabled for now (removed psycopg[binary] complexity)
-    # If enum mismatch occurs, use POST /api/v1/admin/fix-enum-case endpoint
-    logger.info("Running database migrations (enum preflight fix disabled)...")
+    database_url = os.getenv("DATABASE_URL", "")
+
+    # Step 1: Preflight enum fix (psycopg3 sync — avoids asyncpg type-cache issues)
+    if database_url:
+        from fix_enums_startup import fix_enums
+        logger.info("Running database migrations (with enum preflight fix)...")
+        enum_ok = fix_enums(database_url)
+        if not enum_ok:
+            logger.error(
+                "Preflight enum fix failed. Aborting to prevent partial DB state. "
+                "Check: (1) DATABASE_URL is valid and accessible, "
+                "(2) psycopg[binary] is installed, (3) network/firewall allows connection"
+            )
+            sys.exit(1)
+    else:
+        logger.warning("DATABASE_URL not set — skipping preflight enum fix.")
+
+    # Step 2: Alembic migrations
     success = run_migrations()
     sys.exit(0 if success else 1)

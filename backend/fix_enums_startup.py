@@ -26,6 +26,17 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_url_for_logging(database_url: str) -> str:
+    """Return URL with password redacted for safe logging."""
+    parsed = urlparse(database_url)
+    if parsed.password:
+        safe_netloc = f"{parsed.username}:***@{parsed.hostname}"
+        if parsed.port:
+            safe_netloc += f":{parsed.port}"
+        parsed = parsed._replace(netloc=safe_netloc)
+    return urlunparse(parsed)
+
 # Substrings in an error message that mean "this step is already done or
 # not needed" — we log a warning and continue.
 _BENIGN_ERROR_PATTERNS = (
@@ -127,7 +138,8 @@ def fix_enums(database_url: str) -> bool:
         return False
 
     dsn = _build_dsn(database_url)
-    logger.info("Connecting for enum preflight check...")
+    safe_dsn = _sanitize_url_for_logging(dsn)
+    logger.info(f"Connecting for enum preflight check: {safe_dsn}...")
 
     try:
         # autocommit=True so each statement is its own transaction;

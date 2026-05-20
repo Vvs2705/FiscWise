@@ -19,7 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 def run_preflight_enum_fix() -> bool:
-    """Run the synchronous psycopg enum fix before Alembic."""
+    """Run the synchronous psycopg enum fix before Alembic.
+
+    Returns True if enum fix succeeded (or was not needed).
+    Returns False if enum fix was attempted but failed — in this case,
+    we MUST NOT proceed to Alembic as it will fail with partial DB state.
+    """
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         logger.info("DATABASE_URL not set — skipping preflight enum fix")
@@ -30,16 +35,20 @@ def run_preflight_enum_fix() -> bool:
         logger.info("Running preflight enum fix (psycopg sync)...")
         success = fix_enums(database_url)
         if success:
-            logger.info("Preflight enum fix: OK")
+            logger.info("✅ Preflight enum fix: OK")
+            return True
         else:
-            logger.warning(
-                "Preflight enum fix returned False — "
-                "continuing to Alembic anyway (may fail on enum mismatch)"
+            logger.error(
+                "❌ Preflight enum fix FAILED. Aborting to prevent partial DB state. "
+                "Check: (1) DATABASE_URL is valid and accessible, "
+                "(2) psycopg[binary] is installed, (3) network/firewall allows connection"
             )
-        return True  # Never block Alembic; let it surface its own errors
+            return False  # FAIL HARD — don't proceed to Alembic
     except Exception as exc:
-        logger.warning("Preflight enum fix raised exception: %s — continuing", exc)
-        return True
+        logger.error(
+            "❌ Preflight enum fix raised exception (aborting): %s", exc, exc_info=True
+        )
+        return False  # FAIL HARD — unexpected error, don't proceed to Alembic
 
 
 def run_migrations() -> bool:
@@ -70,6 +79,12 @@ def run_migrations() -> bool:
 
 
 if __name__ == "__main__":
-    run_preflight_enum_fix()
+    # Step 1: Enum preflight fix (MUST succeed before proceeding to Alembic)
+    enum_fix_ok = run_preflight_enum_fix()
+    if not enum_fix_ok:
+        logger.error("Aborting migrations: preflight enum fix failed")
+        sys.exit(1)
+
+    # Step 2: Alembic migrations (only runs if enum fix succeeded)
     success = run_migrations()
     sys.exit(0 if success else 1)

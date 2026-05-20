@@ -26,37 +26,66 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://contaflow:contaflow_dev_2026@postgres:5432/contaflow_db"
+    DATABASE_URL: str = ""
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
-    def fix_database_url(cls, v: str) -> str:
-        """Ensure DATABASE_URL uses the asyncpg driver required by SQLAlchemy async."""
+    def fix_database_url(cls, v: str, info) -> str:
+        """Ensure DATABASE_URL is set and uses the asyncpg driver."""
+        if not v:
+            environment = info.data.get("ENVIRONMENT", "development")
+            if environment == "production":
+                raise ValueError("DATABASE_URL must be set via environment variable in production.")
+            # Dev default only if not in production
+            return "postgresql+asyncpg://contaflow:dev_password@localhost:5432/contaflow_db"
+
         if isinstance(v, str):
             if v.startswith("postgres://"):
                 return v.replace("postgres://", "postgresql+asyncpg://", 1)
             if v.startswith("postgresql://") and "+asyncpg" not in v:
                 return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
-    
+
     # Redis
-    REDIS_URL: str = "redis://:contaflow_redis_2026@redis:6379/0"
+    REDIS_URL: str = ""
+
+    @field_validator("REDIS_URL", mode="before")
+    @classmethod
+    def validate_redis_url(cls, v: str, info) -> str:
+        """Ensure REDIS_URL is set in production."""
+        if not v:
+            environment = info.data.get("ENVIRONMENT", "development")
+            if environment == "production":
+                raise ValueError("REDIS_URL must be set via environment variable in production.")
+            # Dev default only if not in production
+            return "redis://localhost:6379/0"
+        return v
     
     # JWT Authentication
-    JWT_SECRET_KEY: str = "contaflow_dev_secret_key_2026_do_not_use_in_production_generate_with_openssl_rand_hex_64"
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
+
     @field_validator("JWT_SECRET_KEY", mode="before")
     @classmethod
     def validate_jwt_secret(cls, v: str, info) -> str:
-        """Ensure JWT_SECRET_KEY is not using development default in production."""
-        environment = info.data.get("ENVIRONMENT", "development")
-        if environment == "production" and "dev_secret" in v.lower():
-            raise ValueError(
-                "JWT_SECRET_KEY must not use development default in production. "
-                "Generate a secure key using: openssl rand -hex 64"
-            )
+        """Ensure JWT_SECRET_KEY is set securely."""
+        if not v:
+            environment = info.data.get("ENVIRONMENT", "development")
+            if environment == "production":
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set via environment variable in production. "
+                    "Generate a secure key using: openssl rand -hex 64"
+                )
+            # Dev default only if not in production
+            return "dev_secret_key_do_not_use_in_production_change_in_railway"
+
+        if environment := info.data.get("ENVIRONMENT", "development"):
+            if environment == "production" and "dev_secret" in v.lower():
+                raise ValueError(
+                    "JWT_SECRET_KEY must not use development default in production. "
+                    "Generate a secure key using: openssl rand -hex 64"
+                )
         return v
     
     # CORS

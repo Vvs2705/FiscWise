@@ -50,7 +50,7 @@ CMD ["sh", "-c", "\
   echo \"[startup] Running database migrations (up to $RETRIES attempts)...\"; \
   MIGRATION_OK=0; \
   while [ $RETRIES -gt 0 ]; do \
-    if python -m alembic upgrade head; then \
+    if python run_migrations.py; then \
       MIGRATION_OK=1; \
       break; \
     fi; \

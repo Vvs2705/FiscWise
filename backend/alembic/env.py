@@ -8,6 +8,7 @@ It handles both online (connected to database) and offline (SQL script generatio
 import asyncio
 import os
 from logging.config import fileConfig
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -33,13 +34,54 @@ target_metadata = Base.metadata
 
 # Load DATABASE_URL from environment variable
 # This allows us to keep credentials out of alembic.ini
+def _sanitize_database_url(url: str) -> str:
+    """Convert DATABASE_URL to asyncpg-compatible format.
+
+    Handles Supabase URLs that include sslmode parameter, which asyncpg doesn't support.
+    Converts postgres:// to postgresql+asyncpg:// and replaces sslmode with ssl param.
+    """
+    parsed = urlparse(url)
+
+    # Ensure asyncpg scheme
+    if parsed.scheme == "postgres":
+        parsed = parsed._replace(scheme="postgresql+asyncpg")
+    elif parsed.scheme == "postgresql" and "+asyncpg" not in parsed.scheme:
+        parsed = parsed._replace(scheme="postgresql+asyncpg")
+
+    # Parse and fix query parameters
+    params = parse_qs(parsed.query, keep_blank_values=True)
+
+    # Remove sslmode (asyncpg doesn't support it)
+    if "sslmode" in params:
+        del params["sslmode"]
+
+    # Add asyncpg-compatible SSL params
+    params["ssl"] = ["require"]
+    params["statement_cache_size"] = ["0"]
+
+    # Rebuild query string
+    new_query = urlencode(params, doseq=True)
+
+    # Rebuild URL
+    fixed_url = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        new_query,
+        parsed.fragment
+    ))
+
+    return fixed_url
+
+
 def get_url():
     """
     Get database URL from environment variable.
 
     Ensures the URL uses the asyncpg driver required by SQLAlchemy async.
-    Railway (and Heroku) provide DATABASE_URL as 'postgresql://' which must
-    be converted to 'postgresql+asyncpg://' for use with async_engine_from_config.
+    Supabase URLs contain sslmode parameter which must be replaced with
+    asyncpg-compatible ssl and statement_cache_size parameters.
 
     Returns:
         str: Database connection URL with asyncpg driver specifier
@@ -48,12 +90,7 @@ def get_url():
         "DATABASE_URL",
         "postgresql+asyncpg://contaflow:contaflow_dev_2026@localhost:5432/contaflow_db"
     )
-    # Railway/Heroku provide postgres:// or postgresql:// — fix to asyncpg dialect
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
-        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return database_url
+    return _sanitize_database_url(database_url)
 
 
 def run_migrations_offline() -> None:

@@ -7,6 +7,7 @@ Loads environment variables and provides type-safe configuration access.
 
 import os
 from typing import List
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from pydantic import field_validator, ConfigDict
 from pydantic_settings import BaseSettings
@@ -41,8 +42,9 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: str, info) -> str:
-        """Ensure DATABASE_URL uses the asyncpg driver.
+        """Ensure DATABASE_URL uses the asyncpg driver and remove sslmode param.
 
+        Supabase URLs include sslmode parameter which asyncpg doesn't support.
         In production the value MUST be provided via Fly.io secrets.
         We intentionally do NOT raise here if the value is missing so
         that the process can start and the /api/v1/health endpoint (which
@@ -67,10 +69,40 @@ class Settings(BaseSettings):
             return "postgresql+asyncpg://contaflow:dev_password@localhost:5432/contaflow_db"
 
         if isinstance(v, str):
-            if v.startswith("postgres://"):
-                return v.replace("postgres://", "postgresql+asyncpg://", 1)
-            if v.startswith("postgresql://") and "+asyncpg" not in v:
-                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+            # Parse URL and convert to asyncpg dialect
+            parsed = urlparse(v)
+
+            # Ensure asyncpg scheme
+            if parsed.scheme == "postgres":
+                parsed = parsed._replace(scheme="postgresql+asyncpg")
+            elif parsed.scheme == "postgresql" and "+asyncpg" not in parsed.scheme:
+                parsed = parsed._replace(scheme="postgresql+asyncpg")
+
+            # Parse and fix query parameters
+            params = parse_qs(parsed.query, keep_blank_values=True)
+
+            # Remove sslmode (asyncpg doesn't support it)
+            if "sslmode" in params:
+                del params["sslmode"]
+
+            # Add asyncpg-compatible SSL params
+            if "ssl" not in params:
+                params["ssl"] = ["require"]
+            if "statement_cache_size" not in params:
+                params["statement_cache_size"] = ["0"]
+
+            # Rebuild query string
+            new_query = urlencode(params, doseq=True)
+
+            # Rebuild URL
+            return urlunparse((
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                new_query,
+                parsed.fragment
+            ))
         return v
 
     # Redis — optional; not used in the current MVP feature set.

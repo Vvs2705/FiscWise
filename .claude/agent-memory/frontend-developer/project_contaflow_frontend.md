@@ -22,3 +22,10 @@ Hook principal: `frontend/src/lib/hooks/useOperations.ts`
 - Exporta helpers: moneyBRL, dateBR
 
 API base: axios instance em `frontend/src/lib/api.ts` — injeta Bearer token e X-Tenant-ID de localStorage.
+
+**Deploy:** Frontend em producao na Vercel desde 2026-05-20.
+- URL canonica: https://contaflow-frontend.vercel.app
+- Projeto Vercel: v-stack-solution/contaflow-frontend
+- Env var de producao: VITE_API_URL=https://contaflow.fly.dev
+- vercel.json com rewrite SPA: `{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }`
+- Build command: `npm run build` (tsc && vite build) — sem erros, apenas warning de chunk size (955 kB JS)

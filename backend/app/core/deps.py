@@ -49,9 +49,19 @@ def _get_engine():
                 "Set the secret in Fly.io with: "
                 "flyctl secrets set DATABASE_URL=<your-supabase-connection-string>"
             )
-        logger.info("Creating database engine for %s...", settings.DATABASE_URL[:40])
+
+        # Fix DATABASE_URL for asyncpg compatibility
+        # asyncpg doesn't support sslmode parameter; convert to asyncpg format
+        db_url = settings.DATABASE_URL
+        if "sslmode" in db_url:
+            logger.warning("Converting DATABASE_URL from sslmode to asyncpg-compatible SSL format")
+            # Replace sslmode=require with asyncpg SSL parameters
+            db_url = db_url.replace("sslmode=require", "ssl=require&statement_cache_size=0")
+            db_url = db_url.replace("postgres://", "postgresql+asyncpg://")
+
+        logger.info("Creating database engine for %s...", db_url[:40])
         _engine = create_async_engine(
-            settings.DATABASE_URL,
+            db_url,
             echo=False,
             future=True,
             pool_pre_ping=True,

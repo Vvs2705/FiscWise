@@ -9,7 +9,7 @@ from app.core.deps import get_db
 router = APIRouter()
 
 
-@router.get("/diagnostic/enums", summary="Check enum status in database")
+@router.get("/enums", summary="Check enum status in database")
 async def check_enums(db: AsyncSession = Depends(get_db)):
     """Check if enums are uppercase or lowercase in the database."""
     try:
@@ -60,7 +60,7 @@ async def check_enums(db: AsyncSession = Depends(get_db)):
         }
 
 
-@router.get("/diagnostic/health-detailed", summary="Detailed health check")
+@router.get("/health-detailed", summary="Detailed health check")
 async def health_detailed(db: AsyncSession = Depends(get_db)):
     """Return detailed health status."""
     try:

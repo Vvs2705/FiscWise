@@ -17,7 +17,7 @@ async def verify_admin_token(token: str) -> bool:
     return token == ADMIN_TOKEN
 
 
-@router.post("/admin/fix-enum-case", summary="Emergency: Fix enum case mismatch")
+@router.post("/fix-enum-case", summary="Emergency: Fix enum case mismatch")
 async def fix_enum_case(
     token: str,
     db: AsyncSession = Depends(get_db)

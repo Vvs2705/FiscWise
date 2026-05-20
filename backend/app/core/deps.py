@@ -7,6 +7,7 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 import logging
 import uuid
 from typing import AsyncGenerator, Optional
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -34,6 +35,46 @@ _engine = None
 _AsyncSessionLocal: Optional[async_sessionmaker] = None
 
 
+def _sanitize_database_url(url: str) -> str:
+    """Convert DATABASE_URL to asyncpg-compatible format.
+
+    Handles Supabase URLs that include sslmode parameter, which asyncpg doesn't support.
+    Converts postgres:// to postgresql+asyncpg:// and replaces sslmode with ssl param.
+    """
+    # Parse the URL
+    parsed = urlparse(url)
+
+    # Ensure asyncpg scheme
+    if parsed.scheme == "postgres":
+        parsed = parsed._replace(scheme="postgresql+asyncpg")
+
+    # Parse and fix query parameters
+    params = parse_qs(parsed.query, keep_blank_values=True)
+
+    # Remove sslmode (asyncpg doesn't support it)
+    if "sslmode" in params:
+        del params["sslmode"]
+
+    # Add asyncpg-compatible SSL params
+    params["ssl"] = ["require"]
+    params["statement_cache_size"] = ["0"]
+
+    # Rebuild query string
+    new_query = urlencode(params, doseq=True)
+
+    # Rebuild URL
+    fixed_url = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        new_query,
+        parsed.fragment
+    ))
+
+    return fixed_url
+
+
 def _get_engine():
     """Return (and lazily create) the shared async engine.
 
@@ -51,13 +92,10 @@ def _get_engine():
             )
 
         # Fix DATABASE_URL for asyncpg compatibility
-        # asyncpg doesn't support sslmode parameter; convert to asyncpg format
-        db_url = settings.DATABASE_URL
-        if "sslmode" in db_url:
-            logger.warning("Converting DATABASE_URL from sslmode to asyncpg-compatible SSL format")
-            # Replace sslmode=require with asyncpg SSL parameters
-            db_url = db_url.replace("sslmode=require", "ssl=require&statement_cache_size=0")
-            db_url = db_url.replace("postgres://", "postgresql+asyncpg://")
+        db_url = _sanitize_database_url(settings.DATABASE_URL)
+
+        if db_url != settings.DATABASE_URL:
+            logger.info("Converted DATABASE_URL from postgres to postgresql+asyncpg with SSL params")
 
         logger.info("Creating database engine for %s...", db_url[:40])
         _engine = create_async_engine(

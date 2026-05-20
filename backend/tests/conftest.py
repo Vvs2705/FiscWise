@@ -2,7 +2,6 @@
 
 import os
 import uuid
-from datetime import date, timedelta
 
 import pytest
 import pytest_asyncio
@@ -10,11 +9,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import hash_password, create_access_token
+from app.core.security import get_password_hash, create_access_token
 from app.models.base import Base
 from app.models.operations import AccountingClient
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.models.tenant import Tenant, SubscriptionStatus
+from app.models.user import User, UserRole
 
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test")
@@ -39,7 +38,12 @@ def client() -> TestClient:
 
 @pytest_asyncio.fixture
 async def test_db():
-    """In-memory SQLite database for async tests."""
+    """In-memory SQLite database for async tests.
+
+    SQLite does not enforce PostgreSQL ENUM types, so SQLAlchemy will create
+    the columns as VARCHAR — acceptable for unit tests that only verify
+    application-layer logic, not database constraints.
+    """
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -75,8 +79,7 @@ async def tenant_a(test_db: AsyncSession) -> Tenant:
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Accounting Firm A",
-        slug="firm-a",
-        plan="pro",
+        subscription_status=SubscriptionStatus.TRIAL,
     )
     test_db.add(tenant)
     await test_db.commit()
@@ -90,8 +93,7 @@ async def tenant_b(test_db: AsyncSession) -> Tenant:
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Accounting Firm B",
-        slug="firm-b",
-        plan="pro",
+        subscription_status=SubscriptionStatus.TRIAL,
     )
     test_db.add(tenant)
     await test_db.commit()
@@ -105,9 +107,10 @@ async def user_a(test_db: AsyncSession, tenant_a: Tenant) -> User:
     user = User(
         id=uuid.uuid4(),
         email="user.a@firma-a.com",
-        hashed_password=hash_password("password123"),
+        hashed_password=get_password_hash("password123"),
         full_name="User A",
         tenant_id=tenant_a.id,
+        role=UserRole.OWNER,
         is_active=True,
     )
     test_db.add(user)
@@ -122,9 +125,10 @@ async def user_b(test_db: AsyncSession, tenant_b: Tenant) -> User:
     user = User(
         id=uuid.uuid4(),
         email="user.b@firma-b.com",
-        hashed_password=hash_password("password123"),
+        hashed_password=get_password_hash("password123"),
         full_name="User B",
         tenant_id=tenant_b.id,
+        role=UserRole.MEMBER,
         is_active=True,
     )
     test_db.add(user)
@@ -141,7 +145,7 @@ async def user_b(test_db: AsyncSession, tenant_b: Tenant) -> User:
 @pytest_asyncio.fixture
 async def client_a(test_db: AsyncSession, tenant_a: Tenant) -> AccountingClient:
     """Create a client for tenant A."""
-    client = AccountingClient(
+    ac = AccountingClient(
         id=uuid.uuid4(),
         tenant_id=tenant_a.id,
         name="Client from Firm A",
@@ -151,16 +155,16 @@ async def client_a(test_db: AsyncSession, tenant_a: Tenant) -> AccountingClient:
         email="client.a@example.com",
         status="active",
     )
-    test_db.add(client)
+    test_db.add(ac)
     await test_db.commit()
-    await test_db.refresh(client)
-    return client
+    await test_db.refresh(ac)
+    return ac
 
 
 @pytest_asyncio.fixture
 async def client_b(test_db: AsyncSession, tenant_b: Tenant) -> AccountingClient:
     """Create a client for tenant B."""
-    client = AccountingClient(
+    ac = AccountingClient(
         id=uuid.uuid4(),
         tenant_id=tenant_b.id,
         name="Client from Firm B",
@@ -168,10 +172,10 @@ async def client_b(test_db: AsyncSession, tenant_b: Tenant) -> AccountingClient:
         entity_type="pj",
         status="active",
     )
-    test_db.add(client)
+    test_db.add(ac)
     await test_db.commit()
-    await test_db.refresh(client)
-    return client
+    await test_db.refresh(ac)
+    return ac
 
 
 # ============================================================================
@@ -190,7 +194,9 @@ async def client_with_auth_a(test_db: AsyncSession, user_a: User, client_a: Acco
     http_client = TestClient(app)
 
     token = create_access_token(
-        data={"sub": str(user_a.id), "tenant_id": str(user_a.tenant_id)}
+        user_id=str(user_a.id),
+        tenant_id=str(user_a.tenant_id),
+        role=user_a.role.value,
     )
 
     http_client.headers.update({"Authorization": f"Bearer {token}"})
@@ -211,7 +217,9 @@ async def client_with_auth_b(test_db: AsyncSession, user_b: User, client_b: Acco
     http_client = TestClient(app)
 
     token = create_access_token(
-        data={"sub": str(user_b.id), "tenant_id": str(user_b.tenant_id)}
+        user_id=str(user_b.id),
+        tenant_id=str(user_b.tenant_id),
+        role=user_b.role.value,
     )
 
     http_client.headers.update({"Authorization": f"Bearer {token}"})

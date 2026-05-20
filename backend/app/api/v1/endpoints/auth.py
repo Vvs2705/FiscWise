@@ -25,25 +25,40 @@ async def login(
 ) -> AuthResponse:
     """
     OAuth2 compatible token login endpoint.
-    
+
     Authenticates a user with email (as username) and password.
     Returns a JWT access token on successful authentication.
-    
+
+    Enforces tenant isolation: if multiple users with the same email exist
+    across different tenants (should not happen due to onboarding flow),
+    rejects the request with 401 to prevent cross-tenant leakage.
+
     Args:
         form_data: OAuth2 form with username (email) and password
         db: Database session dependency
-        
+
     Returns:
         Token: JWT access token and token type
-        
+
     Raises:
-        HTTPException: 401 if credentials are invalid or user is inactive
+        HTTPException: 401 if credentials are invalid, user is inactive, or multi-tenant collision
     """
-    # Query user by email (form_data.username contains the email)
+    # Query all users with this email (should be max 1 per tenant isolation constraint)
     result = await db.execute(
         select(User).where(User.email == form_data.username)
     )
-    user = result.scalar_one_or_none()
+    users = result.scalars().all()
+
+    # Security: If multiple users found, it indicates a data integrity issue or
+    # an attack attempt. Reject with 401 to avoid revealing tenant information.
+    if len(users) != 1:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = users[0]
     
     # Validate user exists
     if not user:

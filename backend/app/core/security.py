@@ -2,17 +2,18 @@
 Security Module for ContaFlow
 
 Handles password hashing, verification, and JWT token generation.
-Uses bcrypt for password hashing and python-jose for JWT tokens.
+Uses bcrypt directly for password hashing (bcrypt 4.x+ compatible)
+and python-jose for JWT tokens.
+
+Note: passlib 1.7.x is incompatible with bcrypt >= 4.0 because it reads
+bcrypt.__about__.__version__ which was removed in bcrypt 4.0.  We call the
+bcrypt library directly instead of going through passlib to avoid this.
 """
 
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
-
-
-# Password hashing context using bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration - Import from config for consistency
 from app.core.config import settings
@@ -24,35 +25,44 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Verify a plain password against a hashed password.
-    
+    Verify a plain password against a bcrypt-hashed password.
+
     Args:
         plain_password: The plain text password to verify
         hashed_password: The bcrypt hashed password from database
-        
+
     Returns:
         bool: True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+    )
 
 
 def get_password_hash(password: str) -> str:
     """
     Hash a password using bcrypt.
-    
-    Bcrypt has a maximum password length of 72 bytes.
-    Passwords longer than that are rejected to avoid silent equivalence.
-    
+
+    Bcrypt has a maximum input length of 72 bytes; passwords longer than
+    that are silently truncated by the underlying C library.  We reject
+    them explicitly so callers get a clear error instead of silent data loss.
+
     Args:
         password: The plain text password to hash
-        
+
     Returns:
-        str: The bcrypt hashed password
+        str: The bcrypt hashed password (60-char string starting with $2b$)
+
+    Raises:
+        ValueError: If the password exceeds 72 bytes.
     """
-    if len(password.encode("utf-8")) > 72:
+    encoded = password.encode("utf-8")
+    if len(encoded) > 72:
         raise ValueError("Password must be at most 72 bytes.")
-    
-    return pwd_context.hash(password)
+
+    hashed = bcrypt.hashpw(encoded, bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
 
 def create_access_token(user_id: str, tenant_id: str, role: str) -> str:

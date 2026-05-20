@@ -5,8 +5,11 @@ Handles public tenant registration and onboarding flow.
 Creates tenant and owner user in a single atomic transaction.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
@@ -18,6 +21,7 @@ from app.schemas.token import AuthResponse, UserInfo
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/register", response_model=AuthResponse, summary="Register New Tenant")
@@ -83,6 +87,7 @@ async def register_tenant(
             tenant_id=new_tenant.id,
             email=registration.owner_email,
             hashed_password=hashed_password,
+            full_name=registration.owner_full_name,
             role=UserRole.OWNER,
             is_active=True
         )
@@ -115,7 +120,15 @@ async def register_tenant(
             ),
         )
         
-    except Exception as e:
+    except IntegrityError:
+        await db.rollback()
+        logger.warning("Tenant registration failed due to integrity constraint", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration data conflicts with an existing record.",
+            headers={"X-Error-Code": "REGISTRATION_CONFLICT"}
+        )
+    except Exception:
         # Rollback transaction on any error
         await db.rollback()
         

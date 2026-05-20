@@ -31,7 +31,7 @@ class TenantRegistrationRequest(BaseModel):
     
     document: Optional[str] = Field(
         None,
-        max_length=20,
+        max_length=32,
         description="Company document (CNPJ/CPF)",
         examples=["12.345.678/0001-90"]
     )

@@ -7,7 +7,11 @@ import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { DashboardPage } from '@/pages/DashboardPage';
-import { BillingPage } from '@/pages/BillingPage';
+import { ClientsPage } from '@/pages/ClientsPage';
+import { DocumentsPage } from '@/pages/DocumentsPage';
+import { DeadlinesPage } from '@/pages/DeadlinesPage';
+import { CertificatesPage } from '@/pages/CertificatesPage';
+import { FinancePage } from '@/pages/FinancePage';
 import { SettingsPage } from '@/pages/SettingsPage';
 
 const queryClient = new QueryClient({
@@ -27,18 +31,20 @@ class ErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false, message: '' };
   }
+
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, message: error.message };
   }
+
   render() {
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen items-center justify-center p-8 text-center">
           <div>
-            <h2 className="text-xl font-semibold mb-2">Algo deu errado</h2>
-            <p className="text-muted-foreground text-sm mb-4">{this.state.message}</p>
+            <h2 className="mb-2 text-xl font-semibold">Algo deu errado</h2>
+            <p className="mb-4 text-sm text-muted-foreground">{this.state.message}</p>
             <button
-              className="text-primary underline text-sm"
+              className="text-sm text-primary underline"
               onClick={() => window.location.reload()}
             >
               Recarregar página
@@ -47,6 +53,7 @@ class ErrorBoundary extends React.Component<
         </div>
       );
     }
+
     return this.props.children;
   }
 }
@@ -70,8 +77,14 @@ function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route path="clientes" element={<ClientsPage />} />
+              <Route path="documentos" element={<DocumentsPage />} />
+              <Route path="agenda-prazos" element={<DeadlinesPage />} />
+              <Route path="certificados" element={<CertificatesPage />} />
+              <Route path="financeiro" element={<FinancePage />} />
+              <Route path="configuracoes" element={<SettingsPage />} />
+              <Route path="billing" element={<Navigate to="/financeiro" replace />} />
+              <Route path="settings" element={<Navigate to="/configuracoes" replace />} />
             </Route>
           </Routes>
         </BrowserRouter>

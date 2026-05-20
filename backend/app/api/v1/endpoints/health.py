@@ -6,6 +6,7 @@ and monitoring systems.
 """
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,9 +71,12 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
             "service": "contaflow-api"
         }
     except Exception as e:
-        return {
-            "status": "not_ready",
-            "database": "disconnected",
-            "error": str(e),
-            "service": "contaflow-api"
-        }
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "not_ready",
+                "database": "disconnected",
+                "error": str(e),
+                "service": "contaflow-api"
+            }
+        )

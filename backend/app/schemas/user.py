@@ -14,6 +14,7 @@ from pydantic import BaseModel, EmailStr, Field
 class UserBase(BaseModel):
     """Base User schema with common attributes."""
     email: EmailStr = Field(..., description="User email address")
+    full_name: Optional[str] = Field(None, max_length=255, description="User full name")
     role: str = Field(default="member", description="User role (owner/admin/member)")
     is_active: bool = Field(default=True, description="Whether user account is active")
 

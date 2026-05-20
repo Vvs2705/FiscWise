@@ -7,7 +7,7 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -68,6 +68,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User:
@@ -129,6 +130,13 @@ async def get_current_user(
     token_tenant_id = payload.get("tenant_id")
     if token_tenant_id is None or token_tenant_id != str(user.tenant_id):
         raise credentials_exception
+
+    request_tenant_id = getattr(request.state, "tenant_id", None)
+    if request_tenant_id is not None and request_tenant_id != str(user.tenant_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant header does not match authenticated user"
+        )
 
     if not user.is_active:
         raise HTTPException(

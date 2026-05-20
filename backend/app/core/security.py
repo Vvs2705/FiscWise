@@ -5,9 +5,7 @@ Handles password hashing, verification, and JWT token generation.
 Uses bcrypt for password hashing and python-jose for JWT tokens.
 """
 
-import os
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -43,7 +41,7 @@ def get_password_hash(password: str) -> str:
     Hash a password using bcrypt.
     
     Bcrypt has a maximum password length of 72 bytes.
-    This function truncates passwords longer than 72 bytes to comply with bcrypt limits.
+    Passwords longer than that are rejected to avoid silent equivalence.
     
     Args:
         password: The plain text password to hash
@@ -51,9 +49,8 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: The bcrypt hashed password
     """
-    # Truncate password to 72 characters (safe limit for bcrypt)
-    if len(password) > 72:
-        password = password[:72]
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("Password must be at most 72 bytes.")
     
     return pwd_context.hash(password)
 
@@ -71,7 +68,8 @@ def create_access_token(user_id: str, tenant_id: str, role: str) -> str:
         str: The encoded JWT token
     """
     # Calculate expiration time
-    expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    issued_at = datetime.now(timezone.utc)
+    expire = issued_at + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     
     # Create JWT payload
     payload = {
@@ -79,7 +77,7 @@ def create_access_token(user_id: str, tenant_id: str, role: str) -> str:
         "tenant_id": tenant_id,  # Tenant ID for multi-tenancy
         "role": role,  # User role for RBAC
         "exp": expire,  # Expiration time
-        "iat": datetime.utcnow(),  # Issued at time
+        "iat": issued_at,  # Issued at time
     }
     
     # Encode and return JWT token

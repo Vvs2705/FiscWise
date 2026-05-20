@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 import enum
 
-from sqlalchemy import String, DateTime, UUID as SQLUUID, ForeignKey, Enum as SQLEnum
+from sqlalchemy import String, DateTime, UUID as SQLUUID, ForeignKey, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -75,6 +75,12 @@ class User(Base, TenantBase):
         nullable=False,
         comment="Bcrypt hashed password"
     )
+
+    full_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="User full name"
+    )
     
     # User Authorization
     role: Mapped[UserRole] = mapped_column(
@@ -102,8 +108,7 @@ class User(Base, TenantBase):
     
     # Table-level constraints
     __table_args__ = (
-        # Composite unique constraint: email must be unique per tenant
-        # This allows same email across different tenants
+        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
     )
     
     def __repr__(self) -> str:

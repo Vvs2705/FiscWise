@@ -66,7 +66,7 @@ class Tenant(Base):
     )
     
     document: Mapped[Optional[str]] = mapped_column(
-        String(18),  # CNPJ: 14 digits + formatting = 18 chars (XX.XXX.XXX/XXXX-XX)
+        String(32),
         nullable=True,
         unique=True,
         index=True,

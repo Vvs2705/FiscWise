@@ -5,8 +5,10 @@ Custom middleware for tenant isolation and request processing.
 Enforces X-Tenant-ID header on protected routes.
 """
 
+import uuid
 from typing import Set
-from fastapi import Request, HTTPException, status
+
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -21,8 +23,9 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/openapi.json",
     "/api/v1/auth",
     "/api/v1/onboarding",
-    "/"
 }
+
+_EXCLUDED_EXACT_PATHS: Set[str] = {"/"}
 
 
 class TenantMiddleware(BaseHTTPMiddleware):
@@ -58,8 +61,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
         """
         path = request.url.path
         
-        # Check if path is in excluded prefixes (public routes)
-        is_excluded = any(path.startswith(prefix) for prefix in _EXCLUDED_PREFIXES)
+        is_excluded = path in _EXCLUDED_EXACT_PATHS or any(
+            path == prefix or path.startswith(f"{prefix}/")
+            for prefix in _EXCLUDED_PREFIXES
+        )
         
         if is_excluded:
             # Allow public routes to pass through without tenant validation
@@ -75,6 +80,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
                     "detail": "Missing required header: X-Tenant-ID",
                     "error_code": "TENANT_ID_REQUIRED",
                     "message": "All protected endpoints require the X-Tenant-ID header for tenant isolation"
+                }
+            )
+
+        try:
+            uuid.UUID(tenant_id)
+        except ValueError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "detail": "Invalid X-Tenant-ID header",
+                    "error_code": "TENANT_ID_INVALID",
+                    "message": "X-Tenant-ID must be a valid UUID"
                 }
             )
         

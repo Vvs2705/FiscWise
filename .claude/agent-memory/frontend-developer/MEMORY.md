@@ -1,0 +1,1 @@
+- [ContaFlow frontend architecture](project_contaflow_frontend.md) — React+Vite (nao Next.js), hooks em useOperations.ts, UI propria em components/ui/

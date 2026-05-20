@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://contaflow-production-da81.up.railway.app';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://contaflow-production-da81.up.railway.app');
 
 export const api = axios.create({
   baseURL: API_URL,

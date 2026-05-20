@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health
+from app.api.v1.endpoints import auth, onboarding, health, operations
 
 
 # Create main API router for v1
@@ -30,4 +30,10 @@ api_router.include_router(
 api_router.include_router(
     health.router,
     tags=["Health"]
+)
+
+# Include CTFlow operational MVP endpoints
+api_router.include_router(
+    operations.router,
+    tags=["Operations"]
 )

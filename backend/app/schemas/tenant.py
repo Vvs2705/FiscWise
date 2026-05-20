@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 class TenantBase(BaseModel):
     """Base Tenant schema with common attributes."""
     name: str = Field(..., min_length=1, max_length=255, description="Organization or company name")
-    document: Optional[str] = Field(None, max_length=18, description="CNPJ or CPF (Brazilian tax ID)")
+    document: Optional[str] = Field(None, max_length=32, description="CNPJ or CPF (Brazilian tax ID)")
 
 
 class TenantCreate(TenantBase):

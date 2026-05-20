@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContaFlow - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0f1419;
+            --bg-card: #1a1f2e;
+            --bg-deep: #141824;
+            --accent: #00d4ff;
+            --accent-light: #00f0ff;
+            --accent-muted: rgba(0, 212, 255, 0.1);
+            --accent-border: rgba(0, 212, 255, 0.2);
+            --text-1: #ffffff;
+            --text-2: #b4bcc4;
+            --text-3: #7a8490;
+            --border: rgba(255, 255, 255, 0.08);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text-1);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navbar */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(15, 20, 25, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: var(--accent-muted);
+            border: 1px solid var(--accent-border);
+            border-radius: 50px;
+            font-size: 0.9rem;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        /* Main Layout */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            margin-bottom: 4rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: var(--text-2);
+            margin-bottom: 1.5rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: var(--bg);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-muted);
+            transform: translateY(-2px);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        @media (max-width: 768px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--accent-border);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.1);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 0.9rem;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            background: linear-gradient(135deg, var(--text-1), var(--text-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-change {
+            font-size: 0.85rem;
+            color: var(--success);
+            margin-top: 0.5rem;
+        }
+
+        .card-change.negative {
+            color: var(--danger);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            background: var(--accent-muted);
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Chart */
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.7s ease-out 0.1s both;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .chart-subtitle {
+            color: var(--text-3);
+            font-size: 0.85rem;
+        }
+
+        .bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 200px;
+            gap: 0.75rem;
+        }
+
+        .bar {
+            flex: 1;
+            background: linear-gradient(180deg, var(--accent), var(--accent-light));
+            border-radius: 6px 6px 0 0;
+            transition: all 0.3s ease;
+            opacity: 0.7;
+            animation: growUp 0.8s ease-out;
+        }
+
+        .bar:nth-child(1) { height: 50%; animation-delay: 0s; }
+        .bar:nth-child(2) { height: 70%; animation-delay: 0.1s; }
+        .bar:nth-child(3) { height: 45%; animation-delay: 0.2s; }
+        .bar:nth-child(4) { height: 85%; animation-delay: 0.3s; }
+        .bar:nth-child(5) { height: 65%; animation-delay: 0.4s; }
+        .bar:nth-child(6) { height: 100%; animation-delay: 0.5s; }
+        .bar:nth-child(7) { height: 75%; animation-delay: 0.6s; }
+
+        .bar:hover {
+            opacity: 1;
+            filter: brightness(1.2);
+            transform: scaleY(1.05);
+        }
+
+        /* Table */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .table-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-deep);
+        }
+
+        .table-header h3 {
+            font-size: 1.2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--bg-deep);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes growUp {
+            from {
+                height: 0;
+                opacity: 0;
+            }
+            to {
+                opacity: 0.7;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-3);
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">⚡ ContaFlow</div>
+        <div class="nav-right">
+            <div class="user-menu">
+                <div class="avatar">V</div>
+                <span>Vinicius Souza</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Bem-vindo de volta, Vinicius! 👋</h1>
+            <p>Suas operações financeiras em tempo real, com total clareza e controle.</p>
+            <div class="button-group">
+                <button class="btn btn-primary">+ Novo cliente</button>
+                <button class="btn btn-primary">+ Registrar despesa</button>
+                <button class="btn btn-secondary">Ver relatório</button>
+            </div>
+        </section>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-4">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Receita total</div>
+                        <div class="card-value">R$ 142,5k</div>
+                        <div class="card-change">+12.5% vs mês anterior</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Despesas</div>
+                        <div class="card-value">R$ 48,2k</div>
+                        <div class="card-change negative">+3.2% vs mês anterior</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Lucro líquido</div>
+                        <div class="card-value">R$ 94,3k</div>
+                        <div class="card-change">+18.7% vs mês anterior</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Clientes ativos</div>
+                        <div class="card-value">247</div>
+                        <div class="card-change">+15 novos este mês</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <h2 class="section-title">Receita semanal</h2>
+        <div class="chart-container">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Receita por dia</div>
+                    <div class="chart-subtitle">Últimas 7 dias</div>
+                </div>
+                <span class="badge">Em tempo real</span>
+            </div>
+            <div class="bars">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <h2 class="section-title">Últimas transações</h2>
+        <div class="table-container">
+            <div class="table-header">
+                <h3>Movimentações recentes</h3>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente / Descrição</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Data</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>Tech Solutions Ltda</strong><br>
+                            <span style="color: var(--text-3); font-size: 0.9rem;">Serviço de consultoria</span>
+                        </td>
+                        <td>Receita</td>
+                        <td style="color: var(--success); font-weight: 600;">+ R$ 15,000</td>
+                        <td>20/05/2026</td>
+                        <td><span class="status-badge status-completed">Concluído</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Fornecedor XYZ</strong><br>
+                            <span style="color: var(--text-3); font-size: 0.9rem;">Compra de materiais</span>
+                        </td>
+                        <td>Despesa</td>
+                        <td style="color: var(--danger); font-weight: 600;">- R$ 3,200</td>
+                        <td>20/05/2026</td>
+                        <td><span class="status-badge status-completed">Concluído</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Startup Alpha</strong><br>
+                            <span style="color: var(--text-3); font-size: 0.9rem;">Desenvolvimento de software</span>
+                        </td>
+                        <td>Receita</td>
+                        <td style="color: var(--success); font-weight: 600;">+ R$ 8,500</td>
+                        <td>19/05/2026</td>
+                        <td><span class="status-badge status-completed">Concluído</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Aluguel escritório</strong><br>
+                            <span style="color: var(--text-3); font-size: 0.9rem;">Manutenção infraestrutura</span>
+                        </td>
+                        <td>Despesa</td>
+                        <td style="color: var(--danger); font-weight: 600;">- R$ 5,000</td>
+                        <td>19/05/2026</td>
+                        <td><span class="status-badge status-pending">Pendente</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Global Consulting</strong><br>
+                            <span style="color: var(--text-3); font-size: 0.9rem;">Projeto implementação</span>
+                        </td>
+                        <td>Receita</td>
+                        <td style="color: var(--success); font-weight: 600;">+ R$ 22,000</td>
+                        <td>18/05/2026</td>
+                        <td><span class="status-badge status-completed">Concluído</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <p>ContaFlow © 2026 • Sistema de contabilidade inteligente</p>
+    </footer>
+</body>
+</html>

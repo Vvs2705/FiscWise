@@ -1,0 +1,3 @@
+- [Fly.io builder field conflict](feedback_flyio_builder.md) — never use `builder = "docker"` alongside `dockerfile` in fly.toml; triggers buildpack conflict
+- [Fly.io build context paths](feedback_flyio_build_context.md) — build context is project root; Dockerfile COPY paths must use `backend/` prefix
+- [Pydantic v2 startup crash / 502](feedback_pydantic_v2_startup_crash.md) — never raise ValueError in BaseSettings validators; use log+return instead to avoid 502 on Fly.io

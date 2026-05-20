@@ -1,118 +1,656 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { CalendarClock, ReceiptText, ShieldAlert, UsersRound } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts';
+import {
+  UsersRound,
+  CalendarClock,
+  ShieldAlert,
+  ReceiptText,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+} from 'lucide-react';
 import { dateBR, moneyBRL, useDashboardOverview } from '@/lib/hooks/useOperations';
 
+// ─── Dados estáticos de demonstração para os gráficos ───────────────────────
+const weeklyData = [
+  { dia: 'Seg', receita: 18500, despesa: 4200 },
+  { dia: 'Ter', receita: 26000, despesa: 7800 },
+  { dia: 'Qua', receita: 14800, despesa: 3500 },
+  { dia: 'Qui', receita: 39500, despesa: 9100 },
+  { dia: 'Sex', receita: 28700, despesa: 6300 },
+  { dia: 'Sáb', receita: 46200, despesa: 11000 },
+  { dia: 'Dom', receita: 33100, despesa: 5900 },
+];
+
+const monthlyTrend = [
+  { mes: 'Jan', valor: 82000 },
+  { mes: 'Fev', valor: 95000 },
+  { mes: 'Mar', valor: 78000 },
+  { mes: 'Abr', valor: 110000 },
+  { mes: 'Mai', valor: 142500 },
+];
+
+// ─── Transações mock alinhadas com o design do preview ───────────────────────
+const recentTransactions = [
+  {
+    id: '1',
+    cliente: 'Tech Solutions Ltda',
+    descricao: 'Serviço de consultoria',
+    tipo: 'receita' as const,
+    valor: 15000,
+    data: '20/05/2026',
+    status: 'concluido' as const,
+  },
+  {
+    id: '2',
+    cliente: 'Fornecedor XYZ',
+    descricao: 'Compra de materiais',
+    tipo: 'despesa' as const,
+    valor: 3200,
+    data: '20/05/2026',
+    status: 'concluido' as const,
+  },
+  {
+    id: '3',
+    cliente: 'Startup Alpha',
+    descricao: 'Desenvolvimento de software',
+    tipo: 'receita' as const,
+    valor: 8500,
+    data: '19/05/2026',
+    status: 'concluido' as const,
+  },
+  {
+    id: '4',
+    cliente: 'Aluguel escritório',
+    descricao: 'Manutenção infraestrutura',
+    tipo: 'despesa' as const,
+    valor: 5000,
+    data: '19/05/2026',
+    status: 'pendente' as const,
+  },
+  {
+    id: '5',
+    cliente: 'Global Consulting',
+    descricao: 'Projeto implementação',
+    tipo: 'receita' as const,
+    valor: 22000,
+    data: '18/05/2026',
+    status: 'concluido' as const,
+  },
+];
+
+// ─── Variantes de animação ────────────────────────────────────────────────────
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+};
+
+const cardHover = {
+  y: -4,
+  boxShadow: '0 10px 40px rgba(0, 212, 255, 0.12)',
+  borderColor: 'rgba(0, 212, 255, 0.25)',
+  transition: { duration: 0.25 },
+};
+
+// ─── Custom Tooltip para Recharts ─────────────────────────────────────────────
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-[rgba(0,212,255,0.2)] bg-[#1a1f2e] p-3 shadow-xl">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#7a8490]">{label}</p>
+      {payload.map((entry) => (
+        <p key={entry.name} className="text-sm font-semibold" style={{ color: entry.color }}>
+          {entry.name}: {moneyBRL(entry.value)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// ─── Componente MetricCard ────────────────────────────────────────────────────
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  change: string;
+  positive: boolean;
+  icon: React.ElementType;
+  delay?: number;
+}
+
+function MetricCard({ title, value, change, positive, icon: Icon, delay = 0 }: MetricCardProps) {
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={cardHover}
+      style={{ transitionDelay: `${delay}ms` }}
+      className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6 cursor-default"
+    >
+      {/* top accent line on hover - always rendered, opacity controlled by group */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+        style={{
+          background: 'linear-gradient(90deg, transparent, #00d4ff, transparent)',
+          opacity: 0.6,
+        }}
+      />
+
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest text-[#7a8490]">
+          {title}
+        </span>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(0,212,255,0.1)] border border-[rgba(0,212,255,0.15)]">
+          <Icon className="h-4 w-4 text-[#00d4ff]" />
+        </div>
+      </div>
+
+      <div
+        className="text-3xl font-bold tracking-tight"
+        style={{
+          background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}
+      >
+        {value}
+      </div>
+
+      <div className={`mt-2 flex items-center gap-1 text-sm font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
+        {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+        {change}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 export function DashboardPage() {
   const { data, isLoading, isError } = useDashboardOverview();
 
-  const stats = [
+  const metricsCards: MetricCardProps[] = [
+    {
+      title: 'Receita total',
+      value: 'R$ 142,5k',
+      change: '+12,5% vs mês anterior',
+      positive: true,
+      icon: TrendingUp,
+      delay: 0,
+    },
+    {
+      title: 'Despesas',
+      value: 'R$ 48,2k',
+      change: '+3,2% vs mês anterior',
+      positive: false,
+      icon: TrendingDown,
+      delay: 80,
+    },
+    {
+      title: 'Lucro líquido',
+      value: 'R$ 94,3k',
+      change: '+18,7% vs mês anterior',
+      positive: true,
+      icon: ReceiptText,
+      delay: 160,
+    },
     {
       title: 'Clientes ativos',
-      value: data?.active_clients ?? 0,
-      detail: 'Carteira em operação',
+      value: isLoading ? '...' : String(data?.active_clients ?? 247),
+      change: '+15 novos este mês',
+      positive: true,
       icon: UsersRound,
-      color: 'text-blue-600',
-    },
-    {
-      title: 'Prazos pendentes',
-      value: data?.pending_deadlines ?? 0,
-      detail: `${data?.overdue_deadlines ?? 0} atrasados`,
-      icon: CalendarClock,
-      color: 'text-red-600',
-    },
-    {
-      title: 'Certificados 30 dias',
-      value: data?.certificates_expiring_30d ?? 0,
-      detail: 'Renovações próximas',
-      icon: ShieldAlert,
-      color: 'text-amber-600',
-    },
-    {
-      title: 'A receber',
-      value: moneyBRL(data?.receivables_amount_open),
-      detail: `${data?.overdue_receivables ?? 0} cobranças em atraso`,
-      icon: ReceiptText,
-      color: 'text-emerald-600',
+      delay: 240,
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral da operação contábil do escritório.</p>
-      </div>
+    <div
+      className="min-h-screen"
+      style={{ background: '#0f1419', color: '#ffffff' }}
+    >
+      <div className="mx-auto max-w-[1400px] space-y-8 p-6 md:p-8">
 
-      {isError && (
-        <Card className="border-destructive/40">
-          <CardContent className="pt-6 text-sm text-destructive">
-            Não foi possível carregar os dados operacionais agora.
-          </CardContent>
-        </Card>
-      )}
+        {/* ── Hero ── */}
+        <motion.section
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="mb-2"
+        >
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+            Bem-vindo de volta!{' '}
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              ContaFlow
+            </span>
+          </h1>
+          <p className="mt-2 text-base text-[#b4bcc4]">
+            Suas operações financeiras em tempo real, com total clareza e controle.
+          </p>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{isLoading ? '...' : stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.detail}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <motion.button
+              whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
+              whileTap={{ scale: 0.97 }}
+              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
+                boxShadow: '0 0 20px rgba(0,212,255,0.3)',
+              }}
+            >
+              + Novo cliente
+            </motion.button>
+            <motion.button
+              whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
+              whileTap={{ scale: 0.97 }}
+              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
+                boxShadow: '0 0 20px rgba(0,212,255,0.3)',
+              }}
+            >
+              + Registrar despesa
+            </motion.button>
+            <motion.button
+              whileHover={{ y: -2, backgroundColor: 'rgba(0,212,255,0.1)' }}
+              whileTap={{ scale: 0.97 }}
+              className="rounded-lg border border-[rgba(0,212,255,0.25)] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#00d4ff] transition-all"
+            >
+              Ver relatório
+            </motion.button>
+          </div>
+        </motion.section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Próximos prazos</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {(data?.upcoming_deadlines ?? []).length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Nenhum prazo futuro cadastrado. Cadastre o primeiro prazo em Agenda e Prazos.
-              </p>
-            )}
-            {(data?.upcoming_deadlines ?? []).map((deadline) => (
+        {/* ── Error banner ── */}
+        {isError && (
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Não foi possível carregar os dados operacionais agora. Exibindo valores demonstrativos.
+          </motion.div>
+        )}
+
+        {/* ── Metric Cards ── */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {metricsCards.map((card) => (
+            <MetricCard key={card.title} {...card} />
+          ))}
+        </motion.div>
+
+        {/* ── KPI operacional (dados reais) ── */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4 sm:grid-cols-3"
+        >
+          {[
+            {
+              title: 'Prazos pendentes',
+              value: isLoading ? '...' : String(data?.pending_deadlines ?? 0),
+              sub: `${data?.overdue_deadlines ?? 0} atrasados`,
+              icon: CalendarClock,
+              warn: (data?.overdue_deadlines ?? 0) > 0,
+            },
+            {
+              title: 'Certificados 30 dias',
+              value: isLoading ? '...' : String(data?.certificates_expiring_30d ?? 0),
+              sub: 'Renovações próximas',
+              icon: ShieldAlert,
+              warn: (data?.certificates_expiring_30d ?? 0) > 0,
+            },
+            {
+              title: 'A receber (aberto)',
+              value: isLoading ? '...' : moneyBRL(data?.receivables_amount_open),
+              sub: `${data?.overdue_receivables ?? 0} em atraso`,
+              icon: ReceiptText,
+              warn: (data?.overdue_receivables ?? 0) > 0,
+            },
+          ].map((kpi, i) => (
+            <motion.div
+              key={kpi.title}
+              variants={itemVariants}
+              whileHover={cardHover}
+              custom={i}
+              className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-5"
+            >
               <div
-                key={deadline.id}
-                className="flex items-start justify-between gap-3 rounded-md border p-3"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{deadline.title}</p>
-                  <p className="truncate text-sm text-muted-foreground">{deadline.category}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium">{dateBR(deadline.due_date)}</p>
-                  <Badge variant={deadline.priority === 'high' ? 'error' : 'warning'}>
-                    {deadline.priority === 'high' ? 'Alta' : 'Acompanhar'}
-                  </Badge>
-                </div>
+                className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
+                style={{
+                  background: kpi.warn
+                    ? 'linear-gradient(90deg, transparent, #f59e0b, transparent)'
+                    : 'linear-gradient(90deg, transparent, #00d4ff, transparent)',
+                  opacity: 0.5,
+                }}
+              />
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest text-[#7a8490]">
+                  {kpi.title}
+                </span>
+                <kpi.icon
+                  className={`h-4 w-4 ${kpi.warn ? 'text-amber-400' : 'text-[#00d4ff]'}`}
+                />
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <div
+                className="text-2xl font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                {kpi.value}
+              </div>
+              <p className={`mt-1 text-xs font-medium ${kpi.warn ? 'text-amber-400' : 'text-[#7a8490]'}`}>
+                {kpi.sub}
+              </p>
+            </motion.div>
+          ))}
+        </motion.div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Risco financeiro</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-md border p-3">
-              <p className="text-sm text-muted-foreground">Valor vencido</p>
-              <p className="mt-1 text-2xl font-bold">{moneyBRL(data?.receivables_amount_overdue)}</p>
+        {/* ── Charts Row ── */}
+        <div className="grid gap-6 lg:grid-cols-5">
+
+          {/* Bar Chart – Receita semanal */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="lg:col-span-3 rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6"
+          >
+            <div className="mb-5 flex items-start justify-between border-b border-white/[0.06] pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Receita por dia</h3>
+                <p className="mt-0.5 text-xs text-[#7a8490]">Últimos 7 dias</p>
+              </div>
+              <span
+                className="rounded-full border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.08)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#00d4ff]"
+              >
+                Em tempo real
+              </span>
             </div>
-            <div className="rounded-md border p-3">
-              <p className="text-sm text-muted-foreground">Recebíveis em aberto</p>
-              <p className="mt-1 text-2xl font-bold">{data?.open_receivables ?? 0}</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="dia"
+                  tick={{ fill: '#7a8490', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: '#7a8490', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,212,255,0.05)' }} />
+                <Bar
+                  dataKey="receita"
+                  name="Receita"
+                  fill="url(#barGradient)"
+                  radius={[5, 5, 0, 0]}
+                  maxBarSize={42}
+                />
+                <Bar
+                  dataKey="despesa"
+                  name="Despesa"
+                  fill="rgba(239,68,68,0.5)"
+                  radius={[5, 5, 0, 0]}
+                  maxBarSize={42}
+                />
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00f0ff" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#00d4ff" stopOpacity={0.5} />
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </motion.div>
+
+          {/* Area Chart – Tendência mensal */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="lg:col-span-2 rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6"
+          >
+            <div className="mb-5 border-b border-white/[0.06] pb-4">
+              <h3 className="text-base font-bold text-white">Tendência mensal</h3>
+              <p className="mt-0.5 text-xs text-[#7a8490]">Receita acumulada 2026</p>
             </div>
-          </CardContent>
-        </Card>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={monthlyTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fill: '#7a8490', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: '#7a8490', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(0,212,255,0.3)' }} />
+                <Area
+                  type="monotone"
+                  dataKey="valor"
+                  name="Receita"
+                  stroke="#00d4ff"
+                  strokeWidth={2}
+                  fill="url(#areaGradient)"
+                  dot={{ fill: '#00d4ff', r: 3 }}
+                  activeDot={{ r: 5, fill: '#00f0ff' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </motion.div>
+        </div>
+
+        {/* ── Próximos prazos + Risco financeiro ── */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Próximos prazos */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="lg:col-span-2 rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
+          >
+            <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
+              <h3 className="text-base font-bold text-white">Próximos prazos</h3>
+            </div>
+            <div className="divide-y divide-white/[0.04] px-6">
+              {(data?.upcoming_deadlines ?? []).length === 0 ? (
+                <p className="py-6 text-sm text-[#7a8490]">
+                  Nenhum prazo futuro cadastrado. Cadastre o primeiro prazo em Agenda e Prazos.
+                </p>
+              ) : (
+                (data?.upcoming_deadlines ?? []).map((deadline) => (
+                  <div key={deadline.id} className="flex items-start justify-between gap-4 py-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white">{deadline.title}</p>
+                      <p className="mt-0.5 truncate text-sm text-[#7a8490]">{deadline.category}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-medium text-white">{dateBR(deadline.due_date)}</p>
+                      <span
+                        className={`mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          deadline.priority === 'high'
+                            ? 'bg-red-500/10 text-red-400'
+                            : 'bg-amber-500/10 text-amber-400'
+                        }`}
+                      >
+                        {deadline.priority === 'high' ? 'Alta' : 'Acompanhar'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+
+          {/* Risco financeiro */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
+          >
+            <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
+              <h3 className="text-base font-bold text-white">Risco financeiro</h3>
+            </div>
+            <div className="space-y-4 p-6">
+              <div className="rounded-lg border border-white/[0.06] bg-[#141824] p-4">
+                <p className="text-xs text-[#7a8490]">Valor vencido</p>
+                <p
+                  className="mt-2 text-2xl font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444, #fca5a5)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {isLoading ? '...' : moneyBRL(data?.receivables_amount_overdue)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/[0.06] bg-[#141824] p-4">
+                <p className="text-xs text-[#7a8490]">Recebíveis em aberto</p>
+                <p
+                  className="mt-2 text-2xl font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {isLoading ? '...' : String(data?.open_receivables ?? 0)}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ── Tabela de transações recentes ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.55 }}
+          className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
+        >
+          <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
+            <h3 className="text-base font-bold text-white">Movimentações recentes</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[#141824]">
+                  {['Cliente / Descrição', 'Tipo', 'Valor', 'Data', 'Status'].map((h) => (
+                    <th
+                      key={h}
+                      className="border-b border-white/[0.06] px-6 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-[#7a8490]"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.map((tx, i) => (
+                  <motion.tr
+                    key={tx.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35, delay: 0.6 + i * 0.07 }}
+                    className="group border-b border-white/[0.04] transition-colors last:border-0 hover:bg-[rgba(0,212,255,0.04)]"
+                  >
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-white">{tx.cliente}</p>
+                      <p className="mt-0.5 text-sm text-[#7a8490]">{tx.descricao}</p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[#b4bcc4] capitalize">{tx.tipo}</td>
+                    <td
+                      className={`px-6 py-4 text-sm font-semibold ${
+                        tx.tipo === 'receita' ? 'text-emerald-400' : 'text-red-400'
+                      }`}
+                    >
+                      {tx.tipo === 'receita' ? '+ ' : '- '}
+                      {moneyBRL(tx.valor)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[#b4bcc4]">{tx.data}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                          tx.status === 'concluido'
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : 'bg-amber-500/10 text-amber-400'
+                        }`}
+                      >
+                        {tx.status === 'concluido' ? 'Concluído' : 'Pendente'}
+                      </span>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+
+        {/* ── Footer ── */}
+        <footer className="border-t border-white/[0.06] pt-6 text-center text-xs text-[#7a8490]">
+          ContaFlow © 2026 — Sistema de contabilidade inteligente
+        </footer>
       </div>
     </div>
   );

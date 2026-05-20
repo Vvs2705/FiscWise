@@ -94,21 +94,9 @@ class Settings(BaseSettings):
     # Public URL (used for widget script generation)
     PUBLIC_URL: str = "https://api.contabilidadeflow.com.br"
     
-    # AI Services
+    # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
-    
-    @field_validator("ANTHROPIC_API_KEY", "VOYAGE_API_KEY", mode="before")
-    @classmethod
-    def validate_ai_keys(cls, v: str, info) -> str:
-        """Ensure AI API keys are provided in production."""
-        environment = info.data.get("ENVIRONMENT", "development")
-        if environment == "production" and not v:
-            raise ValueError(
-                "AI service API keys (ANTHROPIC_API_KEY, VOYAGE_API_KEY) "
-                "must be set in production environment."
-            )
-        return v
     
     @field_validator("DEBUG", mode="before")
     @classmethod

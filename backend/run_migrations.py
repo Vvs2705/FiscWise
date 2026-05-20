@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def run_migrations():
     """Run Alembic migrations."""
     try:
-        logger.info("Starting database migrations...")
+        logger.info("Starting database migrations with enum case fix...")
         alembic_cfg = Config("alembic.ini")
 
         # Run migrations

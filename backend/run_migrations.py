@@ -16,12 +16,25 @@ def run_migrations():
         logger.info("Starting database migrations with enum case fix...")
         alembic_cfg = Config("alembic.ini")
 
-        # Run migrations
+        # Run migrations with verbose output
+        logger.info("Connecting to database...")
+        logger.info("Running: alembic upgrade head")
         command.upgrade(alembic_cfg, "head")
         logger.info("✅ Migrations completed successfully!")
         return True
     except Exception as e:
-        logger.error("❌ Migration failed: %s", str(e), exc_info=True)
+        logger.error("❌ Migration failed with error:", exc_info=True)
+        logger.error("Error type: %s", type(e).__name__)
+        logger.error("Error message: %s", str(e))
+
+        # Try to give more context
+        if "enum" in str(e).lower():
+            logger.error("   → Enum-related error detected. Check if enums need case conversion.")
+        if "already exists" in str(e).lower():
+            logger.error("   → Schema object already exists. Check migration history.")
+        if "no such table" in str(e).lower():
+            logger.error("   → Table not found. Check database connectivity.")
+
         return False
 
 

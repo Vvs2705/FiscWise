@@ -48,21 +48,30 @@ def run_migrations() -> bool:
 if __name__ == "__main__":
     database_url = os.getenv("DATABASE_URL", "")
 
-    # Step 1: Preflight enum fix (psycopg3 sync — avoids asyncpg type-cache issues)
+    # Step 1: Optional preflight enum fix (psycopg3 sync — avoids asyncpg type-cache issues)
+    # NOTE: This is NON-BLOCKING. If psycopg is not installed or enum fix fails,
+    # we continue to Alembic. If enum mismatch causes migration to fail, use
+    # POST /api/v1/admin/fix-enum-case endpoint to fix manually.
     if database_url:
-        from fix_enums_startup import fix_enums
-        logger.info("Running database migrations (with enum preflight fix)...")
-        enum_ok = fix_enums(database_url)
-        if not enum_ok:
-            logger.error(
-                "Preflight enum fix failed. Aborting to prevent partial DB state. "
-                "Check: (1) DATABASE_URL is valid and accessible, "
-                "(2) psycopg[binary] is installed, (3) network/firewall allows connection"
+        try:
+            from fix_enums_startup import fix_enums
+            logger.info("Attempting preflight enum fix (psycopg)...")
+            enum_ok = fix_enums(database_url)
+            if enum_ok:
+                logger.info("Enum preflight fix completed.")
+            else:
+                logger.warning(
+                    "Enum preflight fix returned False. Will attempt Alembic anyway. "
+                    "If enum mismatch errors occur, use POST /api/v1/admin/fix-enum-case endpoint."
+                )
+        except ImportError:
+            logger.warning(
+                "psycopg[binary] not installed — skipping preflight enum fix. "
+                "If enum mismatch errors occur during migrations, use POST /api/v1/admin/fix-enum-case endpoint."
             )
-            sys.exit(1)
-    else:
-        logger.warning("DATABASE_URL not set — skipping preflight enum fix.")
+        except Exception as e:
+            logger.warning(f"Preflight enum fix raised exception: {e}. Continuing to Alembic anyway.")
 
-    # Step 2: Alembic migrations
+    # Step 2: Alembic migrations (always runs, even if enum fix fails)
     success = run_migrations()
     sys.exit(0 if success else 1)

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://contaflow-production-da81.up.railway.app');
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://contaflow.fly.dev');
 
 export const api = axios.create({
   baseURL: API_URL,

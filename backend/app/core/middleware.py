@@ -18,6 +18,7 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/health",
     "/api/v1/health",
     "/api/v1/db-test",       # Database diagnostic endpoint
+    "/api/v1/diagnostic",    # Diagnostic endpoints (debugging)
     "/api/v1/widget",        # Public embeddable widget (no auth required)
     "/docs",
     "/redoc",

@@ -34,9 +34,26 @@ COPY backend/ .
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check — start-period gives time for migrations + uvicorn boot
+HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Run migrations and start uvicorn server
-CMD ["sh", "-c", "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run migrations with retry logic, then start uvicorn.
+# Retries alembic up to 10 times (6 s apart) to handle cold-start DB delays
+# from Supabase / external Postgres. Total max wait: ~60 s before giving up.
+CMD ["sh", "-c", "\
+  RETRIES=10; \
+  echo \"[startup] Running database migrations (up to $RETRIES attempts)...\"; \
+  while [ $RETRIES -gt 0 ]; do \
+    python -m alembic upgrade head && break; \
+    RETRIES=$((RETRIES - 1)); \
+    echo \"[startup] Migration attempt failed. Retries left: $RETRIES. Retrying in 6s...\"; \
+    sleep 6; \
+  done; \
+  if [ $RETRIES -eq 0 ]; then \
+    echo '[startup] ERROR: All migration attempts failed. Verify DATABASE_URL secret is set in Fly.io.'; \
+    exit 1; \
+  fi; \
+  echo '[startup] Migrations complete. Starting uvicorn...'; \
+  exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --log-level info \
+"]

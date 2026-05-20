@@ -38,57 +38,94 @@ async def fix_enum_case(
         )
 
     try:
-        conn = await db.connection()
-
-        # Step 1: Check if already fixed
-        result = await db.execute(text("""
-            SELECT enumlabel FROM pg_enum
-            WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'user_role_enum')
-            LIMIT 1
-        """))
-        row = result.first()
-
-        if row and row[0] == 'owner':
-            return {
-                "status": "already_fixed",
-                "message": "Enums are already lowercase"
-            }
-
-        # Step 2: Apply fixes
-
-        # Fix user_role_enum
+        # Apply fixes directly without checking - the check itself triggers enum errors
+        # Fix user_role_enum: convert UPPERCASE to lowercase
         await db.execute(text("""
-            ALTER TABLE users ADD COLUMN _role_tmp VARCHAR(50);
-            UPDATE users SET _role_tmp = LOWER(role::text);
-            ALTER TABLE users ALTER COLUMN _role_tmp SET NOT NULL;
-            ALTER TABLE users DROP COLUMN role;
-            DROP TYPE user_role_enum;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50);
+        """))
+
+        await db.execute(text("""
+            UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL;
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_tenant_email;
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE users DROP COLUMN IF EXISTS role;
+        """))
+
+        await db.execute(text("""
+            DROP TYPE IF EXISTS user_role_enum CASCADE;
+        """))
+
+        await db.execute(text("""
             CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'member');
-            ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum;
-            UPDATE users SET role = _role_tmp::user_role_enum;
-            ALTER TABLE users DROP COLUMN _role_tmp;
-            CREATE INDEX ix_users_role ON users(role);
         """))
 
-        # Fix subscription_status_enum
         await db.execute(text("""
-            ALTER TABLE tenants ADD COLUMN _sub_tmp VARCHAR(50);
-            UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text);
-            ALTER TABLE tenants ALTER COLUMN _sub_tmp SET NOT NULL;
-            ALTER TABLE tenants DROP COLUMN subscription_status;
-            DROP TYPE subscription_status_enum;
+            ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum;
+        """))
+
+        await db.execute(text("""
+            UPDATE users SET role = _role_tmp::user_role_enum;
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE users DROP COLUMN IF EXISTS _role_tmp;
+        """))
+
+        await db.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_users_role ON users(role);
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email);
+        """))
+
+        # Fix subscription_status_enum: convert UPPERCASE to lowercase
+        await db.execute(text("""
+            ALTER TABLE tenants ADD COLUMN IF NOT EXISTS _sub_tmp VARCHAR(50);
+        """))
+
+        await db.execute(text("""
+            UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text) WHERE _sub_tmp IS NULL;
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE tenants DROP COLUMN IF EXISTS subscription_status;
+        """))
+
+        await db.execute(text("""
+            DROP TYPE IF EXISTS subscription_status_enum CASCADE;
+        """))
+
+        await db.execute(text("""
             CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'cancelled', 'expired');
+        """))
+
+        await db.execute(text("""
             ALTER TABLE tenants ADD COLUMN subscription_status subscription_status_enum NOT NULL DEFAULT 'trial'::subscription_status_enum;
+        """))
+
+        await db.execute(text("""
             UPDATE tenants SET subscription_status = _sub_tmp::subscription_status_enum;
-            ALTER TABLE tenants DROP COLUMN _sub_tmp;
-            CREATE INDEX ix_tenants_subscription_status ON tenants(subscription_status);
+        """))
+
+        await db.execute(text("""
+            ALTER TABLE tenants DROP COLUMN IF EXISTS _sub_tmp;
+        """))
+
+        await db.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status);
         """))
 
         await db.commit()
 
         return {
             "status": "fixed",
-            "message": "Enum case mismatch fixed successfully",
+            "message": "Enum case mismatch fixed successfully - enums converted to lowercase",
             "enums_fixed": ["user_role_enum", "subscription_status_enum"]
         }
 
@@ -97,5 +134,6 @@ async def fix_enum_case(
         return {
             "status": "error",
             "message": str(e),
-            "error_type": type(e).__name__
+            "error_type": type(e).__name__,
+            "hint": "Check that database connection is valid and user has ALTER TABLE permissions"
         }

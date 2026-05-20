@@ -128,3 +128,13 @@ temp/
 
 # Vercel
 .vercel/
+
+# Supabase
+.env.supabase
+.env.local
+.env.*.local
+.env.production.local
+
+# Sensitive
+*_KEYS.md
+*_keys.md

@@ -1,0 +1,78 @@
+# Fly.io configuration for ContaFlow
+# Deploy with: flyctl deploy
+
+app = "contaflow"
+primary_region = "gru"  # São Paulo - Brasil (mais próximo)
+console_command = "/bin/bash"
+
+[build]
+builder = "docker"
+dockerfile = "./backend/Dockerfile"
+
+[env]
+ENVIRONMENT = "production"
+DEBUG = "False"
+APP_NAME = "ContaFlow"
+APP_VERSION = "1.0.0"
+PUBLIC_URL = "https://contaflow.fly.dev"
+ALLOWED_ORIGINS = "https://contaflow-frontend.vercel.app,https://contabilidadeflow.com.br"
+
+[http_service]
+internal_port = 8000
+force_https = true
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+
+[[services.ports]]
+port = 443
+handlers = ["tls", "http"]
+
+[[services.ports]]
+port = 80
+handlers = ["http"]
+
+[checks]
+[checks.http]
+grace_period = "10s"
+interval = "30s"
+method = "GET"
+path = "/api/v1/health"
+protocol = "http"
+timeout = "5s"
+type = "http"
+
+[mounts]
+source = "contaflow_data"
+destination = "/data"
+
+[[mounts]]
+source = "contaflow_logs"
+destination = "/logs"
+
+[env]
+# Database
+SUPABASE_URL = "https://lkgmgbieottygodrdubi.supabase.co"
+
+# JWT (será configurado via flyctl secrets)
+# JWT_SECRET_KEY = (set via: flyctl secrets set JWT_SECRET_KEY=...)
+
+# Database URL (será configurado via flyctl secrets)
+# DATABASE_URL = (set via: flyctl secrets set DATABASE_URL=...)
+
+# Redis (opcional por enquanto)
+# REDIS_URL = (set via: flyctl secrets set REDIS_URL=...)
+
+# AI Services (opcional)
+# ANTHROPIC_API_KEY = (set via: flyctl secrets set ANTHROPIC_API_KEY=...)
+# VOYAGE_API_KEY = (set via: flyctl secrets set VOYAGE_API_KEY=...)
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 512
+
+[metrics]
+port = 9090
+handlers = ["http"]
+path = "/metrics"

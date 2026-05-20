@@ -1,6 +1,6 @@
 # ContaFlow Backend Dockerfile
 # Build context: project root (fly.toml is at root, dockerfile at ./backend/Dockerfile)
-# Python 3.12 for compatibility with asyncpg and pydantic-core
+# Python 3.12 for compatibility with asyncpg, psycopg, and pydantic-core
 
 FROM python:3.12-slim
 
@@ -14,9 +14,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
+# psycopg[binary] ships its own libpq, so libpq-dev is not required.
+# gcc is needed for other C extensions.
 RUN apt-get update && apt-get install -y \
     gcc \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,15 +40,16 @@ HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Startup strategy:
-#   1. Run Alembic migrations with retry logic (up to 10 attempts, 6 s apart).
-#      This handles cold-start delays from Supabase / external Postgres.
-#   2. Uvicorn is started REGARDLESS of migration outcome so the Fly.io
+#   1. run_migrations.py calls fix_enums_startup.fix_enums() via psycopg (sync).
+#      This avoids asyncpg type-cache issues and URL parsing bugs in the old
+#      fix_enums.sh bash script.
+#   2. run_migrations.py then runs Alembic upgrade head.
+#   3. Uvicorn starts REGARDLESS of migration outcome so the Fly.io
 #      health-check (/api/v1/health) can pass even when DATABASE_URL is not
-#      yet available.  Missing secrets are surfaced in the application logs
-#      (CRITICAL level) rather than by crashing the process.
+#      yet configured.
 CMD ["sh", "-c", "\
+  echo '[startup] Running database migrations (with enum preflight fix)...'; \
   RETRIES=10; \
-  echo \"[startup] Running database migrations (up to $RETRIES attempts)...\"; \
   MIGRATION_OK=0; \
   while [ $RETRIES -gt 0 ]; do \
     if python run_migrations.py; then \

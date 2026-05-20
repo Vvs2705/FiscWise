@@ -79,12 +79,14 @@ def run_migrations() -> bool:
 
 
 if __name__ == "__main__":
-    # Step 1: Enum preflight fix (MUST succeed before proceeding to Alembic)
+    # Step 1: Enum preflight fix (continue to Alembic even if it fails)
     enum_fix_ok = run_preflight_enum_fix()
     if not enum_fix_ok:
-        logger.error("Aborting migrations: preflight enum fix failed")
-        sys.exit(1)
+        logger.warning(
+            "Enum preflight fix failed but continuing to Alembic. "
+            "If Alembic also fails, check DATABASE_URL and psycopg[binary] installation."
+        )
 
-    # Step 2: Alembic migrations (only runs if enum fix succeeded)
+    # Step 2: Alembic migrations (runs regardless of enum fix success)
     success = run_migrations()
     sys.exit(0 if success else 1)

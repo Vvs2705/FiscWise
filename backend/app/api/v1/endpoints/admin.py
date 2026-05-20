@@ -1,27 +1,98 @@
 """Admin endpoints for emergency database fixes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import hmac
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
+from fastapi.security import HTTPBearer, HTTPAuthCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-import logging
 
 from app.core.deps import get_db
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Admin token for emergency fixes (should be env var in production)
-ADMIN_TOKEN = "emergency-enum-fix-token-change-in-production"
+# Admin token from environment variable (CRITICAL SECURITY FIX)
+ADMIN_TOKEN = os.getenv("ADMIN_EMERGENCY_TOKEN")
+ADMIN_OPERATIONS_ALLOWED = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
+
+# HTTP Bearer token scheme for Authorization header
+security = HTTPBearer(auto_error=False)
 
 
-async def verify_admin_token(token: str) -> bool:
-    """Verify admin token for emergency operations."""
-    return token == ADMIN_TOKEN
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def verify_admin_token(
+    credentials: Optional[HTTPAuthCredentials] = Depends(security),
+    request: Request = None
+) -> str:
+    """
+    Verify admin token from Authorization header with timing-safe comparison.
+
+    Expected header: Authorization: Bearer <TOKEN>
+    Uses hmac.compare_digest() to prevent timing attacks.
+
+    Raises:
+        HTTPException: 401 if token missing or invalid
+        HTTPException: 403 if admin operations not enabled
+    """
+    # Check if admin operations are enabled
+    if not ADMIN_OPERATIONS_ALLOWED:
+        logger.error("Admin endpoint called but ADMIN_OPERATIONS_ALLOWED=false")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin operations are disabled"
+        )
+
+    # Check if token is provided in Authorization header
+    if not credentials:
+        client_ip = _get_client_ip(request) if request else "unknown"
+        logger.warning(f"Admin endpoint called without Authorization header from {client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    # Check if ADMIN_TOKEN is configured
+    if not ADMIN_TOKEN:
+        logger.error("ADMIN_EMERGENCY_TOKEN environment variable not set")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin token not configured"
+        )
+
+    # Timing-safe token comparison (prevents timing attacks)
+    provided_token = credentials.credentials
+    is_valid = hmac.compare_digest(provided_token, ADMIN_TOKEN)
+
+    if not is_valid:
+        client_ip = _get_client_ip(request) if request else "unknown"
+        logger.warning(
+            f"Invalid admin token attempted from {client_ip}. "
+            f"Token length: {len(provided_token)}, Expected length: {len(ADMIN_TOKEN)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin token"
+        )
+
+    return provided_token
 
 
 @router.post("/fix-enum-case-raw", summary="Emergency: Fix enum case mismatch (RAW asyncpg)")
 async def fix_enum_case_raw(
-    token: str,
+    request: Request,
+    token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -29,21 +100,20 @@ async def fix_enum_case_raw(
 
     This bypasses SQLAlchemy's type system entirely, using asyncpg's raw execute().
     This should work even when SQLAlchemy's text() triggers enum errors.
+
+    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header
     """
-    if not await verify_admin_token(token):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin token"
-        )
+    client_ip = _get_client_ip(request)
 
     try:
         # Get the raw asyncpg connection
         async_conn = await db.connection()
         raw_conn = async_conn.connection
 
-        logger.info("Using raw asyncpg connection to fix enums")
+        logger.info(f"[ADMIN] Raw asyncpg enum fix started from {client_ip}")
 
         # Execute raw SQL without SQLAlchemy's type handling
+        # CRITICAL: Use explicit transaction to prevent partial updates
         sql_statements = [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50)",
             "UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL",
@@ -67,11 +137,16 @@ async def fix_enum_case_raw(
             "CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status)",
         ]
 
-        for stmt in sql_statements:
-            logger.info(f"Executing: {stmt[:80]}")
-            await raw_conn.execute(stmt)
+        # Execute all statements within a transaction
+        async with raw_conn.transaction():
+            for stmt in sql_statements:
+                logger.debug(f"[ADMIN] Executing: {stmt[:80]}")
+                await raw_conn.execute(stmt)
 
-        logger.info("✅ All enum fixes applied successfully")
+        logger.info(
+            f"[ADMIN] ✅ Enum fix completed successfully from {client_ip} - "
+            f"{len(sql_statements)} statements executed"
+        )
 
         return {
             "status": "fixed",
@@ -81,7 +156,10 @@ async def fix_enum_case_raw(
         }
 
     except Exception as e:
-        logger.error(f"❌ Raw asyncpg fix failed: {str(e)}", exc_info=True)
+        logger.error(
+            f"[ADMIN] ❌ Raw asyncpg fix FAILED from {client_ip}: {str(e)}",
+            exc_info=True
+        )
         return {
             "status": "error",
             "message": str(e),
@@ -91,7 +169,8 @@ async def fix_enum_case_raw(
 
 @router.post("/fix-enum-case", summary="Emergency: Fix enum case mismatch")
 async def fix_enum_case(
-    token: str,
+    request: Request,
+    token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -100,18 +179,14 @@ async def fix_enum_case(
     This is a workaround for when Alembic migrations fail to run.
     Applies the enum case conversion directly via SQL.
 
-    Requires admin token.
+    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header
     """
-
-    if not await verify_admin_token(token):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin token"
-        )
+    client_ip = _get_client_ip(request)
 
     try:
-        # Apply fixes directly without checking - the check itself triggers enum errors
-        # Fix user_role_enum: convert UPPERCASE to lowercase
+        logger.info(f"[ADMIN] Enum fix started from {client_ip}")
+
+        # Apply fixes within a transaction for atomicity
         await db.execute(text("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50);
         """))
@@ -195,6 +270,8 @@ async def fix_enum_case(
 
         await db.commit()
 
+        logger.info(f"[ADMIN] ✅ Enum fix completed successfully from {client_ip}")
+
         return {
             "status": "fixed",
             "message": "Enum case mismatch fixed successfully - enums converted to lowercase",
@@ -203,6 +280,10 @@ async def fix_enum_case(
 
     except Exception as e:
         await db.rollback()
+        logger.error(
+            f"[ADMIN] ❌ Enum fix FAILED from {client_ip}: {str(e)}",
+            exc_info=True
+        )
         return {
             "status": "error",
             "message": str(e),

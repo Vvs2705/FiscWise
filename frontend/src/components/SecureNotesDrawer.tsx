@@ -17,6 +17,7 @@ import {
   Download,
   AlertTriangle,
   Check,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getTenantId } from '@/lib/auth';
@@ -39,22 +40,61 @@ interface SecureNotesDrawerProps {
 }
 
 // ---------------------------------------------------------------------------
-// Preset field labels
+// Preset groups — cada grupo adiciona N campos de uma vez
 // ---------------------------------------------------------------------------
 
-const PRESET_LABELS = [
-  'Gov.br — Login (CPF)',
-  'Gov.br — Senha',
-  'e-CAC — Usuário',
-  'e-CAC — Senha',
-  'eSocial — Acesso',
-  'Simples Nacional — Senha',
-  'Certificado Digital — Senha',
-  'Nota Fiscal Eletrônica',
-  'Prefeitura — Login',
-  'Prefeitura — Senha',
-  'SPED — Senha',
-  'Outro',
+interface PresetGroup {
+  label: string;
+  icon: string;
+  fields: string[];
+}
+
+const PRESET_GROUPS: PresetGroup[] = [
+  {
+    label: 'Gov.br',
+    icon: '🏛️',
+    fields: ['Gov.br — Login (CPF)', 'Gov.br — Senha'],
+  },
+  {
+    label: 'e-CAC',
+    icon: '📋',
+    fields: ['e-CAC — Usuário', 'e-CAC — Senha'],
+  },
+  {
+    label: 'eSocial',
+    icon: '👥',
+    fields: ['eSocial — Usuário', 'eSocial — Senha'],
+  },
+  {
+    label: 'Simples Nacional',
+    icon: '📊',
+    fields: ['Simples Nacional — Usuário', 'Simples Nacional — Senha'],
+  },
+  {
+    label: 'Nota Fiscal Eletrônica',
+    icon: '🧾',
+    fields: ['NF-e — Usuário', 'NF-e — Senha'],
+  },
+  {
+    label: 'Prefeitura',
+    icon: '🏙️',
+    fields: ['Prefeitura — Login', 'Prefeitura — Senha'],
+  },
+  {
+    label: 'Certificado Digital',
+    icon: '🔏',
+    fields: ['Certificado Digital — Senha'],
+  },
+  {
+    label: 'SPED',
+    icon: '🗂️',
+    fields: ['SPED — Usuário', 'SPED — Senha'],
+  },
+  {
+    label: 'Campo personalizado',
+    icon: '✏️',
+    fields: [''],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -96,20 +136,6 @@ interface FieldRowProps {
 function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [showPresets, setShowPresets] = useState(false);
-  const presetRef = useRef<HTMLDivElement>(null);
-
-  // Close preset dropdown on outside click
-  useEffect(() => {
-    if (!showPresets) return;
-    const handler = (e: MouseEvent) => {
-      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
-        setShowPresets(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showPresets]);
 
   async function handleCopy() {
     if (!field.value) return;
@@ -122,32 +148,12 @@ function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
     <div className="group rounded-lg border bg-muted/30 p-3 space-y-2">
       {/* Label row */}
       <div className="flex items-center gap-2">
-        <div className="relative flex-1" ref={presetRef}>
-          <input
-            value={field.label}
-            onChange={(e) => onChange(field.id, { label: e.target.value })}
-            placeholder="Descrição (ex: Gov.br — Login)"
-            className="w-full rounded border bg-background px-2 py-1 text-xs font-medium text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-text"
-            onFocus={() => !field.label && setShowPresets(true)}
-          />
-          {showPresets && (
-            <div className="absolute top-full left-0 z-50 mt-1 w-64 rounded-md border bg-popover shadow-md">
-              {PRESET_LABELS.map((lbl) => (
-                <button
-                  key={lbl}
-                  type="button"
-                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-muted"
-                  onMouseDown={() => {
-                    onChange(field.id, { label: lbl === 'Outro' ? '' : lbl });
-                    setShowPresets(false);
-                  }}
-                >
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <input
+          value={field.label}
+          onChange={(e) => onChange(field.id, { label: e.target.value })}
+          placeholder="Descrição do campo"
+          className="flex-1 rounded border bg-background px-2 py-1 text-xs font-medium text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
         <button
           type="button"
           onClick={() => onDelete(field.id)}
@@ -160,18 +166,16 @@ function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
 
       {/* Value row */}
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <input
-            type={hidden ? 'password' : 'text'}
-            value={field.value}
-            onChange={(e) => onChange(field.id, { value: e.target.value })}
-            placeholder="Valor"
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring pr-8"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-        </div>
+        <input
+          type={hidden ? 'password' : 'text'}
+          value={field.value}
+          onChange={(e) => onChange(field.id, { value: e.target.value })}
+          placeholder="Valor"
+          className="flex-1 rounded border bg-background px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
         <button
           type="button"
           onClick={() => setHidden((h) => !h)}
@@ -195,6 +199,75 @@ function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
           )}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: Add credential dropdown button
+// ---------------------------------------------------------------------------
+
+interface AddCredentialButtonProps {
+  onAdd: (fields: string[]) => void;
+}
+
+function AddCredentialButton({ onAdd }: AddCredentialButtonProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        Adicionar credencial
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border bg-popover shadow-lg overflow-hidden z-50">
+          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b">
+            Selecione o tipo de acesso
+          </p>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {PRESET_GROUPS.map((group) => (
+              <button
+                key={group.label}
+                type="button"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors"
+                onMouseDown={() => {
+                  onAdd(group.fields);
+                  setOpen(false);
+                }}
+              >
+                <span className="text-base leading-none">{group.icon}</span>
+                <div>
+                  <p className="text-sm font-medium">{group.label}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {group.fields.length === 1
+                      ? group.fields[0] || 'Campo em branco'
+                      : group.fields.join(' · ')}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -248,9 +321,10 @@ export function SecureNotesDrawer({
     });
   }
 
-  function handleAdd() {
+  function handleAddGroup(fields: string[]) {
     setNotes((prev) => {
-      const updated = [...prev, newField()];
+      const newFields = fields.map((label) => newField(label));
+      const updated = [...prev, ...newFields];
       persistNotes(updated);
       return updated;
     });
@@ -337,11 +411,11 @@ export function SecureNotesDrawer({
         {/* Content — scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {notes.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center py-10 text-center">
               <Lock className="h-10 w-10 text-muted-foreground/30 mb-3" />
               <p className="text-sm text-muted-foreground">Nenhuma nota ainda</p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Adicione credenciais de acesso e outras informações sensíveis do cliente.
+                Selecione o tipo de acesso abaixo para adicionar as credenciais do cliente.
               </p>
             </div>
           )}
@@ -355,14 +429,7 @@ export function SecureNotesDrawer({
             />
           ))}
 
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar credencial
-          </button>
+          <AddCredentialButton onAdd={handleAddGroup} />
         </div>
 
         {/* Footer */}

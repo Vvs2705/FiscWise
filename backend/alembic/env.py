@@ -7,6 +7,7 @@ It handles both online (connected to database) and offline (SQL script generatio
 
 import asyncio
 import os
+import logging
 from logging.config import fileConfig
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
@@ -15,6 +16,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+
+logger = logging.getLogger(__name__)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -90,7 +93,14 @@ def get_url():
         "DATABASE_URL",
         "postgresql+asyncpg://contaflow:contaflow_dev_2026@localhost:5432/contaflow_db"
     )
-    return _sanitize_database_url(database_url)
+    logger.info(f"DATABASE_URL loaded from environment: {database_url[:50]}...")
+    try:
+        sanitized = _sanitize_database_url(database_url)
+        logger.info(f"Sanitized URL: {sanitized[:50]}...")
+        return sanitized
+    except Exception as e:
+        logger.error(f"Error sanitizing DATABASE_URL: {e}", exc_info=True)
+        raise
 
 
 def run_migrations_offline() -> None:

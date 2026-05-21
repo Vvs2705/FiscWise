@@ -150,3 +150,5 @@ test_local_startup.sh
 # Pytest cache
 .pytest_cache/
 backend/.pytest_cache/
+
+.vercel

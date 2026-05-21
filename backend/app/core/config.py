@@ -156,6 +156,9 @@ class Settings(BaseSettings):
     # Public URL (used for widget script generation)
     PUBLIC_URL: str = "https://api.fiscwise.com.br"
     
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+
     # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""

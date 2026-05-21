@@ -87,3 +87,15 @@ export function getCurrentUser() {
 export function getTenantId(): string | null {
   return localStorage.getItem('tenant_id');
 }
+
+export async function loginWithGoogle(credential: string): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/api/v1/auth/google', { credential });
+
+  const { access_token, tenant_id, user } = response.data;
+
+  localStorage.setItem('access_token', access_token);
+  localStorage.setItem('tenant_id', tenant_id);
+  localStorage.setItem('user', JSON.stringify(user));
+
+  return response.data;
+}

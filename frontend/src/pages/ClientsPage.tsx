@@ -482,8 +482,23 @@ export function ClientsPage() {
       </Card>
 
       {/* New client dialog */}
-      <Dialog open={open} onClose={handleClose} title="Novo cliente" className="max-w-xl">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        title="Novo cliente"
+        className="max-w-xl"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="new-client-form" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : 'Salvar cliente'}
+            </Button>
+          </div>
+        }
+      >
+        <form id="new-client-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           {/* Feature 3c: XLSX upload */}
           <XlsxUploader setValue={setValue} />
 
@@ -601,14 +616,6 @@ export function ClientsPage() {
             />
           </FormField>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando...' : 'Salvar cliente'}
-            </Button>
-          </div>
         </form>
       </Dialog>
     </div>

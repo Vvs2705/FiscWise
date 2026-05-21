@@ -7,10 +7,11 @@ interface DialogProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  footer?: ReactNode;
   className?: string;
 }
 
-export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -40,11 +41,13 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       {/* Panel */}
       <div
         className={cn(
-          'relative z-10 w-full max-w-lg rounded-lg border bg-background shadow-lg',
+          'relative z-10 flex w-full max-w-lg flex-col rounded-lg border bg-background shadow-lg',
+          'max-h-[90vh]',
           className
         )}
       >
-        <div className="flex items-center justify-between border-b px-6 py-4">
+        {/* Header — fixed */}
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
           <h2 id="dialog-title" className="text-base font-semibold">
             {title}
           </h2>
@@ -57,7 +60,14 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+
+        {/* Body — scrollable */}
+        <div className="overflow-y-auto px-6 py-4">{children}</div>
+
+        {/* Footer — fixed at bottom */}
+        {footer && (
+          <div className="shrink-0 border-t px-6 py-4">{footer}</div>
+        )}
       </div>
     </div>
   );

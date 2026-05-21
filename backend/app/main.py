@@ -1,5 +1,5 @@
 """
-ContaFlow API - Main Application Entry Point
+FiscWise API - Main Application Entry Point
 
 This module initializes the FastAPI application with all necessary
 middleware, routers, and configuration.
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application
 app = FastAPI(
-    title="ContaFlow API",
+    title="FiscWise API",
     description="Production-grade B2B SaaS platform for Brazilian accounting and financial services",
     version="1.0.0",
     docs_url="/docs",
@@ -57,7 +57,7 @@ async def startup_event():
     Application startup event handler.
     Executes when the FastAPI application starts.
     """
-    logger.info("ContaFlow API starting up...")
+    logger.info("FiscWise API starting up...")
     logger.info("Environment: %s", settings.ENVIRONMENT)
 
     # Validate critical secrets and emit clear log lines for each.
@@ -103,7 +103,7 @@ async def shutdown_event():
     Application shutdown event handler.
     Executes when the FastAPI application shuts down.
     """
-    logger.info("ContaFlow API shutting down...")
+    logger.info("FiscWise API shutting down...")
     logger.info("Cleanup completed successfully")
 
 
@@ -120,7 +120,7 @@ async def health_check():
     """
     return JSONResponse(
         status_code=200,
-        content={"status": "ContaFlow API Online"}
+        content={"status": "FiscWise API Online"}
     )
 
 
@@ -135,7 +135,7 @@ async def root():
         dict: API name, version, and documentation links
     """
     return {
-        "name": "ContaFlow API",
+        "name": "FiscWise API",
         "version": "1.0.0",
         "status": "operational",
         "docs": "/docs",

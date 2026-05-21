@@ -1,5 +1,5 @@
 """
-Base Model Configuration for ContaFlow
+Base Model Configuration for FiscWise
 
 This module defines the base SQLAlchemy declarative base and mixins
 for multi-tenant architecture with SQLAlchemy 2.0 typed mappings.

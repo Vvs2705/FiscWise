@@ -1,10 +1,10 @@
-# ContaFlow Frontend - React + TypeScript + Vite
+# FiscWise Frontend - React + TypeScript + Vite
 
-## 🎯 Status: ✅ CONCLUÍDO
+## Status: CONCLUIDO
 
 Frontend completo implementado com todas as funcionalidades especificadas na Fase 11.
 
-## 🚀 Stack Tecnológica
+## Stack Tecnologica
 
 - **React 18.3.1** - Biblioteca UI
 - **TypeScript 5.5.3** - Tipagem estática
@@ -20,7 +20,7 @@ Frontend completo implementado com todas as funcionalidades especificadas na Fas
 - **React Hot Toast 2.4.1** - Notificações
 - **date-fns 3.6.0** - Manipulação de datas
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 frontend/
@@ -70,7 +70,7 @@ frontend/
 └── postcss.config.js            # Configuração PostCSS
 ```
 
-## 🔧 Comandos Disponíveis
+## Comandos Disponíveis
 
 ```bash
 # Instalar dependências
@@ -92,7 +92,7 @@ npm run type-check
 npm run lint
 ```
 
-## 🌐 Rotas Implementadas
+## Rotas Implementadas
 
 ### Rotas Públicas
 - `/login` - Página de login
@@ -108,7 +108,7 @@ npm run lint
 - `/billing` - Planos e gerenciamento de assinatura
 - `/settings` - Configurações do usuário e tenant
 
-## 🔐 Autenticação
+## Autenticação
 
 - **Login**: Email + senha via OAuth2 Password Flow
 - **Registro**: Wizard de 3 passos (empresa → usuário → plano)
@@ -116,7 +116,7 @@ npm run lint
 - **Interceptors**: Axios adiciona automaticamente token e X-Tenant-ID
 - **Redirect**: 401 redireciona para `/login` automaticamente
 
-## 📊 Funcionalidades Principais
+## Funcionalidades Principais
 
 ### Dashboard
 - Cards com métricas (sessões, mensagens, tokens, custo)
@@ -156,7 +156,7 @@ npm run lint
 - Informações do tenant
 - Tenant ID para integração
 
-## 🎨 Design System
+## Design System
 
 ### Cores (Tailwind CSS Variables)
 - `--background`: Fundo principal
@@ -173,7 +173,7 @@ npm run lint
 - **Card**: Header, Title, Description, Content, Footer
 - **Badge**: 5 variantes (default, success, warning, error, info)
 
-## 🔄 State Management
+## State Management
 
 ### Zustand (authStore)
 - `user`: Dados do usuário logado
@@ -188,7 +188,7 @@ npm run lint
 - Loading e error states
 - Retry automático (1x)
 
-## 🌍 Variáveis de Ambiente
+## Variáveis de Ambiente
 
 ```env
 VITE_API_URL=http://localhost:8000
@@ -196,24 +196,24 @@ VITE_API_URL=http://localhost:8000
 
 Para produção:
 ```env
-VITE_API_URL=https://solo-os-api-production.up.railway.app
+VITE_API_URL=https://contaflow.fly.dev
 ```
 
-## ✅ Validação
+## Validação
 
 ### TypeScript
 ```bash
 npm run type-check
 ```
-✅ **Status**: Sem erros de compilação
+Status: Sem erros de compilação
 
 ### Dev Server
 ```bash
 npm run dev
 ```
-✅ **Status**: Rodando em http://localhost:3000
+Status: Rodando em http://localhost:3000
 
-## 🚀 Próximos Passos
+## Próximos Passos
 
 1. **Deploy no Railway/Vercel**
    - Configurar variável `VITE_API_URL` para produção
@@ -229,7 +229,7 @@ npm run dev
    - Testar chat com streaming
    - Testar widget
 
-## 📝 Notas Técnicas
+## Notas Técnicas
 
 - **Proxy Vite**: Configurado para `/api` → `http://localhost:8000`
 - **Path Aliases**: `@/*` aponta para `src/*`
@@ -237,21 +237,21 @@ npm run dev
 - **Responsive**: Design mobile-first com Tailwind
 - **Dark Mode**: Suporte via CSS variables (não implementado toggle)
 
-## 🎯 Conformidade com Especificação
+## Conformidade com Especificação
 
-✅ Todas as páginas especificadas implementadas  
-✅ Autenticação com JWT + X-Tenant-ID  
-✅ SSE streaming para chat  
-✅ Gráficos com Recharts  
-✅ Formulários com React Hook Form + Zod  
-✅ State management com Zustand  
-✅ Data fetching com TanStack Query  
-✅ TypeScript sem erros  
-✅ Tailwind CSS + componentes reutilizáveis  
-✅ Rotas protegidas com ProtectedRoute  
+- Todas as páginas especificadas implementadas
+- Autenticação com JWT + X-Tenant-ID
+- SSE streaming para chat
+- Gráficos com Recharts
+- Formulários com React Hook Form + Zod
+- State management com Zustand
+- Data fetching com TanStack Query
+- TypeScript sem erros
+- Tailwind CSS + componentes reutilizáveis
+- Rotas protegidas com ProtectedRoute
 
 ---
 
-**Desenvolvido por THE ARCHITECT (Omega v2)**  
-**Data**: 27/04/2026  
+**FiscWise Frontend**
+**Data**: 27/04/2026
 **Fase**: 11 - Frontend Dashboard

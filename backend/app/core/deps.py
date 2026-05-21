@@ -1,5 +1,5 @@
 """
-Dependency Injection for ContaFlow
+Dependency Injection for FiscWise
 
 FastAPI dependencies for database sessions, authentication, and authorization.
 """

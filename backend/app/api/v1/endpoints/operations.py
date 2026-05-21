@@ -1,4 +1,4 @@
-"""Operational MVP endpoints for CTFlow pilots."""
+"""Operational MVP endpoints for FiscWise pilots."""
 
 import uuid
 from datetime import date, datetime, timedelta, timezone

@@ -1,5 +1,5 @@
 """
-Models Package for ContaFlow
+Models Package for FiscWise
 
 This module registers all SQLAlchemy models for the application.
 Import this module to ensure all models are loaded for Alembic migrations.

@@ -1,5 +1,5 @@
 """
-User Schemas for ContaFlow
+User Schemas for FiscWise
 
 Pydantic models for User API request/response validation.
 """

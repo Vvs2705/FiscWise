@@ -1,5 +1,5 @@
 """
-Token Schemas for ContaFlow
+Token Schemas for FiscWise
 
 Pydantic models for JWT token request/response and payload validation.
 """

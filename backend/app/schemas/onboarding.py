@@ -1,5 +1,5 @@
 """
-Onboarding Schemas for ContaFlow
+Onboarding Schemas for FiscWise
 
 Pydantic models for tenant registration and onboarding flow.
 """

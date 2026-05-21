@@ -1,5 +1,5 @@
 """
-Configuration Module for ContaFlow
+Configuration Module for FiscWise
 
 Centralized configuration management using Pydantic Settings.
 Loads environment variables and provides type-safe configuration access.
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # when those validators run.
     ENVIRONMENT: str = "development"
 
-    APP_NAME: str = "ContaFlow"
+    APP_NAME: str = "FiscWise"
     APP_VERSION: str = "1.0.0"
 
     # DEBUG defaults to False so that a missing DEBUG env var in production
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
                 )
                 return ""
             # Dev default only if not in production
-            return "postgresql+asyncpg://contaflow:dev_password@localhost:5432/contaflow_db"
+            return "postgresql+asyncpg://fiscwise:dev_password@localhost:5432/fiscwise_db"
 
         if isinstance(v, str):
             # Parse URL and convert to asyncpg dialect
@@ -154,7 +154,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
 
     # Public URL (used for widget script generation)
-    PUBLIC_URL: str = "https://api.contabilidadeflow.com.br"
+    PUBLIC_URL: str = "https://api.fiscwise.com.br"
     
     # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""

@@ -1,4 +1,4 @@
-# Fly.io configuration for ContaFlow
+# Fly.io configuration for FiscWise
 # Deploy with: flyctl deploy
 
 app = "contaflow"
@@ -11,10 +11,10 @@ dockerfile = "./backend/Dockerfile"
 [env]
 ENVIRONMENT = "production"
 DEBUG = "False"
-APP_NAME = "ContaFlow"
+APP_NAME = "FiscWise"
 APP_VERSION = "1.0.0"
 PUBLIC_URL = "https://contaflow.fly.dev"
-ALLOWED_ORIGINS = "https://contaflow-frontend.vercel.app,https://contabilidadeflow.com.br"
+ALLOWED_ORIGINS = "https://fiscwise-frontend.vercel.app,https://fiscwise.com.br"
 SUPABASE_URL = "https://lkgmgbieottygodrdubi.supabase.co"
 
 [http_service]

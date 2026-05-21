@@ -1,5 +1,5 @@
 """
-API v1 Router for ContaFlow
+API v1 Router for FiscWise
 
 Aggregates all v1 endpoint routers into a single API router.
 """
@@ -32,7 +32,7 @@ api_router.include_router(
     tags=["Health"]
 )
 
-# Include CTFlow operational MVP endpoints
+# Include FiscWise operational MVP endpoints
 api_router.include_router(
     operations.router,
     tags=["Operations"]

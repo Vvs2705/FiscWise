@@ -99,7 +99,7 @@ Suite completa de testes para o fix de PostgreSQL enum case mismatch.
 
 ### Ambiente
 
-O projeto ContaFlow usa pytest. Instale a dependência:
+O projeto FiscWise usa pytest. Instale a dependência:
 
 ```bash
 pip install pytest

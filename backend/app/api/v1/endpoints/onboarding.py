@@ -1,5 +1,5 @@
 """
-Onboarding Endpoints for ContaFlow
+Onboarding Endpoints for FiscWise
 
 Handles public tenant registration and onboarding flow.
 Creates tenant and owner user in a single atomic transaction.

@@ -1,5 +1,5 @@
 """
-Security Module for ContaFlow
+Security Module for FiscWise
 
 Handles password hashing, verification, and JWT token generation.
 Uses bcrypt directly for password hashing (bcrypt 4.x+ compatible)

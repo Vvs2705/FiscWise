@@ -1,5 +1,5 @@
 """
-User Model for ContaFlow
+User Model for FiscWise
 
 Defines the users table with multi-tenant isolation.
 Each user belongs to a single tenant and has a specific role within that organization.

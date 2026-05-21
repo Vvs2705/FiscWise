@@ -8,8 +8,8 @@ def test_imports():
     from app.main import app
     from app.schemas.token import AuthResponse, UserInfo
 
-    assert app.title == "ContaFlow API"
-    assert settings.APP_NAME == "ContaFlow"
+    assert app.title == "FiscWise API"
+    assert settings.APP_NAME == "FiscWise"
     assert JWT_SECRET_KEY is not None
     assert AuthResponse is not None
     assert UserInfo is not None
@@ -27,4 +27,4 @@ def test_root_health_endpoint_returns_online_status(client):
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ContaFlow API Online"}
+    assert response.json() == {"status": "FiscWise API Online"}

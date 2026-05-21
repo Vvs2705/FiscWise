@@ -18,7 +18,7 @@ export function Header() {
   const { user, logout } = useAuthStore();
   const location = useLocation();
   const sectionTitle = useMemo(() => {
-    return sectionTitles[location.pathname] ?? 'CTFlow';
+    return sectionTitles[location.pathname] ?? 'FiscWise';
   }, [location.pathname]);
 
   return (

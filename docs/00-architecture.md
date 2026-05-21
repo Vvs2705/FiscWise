@@ -1,4 +1,4 @@
-# ContaFlow — Architecture Blueprint
+# FiscWise — Architecture Blueprint
 
 > **Version:** 1.0.0 (Greenfield)  
 > **Status:** Foundation Phase (Phase 0)  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-**ContaFlow** is a production-grade B2B SaaS platform designed for the Brazilian accounting and financial services market. Built from the ground up with enterprise-grade architecture, security-first principles, and commercial polish.
+**FiscWise** is a production-grade B2B SaaS platform designed for the Brazilian accounting and financial services market. Built from the ground up with enterprise-grade architecture, security-first principles, and commercial polish.
 
 This is a **complete rebuild** — zero legacy debt, zero technical compromises.
 
@@ -215,7 +215,7 @@ This is a **complete rebuild** — zero legacy debt, zero technical compromises.
 ## Project Structure
 
 ```
-ContaFlow/
+FiscWise/
 ├── backend/                      # FastAPI application
 │   ├── app/
 │   │   ├── main.py               # FastAPI app initialization
@@ -376,7 +376,7 @@ ContaFlow/
 ### Why Monorepo vs Separate Repos?
 - **Monorepo (Current Choice):** Easier to maintain consistency, shared types, atomic commits
 - **Trade-off:** Larger repo size, requires good tooling (Nx, Turborepo in future)
-- **Alternative:** Split into `contaflow-api` + `contaflow-web` if teams scale independently
+- **Alternative:** Split into `fiscwise-api` + `fiscwise-web` if teams scale independently
 
 ---
 

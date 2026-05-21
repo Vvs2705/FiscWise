@@ -1,5 +1,5 @@
 """
-Health check endpoints for ContaFlow.
+Health check endpoints for FiscWise.
 
 This module provides health and readiness check endpoints for load balancers
 and monitoring systems.
@@ -35,7 +35,7 @@ async def health_check():
     """
     return {
         "status": "healthy",
-        "service": "contaflow-api",
+        "service": "fiscwise-api",
         "version": "1.0.0"
     }
 
@@ -68,7 +68,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
         return {
             "status": "ready",
             "database": "connected",
-            "service": "contaflow-api"
+            "service": "fiscwise-api"
         }
     except Exception as e:
         return JSONResponse(
@@ -77,7 +77,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
                 "status": "not_ready",
                 "database": "disconnected",
                 "error": str(e),
-                "service": "contaflow-api"
+                "service": "fiscwise-api"
             }
         )
 

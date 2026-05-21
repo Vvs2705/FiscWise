@@ -1,5 +1,5 @@
 """
-Middleware Module for ContaFlow
+Middleware Module for FiscWise
 
 Custom middleware for tenant isolation and request processing.
 Enforces X-Tenant-ID header on protected routes.

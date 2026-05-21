@@ -1,4 +1,4 @@
-"""Pydantic schemas for CTFlow operational MVP endpoints."""
+"""Pydantic schemas for FiscWise operational MVP endpoints."""
 
 from datetime import date, datetime
 from decimal import Decimal

@@ -1,5 +1,5 @@
 """
-Tenant Schemas for ContaFlow
+Tenant Schemas for FiscWise
 
 Pydantic models for Tenant API request/response validation.
 """

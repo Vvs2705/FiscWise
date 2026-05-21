@@ -30,7 +30,7 @@ export function Sidebar() {
           CT
         </div>
         <div className="ml-3 hidden md:block">
-          <h1 className="text-lg font-bold leading-tight text-primary">CTFlow</h1>
+          <h1 className="text-lg font-bold leading-tight text-primary">FiscWise</h1>
           <p className="text-xs text-muted-foreground">Operação contábil</p>
         </div>
       </div>

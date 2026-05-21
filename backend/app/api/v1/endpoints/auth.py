@@ -1,5 +1,5 @@
 """
-Authentication Endpoints for ContaFlow
+Authentication Endpoints for FiscWise
 
 Handles user authentication, login, and token generation.
 """

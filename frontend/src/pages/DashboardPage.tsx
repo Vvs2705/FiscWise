@@ -200,7 +200,7 @@ export function DashboardPage() {
                 backgroundClip: 'text',
               }}
             >
-              ContaFlow
+              FiscWise
             </span>
           </h1>
           <p className="mt-2 text-base text-[#b4bcc4]">
@@ -590,7 +590,7 @@ export function DashboardPage() {
 
         {/* ── Footer ── */}
         <footer className="border-t border-white/[0.06] pt-6 text-center text-xs text-[#7a8490]">
-          ContaFlow © 2026 — Sistema de contabilidade inteligente
+          FiscWise © 2026 — Sistema de contabilidade inteligente
         </footer>
       </div>
     </div>

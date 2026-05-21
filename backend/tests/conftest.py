@@ -1,4 +1,4 @@
-"""Shared test setup for ContaFlow backend tests."""
+"""Shared test setup for FiscWise backend tests."""
 
 import os
 import uuid

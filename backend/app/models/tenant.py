@@ -1,5 +1,5 @@
 """
-Tenant Model for ContaFlow
+Tenant Model for FiscWise
 
 Defines the tenants table for multi-tenant SaaS architecture.
 Each tenant represents an independent organization/company using the platform.

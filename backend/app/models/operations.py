@@ -1,4 +1,4 @@
-"""Operational accounting models for the CTFlow MVP."""
+"""Operational accounting models for the FiscWise MVP."""
 
 import uuid
 from datetime import date, datetime

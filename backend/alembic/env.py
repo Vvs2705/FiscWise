@@ -1,5 +1,5 @@
 """
-Alembic Environment Configuration for ContaFlow
+Alembic Environment Configuration for FiscWise
 
 This module configures Alembic to work with SQLAlchemy 2.0 Async.
 It handles both online (connected to database) and offline (SQL script generation) modes.

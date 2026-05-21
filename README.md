@@ -1,4 +1,4 @@
-# ContaFlow
+# FiscWise
 
 > Production-grade B2B SaaS platform for Brazilian accounting and financial services
 
@@ -61,7 +61,7 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 Expected response from `/health`:
 ```json
 {
-  "status": "ContaFlow API Online"
+  "status": "FiscWise API Online"
 }
 ```
 
@@ -70,7 +70,7 @@ Expected response from `/health`:
 ## 📁 Project Structure
 
 ```
-ContaFlow/
+FiscWise/
 ├── backend/              # FastAPI application
 │   ├── app/
 │   │   ├── main.py      # Application entry point
@@ -189,7 +189,7 @@ Copy `.env.example` to `.env` and configure:
 
 ```env
 # Application
-APP_NAME=ContaFlow
+APP_NAME=FiscWise
 DEBUG=True
 ENVIRONMENT=development
 

@@ -19,7 +19,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold text-center">ContaFlow</CardTitle>
+          <CardTitle className="text-3xl font-bold text-center">FiscWise</CardTitle>
           <CardDescription className="text-center">
             Entre com suas credenciais para acessar o sistema
           </CardDescription>

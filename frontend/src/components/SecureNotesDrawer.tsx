@@ -204,7 +204,7 @@ function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-component: Add credential dropdown button
+// Sub-component: Add credential inline picker
 // ---------------------------------------------------------------------------
 
 interface AddCredentialButtonProps {
@@ -213,21 +213,40 @@ interface AddCredentialButtonProps {
 
 function AddCredentialButton({ onAdd }: AddCredentialButtonProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="space-y-2">
+      {/* Inline group picker — aparece acima do botão, sem float */}
+      {open && (
+        <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/50 border-b">
+            Selecione o tipo de acesso
+          </p>
+          {PRESET_GROUPS.map((group) => (
+            <button
+              key={group.label}
+              type="button"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors border-b last:border-0"
+              onClick={() => {
+                onAdd(group.fields);
+                setOpen(false);
+              }}
+            >
+              <span className="text-base leading-none shrink-0">{group.icon}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{group.label}</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {group.fields.length === 1
+                    ? group.fields[0] || 'Campo em branco'
+                    : group.fields.join(' · ')}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Trigger button */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -237,37 +256,6 @@ function AddCredentialButton({ onAdd }: AddCredentialButtonProps) {
         Adicionar credencial
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-
-      {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border bg-popover shadow-lg overflow-hidden z-50">
-          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b">
-            Selecione o tipo de acesso
-          </p>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {PRESET_GROUPS.map((group) => (
-              <button
-                key={group.label}
-                type="button"
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors"
-                onMouseDown={() => {
-                  onAdd(group.fields);
-                  setOpen(false);
-                }}
-              >
-                <span className="text-base leading-none">{group.icon}</span>
-                <div>
-                  <p className="text-sm font-medium">{group.label}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {group.fields.length === 1
-                      ? group.fields[0] || 'Campo em branco'
-                      : group.fields.join(' · ')}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

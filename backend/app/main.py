@@ -12,6 +12,7 @@ import logging
 
 from app.core.config import settings
 from app.core.middleware import TenantMiddleware
+from app.core.rate_limit import RateLimitMiddleware
 from app.api.v1.api import api_router
 
 # Configure logging
@@ -42,6 +43,9 @@ app.add_middleware(
 
 # Tenant Isolation Middleware
 app.add_middleware(TenantMiddleware)
+
+# Rate Limiting Middleware (Redis-backed, fails open without Redis)
+app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
 
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")

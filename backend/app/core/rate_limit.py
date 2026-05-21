@@ -37,7 +37,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app, redis_url: Optional[str] = None):
         super().__init__(app)
-        self.redis_url = redis_url or "redis://localhost:6379"
+        self.redis_url = redis_url  # None = disabled; no fallback to localhost
         self.redis_client = None
         self._initialized = False
 
@@ -46,12 +46,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if self._initialized or redis is None:
             return self.redis_client
 
+        if not self.redis_url:
+            # No REDIS_URL configured — rate limiting disabled, skip connection attempt
+            self._initialized = True
+            return None
+
         try:
             self.redis_client = await redis.from_url(self.redis_url, decode_responses=True)
             self._initialized = True
-            logger.info("Rate limit Redis connection established")
+            logger.info("Rate limit Redis connection established: %s", self.redis_url[:30])
         except Exception as e:
-            logger.warning(f"Rate limit Redis unavailable: {str(e)}. Falling back to disabled rate limiting.")
+            logger.warning("Rate limit Redis unavailable: %s. Rate limiting disabled.", str(e))
             self._initialized = True
 
         return self.redis_client

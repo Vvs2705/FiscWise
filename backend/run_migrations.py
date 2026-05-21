@@ -19,12 +19,18 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     try:
         logger.info("Running database migrations (Alembic)...")
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"alembic.ini exists: {os.path.exists('alembic.ini')}")
+
         alembic_cfg = Config("alembic.ini")
+        logger.info(f"Alembic config loaded. sqlalchemy.url: {alembic_cfg.get_section('sqlalchemy')}")
+
         command.upgrade(alembic_cfg, "head")
         logger.info("✅ Migrations completed successfully.")
         sys.exit(0)
     except Exception as exc:
         logger.error("❌ Migration failed: %s", exc, exc_info=True)
+        logger.error(f"Full exception: {type(exc).__name__}: {str(exc)}")
         msg = str(exc).lower()
         if "enum" in msg or "uppercase" in msg or "'<'" in msg:
             logger.error(

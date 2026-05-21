@@ -168,6 +168,37 @@ class ReceivableResponse(ReceivableCreate):
     updated_at: datetime
 
 
+class MonthlyData(BaseModel):
+    """Receita agrupada por mes (para grafico de tendencia)."""
+
+    mes: str       # "Jan", "Fev", etc.
+    valor: Decimal
+
+
+class DailyData(BaseModel):
+    """Receita agrupada por dia da semana (ultimos 7 dias)."""
+
+    dia: str       # "Seg", "Ter", etc.
+    receita: Decimal
+
+
+class ReceivableWithClient(BaseModel):
+    """Recebivel enriquecido com nome do cliente (para tabela de transacoes)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    client_id: UUID
+    client_name: str
+    description: str
+    amount: Decimal
+    due_date: date
+    status: ReceivableStatus
+    paid_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class DashboardOverview(BaseModel):
     active_clients: int
     pending_deadlines: int
@@ -178,4 +209,9 @@ class DashboardOverview(BaseModel):
     receivables_amount_open: Decimal
     receivables_amount_overdue: Decimal
     upcoming_deadlines: list[DeadlineResponse]
+    # Dados financeiros reais
+    total_received_month: Decimal
+    monthly_received: list[MonthlyData]
+    weekly_received: list[DailyData]
+    recent_receivables: list[ReceivableWithClient]
 

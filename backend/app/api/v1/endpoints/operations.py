@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import Date as SADate, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -25,6 +25,7 @@ from app.schemas.operations import (
     CertificateCreate,
     CertificateResponse,
     CertificateUpdate,
+    DailyData,
     DashboardOverview,
     DeadlineCreate,
     DeadlineResponse,
@@ -32,14 +33,19 @@ from app.schemas.operations import (
     DocumentCreate,
     DocumentResponse,
     DocumentUpdate,
+    MonthlyData,
     ReceivableCreate,
     ReceivableResponse,
     ReceivableUpdate,
+    ReceivableWithClient,
 )
 
 
 router = APIRouter()
 ModelT = TypeVar("ModelT")
+
+_MONTH_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+_DAY_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]  # weekday() == 0 -> Seg
 
 
 def _tenant_id(current_user: User) -> uuid.UUID:
@@ -177,6 +183,86 @@ async def dashboard_overview(
         .limit(8)
     )
 
+    # ── Financeiro: total recebido no mes corrente ─────────────────────────────
+    first_of_month = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
+    received_month_result = await db.execute(
+        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status == "paid",
+            AccountReceivable.paid_at >= first_of_month,
+        )
+    )
+    total_received_month = Decimal(received_month_result.scalar_one() or 0)
+
+    # ── Financeiro: tendencia mensal (ano corrente) ────────────────────────────
+    first_of_year = datetime(today.year, 1, 1, tzinfo=timezone.utc)
+    monthly_raw = await db.execute(
+        select(
+            func.date_trunc("month", AccountReceivable.paid_at).label("month"),
+            func.coalesce(func.sum(AccountReceivable.amount), 0).label("total"),
+        )
+        .where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status == "paid",
+            AccountReceivable.paid_at >= first_of_year,
+        )
+        .group_by(func.date_trunc("month", AccountReceivable.paid_at))
+        .order_by(func.date_trunc("month", AccountReceivable.paid_at).asc())
+    )
+    monthly_received = [
+        MonthlyData(mes=_MONTH_PT[row.month.month - 1], valor=Decimal(row.total or 0))
+        for row in monthly_raw.all()
+    ]
+
+    # ── Financeiro: receita diaria ultimos 7 dias ──────────────────────────────
+    seven_days_ago = today - timedelta(days=6)
+    seven_days_ago_dt = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(days=6)
+    weekly_raw = await db.execute(
+        select(
+            cast(AccountReceivable.paid_at, SADate).label("day"),
+            func.coalesce(func.sum(AccountReceivable.amount), 0).label("total"),
+        )
+        .where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status == "paid",
+            AccountReceivable.paid_at >= seven_days_ago_dt,
+        )
+        .group_by(cast(AccountReceivable.paid_at, SADate))
+        .order_by(cast(AccountReceivable.paid_at, SADate).asc())
+    )
+    weekly_map = {row.day: Decimal(row.total or 0) for row in weekly_raw.all()}
+    weekly_received = [
+        DailyData(
+            dia=_DAY_PT[(seven_days_ago + timedelta(days=i)).weekday()],
+            receita=weekly_map.get(seven_days_ago + timedelta(days=i), Decimal(0)),
+        )
+        for i in range(7)
+    ]
+
+    # ── Financeiro: recebiveis recentes com nome do cliente ────────────────────
+    recent_raw = await db.execute(
+        select(
+            AccountReceivable.id,
+            AccountReceivable.client_id,
+            AccountingClient.name.label("client_name"),
+            AccountReceivable.description,
+            AccountReceivable.amount,
+            AccountReceivable.due_date,
+            AccountReceivable.status,
+            AccountReceivable.paid_at,
+            AccountReceivable.created_at,
+            AccountReceivable.updated_at,
+        )
+        .join(AccountingClient, AccountReceivable.client_id == AccountingClient.id)
+        .where(AccountReceivable.tenant_id == tenant_id)
+        .order_by(AccountReceivable.created_at.desc())
+        .limit(8)
+    )
+    recent_receivables = [
+        ReceivableWithClient(**dict(row))
+        for row in recent_raw.mappings().all()
+    ]
+
     return DashboardOverview(
         active_clients=active_clients,
         pending_deadlines=pending_deadlines,
@@ -187,6 +273,11 @@ async def dashboard_overview(
         receivables_amount_open=Decimal(amount_open_result.scalar_one() or 0),
         receivables_amount_overdue=Decimal(amount_overdue_result.scalar_one() or 0),
         upcoming_deadlines=list(upcoming_result.scalars().all()),
+        # novos campos financeiros
+        total_received_month=total_received_month,
+        monthly_received=monthly_received,
+        weekly_received=weekly_received,
+        recent_receivables=recent_receivables,
     )
 
 

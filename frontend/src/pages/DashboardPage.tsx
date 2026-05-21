@@ -21,74 +21,6 @@ import {
 } from 'lucide-react';
 import { dateBR, moneyBRL, useDashboardOverview } from '@/lib/hooks/useOperations';
 
-// ─── Dados estáticos de demonstração para os gráficos ───────────────────────
-const weeklyData = [
-  { dia: 'Seg', receita: 18500, despesa: 4200 },
-  { dia: 'Ter', receita: 26000, despesa: 7800 },
-  { dia: 'Qua', receita: 14800, despesa: 3500 },
-  { dia: 'Qui', receita: 39500, despesa: 9100 },
-  { dia: 'Sex', receita: 28700, despesa: 6300 },
-  { dia: 'Sáb', receita: 46200, despesa: 11000 },
-  { dia: 'Dom', receita: 33100, despesa: 5900 },
-];
-
-const monthlyTrend = [
-  { mes: 'Jan', valor: 82000 },
-  { mes: 'Fev', valor: 95000 },
-  { mes: 'Mar', valor: 78000 },
-  { mes: 'Abr', valor: 110000 },
-  { mes: 'Mai', valor: 142500 },
-];
-
-// ─── Transações mock alinhadas com o design do preview ───────────────────────
-const recentTransactions = [
-  {
-    id: '1',
-    cliente: 'Tech Solutions Ltda',
-    descricao: 'Serviço de consultoria',
-    tipo: 'receita' as const,
-    valor: 15000,
-    data: '20/05/2026',
-    status: 'concluido' as const,
-  },
-  {
-    id: '2',
-    cliente: 'Fornecedor XYZ',
-    descricao: 'Compra de materiais',
-    tipo: 'despesa' as const,
-    valor: 3200,
-    data: '20/05/2026',
-    status: 'concluido' as const,
-  },
-  {
-    id: '3',
-    cliente: 'Startup Alpha',
-    descricao: 'Desenvolvimento de software',
-    tipo: 'receita' as const,
-    valor: 8500,
-    data: '19/05/2026',
-    status: 'concluido' as const,
-  },
-  {
-    id: '4',
-    cliente: 'Aluguel escritório',
-    descricao: 'Manutenção infraestrutura',
-    tipo: 'despesa' as const,
-    valor: 5000,
-    data: '19/05/2026',
-    status: 'pendente' as const,
-  },
-  {
-    id: '5',
-    cliente: 'Global Consulting',
-    descricao: 'Projeto implementação',
-    tipo: 'receita' as const,
-    valor: 22000,
-    data: '18/05/2026',
-    status: 'concluido' as const,
-  },
-];
-
 // ─── Variantes de animação ────────────────────────────────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -189,39 +121,55 @@ function MetricCard({ title, value, change, positive, icon: Icon, delay = 0 }: M
   );
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+// ─── Helpers de status para recebíveis ───────────────────────────────────────
+function statusLabel(s: string) {
+  if (s === 'paid') return 'Recebido';
+  if (s === 'overdue') return 'Atrasado';
+  return 'Pendente';
+}
+
+function statusClass(s: string) {
+  if (s === 'paid') return 'bg-emerald-500/10 text-emerald-400';
+  if (s === 'overdue') return 'bg-red-500/10 text-red-400';
+  return 'bg-amber-500/10 text-amber-400';
+}
+
 export function DashboardPage() {
   const { data, isLoading, isError } = useDashboardOverview();
+
+  const weeklyData = data?.weekly_received ?? [];
+  const monthlyTrend = data?.monthly_received ?? [];
+  const recentReceivables = data?.recent_receivables ?? [];
 
   const metricsCards: MetricCardProps[] = [
     {
       title: 'Receita total',
-      value: 'R$ 142,5k',
-      change: '+12,5% vs mês anterior',
+      value: isLoading ? '...' : moneyBRL(data?.total_received_month),
+      change: 'Recebido no mês corrente',
       positive: true,
       icon: TrendingUp,
       delay: 0,
     },
     {
-      title: 'Despesas',
-      value: 'R$ 48,2k',
-      change: '+3,2% vs mês anterior',
-      positive: false,
-      icon: TrendingDown,
+      title: 'A receber (aberto)',
+      value: isLoading ? '...' : moneyBRL(data?.receivables_amount_open),
+      change: `${data?.open_receivables ?? 0} recebíveis em aberto`,
+      positive: true,
+      icon: ReceiptText,
       delay: 80,
     },
     {
-      title: 'Lucro líquido',
-      value: 'R$ 94,3k',
-      change: '+18,7% vs mês anterior',
-      positive: true,
-      icon: ReceiptText,
+      title: 'Inadimplência',
+      value: isLoading ? '...' : moneyBRL(data?.receivables_amount_overdue),
+      change: `${data?.overdue_receivables ?? 0} em atraso`,
+      positive: (data?.overdue_receivables ?? 0) === 0,
+      icon: TrendingDown,
       delay: 160,
     },
     {
       title: 'Clientes ativos',
-      value: isLoading ? '...' : String(data?.active_clients ?? 247),
-      change: '+15 novos este mês',
+      value: isLoading ? '...' : String(data?.active_clients ?? 0),
+      change: 'Total na plataforma',
       positive: true,
       icon: UsersRound,
       delay: 240,
@@ -432,13 +380,7 @@ export function DashboardPage() {
                   radius={[5, 5, 0, 0]}
                   maxBarSize={42}
                 />
-                <Bar
-                  dataKey="despesa"
-                  name="Despesa"
-                  fill="rgba(239,68,68,0.5)"
-                  radius={[5, 5, 0, 0]}
-                  maxBarSize={42}
-                />
+                {/* Barra de despesa removida — sem modelo de despesas no sistema */}
                 <defs>
                   <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#00f0ff" stopOpacity={0.9} />
@@ -607,41 +549,40 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentTransactions.map((tx, i) => (
-                  <motion.tr
-                    key={tx.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.35, delay: 0.6 + i * 0.07 }}
-                    className="group border-b border-white/[0.04] transition-colors last:border-0 hover:bg-[rgba(0,212,255,0.04)]"
-                  >
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-white">{tx.cliente}</p>
-                      <p className="mt-0.5 text-sm text-[#7a8490]">{tx.descricao}</p>
+                {recentReceivables.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#7a8490]">
+                      Nenhuma movimentação encontrada. Cadastre recebíveis em Financeiro.
                     </td>
-                    <td className="px-6 py-4 text-sm text-[#b4bcc4] capitalize">{tx.tipo}</td>
-                    <td
-                      className={`px-6 py-4 text-sm font-semibold ${
-                        tx.tipo === 'receita' ? 'text-emerald-400' : 'text-red-400'
-                      }`}
+                  </tr>
+                ) : (
+                  recentReceivables.map((item, i) => (
+                    <motion.tr
+                      key={item.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.35, delay: 0.6 + i * 0.07 }}
+                      className="group border-b border-white/[0.04] transition-colors last:border-0 hover:bg-[rgba(0,212,255,0.04)]"
                     >
-                      {tx.tipo === 'receita' ? '+ ' : '- '}
-                      {moneyBRL(tx.valor)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-[#b4bcc4]">{tx.data}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                          tx.status === 'concluido'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : 'bg-amber-500/10 text-amber-400'
-                        }`}
-                      >
-                        {tx.status === 'concluido' ? 'Concluído' : 'Pendente'}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-white">{item.client_name}</p>
+                        <p className="mt-0.5 text-sm text-[#7a8490]">{item.description}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-[#b4bcc4]">Recebível</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-emerald-400">
+                        {moneyBRL(item.amount)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-[#b4bcc4]">{dateBR(item.due_date)}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusClass(item.status)}`}
+                        >
+                          {statusLabel(item.status)}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

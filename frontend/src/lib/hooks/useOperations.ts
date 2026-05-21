@@ -138,6 +138,29 @@ export interface ReceivableCreate {
   notes?: string;
 }
 
+export interface MonthlyData {
+  mes: string;
+  valor: number;
+}
+
+export interface DailyData {
+  dia: string;
+  receita: number;
+}
+
+export interface ReceivableWithClient {
+  id: string;
+  client_id: string;
+  client_name: string;
+  description: string;
+  amount: string | number;
+  due_date: string;
+  status: ReceivableStatus;
+  paid_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DashboardOverview {
   active_clients: number;
   pending_deadlines: number;
@@ -148,6 +171,10 @@ export interface DashboardOverview {
   receivables_amount_open: string | number;
   receivables_amount_overdue: string | number;
   upcoming_deadlines: DeadlineItem[];
+  total_received_month: string | number;
+  monthly_received: MonthlyData[];
+  weekly_received: DailyData[];
+  recent_receivables: ReceivableWithClient[];
 }
 
 const operationsKey = ['operations'] as const;

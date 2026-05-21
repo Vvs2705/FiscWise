@@ -14,7 +14,7 @@ DEBUG = "False"
 APP_NAME = "FiscWise"
 APP_VERSION = "1.0.0"
 PUBLIC_URL = "https://contaflow.fly.dev"
-ALLOWED_ORIGINS = "https://fiscwise-frontend.vercel.app,https://fiscwise.com.br"
+ALLOWED_ORIGINS = "https://contabilidadeflow.com.br,https://conta-flow-coral.vercel.app,https://fiscwise.com.br,https://fiscwise-v-stack-solution.vercel.app,http://localhost:3000"
 SUPABASE_URL = "https://lkgmgbieottygodrdubi.supabase.co"
 
 [http_service]

@@ -7,9 +7,9 @@ It handles both online (connected to database) and offline (SQL script generatio
 
 import asyncio
 import os
+import re
 import logging
 from logging.config import fileConfig
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -35,47 +35,40 @@ from app.models import Base
 # Set target_metadata to Base.metadata for autogenerate support
 target_metadata = Base.metadata
 
-# Load DATABASE_URL from environment variable
-# This allows us to keep credentials out of alembic.ini
+
 def _sanitize_database_url(url: str) -> str:
-    """Convert DATABASE_URL to asyncpg-compatible format.
+    """Convert DATABASE_URL to asyncpg-compatible format using regex.
 
-    Handles Supabase URLs that include sslmode parameter, which asyncpg doesn't support.
-    Converts postgres:// to postgresql+asyncpg:// and replaces sslmode with ssl param.
+    Uses regex instead of urlparse/urlunparse to avoid corruption of
+    URL-encoded characters in passwords (e.g. %23 for #, %40 for @).
+
+    - Normalises scheme to postgresql+asyncpg://
+    - Strips ?sslmode param (asyncpg uses ?ssl= instead)
+    - Adds ?ssl=require&statement_cache_size=0 (required for Supabase/PgBouncer)
     """
-    parsed = urlparse(url)
+    # Normalise scheme: postgres:// or postgresql:// → postgresql+asyncpg://
+    # Also handles postgresql+asyncpg:// (no-op) and postgresql+psycopg2:// etc.
+    url = re.sub(r'^postgres(?:ql)?(?:\+\w+)?://', 'postgresql+asyncpg://', url)
 
-    # Ensure asyncpg scheme
-    if parsed.scheme == "postgres":
-        parsed = parsed._replace(scheme="postgresql+asyncpg")
-    elif parsed.scheme == "postgresql" and "+asyncpg" not in parsed.scheme:
-        parsed = parsed._replace(scheme="postgresql+asyncpg")
+    # Strip query string entirely and rebuild it cleanly
+    # Split on '?' to separate base URL from query params
+    if '?' in url:
+        base, qs = url.split('?', 1)
+        # Remove sslmode param; keep everything else (except ssl= which we re-add)
+        params = []
+        for part in qs.split('&'):
+            if part.startswith('sslmode=') or part.startswith('ssl=') or part == 'sslmode' or part == 'ssl':
+                continue
+            if part:
+                params.append(part)
+    else:
+        base = url
+        params = []
 
-    # Parse and fix query parameters
-    params = parse_qs(parsed.query, keep_blank_values=True)
+    params.append('ssl=require')
+    params.append('statement_cache_size=0')
 
-    # Remove sslmode (asyncpg doesn't support it)
-    if "sslmode" in params:
-        del params["sslmode"]
-
-    # Add asyncpg-compatible SSL params
-    params["ssl"] = ["require"]
-    params["statement_cache_size"] = ["0"]
-
-    # Rebuild query string
-    new_query = urlencode(params, doseq=True)
-
-    # Rebuild URL
-    fixed_url = urlunparse((
-        parsed.scheme,
-        parsed.netloc,
-        parsed.path,
-        parsed.params,
-        new_query,
-        parsed.fragment
-    ))
-
-    return fixed_url
+    return f"{base}?{'&'.join(params)}"
 
 
 def get_url():

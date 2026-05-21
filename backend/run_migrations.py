@@ -12,29 +12,32 @@ import os
 from alembic import command
 from alembic.config import Config
 
+# Use print() for critical startup messages — fileConfig in alembic/env.py
+# resets the logging configuration, which can swallow logger output to stdout.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
     try:
-        logger.info("Running database migrations (Alembic)...")
-        logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"alembic.ini exists: {os.path.exists('alembic.ini')}")
+        print("INFO Running database migrations (Alembic)...", flush=True)
+        print(f"INFO Current working directory: {os.getcwd()}", flush=True)
+        print(f"INFO alembic.ini exists: {os.path.exists('alembic.ini')}", flush=True)
 
         alembic_cfg = Config("alembic.ini")
-        logger.info(f"Alembic config loaded. sqlalchemy.url: {alembic_cfg.get_section('sqlalchemy')}")
 
         command.upgrade(alembic_cfg, "head")
-        logger.info("✅ Migrations completed successfully.")
+        print("INFO Migrations completed successfully.", flush=True)
         sys.exit(0)
     except Exception as exc:
-        logger.error("❌ Migration failed: %s", exc, exc_info=True)
-        logger.error(f"Full exception: {type(exc).__name__}: {str(exc)}")
+        print(f"ERROR Migration failed: {type(exc).__name__}: {exc}", flush=True)
+        import traceback
+        traceback.print_exc()
         msg = str(exc).lower()
         if "enum" in msg or "uppercase" in msg or "'<'" in msg:
-            logger.error(
-                "Enum case mismatch detected. "
-                "Use POST /api/v1/admin/fix-enum-case endpoint to fix."
+            print(
+                "ERROR Enum case mismatch detected. "
+                "Use POST /api/v1/admin/fix-enum-case endpoint to fix.",
+                flush=True,
             )
         sys.exit(1)

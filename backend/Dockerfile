@@ -14,8 +14,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
-# psycopg[binary] ships its own libpq, so libpq-dev is not required.
-# gcc is needed for other C extensions.
+# gcc is needed for C extensions (asyncpg, pydantic-core).
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
@@ -40,11 +39,10 @@ HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 # Startup strategy:
-#   1. run_migrations.py calls fix_enums_startup.fix_enums() via psycopg (sync).
-#      This avoids asyncpg type-cache issues and URL parsing bugs in the old
-#      fix_enums.sh bash script.
-#   2. run_migrations.py then runs Alembic upgrade head.
-#   3. Uvicorn starts REGARDLESS of migration outcome so the Fly.io
+#   1. run_migrations.py runs Alembic upgrade head.
+#      The 20260520_fix_enum_case migration handles enum case conversion if needed.
+#      If enum issues arise post-deploy, use POST /api/v1/admin/fix-enum-case.
+#   2. Uvicorn starts REGARDLESS of migration outcome so the Fly.io
 #      health-check (/api/v1/health) can pass even when DATABASE_URL is not
 #      yet configured.
 CMD ["sh", "-c", "\

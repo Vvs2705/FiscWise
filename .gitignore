@@ -139,3 +139,14 @@ temp/
 # Sensitive
 *_KEYS.md
 *_keys.md
+
+# Test artifacts (local only)
+.coverage
+coverage.xml
+htmlcov/
+test_e2e_registration.ps1
+test_local_startup.sh
+
+# Pytest cache
+.pytest_cache/
+backend/.pytest_cache/

@@ -102,10 +102,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       - name: Build Docker image
-        working-directory: ./backend
         run: |
-          docker build -t contaflow-backend:${{ github.sha }} .
-      
+          docker build -f backend/Dockerfile -t contaflow-backend:${{ github.sha }} .
+
       - name: Test Docker image
         run: |
           docker run --rm contaflow-backend:${{ github.sha }} python -c "import app; print('✅ Docker image OK')"

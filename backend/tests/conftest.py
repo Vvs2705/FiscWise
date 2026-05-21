@@ -109,8 +109,6 @@ async def tenant_a(test_db: AsyncSession):
     if not APP_MODELS_AVAILABLE:
         pytest.skip("App models not available")
 
-    from app.models.tenant import Tenant, SubscriptionStatus
-    """Create tenant A for isolation tests."""
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Accounting Firm A",

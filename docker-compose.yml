@@ -3,8 +3,8 @@ version: '3.9'
 services:
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: contaflow_api
     environment:
       - DATABASE_URL=postgresql+asyncpg://contaflow:contaflow_dev_2026@postgres:5432/contaflow_db

@@ -186,89 +186,89 @@ async def fix_enum_case(
     try:
         logger.info(f"[ADMIN] Enum fix started from {client_ip}")
 
-        # Apply fixes within a transaction for atomicity
-        await db.execute(text("""
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50);
-        """))
+        # CRITICAL: Wrap all fixes in explicit transaction for atomicity
+        # If any statement fails, the entire transaction rolls back
+        async with db.begin():
+            await db.execute(text("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50);
+            """))
 
-        await db.execute(text("""
-            UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL;
-        """))
+            await db.execute(text("""
+                UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL;
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_tenant_email;
-        """))
+            await db.execute(text("""
+                ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_tenant_email;
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE users DROP COLUMN IF EXISTS role;
-        """))
+            await db.execute(text("""
+                ALTER TABLE users DROP COLUMN IF EXISTS role;
+            """))
 
-        await db.execute(text("""
-            DROP TYPE IF EXISTS user_role_enum CASCADE;
-        """))
+            await db.execute(text("""
+                DROP TYPE IF EXISTS user_role_enum CASCADE;
+            """))
 
-        await db.execute(text("""
-            CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'member');
-        """))
+            await db.execute(text("""
+                CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'member');
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum;
-        """))
+            await db.execute(text("""
+                ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum;
+            """))
 
-        await db.execute(text("""
-            UPDATE users SET role = _role_tmp::user_role_enum;
-        """))
+            await db.execute(text("""
+                UPDATE users SET role = _role_tmp::user_role_enum;
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE users DROP COLUMN IF EXISTS _role_tmp;
-        """))
+            await db.execute(text("""
+                ALTER TABLE users DROP COLUMN IF EXISTS _role_tmp;
+            """))
 
-        await db.execute(text("""
-            CREATE INDEX IF NOT EXISTS ix_users_role ON users(role);
-        """))
+            await db.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_users_role ON users(role);
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email);
-        """))
+            await db.execute(text("""
+                ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email);
+            """))
 
-        # Fix subscription_status_enum: convert UPPERCASE to lowercase
-        await db.execute(text("""
-            ALTER TABLE tenants ADD COLUMN IF NOT EXISTS _sub_tmp VARCHAR(50);
-        """))
+            # Fix subscription_status_enum: convert UPPERCASE to lowercase
+            await db.execute(text("""
+                ALTER TABLE tenants ADD COLUMN IF NOT EXISTS _sub_tmp VARCHAR(50);
+            """))
 
-        await db.execute(text("""
-            UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text) WHERE _sub_tmp IS NULL;
-        """))
+            await db.execute(text("""
+                UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text) WHERE _sub_tmp IS NULL;
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE tenants DROP COLUMN IF EXISTS subscription_status;
-        """))
+            await db.execute(text("""
+                ALTER TABLE tenants DROP COLUMN IF EXISTS subscription_status;
+            """))
 
-        await db.execute(text("""
-            DROP TYPE IF EXISTS subscription_status_enum CASCADE;
-        """))
+            await db.execute(text("""
+                DROP TYPE IF EXISTS subscription_status_enum CASCADE;
+            """))
 
-        await db.execute(text("""
-            CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'cancelled', 'expired');
-        """))
+            await db.execute(text("""
+                CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'cancelled', 'expired');
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE tenants ADD COLUMN subscription_status subscription_status_enum NOT NULL DEFAULT 'trial'::subscription_status_enum;
-        """))
+            await db.execute(text("""
+                ALTER TABLE tenants ADD COLUMN subscription_status subscription_status_enum NOT NULL DEFAULT 'trial'::subscription_status_enum;
+            """))
 
-        await db.execute(text("""
-            UPDATE tenants SET subscription_status = _sub_tmp::subscription_status_enum;
-        """))
+            await db.execute(text("""
+                UPDATE tenants SET subscription_status = _sub_tmp::subscription_status_enum;
+            """))
 
-        await db.execute(text("""
-            ALTER TABLE tenants DROP COLUMN IF EXISTS _sub_tmp;
-        """))
+            await db.execute(text("""
+                ALTER TABLE tenants DROP COLUMN IF EXISTS _sub_tmp;
+            """))
 
-        await db.execute(text("""
-            CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status);
-        """))
-
-        await db.commit()
+            await db.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status);
+            """))
 
         logger.info(f"[ADMIN] ✅ Enum fix completed successfully from {client_ip}")
 
@@ -279,7 +279,7 @@ async def fix_enum_case(
         }
 
     except Exception as e:
-        await db.rollback()
+        # Note: async with db.begin() automatically rolls back on exception
         logger.error(
             f"[ADMIN] ❌ Enum fix FAILED from {client_ip}: {str(e)}",
             exc_info=True

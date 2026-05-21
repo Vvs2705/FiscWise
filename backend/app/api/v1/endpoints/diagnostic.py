@@ -1,17 +1,34 @@
 """Diagnostic endpoints for debugging migration and database issues."""
 
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from app.core.deps import get_db
+from app.core.deps import get_current_user, get_db
+from app.models.user import User
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/enums", summary="Check enum status in database")
-async def check_enums(db: AsyncSession = Depends(get_db)):
-    """Check if enums are uppercase or lowercase in the database."""
+async def check_enums(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Check if enums are uppercase or lowercase in the database.
+
+    PROTECTED: Requires authentication to prevent information leakage.
+    Only owners can access diagnostic information.
+    """
+    # Authorization: only owners can view diagnostics
+    if current_user.role.value != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can access diagnostic endpoints"
+        )
+
     try:
         # Check user_role_enum
         result = await db.execute(text("""
@@ -52,6 +69,7 @@ async def check_enums(db: AsyncSession = Depends(get_db)):
         }
 
     except Exception as e:
+        logger.error(f"Failed to check enums: {str(e)}", exc_info=True)
         return {
             "status": "error",
             "error": str(e),
@@ -61,8 +79,22 @@ async def check_enums(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/health-detailed", summary="Detailed health check")
-async def health_detailed(db: AsyncSession = Depends(get_db)):
-    """Return detailed health status."""
+async def health_detailed(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Return detailed health status.
+
+    PROTECTED: Requires authentication to prevent server information leakage.
+    Only owners can access detailed health information.
+    """
+    # Authorization: only owners can view detailed health
+    if current_user.role.value != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can access detailed health information"
+        )
+
     try:
         # Test database connection
         await db.execute(text("SELECT 1"))
@@ -73,6 +105,7 @@ async def health_detailed(db: AsyncSession = Depends(get_db)):
             "message": "All systems operational"
         }
     except Exception as e:
+        logger.error(f"Health check failed: {str(e)}", exc_info=True)
         return {
             "status": "unhealthy",
             "database": "error",

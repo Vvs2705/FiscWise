@@ -49,6 +49,8 @@ from app.schemas.operations import (
 class TestClientsCRUD:
     """AccountingClient CRUD operations and validation."""
 
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
     async def test_create_client_valid(self, client_with_auth_a):
         """POST /api/v1/clients with valid data."""
         client, user_a, _, _ = client_with_auth_a
@@ -70,6 +72,7 @@ class TestClientsCRUD:
         assert data["status"] == "active"
         assert data["tenant_id"] == str(user_a.tenant_id)
 
+    @pytest.mark.asyncio
     async def test_create_client_missing_required_name(self, client_with_auth_a):
         """POST /api/v1/clients without required 'name' field."""
         client, _, _, _ = client_with_auth_a
@@ -84,6 +87,7 @@ class TestClientsCRUD:
         assert response.status_code == 422
         assert "name" in str(response.json())
 
+    @pytest.mark.asyncio
     async def test_create_client_name_too_short(self, client_with_auth_a):
         """POST /api/v1/clients with name < 2 chars."""
         client, _, _, _ = client_with_auth_a
@@ -94,6 +98,7 @@ class TestClientsCRUD:
 
         assert response.status_code == 422
 
+    @pytest.mark.asyncio
     async def test_create_client_duplicate_document(self, client_with_auth_a):
         """POST /api/v1/clients with document that already exists in tenant."""
         client, _, existing_client, _ = client_with_auth_a
@@ -108,6 +113,7 @@ class TestClientsCRUD:
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
 
+    @pytest.mark.asyncio
     async def test_list_clients_for_tenant(self, client_with_auth_a):
         """GET /api/v1/clients lists clients of authenticated tenant only."""
         client, user_a, existing_client, test_db = client_with_auth_a
@@ -119,6 +125,7 @@ class TestClientsCRUD:
         assert len(data) >= 1
         assert data[0]["tenant_id"] == str(user_a.tenant_id)
 
+    @pytest.mark.asyncio
     async def test_list_clients_filter_by_status(self, client_with_auth_a):
         """GET /api/v1/clients?status=inactive filters by status."""
         client, _, existing_client, _ = client_with_auth_a
@@ -130,6 +137,7 @@ class TestClientsCRUD:
         for item in data:
             assert item["status"] == "inactive"
 
+    @pytest.mark.asyncio
     async def test_get_client_by_id(self, client_with_auth_a):
         """GET /api/v1/clients/{id} returns single client."""
         client, _, existing_client, _ = client_with_auth_a
@@ -141,6 +149,7 @@ class TestClientsCRUD:
         assert data["id"] == str(existing_client.id)
         assert data["name"] == existing_client.name
 
+    @pytest.mark.asyncio
     async def test_get_client_404_when_not_found(self, client_with_auth_a):
         """GET /api/v1/clients/{id} returns 404 if client doesn't exist."""
         client, _, _, _ = client_with_auth_a
@@ -150,6 +159,7 @@ class TestClientsCRUD:
         assert response.status_code == 404
         assert response.json()["detail"] == "Client not found"
 
+    @pytest.mark.asyncio
     async def test_update_client_valid(self, client_with_auth_a):
         """PATCH /api/v1/clients/{id} updates client fields."""
         client, _, existing_client, _ = client_with_auth_a
@@ -169,6 +179,7 @@ class TestClientsCRUD:
         assert data["name"] == "Updated Name"
         assert data["email"] == "updated@email.com"
 
+    @pytest.mark.asyncio
     async def test_update_client_partial(self, client_with_auth_a):
         """PATCH /api/v1/clients/{id} allows partial updates."""
         client, _, existing_client, _ = client_with_auth_a
@@ -186,6 +197,7 @@ class TestClientsCRUD:
         assert data["name"] == "New Name Only"
         assert data["email"] == original_email
 
+    @pytest.mark.asyncio
     async def test_delete_client_soft_deletes(self, client_with_auth_a):
         """DELETE /api/v1/clients/{id} sets status=inactive (soft delete)."""
         client, _, existing_client, _ = client_with_auth_a
@@ -196,6 +208,7 @@ class TestClientsCRUD:
         data = response.json()
         assert data["status"] == "inactive"
 
+    @pytest.mark.asyncio
     async def test_tenant_isolation_client_list(self, test_db: AsyncSession):
         """User A cannot see clients from tenant B in list."""
         # Create two tenants
@@ -241,6 +254,7 @@ class TestClientsCRUD:
 class TestDeadlinesCRUD:
     """DeadlineItem CRUD operations."""
 
+    @pytest.mark.asyncio
     async def test_create_deadline_valid(self, client_with_auth_a):
         """POST /api/v1/deadlines with valid data."""
         client, _, existing_client, _ = client_with_auth_a
@@ -263,6 +277,7 @@ class TestDeadlinesCRUD:
         assert data["status"] == "pending"
         assert data["priority"] == "high"
 
+    @pytest.mark.asyncio
     async def test_create_deadline_missing_required_title(self, client_with_auth_a):
         """POST /api/v1/deadlines without required 'title'."""
         client, _, existing_client, _ = client_with_auth_a
@@ -278,6 +293,7 @@ class TestDeadlinesCRUD:
         assert response.status_code == 422
         assert "title" in str(response.json())
 
+    @pytest.mark.asyncio
     async def test_create_deadline_invalid_client(self, client_with_auth_a):
         """POST /api/v1/deadlines with non-existent client_id."""
         client, _, _, _ = client_with_auth_a
@@ -293,6 +309,7 @@ class TestDeadlinesCRUD:
         assert response.status_code == 404
         assert "Client not found" in response.json()["detail"]
 
+    @pytest.mark.asyncio
     async def test_list_deadlines(self, client_with_auth_a):
         """GET /api/v1/deadlines lists all deadlines for tenant."""
         client, _, existing_client, _ = client_with_auth_a
@@ -303,6 +320,7 @@ class TestDeadlinesCRUD:
         data = response.json()
         assert isinstance(data, list)
 
+    @pytest.mark.asyncio
     async def test_list_deadlines_filter_by_client(self, client_with_auth_a):
         """GET /api/v1/deadlines?client_id=... filters by client."""
         client, _, existing_client, _ = client_with_auth_a
@@ -316,6 +334,7 @@ class TestDeadlinesCRUD:
         for item in data:
             assert item["client_id"] == str(existing_client.id)
 
+    @pytest.mark.asyncio
     async def test_update_deadline_to_completed(self, client_with_auth_a):
         """PATCH /api/v1/deadlines/{id} with status=completed sets completed_at."""
         client, _, existing_client, test_db = client_with_auth_a
@@ -356,6 +375,7 @@ class TestDeadlinesCRUD:
 class TestDocumentsCRUD:
     """ClientDocument CRUD operations."""
 
+    @pytest.mark.asyncio
     async def test_create_document_valid(self, client_with_auth_a):
         """POST /api/v1/documents with valid data."""
         client, _, existing_client, _ = client_with_auth_a
@@ -375,6 +395,7 @@ class TestDocumentsCRUD:
         assert data["name"] == "Contrato Social"
         assert data["document_type"] == "contract"
 
+    @pytest.mark.asyncio
     async def test_create_document_invalid_client(self, client_with_auth_a):
         """POST /api/v1/documents with non-existent client."""
         client, _, _, _ = client_with_auth_a
@@ -389,6 +410,7 @@ class TestDocumentsCRUD:
 
         assert response.status_code == 404
 
+    @pytest.mark.asyncio
     async def test_list_documents(self, client_with_auth_a):
         """GET /api/v1/documents lists documents for tenant."""
         client, _, _, _ = client_with_auth_a
@@ -398,6 +420,7 @@ class TestDocumentsCRUD:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    @pytest.mark.asyncio
     async def test_update_document_status(self, client_with_auth_a):
         """PATCH /api/v1/documents/{id} updates status."""
         client, _, existing_client, test_db = client_with_auth_a
@@ -434,6 +457,7 @@ class TestDocumentsCRUD:
 class TestCertificatesCRUD:
     """DigitalCertificate CRUD operations."""
 
+    @pytest.mark.asyncio
     async def test_create_certificate_valid(self, client_with_auth_a):
         """POST /api/v1/certificates with valid data."""
         client, _, existing_client, _ = client_with_auth_a
@@ -454,6 +478,7 @@ class TestCertificatesCRUD:
         assert data["label"] == "Certificado A1 - João Silva"
         assert data["certificate_type"] == "a1"
 
+    @pytest.mark.asyncio
     async def test_create_certificate_missing_required_valid_until(self, client_with_auth_a):
         """POST /api/v1/certificates without required 'valid_until'."""
         client, _, existing_client, _ = client_with_auth_a
@@ -469,6 +494,7 @@ class TestCertificatesCRUD:
         assert response.status_code == 422
         assert "valid_until" in str(response.json())
 
+    @pytest.mark.asyncio
     async def test_list_certificates(self, client_with_auth_a):
         """GET /api/v1/certificates lists certificates for tenant."""
         client, _, _, _ = client_with_auth_a
@@ -478,6 +504,7 @@ class TestCertificatesCRUD:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    @pytest.mark.asyncio
     async def test_update_certificate_status(self, client_with_auth_a):
         """PATCH /api/v1/certificates/{id} updates status."""
         client, _, existing_client, test_db = client_with_auth_a
@@ -515,6 +542,7 @@ class TestCertificatesCRUD:
 class TestReceivablesCRUD:
     """AccountReceivable CRUD operations."""
 
+    @pytest.mark.asyncio
     async def test_create_receivable_valid(self, client_with_auth_a):
         """POST /api/v1/receivables with valid data."""
         client, _, existing_client, _ = client_with_auth_a
@@ -536,6 +564,7 @@ class TestReceivablesCRUD:
         assert Decimal(data["amount"]) == Decimal("1500.00")
         assert data["status"] == "pending"
 
+    @pytest.mark.asyncio
     async def test_create_receivable_zero_amount(self, client_with_auth_a):
         """POST /api/v1/receivables with amount=0 (must be > 0)."""
         client, _, existing_client, _ = client_with_auth_a
@@ -551,6 +580,7 @@ class TestReceivablesCRUD:
 
         assert response.status_code == 422
 
+    @pytest.mark.asyncio
     async def test_create_receivable_negative_amount(self, client_with_auth_a):
         """POST /api/v1/receivables with amount < 0."""
         client, _, existing_client, _ = client_with_auth_a
@@ -566,6 +596,7 @@ class TestReceivablesCRUD:
 
         assert response.status_code == 422
 
+    @pytest.mark.asyncio
     async def test_list_receivables(self, client_with_auth_a):
         """GET /api/v1/receivables lists receivables for tenant."""
         client, _, _, _ = client_with_auth_a
@@ -575,6 +606,7 @@ class TestReceivablesCRUD:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    @pytest.mark.asyncio
     async def test_list_receivables_filter_by_status(self, client_with_auth_a):
         """GET /api/v1/receivables?status=paid filters by status."""
         client, _, _, _ = client_with_auth_a
@@ -586,6 +618,7 @@ class TestReceivablesCRUD:
         for item in data:
             assert item["status"] == "paid"
 
+    @pytest.mark.asyncio
     async def test_update_receivable_to_paid(self, client_with_auth_a):
         """PATCH /api/v1/receivables/{id} with status=paid sets paid_at."""
         client, _, existing_client, test_db = client_with_auth_a
@@ -624,6 +657,7 @@ class TestReceivablesCRUD:
 class TestTenantIsolation:
     """Verify users cannot access data from other tenants."""
 
+    @pytest.mark.asyncio
     async def test_user_a_cannot_get_client_from_tenant_b(self, test_db: AsyncSession):
         """User A cannot GET /api/v1/clients/{id_of_client_from_tenant_b}."""
         # Setup
@@ -664,6 +698,7 @@ class TestTenantIsolation:
         # Assert: Should not find the client
         assert found is None
 
+    @pytest.mark.asyncio
     async def test_tenant_isolation_prevents_cross_tenant_updates(self, test_db: AsyncSession):
         """Updating a deadline from another tenant fails (tenant_id check)."""
         ta = Tenant(id=uuid.uuid4(), name="A", slug="a", plan="pro")

@@ -45,7 +45,7 @@ def _sanitize_database_url(url: str) -> str:
     parsed = urlparse(url)
 
     # Ensure asyncpg scheme
-    if parsed.scheme == "postgres":
+    if parsed.scheme in ("postgres", "postgresql"):
         parsed = parsed._replace(scheme="postgresql+asyncpg")
 
     # Parse and fix query parameters

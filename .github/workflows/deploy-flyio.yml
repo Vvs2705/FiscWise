@@ -6,10 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   deploy:
     name: Deploy to Fly.io
@@ -25,30 +21,25 @@ jobs:
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          flyctl deploy --remote-only \
-            --build-arg ENVIRONMENT=production \
-            --build-arg DEBUG=False
-
-      - name: Set Fly.io secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          flyctl secrets set \
-            DATABASE_URL="${{ secrets.SUPABASE_DATABASE_URL }}" \
-            JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
-            SUPABASE_SECRET_KEY="${{ secrets.SUPABASE_SECRET_KEY }}" \
-            SUPABASE_URL="https://lkgmgbieottygodrdubi.supabase.co"
+        run: flyctl deploy --remote-only
 
       - name: Health check
         run: |
           sleep 30
           curl -f https://contaflow.fly.dev/api/v1/health || exit 1
 
-      - name: Notify deployment
-        if: success()
-        run: echo "✅ Deployment successful to https://contaflow.fly.dev"
+      - name: Notify result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Deployed to https://contaflow.fly.dev"
+          else
+            echo "❌ Deployment failed — check logs: flyctl logs --app contaflow"
+          fi
 
-      - name: Notify failure
-        if: failure()
-        run: echo "❌ Deployment failed"
+# Fly.io secrets are managed manually (not via CI) to avoid plaintext exposure:
+#   flyctl secrets set DATABASE_URL="..."
+#   flyctl secrets set JWT_SECRET_KEY="..."
+#   flyctl secrets set SUPABASE_SECRET_KEY="..."
+#   flyctl secrets set ADMIN_EMERGENCY_TOKEN="..."
+#   flyctl secrets set ADMIN_OPERATIONS_ALLOWED="true"

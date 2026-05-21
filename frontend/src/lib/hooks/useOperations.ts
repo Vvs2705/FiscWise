@@ -12,6 +12,7 @@ export type ReceivableStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 export interface AccountingClient {
   id: string;
   tenant_id: string;
+  client_code: string;
   name: string;
   document?: string | null;
   entity_type: EntityType;

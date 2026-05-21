@@ -1,9 +1,13 @@
 """Operational MVP endpoints for FiscWise pilots."""
 
+import logging
+import random
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, TypeVar
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import Date as SADate, cast, func, or_, select
@@ -103,6 +107,25 @@ async def _commit_refresh(db: AsyncSession, instance: Any) -> Any:
     await db.commit()
     await db.refresh(instance)
     return instance
+
+
+async def _generate_client_code(db: AsyncSession, tenant_id: uuid.UUID) -> str:
+    """Gera codigo de 4 digitos unico para o tenant. Retry em caso de colisao."""
+    for attempt in range(20):
+        code = f"{random.randint(0, 9999):04d}"
+        existing = await db.execute(
+            select(AccountingClient).where(
+                AccountingClient.tenant_id == tenant_id,
+                AccountingClient.client_code == code,
+            )
+        )
+        if existing.scalar_one_or_none() is None:
+            return code
+        logger.debug("client_code %s collision on attempt %d, retrying", code, attempt + 1)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Could not generate unique client code after 20 attempts",
+    )
 
 
 @router.get("/dashboard/overview", response_model=DashboardOverview)
@@ -298,6 +321,7 @@ async def list_clients(
             or_(
                 AccountingClient.name.ilike(term),
                 AccountingClient.document.ilike(term),
+                AccountingClient.client_code.ilike(term),
             )
         )
     result = await db.execute(statement.order_by(AccountingClient.name.asc()))
@@ -335,7 +359,12 @@ async def create_client(
                 detail="A client with this document already exists",
             )
 
-    client = AccountingClient(tenant_id=tenant_id, **payload.model_dump())
+    client_code = await _generate_client_code(db, tenant_id)
+    client = AccountingClient(
+        tenant_id=tenant_id,
+        client_code=client_code,
+        **payload.model_dump(),
+    )
     db.add(client)
     return await _commit_refresh(db, client)
 

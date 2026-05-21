@@ -32,6 +32,7 @@ class AccountingClient(Base, TenantBase):
     phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     municipal_registration: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     state_registration: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    client_code: Mapped[str] = mapped_column(String(4), nullable=False, default="", index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 

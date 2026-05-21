@@ -48,6 +48,7 @@ class AccountingClientResponse(AccountingClientCreate):
 
     id: UUID
     tenant_id: UUID
+    client_code: str
     created_at: datetime
     updated_at: datetime
 

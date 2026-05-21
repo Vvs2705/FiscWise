@@ -66,7 +66,9 @@ def _sanitize_database_url(url: str) -> str:
         params = []
 
     params.append('ssl=require')
-    params.append('statement_cache_size=0')
+    # statement_cache_size must NOT be in the URL — asyncpg receives it as a
+    # string from query params and fails with TypeError when comparing to int.
+    # It is passed as connect_args in run_async_migrations() instead.
 
     return f"{base}?{'&'.join(params)}"
 
@@ -154,6 +156,7 @@ async def run_async_migrations() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"statement_cache_size": 0},
     )
 
     async with connectable.connect() as connection:

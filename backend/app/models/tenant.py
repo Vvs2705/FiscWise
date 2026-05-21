@@ -75,7 +75,7 @@ class Tenant(Base):
     
     # Subscription Management
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
-        SQLEnum(SubscriptionStatus, name="subscription_status_enum", create_type=True),
+        SQLEnum(SubscriptionStatus, name="subscription_status_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=SubscriptionStatus.TRIAL,
         index=True,

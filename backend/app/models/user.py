@@ -84,7 +84,7 @@ class User(Base, TenantBase):
     
     # User Authorization
     role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole, name="user_role_enum", create_type=True),
+        SQLEnum(UserRole, name="user_role_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=UserRole.MEMBER,
         index=True,

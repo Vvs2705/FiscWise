@@ -5,9 +5,9 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 """
 
 import logging
+import re
 import uuid
 from typing import AsyncGenerator, Optional
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -36,43 +36,29 @@ _AsyncSessionLocal: Optional[async_sessionmaker] = None
 
 
 def _sanitize_database_url(url: str) -> str:
-    """Convert DATABASE_URL to asyncpg-compatible format.
+    """Convert DATABASE_URL to asyncpg-compatible format using regex.
 
-    Handles Supabase URLs that include sslmode parameter, which asyncpg doesn't support.
-    Converts postgres:// to postgresql+asyncpg:// and replaces sslmode with ssl param.
+    Uses regex instead of urlparse/urlunparse to avoid corruption of
+    URL-encoded characters in passwords (e.g. %23 for #, %40 for @).
+    statement_cache_size is NOT added here — passed as integer via
+    connect_args to avoid asyncpg TypeError (string vs int comparison).
     """
-    # Parse the URL
-    parsed = urlparse(url)
+    url = re.sub(r'^postgres(?:ql)?(?:\+\w+)?://', 'postgresql+asyncpg://', url)
 
-    # Ensure asyncpg scheme
-    if parsed.scheme in ("postgres", "postgresql"):
-        parsed = parsed._replace(scheme="postgresql+asyncpg")
+    if '?' in url:
+        base, qs = url.split('?', 1)
+        params = []
+        for part in qs.split('&'):
+            if part.startswith('sslmode=') or part.startswith('ssl=') or part in ('sslmode', 'ssl'):
+                continue
+            if part:
+                params.append(part)
+    else:
+        base = url
+        params = []
 
-    # Parse and fix query parameters
-    params = parse_qs(parsed.query, keep_blank_values=True)
-
-    # Remove sslmode (asyncpg doesn't support it)
-    if "sslmode" in params:
-        del params["sslmode"]
-
-    # Add asyncpg-compatible SSL params
-    params["ssl"] = ["require"]
-    params["statement_cache_size"] = ["0"]
-
-    # Rebuild query string
-    new_query = urlencode(params, doseq=True)
-
-    # Rebuild URL
-    fixed_url = urlunparse((
-        parsed.scheme,
-        parsed.netloc,
-        parsed.path,
-        parsed.params,
-        new_query,
-        parsed.fragment
-    ))
-
-    return fixed_url
+    params.append('ssl=require')
+    return f"{base}?{'&'.join(params)}"
 
 
 def _get_engine():
@@ -105,6 +91,7 @@ def _get_engine():
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=10,
+            connect_args={"statement_cache_size": 0},
         )
         _AsyncSessionLocal = async_sessionmaker(
             _engine,

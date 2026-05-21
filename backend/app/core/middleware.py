@@ -62,8 +62,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from the next handler or error response
         """
+        # CORS preflight: let CORSMiddleware handle it, never block OPTIONS
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = request.url.path
-        
+
         is_excluded = path in _EXCLUDED_EXACT_PATHS or any(
             path == prefix or path.startswith(f"{prefix}/")
             for prefix in _EXCLUDED_PREFIXES

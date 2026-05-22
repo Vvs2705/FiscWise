@@ -95,14 +95,39 @@ export function Sidebar() {
 
       {/* Rodapé da sidebar */}
       <div className="border-t border-sidebar-border px-2 py-3">
-        <div className="hidden items-center gap-2 rounded-lg px-3 py-2 md:flex">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent/20 text-xs font-semibold text-sidebar-accent">
-            FW
-          </div>
-          <div className="min-w-0 flex-1">
+        {/* Desktop: branding + link Vstack */}
+        <div className="hidden flex-col gap-1 px-3 py-1 md:flex">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sidebar-accent/20 text-[10px] font-bold text-sidebar-accent">
+              FW
+            </div>
             <p className="truncate text-xs font-medium text-sidebar-foreground">FiscWise</p>
-            <p className="truncate text-[10px] text-sidebar-muted">fiscwise.com.br</p>
           </div>
+          <a
+            href="https://vstack-solutions.com.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="truncate text-[10px] text-sidebar-muted transition-colors hover:text-sidebar-foreground"
+            title="Vstack Solutions — empresa desenvolvedora do FiscWise"
+          >
+            by Vstack Solutions
+          </a>
+        </div>
+
+        {/* Mobile: só tooltip com crédito */}
+        <div className="flex items-center justify-center md:hidden">
+          <a
+            href="https://vstack-solutions.com.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="by Vstack Solutions"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:text-sidebar-foreground"
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M8 4v4l2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </a>
         </div>
       </div>
     </aside>

@@ -219,6 +219,22 @@ export function LoginPage() {
             </Link>
           </p>
         </div>
+
+        {/* Footer com crédito da empresa mãe — visível a crawlers, sem auth */}
+        <footer className="animate-fade-in mt-auto pt-10 text-center">
+          <p className="text-xs text-muted-foreground/70">
+            Desenvolvido por{' '}
+            <a
+              href="https://vstack-solutions.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              Vstack Solutions
+            </a>
+            {' '}· © {new Date().getFullYear()} FiscWise
+          </p>
+        </footer>
       </div>
     </div>
   );

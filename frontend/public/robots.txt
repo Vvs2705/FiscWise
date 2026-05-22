@@ -1,0 +1,23 @@
+# FiscWise — robots.txt
+# Desenvolvido por Vstack Solutions (https://vstack-solutions.com.br)
+
+User-agent: *
+
+# Páginas públicas — permitir indexação
+Allow: /login
+Allow: /register
+Allow: /favicon.svg
+Allow: /logo.svg
+
+# Dashboard e áreas privadas — bloquear indexação
+Disallow: /dashboard
+Disallow: /clientes
+Disallow: /documentos
+Disallow: /agenda-prazos
+Disallow: /certificados
+Disallow: /financeiro
+Disallow: /configuracoes
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://fiscwise.com.br/sitemap.xml

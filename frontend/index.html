@@ -17,6 +17,10 @@
       content="FiscWise é a plataforma de gestão contábil que unifica clientes, documentos, certificados digitais, prazos fiscais e financeiro em um único lugar."
     />
     <meta name="theme-color" content="#4F67E4" />
+    <meta name="author"      content="Vstack Solutions" />
+    <meta name="publisher"   content="Vstack Solutions — vstack-solutions.com.br" />
+    <meta name="copyright"   content="Vstack Solutions" />
+    <link rel="canonical"    href="https://fiscwise.com.br/" />
 
     <!-- Open Graph (WhatsApp, LinkedIn, Facebook) -->
     <meta property="og:type"        content="website" />
@@ -38,6 +42,73 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- ─── JSON-LD Structured Data ─────────────────────────────────────────
+         Associa FiscWise à Vstack Solutions para Google Knowledge Graph,
+         rich results e backlink semântico da empresa mãe.
+    ────────────────────────────────────────────────────────────────────── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://fiscwise.com.br/#software",
+          "name": "FiscWise",
+          "url": "https://fiscwise.com.br",
+          "description": "Plataforma de gestão contábil inteligente para escritórios de contabilidade. Gerencie clientes, documentos, certificados digitais, prazos fiscais e financeiro em um único lugar.",
+          "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "Contabilidade",
+          "operatingSystem": "Web",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "BRL",
+            "availability": "https://schema.org/InStock"
+          },
+          "author": {
+            "@id": "https://vstack-solutions.com.br/#organization"
+          },
+          "creator": {
+            "@id": "https://vstack-solutions.com.br/#organization"
+          },
+          "publisher": {
+            "@id": "https://vstack-solutions.com.br/#organization"
+          },
+          "inLanguage": "pt-BR",
+          "countryOfOrigin": "BR"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://vstack-solutions.com.br/#organization",
+          "name": "Vstack Solutions",
+          "url": "https://vstack-solutions.com.br",
+          "description": "Empresa de desenvolvimento de software especializada em soluções SaaS para o mercado brasileiro.",
+          "sameAs": [
+            "https://vstack-solutions.com.br",
+            "https://github.com/Vvs2705"
+          ],
+          "foundingCountry": "BR",
+          "knowsAbout": [
+            "Desenvolvimento de Software",
+            "SaaS",
+            "Gestão Contábil",
+            "Tecnologia Fiscal"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://fiscwise.com.br/#website",
+          "url": "https://fiscwise.com.br",
+          "name": "FiscWise",
+          "publisher": {
+            "@id": "https://vstack-solutions.com.br/#organization"
+          },
+          "inLanguage": "pt-BR"
+        }
+      ]
+    }
+    </script>
 
     <!-- Evitar flash de tema errado: aplica classe 'dark' antes do React montar -->
     <script>

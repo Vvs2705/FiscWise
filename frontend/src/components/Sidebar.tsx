@@ -33,8 +33,12 @@ export function Sidebar() {
         'transition-all duration-300 ease-spring',
       )}
     >
-      {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-sidebar-border px-3 md:justify-start md:px-5">
+      {/* Logo — clicável, retorna ao dashboard */}
+      <Link
+        to="/dashboard"
+        aria-label="Ir para o dashboard"
+        className="flex h-16 items-center justify-center border-b border-sidebar-border px-3 transition-opacity hover:opacity-80 md:justify-start md:px-5"
+      >
         {/* Desktop: logo completo */}
         <div className="hidden md:block">
           <Logo variant="full" theme="dark" size={34} />
@@ -43,7 +47,7 @@ export function Sidebar() {
         <div className="md:hidden">
           <Logo variant="icon" size={32} />
         </div>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">

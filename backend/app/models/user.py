@@ -81,7 +81,13 @@ class User(Base, TenantBase):
         nullable=True,
         comment="User full name"
     )
-    
+
+    phone: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="User phone number"
+    )
+
     # User Authorization
     role: Mapped[UserRole] = mapped_column(
         SQLEnum(UserRole, name="user_role_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),

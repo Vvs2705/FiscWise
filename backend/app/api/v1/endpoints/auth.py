@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -265,13 +266,13 @@ async def get_me(
 ):
     """
     Get current authenticated user information.
-    
+
     Protected endpoint that requires valid JWT token.
     Returns user profile information.
-    
+
     Args:
         current_user: Current authenticated user from token
-        
+
     Returns:
         dict: User profile information
     """
@@ -283,3 +284,114 @@ async def get_me(
         "is_active": current_user.is_active,
         "created_at": current_user.created_at.isoformat(),
     }
+
+
+@router.get("/tenant", summary="Get Current Tenant Info")
+async def get_tenant(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return {
+        "id": str(tenant.id),
+        "name": tenant.name,
+        "document": tenant.document,
+        "plan_slug": getattr(tenant, "plan_slug", None),
+        "phone": getattr(tenant, "phone", None),
+        "address": getattr(tenant, "address", None),
+        "website": getattr(tenant, "website", None),
+        "subscription_status": tenant.subscription_status.value,
+        "created_at": tenant.created_at.isoformat(),
+    }
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    phone: Optional[str] = Field(None, max_length=20)
+
+
+@router.patch("/me", summary="Update User Profile")
+async def update_me(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.full_name is not None:
+        current_user.full_name = body.full_name
+    if body.phone is not None:
+        current_user.phone = body.phone
+    await db.commit()
+    await db.refresh(current_user)
+    return {
+        "id": str(current_user.id),
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "phone": getattr(current_user, "phone", None),
+        "role": current_user.role.value,
+    }
+
+
+class UpdateTenantRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=255)
+    document: Optional[str] = Field(None, max_length=32)
+    plan_slug: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, max_length=20)
+    address: Optional[str] = Field(None, max_length=500)
+    website: Optional[str] = Field(None, max_length=255)
+
+
+@router.patch("/tenant", summary="Update Tenant")
+async def update_tenant(
+    body: UpdateTenantRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if body.name is not None:
+        tenant.name = body.name
+    if body.document is not None:
+        tenant.document = body.document
+    if body.plan_slug is not None:
+        tenant.plan_slug = body.plan_slug
+    if body.phone is not None:
+        tenant.phone = body.phone
+    if body.address is not None:
+        tenant.address = body.address
+    if body.website is not None:
+        tenant.website = body.website
+    await db.commit()
+    await db.refresh(tenant)
+    return {
+        "id": str(tenant.id),
+        "name": tenant.name,
+        "document": tenant.document,
+        "plan_slug": getattr(tenant, "plan_slug", None),
+        "phone": getattr(tenant, "phone", None),
+        "address": getattr(tenant, "address", None),
+        "website": getattr(tenant, "website", None),
+        "subscription_status": tenant.subscription_status.value,
+    }
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+@router.post("/change-password", summary="Change Password")
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    current_user.hashed_password = get_password_hash(body.new_password)
+    await db.commit()
+    return {"message": "Senha alterada com sucesso"}

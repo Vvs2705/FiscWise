@@ -3,8 +3,8 @@ import {
   login as authLogin,
   register as authRegister,
   loginWithGoogle as authLoginWithGoogle,
-  LoginCredentials,
-  RegisterData,
+  type LoginCredentials,
+  type RegisterData,
 } from '@/lib/auth';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

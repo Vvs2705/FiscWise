@@ -72,7 +72,32 @@ class Tenant(Base):
         index=True,
         comment="CNPJ or CPF (Brazilian tax identification)"
     )
-    
+
+    plan_slug: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        default=None,
+        comment="Subscription plan slug identifier"
+    )
+
+    phone: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Tenant contact phone number"
+    )
+
+    address: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Tenant address"
+    )
+
+    website: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Tenant website URL"
+    )
+
     # Subscription Management
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         SQLEnum(SubscriptionStatus, name="subscription_status_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),

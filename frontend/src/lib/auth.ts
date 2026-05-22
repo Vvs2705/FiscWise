@@ -11,18 +11,54 @@ export interface RegisterData {
   owner_password: string;
   owner_full_name: string;
   plan_slug: string;
+  owner_phone?: string;
+  document?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  phone?: string;
+  role: string;
 }
 
 export interface AuthResponse {
   access_token: string;
   token_type: string;
   tenant_id: string;
-  user: {
-    id: string;
-    email: string;
-    full_name: string;
-    role: string;
-  };
+  user: AuthUser;
+}
+
+export interface TenantData {
+  id: string;
+  name: string;
+  document?: string;
+  plan_slug?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
+  subscription_status: string;
+  created_at?: string;
+}
+
+export interface UpdateProfileData {
+  full_name?: string;
+  phone?: string;
+}
+
+export interface UpdateTenantData {
+  name?: string;
+  document?: string;
+  plan_slug?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
+}
+
+export interface ChangePasswordData {
+  current_password: string;
+  new_password: string;
 }
 
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
@@ -38,7 +74,6 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
   const { access_token, tenant_id, user } = response.data;
 
-  // Store auth data
   localStorage.setItem('access_token', access_token);
   localStorage.setItem('tenant_id', tenant_id);
   localStorage.setItem('user', JSON.stringify(user));
@@ -51,7 +86,6 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
   const { access_token, tenant_id, user } = response.data;
 
-  // Store auth data
   localStorage.setItem('access_token', access_token);
   localStorage.setItem('tenant_id', tenant_id);
   localStorage.setItem('user', JSON.stringify(user));
@@ -70,7 +104,7 @@ export function isAuthenticated(): boolean {
   return !!localStorage.getItem('access_token');
 }
 
-export function getCurrentUser() {
+export function getCurrentUser(): AuthUser | null {
   const userStr = localStorage.getItem('user');
   if (!userStr || userStr === 'undefined' || userStr === 'null') {
     localStorage.removeItem('user');
@@ -98,4 +132,28 @@ export async function loginWithGoogle(credential: string): Promise<AuthResponse>
   localStorage.setItem('user', JSON.stringify(user));
 
   return response.data;
+}
+
+export async function fetchTenant(): Promise<TenantData> {
+  const { data } = await api.get<TenantData>('/api/v1/auth/tenant');
+  return data;
+}
+
+export async function updateProfile(data: UpdateProfileData): Promise<AuthUser> {
+  const { data: user } = await api.patch<AuthUser>('/api/v1/auth/me', data);
+  // Persist updated user to localStorage
+  const stored = getCurrentUser();
+  if (stored) {
+    localStorage.setItem('user', JSON.stringify({ ...stored, ...user }));
+  }
+  return user;
+}
+
+export async function updateTenant(data: UpdateTenantData): Promise<TenantData> {
+  const { data: tenant } = await api.patch<TenantData>('/api/v1/auth/tenant', data);
+  return tenant;
+}
+
+export async function changePassword(data: ChangePasswordData): Promise<void> {
+  await api.post('/api/v1/auth/change-password', data);
 }

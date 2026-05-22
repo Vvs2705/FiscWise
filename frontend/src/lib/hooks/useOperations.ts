@@ -325,6 +325,21 @@ export function useDeleteReceivable() {
   return useDeleteMutation('/api/v1/receivables');
 }
 
+export function useUploadDocument() {
+  return useMutation({
+    mutationFn: async (file: File): Promise<{ url: string; path: string }> => {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await api.post<{ url: string; path: string }>(
+        '/api/v1/documents/upload',
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      return data;
+    },
+  });
+}
+
 export function moneyBRL(value: string | number | null | undefined) {
   return Number(value ?? 0).toLocaleString('pt-BR', {
     style: 'currency',

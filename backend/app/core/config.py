@@ -159,6 +159,10 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
 
+    # Supabase Storage
+    SUPABASE_URL: str = ""
+    SUPABASE_SECRET_KEY: str = ""
+
     # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""

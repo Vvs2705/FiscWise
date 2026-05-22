@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import Date as SADate, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -499,6 +499,75 @@ async def update_document(
     document = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
     _apply_updates(document, payload)
     return await _commit_refresh(db, document)
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tenant_id = _tenant_id(current_user)
+    document = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    await db.delete(document)
+    await db.commit()
+
+
+@router.post("/documents/upload")
+async def upload_document_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Faz upload de arquivo para Supabase Storage e retorna a URL publica."""
+    import uuid as _uuid
+    import httpx
+    from app.core.config import settings
+
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Storage not configured",
+        )
+
+    # Gera path unico: {tenant_id}/{uuid}_{filename_ext}
+    tenant_id = _tenant_id(current_user)
+    file_ext = ""
+    if file.filename and "." in file.filename:
+        file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+
+    unique_name = f"{tenant_id}/{_uuid.uuid4().hex}{file_ext}"
+    bucket = "documents"
+
+    file_bytes = await file.read()
+    content_type = file.content_type or "application/octet-stream"
+
+    # Upload para Supabase Storage via REST
+    storage_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{unique_name}"
+
+    # Supabase Storage aceita tanto o JWT service role quanto as novas chaves
+    # sb_secret_* — ambos os headers sao necessarios para compatibilidade
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            storage_url,
+            content=file_bytes,
+            headers={
+                "apikey": settings.SUPABASE_SECRET_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
+                "Content-Type": content_type,
+                "x-upsert": "false",
+            },
+        )
+
+    if resp.status_code not in (200, 201):
+        logger.error("Supabase Storage upload failed: %s %s", resp.status_code, resp.text)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to upload file to storage",
+        )
+
+    # URL publica
+    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket}/{unique_name}"
+    return {"url": public_url, "path": unique_name}
 
 
 @router.get("/certificates", response_model=list[CertificateResponse])

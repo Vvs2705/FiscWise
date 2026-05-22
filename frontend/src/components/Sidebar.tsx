@@ -9,6 +9,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 const navigation = [
   { name: 'Dashboard',      href: '/dashboard',      icon: LayoutDashboard },
@@ -20,50 +21,6 @@ const navigation = [
   { name: 'Configurações',  href: '/configuracoes',   icon: Settings },
 ];
 
-/* Logo SVG da FiscWise — ícone de gráfico + "FW" */
-function FiscWiseLogo({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="flex items-center gap-3">
-      {/* Ícone */}
-      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent/20 ring-1 ring-sidebar-accent/30">
-        <svg
-          viewBox="0 0 36 36"
-          fill="none"
-          className="h-5 w-5"
-          aria-hidden="true"
-        >
-          {/* Barra esquerda */}
-          <rect x="4"  y="20" width="6" height="12" rx="2" fill="hsl(var(--sidebar-logo-accent))" opacity="0.6" />
-          {/* Barra central */}
-          <rect x="15" y="12" width="6" height="20" rx="2" fill="hsl(var(--sidebar-logo-accent))" opacity="0.85" />
-          {/* Barra direita */}
-          <rect x="26" y="6"  width="6" height="26" rx="2" fill="hsl(var(--sidebar-logo-accent))" />
-          {/* Linha de tendência */}
-          <path
-            d="M7 18 L18 10 L29 4"
-            stroke="hsl(var(--sidebar-logo-accent))"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.5"
-          />
-        </svg>
-      </div>
-
-      {/* Nome — visível apenas quando expandido */}
-      {!compact && (
-        <div className="min-w-0">
-          <span className="block text-base font-bold leading-tight text-sidebar-foreground tracking-tight">
-            FiscWise
-          </span>
-          <span className="block text-[10px] font-medium uppercase tracking-widest text-sidebar-muted">
-            Gestão Contábil
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function Sidebar() {
   const location = useLocation();
@@ -78,10 +35,13 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-sidebar-border px-3 md:justify-start md:px-5">
-        <FiscWiseLogo compact={false} />
+        {/* Desktop: logo completo */}
+        <div className="hidden md:block">
+          <Logo variant="full" theme="dark" size={34} />
+        </div>
         {/* Mobile: só ícone */}
         <div className="md:hidden">
-          <FiscWiseLogo compact />
+          <Logo variant="icon" size={32} />
         </div>
       </div>
 

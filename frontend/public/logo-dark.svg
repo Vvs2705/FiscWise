@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+  <defs>
+    <linearGradient id="bgd" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"  stop-color="#5B6FEE"/>
+      <stop offset="100%" stop-color="#3A52C9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ícone -->
+  <rect width="48" height="48" rx="12" fill="url(#bgd)"/>
+  <rect x="7"  y="30" width="8" height="12" rx="2" fill="white" opacity="0.55"/>
+  <rect x="20" y="22" width="8" height="20" rx="2" fill="white" opacity="0.78"/>
+  <rect x="33" y="13" width="8" height="29" rx="2" fill="white"/>
+  <path d="M11 30 L24 22 L37 13" stroke="white" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+  <path d="M34 8 L41 8 L41 15" stroke="white" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
+  <path d="M33 14 L41 8" stroke="white" stroke-width="2.2"
+        stroke-linecap="round" fill="none" opacity="0.9"/>
+
+  <!-- Wordmark branco para fundo escuro -->
+  <text x="60" y="28" font-family="Inter, system-ui, sans-serif"
+        font-size="20" font-weight="700" letter-spacing="-0.4"
+        fill="#EEF1FA">FiscWise</text>
+
+  <text x="61" y="41" font-family="Inter, system-ui, sans-serif"
+        font-size="9" font-weight="500" letter-spacing="1.8"
+        fill="#8B9ABF" text-anchor="start">GESTÃO CONTÁBIL</text>
+</svg>

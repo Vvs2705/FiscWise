@@ -2,10 +2,54 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Viewport -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="FiscWise - Plataforma de gestão inteligente com IA" />
-    <title>FiscWise</title>
+
+    <!-- SEO / meta primários -->
+    <title>FiscWise — Gestão Contábil Inteligente</title>
+    <meta
+      name="description"
+      content="FiscWise é a plataforma de gestão contábil que unifica clientes, documentos, certificados digitais, prazos fiscais e financeiro em um único lugar."
+    />
+    <meta name="theme-color" content="#4F67E4" />
+
+    <!-- Open Graph (WhatsApp, LinkedIn, Facebook) -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="https://fiscwise.com.br/" />
+    <meta property="og:title"       content="FiscWise — Gestão Contábil Inteligente" />
+    <meta property="og:description" content="Unifique clientes, documentos, certificados e prazos fiscais. Simplifique a operação do seu escritório contábil." />
+    <meta property="og:image"       content="https://fiscwise.com.br/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="FiscWise — Gestão Contábil" />
+    <meta name="twitter:description" content="Plataforma completa para escritórios de contabilidade." />
+    <meta name="twitter:image"       content="https://fiscwise.com.br/og-image.png" />
+
+    <!-- Fonte: Inter via Google Fonts (swap para sem FOIT) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Evitar flash de tema errado: aplica classe 'dark' antes do React montar -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('fw-theme');
+          if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

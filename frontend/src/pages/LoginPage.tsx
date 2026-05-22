@@ -4,8 +4,9 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { BarChart3, Eye, EyeOff, Lock, Mail, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 /* ─── Painel esquerdo — branding ────────────────────────────────── */
 function BrandPanel() {
@@ -39,16 +40,8 @@ function BrandPanel() {
       </div>
 
       {/* Logo */}
-      <div className="relative z-10 flex items-center gap-3 animate-fade-in-up">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-accent/20 ring-1 ring-sidebar-accent/30">
-          <BarChart3 className="h-5 w-5 text-sidebar-accent" />
-        </div>
-        <div>
-          <span className="block text-lg font-bold text-sidebar-foreground leading-tight">FiscWise</span>
-          <span className="block text-[10px] font-medium uppercase tracking-widest text-sidebar-muted">
-            Gestão Contábil
-          </span>
-        </div>
+      <div className="relative z-10 animate-fade-in-up">
+        <Logo variant="full" theme="dark" size={38} />
       </div>
 
       {/* Headline */}
@@ -109,11 +102,8 @@ export function LoginPage() {
       {/* Painel direito — formulário */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 animate-fade-in-up">
         {/* Logo mobile (esconde em lg) */}
-        <div className="mb-8 flex items-center gap-2 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
-            <BarChart3 className="h-5 w-5 text-primary" />
-          </div>
-          <span className="text-xl font-bold text-foreground">FiscWise</span>
+        <div className="mb-8 lg:hidden">
+          <Logo variant="full" theme="light" size={36} />
         </div>
 
         <div className="w-full max-w-sm space-y-6">

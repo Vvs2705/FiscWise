@@ -56,6 +56,13 @@ class TenantRegistrationRequest(BaseModel):
         examples=["João Silva"]
     )
 
+    owner_phone: Optional[str] = Field(
+        None,
+        max_length=20,
+        description="Owner phone number",
+        examples=["(11) 99999-9999"]
+    )
+
     plan_slug: Optional[str] = Field(
         None,
         description="Subscription plan slug",

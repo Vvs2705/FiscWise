@@ -195,10 +195,9 @@ export function RegisterPage() {
     setStep(2);
   }
 
-  async function handleStep2(values: Step2Values) {
+  function handleStep2(_values: Step2Values) {
+    // Values stay in form2 state; final submit reads them in handleFinish
     setStep(3);
-    // Just advance; final submit happens in step 3
-    void values;
   }
 
   async function handleFinish() {

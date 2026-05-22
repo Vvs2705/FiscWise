@@ -101,6 +101,7 @@ async def login(
             id=str(user.id),
             email=user.email,
             full_name=getattr(user, "full_name", None),
+            phone=getattr(user, "phone", None),
             role=user.role.value,
         ),
     )
@@ -188,6 +189,7 @@ async def google_auth(
                 id=str(existing_user.id),
                 email=existing_user.email,
                 full_name=existing_user.full_name,
+                phone=getattr(existing_user, "phone", None),
                 role=existing_user.role.value,
             ),
         )
@@ -230,6 +232,7 @@ async def google_auth(
                 id=str(new_user.id),
                 email=new_user.email,
                 full_name=new_user.full_name,
+                phone=getattr(new_user, "phone", None),
                 role=new_user.role.value,
             ),
         )
@@ -279,6 +282,8 @@ async def get_me(
     return {
         "id": str(current_user.id),
         "email": current_user.email,
+        "full_name": current_user.full_name,
+        "phone": getattr(current_user, "phone", None),
         "role": current_user.role.value,
         "tenant_id": str(current_user.tenant_id),
         "is_active": current_user.is_active,

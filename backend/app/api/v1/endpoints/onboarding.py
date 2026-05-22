@@ -88,6 +88,7 @@ async def register_tenant(
             email=registration.owner_email,
             hashed_password=hashed_password,
             full_name=registration.owner_full_name,
+            phone=registration.owner_phone,
             role=UserRole.OWNER,
             is_active=True
         )
@@ -116,6 +117,7 @@ async def register_tenant(
                 id=str(new_owner.id),
                 email=new_owner.email,
                 full_name=registration.owner_full_name,
+                phone=registration.owner_phone,
                 role=new_owner.role.value,
             ),
         )

@@ -8,6 +8,9 @@ console_command = "/bin/bash"
 [build]
 dockerfile = "./backend/Dockerfile"
 
+[deploy]
+  release_command = "/bin/sh -c 'cd /app && python run_migrations.py'"
+
 [env]
 ENVIRONMENT = "production"
 DEBUG = "False"

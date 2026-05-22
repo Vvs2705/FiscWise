@@ -1,22 +1,35 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { initTheme } from '@/lib/hooks/useTheme';
 
 // Aplica o tema salvo antes do primeiro render para evitar flash
 initTheme();
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
-import { LoginPage } from '@/pages/LoginPage';
-import { RegisterPage } from '@/pages/RegisterPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { ClientsPage } from '@/pages/ClientsPage';
-import { DocumentsPage } from '@/pages/DocumentsPage';
-import { DeadlinesPage } from '@/pages/DeadlinesPage';
-import { CertificatesPage } from '@/pages/CertificatesPage';
-import { FinancePage } from '@/pages/FinancePage';
-import { SettingsPage } from '@/pages/SettingsPage';
+
+// Lazy-loaded pages — each page is its own JS chunk, loaded only when visited.
+// This reduces the initial bundle from ~1.36 MB to the layout + current page only.
+const LoginPage       = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage    = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const DashboardPage   = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const ClientsPage     = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
+const DocumentsPage   = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
+const DeadlinesPage   = lazy(() => import('@/pages/DeadlinesPage').then(m => ({ default: m.DeadlinesPage })));
+const CertificatesPage = lazy(() => import('@/pages/CertificatesPage').then(m => ({ default: m.CertificatesPage })));
+const FinancePage     = lazy(() => import('@/pages/FinancePage').then(m => ({ default: m.FinancePage })));
+const SettingsPage    = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+
+// Full-screen spinner shown while a lazy chunk is loading
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,30 +80,32 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login"    element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="clientes" element={<ClientsPage />} />
-              <Route path="documentos" element={<DocumentsPage />} />
-              <Route path="agenda-prazos" element={<DeadlinesPage />} />
-              <Route path="certificados" element={<CertificatesPage />} />
-              <Route path="financeiro" element={<FinancePage />} />
-              <Route path="configuracoes" element={<SettingsPage />} />
-              <Route path="billing" element={<Navigate to="/financeiro" replace />} />
-              <Route path="settings" element={<Navigate to="/configuracoes" replace />} />
-            </Route>
-          </Routes>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard"    element={<DashboardPage />} />
+                <Route path="clientes"     element={<ClientsPage />} />
+                <Route path="documentos"   element={<DocumentsPage />} />
+                <Route path="agenda-prazos" element={<DeadlinesPage />} />
+                <Route path="certificados" element={<CertificatesPage />} />
+                <Route path="financeiro"   element={<FinancePage />} />
+                <Route path="configuracoes" element={<SettingsPage />} />
+                <Route path="billing"   element={<Navigate to="/financeiro" replace />} />
+                <Route path="settings"  element={<Navigate to="/configuracoes" replace />} />
+              </Route>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
         <Toaster position="top-right" />
       </QueryClientProvider>

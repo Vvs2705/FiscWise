@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Download, Upload, Loader2, Lock } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -173,78 +173,68 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  function processFile(file: File) {
+  async function processFile(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext !== 'xlsx' && ext !== 'xls') {
+    if (ext !== 'xlsx') {
       toast.error('Arquivo invalido. Use o modelo .xlsx disponibilizado.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+    try {
+      // read-excel-file aceita o File diretamente — sem FileReader necessário
+      const rows = await readXlsxFile(file, { sheet: 'Dados do Cliente' });
 
-        const sheet = workbook.Sheets['Dados do Cliente'];
-        if (!sheet) {
-          toast.error('Aba "Dados do Cliente" nao encontrada. Use o modelo correto.');
-          return;
-        }
+      if (rows.length < 2) {
+        toast.error('Nenhum dado encontrado no arquivo. Preencha ao menos uma linha.');
+        return;
+      }
 
-        // SheetJS rows as array-of-objects using the first row as keys
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+      // Linha 0 = cabeçalhos, linha 1 = primeiro registro de dados
+      const headers = rows[0].map(String);
+      const dataRow = rows[1];
 
-        if (rows.length === 0) {
-          toast.error('Nenhum dado encontrado no arquivo. Preencha ao menos uma linha.');
-          return;
-        }
+      const record: Record<string, unknown> = {};
+      headers.forEach((header, i) => {
+        record[header] = dataRow[i] ?? '';
+      });
 
-        const row = rows[0];
-        let mapped = false;
+      let mapped = false;
 
-        for (const [colName, fieldName] of Object.entries(XLSX_COLUMN_MAP)) {
-          const rawValue = row[colName];
-          if (rawValue !== undefined && rawValue !== '') {
-            const value = String(rawValue).trim();
-
-            if (fieldName === 'entity_type') {
-              // handled separately below
-              continue;
-            }
-
-            setValue(fieldName, value);
-            mapped = true;
-          }
-        }
-
-        // Handle entity_type separately
-        const tipoRaw = row['Tipo (PJ ou PF)'];
-        if (tipoRaw !== undefined && tipoRaw !== '') {
-          const tipo = String(tipoRaw).trim().toUpperCase();
-          setValue('entity_type', tipo === 'PF' ? 'pf' : 'pj');
+      for (const [colName, fieldName] of Object.entries(XLSX_COLUMN_MAP)) {
+        const rawValue = record[colName];
+        if (rawValue !== undefined && rawValue !== '') {
+          const value = String(rawValue).trim();
+          if (fieldName === 'entity_type') continue; // tratado abaixo
+          setValue(fieldName, value);
           mapped = true;
         }
-
-        if (!mapped) {
-          toast.error(
-            'Nenhuma coluna reconhecida. Verifique se o arquivo segue o modelo disponibilizado.'
-          );
-          return;
-        }
-
-        toast.success('Dados importados do arquivo. Revise antes de salvar.');
-      } catch {
-        toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
       }
-    };
-    reader.readAsArrayBuffer(file);
+
+      // entity_type tratado separadamente
+      const tipoRaw = record['Tipo (PJ ou PF)'];
+      if (tipoRaw !== undefined && tipoRaw !== '') {
+        const tipo = String(tipoRaw).trim().toUpperCase();
+        setValue('entity_type', tipo === 'PF' ? 'pf' : 'pj');
+        mapped = true;
+      }
+
+      if (!mapped) {
+        toast.error(
+          'Nenhuma coluna reconhecida. Verifique se o arquivo segue o modelo disponibilizado.'
+        );
+        return;
+      }
+
+      toast.success('Dados importados do arquivo. Revise antes de salvar.');
+    } catch {
+      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
+    }
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) processFile(file);
-    // reset input so the same file can be re-uploaded
+    if (file) void processFile(file);
+    // reset para permitir re-upload do mesmo arquivo
     e.target.value = '';
   }
 
@@ -252,7 +242,7 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    if (file) void processFile(file);
   }
 
   return (

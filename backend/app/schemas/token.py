@@ -17,6 +17,7 @@ class UserInfo(BaseModel):
     id: str
     email: str
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     role: str
 
 

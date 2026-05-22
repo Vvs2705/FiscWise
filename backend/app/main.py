@@ -5,6 +5,9 @@ This module initializes the FastAPI application with all necessary
 middleware, routers, and configuration.
 """
 
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,46 +25,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI application
-app = FastAPI(
-    title="FiscWise API",
-    description="Production-grade B2B SaaS platform for Brazilian accounting and financial services",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json"
-)
 
-# CORS Configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Tenant Isolation Middleware
-app.add_middleware(TenantMiddleware)
-
-# Rate Limiting Middleware (Redis-backed, fails open without Redis)
-app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
-
-# Include API v1 routes
-app.include_router(api_router, prefix="/api/v1")
-
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    Application startup event handler.
-    Executes when the FastAPI application starts.
+    Application lifespan context manager.
+
+    Handles startup validation and graceful shutdown.
+    Replaces the deprecated @app.on_event("startup") / @app.on_event("shutdown").
     """
+    # ── Startup ──────────────────────────────────────────────────────────────
     logger.info("FiscWise API starting up...")
     logger.info("Environment: %s", settings.ENVIRONMENT)
 
-    # Validate critical secrets and emit clear log lines for each.
-    # These secrets must be set via: flyctl secrets set KEY=value
     missing_secrets: list[str] = []
 
     if not settings.DATABASE_URL:
@@ -96,27 +72,50 @@ async def startup_event():
 
     logger.info("Application initialized successfully")
 
+    yield  # Application runs here
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Application shutdown event handler.
-    Executes when the FastAPI application shuts down.
-    """
+    # ── Shutdown ──────────────────────────────────────────────────────────────
     logger.info("FiscWise API shutting down...")
     logger.info("Cleanup completed successfully")
+
+
+# Initialize FastAPI application
+app = FastAPI(
+    title="FiscWise API",
+    description="Production-grade B2B SaaS platform for Brazilian accounting and financial services",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
+)
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Tenant Isolation Middleware
+app.add_middleware(TenantMiddleware)
+
+# Rate Limiting Middleware (Redis-backed, fails open without Redis)
+app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
+
+# Include API v1 routes
+app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
     Health check endpoint.
-    
+
     Returns the operational status of the API.
     Used by load balancers and monitoring systems.
-    
-    Returns:
-        dict: Status message indicating API is online
     """
     return JSONResponse(
         status_code=200,
@@ -128,11 +127,8 @@ async def health_check():
 async def root():
     """
     Root endpoint.
-    
+
     Returns basic API information.
-    
-    Returns:
-        dict: API name, version, and documentation links
     """
     return {
         "name": "FiscWise API",
@@ -145,7 +141,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -298,6 +299,16 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
   const { data: clients, isLoading, isError } = useClients();
+  const location = useLocation();
+
+  // Abre o dialog automaticamente quando vindo do dashboard com state { openCreate: true }
+  useEffect(() => {
+    if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
+      setOpen(true);
+      // Limpa o state para não reabrir ao voltar para a página
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
   const createMutation = useCreateClient();
   const deleteMutation = useDeleteClient();
 

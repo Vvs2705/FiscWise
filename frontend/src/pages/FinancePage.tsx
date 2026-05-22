@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -55,6 +56,15 @@ export function FinancePage() {
   const [open, setOpen] = useState(false);
   const { data: receivables, isLoading, isError } = useReceivables();
   const { data: clients } = useClients();
+  const location = useLocation();
+
+  // Abre o dialog automaticamente quando vindo do dashboard com state { openCreate: true }
+  useEffect(() => {
+    if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
+      setOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
   const createMutation = useCreateReceivable();
   const updateMutation = useUpdateReceivable();
   const deleteMutation = useDeleteReceivable();

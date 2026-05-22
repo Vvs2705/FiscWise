@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
@@ -136,6 +137,7 @@ function statusClass(s: string) {
 
 export function DashboardPage() {
   const { data, isLoading, isError } = useDashboardOverview();
+  const navigate = useNavigate();
 
   const weeklyData = data?.weekly_received ?? [];
   const monthlyTrend = data?.monthly_received ?? [];
@@ -208,9 +210,11 @@ export function DashboardPage() {
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
+            {/* Novo cliente → /clientes com dialog aberto */}
             <motion.button
               whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/clientes', { state: { openCreate: true } })}
               className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
               style={{
                 background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
@@ -219,20 +223,26 @@ export function DashboardPage() {
             >
               + Novo cliente
             </motion.button>
+
+            {/* Novo recebível → /financeiro com dialog aberto */}
             <motion.button
               whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/financeiro', { state: { openCreate: true } })}
               className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
               style={{
                 background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
                 boxShadow: '0 0 20px rgba(0,212,255,0.3)',
               }}
             >
-              + Registrar despesa
+              + Novo recebível
             </motion.button>
+
+            {/* Ver relatório → /financeiro */}
             <motion.button
               whileHover={{ y: -2, backgroundColor: 'rgba(0,212,255,0.1)' }}
               whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/financeiro')}
               className="rounded-lg border border-[rgba(0,212,255,0.25)] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#00d4ff] transition-all"
             >
               Ver relatório

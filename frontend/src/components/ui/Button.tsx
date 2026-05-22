@@ -12,26 +12,46 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-md font-medium transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          // Base
+          'relative inline-flex items-center justify-center rounded-md font-medium select-none',
+          // Transições suaves
+          'transition-all duration-150 ease-spring',
+          // Focus ring
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          // Desabilitado
           'disabled:pointer-events-none disabled:opacity-50',
-          {
-            'bg-primary text-primary-foreground hover:bg-primary/90': variant === 'default',
-            'border border-input bg-background hover:bg-accent hover:text-accent-foreground': variant === 'outline',
-            'hover:bg-accent hover:text-accent-foreground': variant === 'ghost',
-            'bg-destructive text-destructive-foreground hover:bg-destructive/90': variant === 'destructive',
-          },
-          {
-            'h-9 px-3 text-sm': size === 'sm',
-            'h-10 px-4 py-2': size === 'md',
-            'h-11 px-8 text-lg': size === 'lg',
-          },
-          className
+          // Hover lift + active press
+          'hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
+
+          // Variantes
+          variant === 'default' && [
+            'bg-primary text-primary-foreground shadow-sm',
+            'hover:bg-primary/90 hover:shadow-glow-sm',
+            'active:bg-primary/95',
+          ],
+          variant === 'outline' && [
+            'border border-input bg-background shadow-sm',
+            'hover:bg-accent hover:text-accent-foreground hover:border-primary/40',
+          ],
+          variant === 'ghost' && [
+            'hover:bg-accent hover:text-accent-foreground',
+          ],
+          variant === 'destructive' && [
+            'bg-destructive text-destructive-foreground shadow-sm',
+            'hover:bg-destructive/90',
+          ],
+
+          // Tamanhos
+          size === 'sm' && 'h-8 gap-1.5 px-3 text-sm',
+          size === 'md' && 'h-10 gap-2 px-4 text-sm',
+          size === 'lg' && 'h-11 gap-2 px-6 text-base',
+
+          className,
         )}
         {...props}
       />
     );
-  }
+  },
 );
 
 Button.displayName = 'Button';

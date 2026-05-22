@@ -2,58 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens — Light mode ────────────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Backgrounds */
+    --background: 220 20% 96%;
+    --foreground: 222 47% 10%;
+
+    /* Cards */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 10%;
+
+    /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 10%;
+
+    /* Primary — azul-índigo (confiança, controle) */
+    --primary: 228 72% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 222 47% 15%;
+
+    /* Muted */
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Accent */
+    --accent: 220 15% 92%;
+    --accent-foreground: 222 47% 15%;
+
+    /* Destructive */
+    --destructive: 0 78% 57%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders */
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 228 72% 56%;
+
+    /* Radius */
+    --radius: 0.6rem;
+
+    /* Sidebar — sempre escura (não muda com o tema) */
+    --sidebar-bg: 226 35% 13%;
+    --sidebar-fg: 210 30% 92%;
+    --sidebar-muted: 220 15% 52%;
+    --sidebar-active-bg: 228 72% 56%;
+    --sidebar-active-fg: 0 0% 100%;
+    --sidebar-hover-bg: 226 28% 19%;
+    --sidebar-border: 226 28% 19%;
+    --sidebar-logo-accent: 228 72% 65%;
   }
 
+  /* ─── Dark mode tokens ───────────────────────────────────────── */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 224 42% 8%;
+    --foreground: 210 35% 93%;
+
+    --card: 224 38% 12%;
+    --card-foreground: 210 35% 93%;
+
+    --popover: 224 38% 12%;
+    --popover-foreground: 210 35% 93%;
+
+    --primary: 228 72% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 30% 17%;
+    --secondary-foreground: 210 35% 90%;
+
+    --muted: 224 30% 17%;
+    --muted-foreground: 215 18% 55%;
+
+    --accent: 224 30% 17%;
+    --accent-foreground: 210 35% 90%;
+
+    --destructive: 0 68% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 224 25% 20%;
+    --input: 224 25% 20%;
+    --ring: 228 72% 62%;
   }
 }
 
+/* ─── Base styles ────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+}
+
+/* ─── Keyframes ──────────────────────────────────────────────────── */
+@layer utilities {
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to   { background-position:  200% 0; }
+  }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.35); }
+    70%  { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+  }
+
+  /* ── Utility classes ── */
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.25s ease-out both;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Stagger helpers */
+  .animation-delay-75  { animation-delay: 75ms; }
+  .animation-delay-150 { animation-delay: 150ms; }
+  .animation-delay-225 { animation-delay: 225ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+
+  /* Page enter animation */
+  .page-enter {
+    animation: fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  /* Interactive card */
+  .card-interactive {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .card-interactive:hover {
+    @apply -translate-y-0.5 shadow-md;
+  }
+
+  /* Glow ring for primary buttons */
+  .btn-glow:focus-visible {
+    animation: pulse-ring 0.6s ease-out;
   }
 }

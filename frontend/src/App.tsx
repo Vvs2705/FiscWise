@@ -1,5 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { initTheme } from '@/lib/hooks/useTheme';
+
+// Aplica o tema salvo antes do primeiro render para evitar flash
+initTheme();
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ProtectedRoute } from '@/components/ProtectedRoute';

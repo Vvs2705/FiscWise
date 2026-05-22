@@ -4,12 +4,98 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { BarChart3, Eye, EyeOff, Lock, Mail, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
+/* ─── Painel esquerdo — branding ────────────────────────────────── */
+function BrandPanel() {
+  const features = [
+    {
+      icon: ShieldCheck,
+      title: 'Segurança total',
+      desc: 'Dados criptografados e isolados por escritório.',
+    },
+    {
+      icon: TrendingUp,
+      title: 'Visão em tempo real',
+      desc: 'Dashboard com KPIs financeiros e de compliance.',
+    },
+    {
+      icon: Zap,
+      title: 'Automatize processos',
+      desc: 'Prazos, documentos e certificados em um só lugar.',
+    },
+  ];
+
+  return (
+    <div
+      className="relative hidden flex-col justify-between overflow-hidden bg-sidebar px-10 py-12 lg:flex"
+      style={{ minWidth: 420 }}
+    >
+      {/* Fundo decorativo */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -bottom-40 -left-20 h-[360px] w-[360px] rounded-full bg-sidebar-accent/15 blur-3xl" />
+      </div>
+
+      {/* Logo */}
+      <div className="relative z-10 flex items-center gap-3 animate-fade-in-up">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-accent/20 ring-1 ring-sidebar-accent/30">
+          <BarChart3 className="h-5 w-5 text-sidebar-accent" />
+        </div>
+        <div>
+          <span className="block text-lg font-bold text-sidebar-foreground leading-tight">FiscWise</span>
+          <span className="block text-[10px] font-medium uppercase tracking-widest text-sidebar-muted">
+            Gestão Contábil
+          </span>
+        </div>
+      </div>
+
+      {/* Headline */}
+      <div className="relative z-10 space-y-4 animate-fade-in-up animation-delay-75">
+        <h1 className="text-3xl font-bold leading-snug text-sidebar-foreground">
+          Controle total da sua<br />
+          <span className="text-sidebar-accent">operação contábil</span>
+        </h1>
+        <p className="text-sm leading-relaxed text-sidebar-muted">
+          Gerencie clientes, documentos, certificados digitais e prazos
+          fiscais com segurança e eficiência.
+        </p>
+      </div>
+
+      {/* Features */}
+      <div className="relative z-10 space-y-4">
+        {features.map((f, i) => (
+          <div
+            key={f.title}
+            className="animate-fade-in-up flex items-start gap-3"
+            style={{ animationDelay: `${150 + i * 75}ms` }}
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent/15 ring-1 ring-sidebar-accent/20">
+              <f.icon className="h-4 w-4 text-sidebar-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-sidebar-foreground">{f.title}</p>
+              <p className="text-xs text-sidebar-muted">{f.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Rodapé */}
+      <p className="relative z-10 text-xs text-sidebar-muted animate-fade-in animation-delay-300">
+        © {new Date().getFullYear()} FiscWise · fiscwise.com.br
+      </p>
+    </div>
+  );
+}
+
+/* ─── Página de login ────────────────────────────────────────────── */
 export function LoginPage() {
   const { login, loginWithGoogle, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,25 +103,40 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold text-center">FiscWise</CardTitle>
-          <CardDescription className="text-center">
-            Entre com suas credenciais para acessar o sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="flex min-h-screen bg-background">
+      <BrandPanel />
 
-          {/* Google sign-in */}
-          <div className={isLoading ? 'pointer-events-none opacity-60' : ''}>
+      {/* Painel direito — formulário */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 animate-fade-in-up">
+        {/* Logo mobile (esconde em lg) */}
+        <div className="mb-8 flex items-center gap-2 lg:hidden">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+            <BarChart3 className="h-5 w-5 text-primary" />
+          </div>
+          <span className="text-xl font-bold text-foreground">FiscWise</span>
+        </div>
+
+        <div className="w-full max-w-sm space-y-6">
+          {/* Cabeçalho */}
+          <div className="space-y-1 animate-fade-in-up animation-delay-75">
+            <h2 className="text-2xl font-bold text-foreground">Bem-vindo de volta</h2>
+            <p className="text-sm text-muted-foreground">
+              Entre para acessar seu painel contábil.
+            </p>
+          </div>
+
+          {/* Google login */}
+          <div
+            className={cn(
+              'animate-fade-in-up animation-delay-150',
+              isLoading && 'pointer-events-none opacity-60',
+            )}
+          >
             <GoogleLogin
-              onSuccess={(response) => {
-                if (response.credential) {
-                  loginWithGoogle(response.credential);
-                }
+              onSuccess={(res) => {
+                if (res.credential) loginWithGoogle(res.credential);
               }}
-              onError={() => {/* handled inside useAuth */}}
+              onError={() => {}}
               width="100%"
               text="signin_with"
               shape="rectangular"
@@ -44,60 +145,91 @@ export function LoginPage() {
           </div>
 
           {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-background px-3 text-xs text-muted-foreground">
-                ou entre com e-mail e senha
-              </span>
-            </div>
+          <div className="animate-fade-in-up animation-delay-150 relative flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">ou continue com e-mail</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
 
-          {/* E-mail / password form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+          {/* Form */}
+          <form
+            onSubmit={handleSubmit}
+            className="animate-fade-in-up animation-delay-225 space-y-4"
+            noValidate
+          >
+            {/* E-mail */}
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-sm font-medium text-foreground">
                 E-mail
               </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-9"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+
+            {/* Senha */}
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
                 Senha
               </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPass ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-9 pr-10"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPass((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={showPass ? 'Ocultar senha' : 'Exibir senha'}
+                >
+                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Entrando...' : 'Entrar'}
+
+            <Button type="submit" className="w-full" size="md" disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Entrando...
+                </span>
+              ) : (
+                'Entrar na conta'
+              )}
             </Button>
           </form>
 
-          <div className="text-center text-sm">
-            <span className="text-muted-foreground">Não tem uma conta? </span>
-            <Link to="/register" className="text-primary hover:underline">
-              Criar conta
+          {/* Link registro */}
+          <p className="animate-fade-in-up animation-delay-300 text-center text-sm text-muted-foreground">
+            Não tem uma conta?{' '}
+            <Link
+              to="/register"
+              className="font-semibold text-primary transition-colors hover:text-primary/80 hover:underline"
+            >
+              Criar conta grátis
             </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

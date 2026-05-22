@@ -1,257 +1,150 @@
-# FiscWise Frontend - React + TypeScript + Vite
+# FiscWise — Frontend
 
-## Status: CONCLUIDO
+React + TypeScript SPA para gestão contábil multi-tenant.
 
-Frontend completo implementado com todas as funcionalidades especificadas na Fase 11.
+## Stack
 
-## Stack Tecnologica
+| Tecnologia | Versão | Uso |
+|-----------|--------|-----|
+| React | 18.3.1 | UI |
+| TypeScript | 5.5.3 | Tipagem estática |
+| Vite | 6.4.2 | Build tool (patch CVE GHSA-67mh-4wv8-2f99) |
+| Tailwind CSS | 3.4.11 | Estilização |
+| React Router | 6.26.0 | Roteamento SPA |
+| TanStack Query | 5.56.2 | Data fetching + cache |
+| Zustand | 4.5.5 | Estado global |
+| Axios | 1.7.7 | HTTP client |
+| React Hook Form | 7.53.0 | Formulários |
+| Zod | 3.23.8 | Validação de schemas |
+| Recharts | 2.12.7 | Gráficos |
+| Framer Motion | 12.x | Animações |
+| Lucide React | 0.441.0 | Ícones |
+| React Hot Toast | 2.4.1 | Notificações toast |
+| date-fns | 3.6.0 | Manipulação de datas |
+| read-excel-file | 5.0.2 | Importação XLSX (substitui xlsx com CVE) |
+| ESLint | 9.17.0 | Linting (flat config) |
+| typescript-eslint | 8.19.0 | Regras TypeScript |
 
-- **React 18.3.1** - Biblioteca UI
-- **TypeScript 5.5.3** - Tipagem estática
-- **Vite 5.4.3** - Build tool e dev server
-- **Tailwind CSS 3.4.11** - Estilização
-- **React Router v6.26.0** - Roteamento
-- **TanStack Query 5.56.2** - Data fetching e cache
-- **Zustand 4.5.5** - State management
-- **Axios 1.7.7** - HTTP client
-- **React Hook Form 7.53.0 + Zod 3.23.8** - Formulários e validação
-- **Recharts 2.12.7** - Gráficos
-- **Lucide React 0.441.0** - Ícones
-- **React Hot Toast 2.4.1** - Notificações
-- **date-fns 3.6.0** - Manipulação de datas
-
-## Estrutura do Projeto
+## Estrutura
 
 ```
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── ui/                    # Componentes UI reutilizáveis
-│   │   │   ├── Button.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Card.tsx
-│   │   │   └── Badge.tsx
-│   │   ├── Header.tsx             # Header do dashboard
-│   │   ├── Sidebar.tsx            # Sidebar de navegação
-│   │   └── ProtectedRoute.tsx    # HOC para rotas protegidas
-│   ├── layouts/
-│   │   └── DashboardLayout.tsx   # Layout principal do dashboard
-│   ├── lib/
-│   │   ├── api.ts                # Axios instance com interceptors
-│   │   ├── auth.ts               # Funções de autenticação
-│   │   ├── utils.ts              # Utilitários (cn)
-│   │   └── hooks/                # Custom hooks
-│   │       ├── useAuth.ts
-│   │       ├── useAnalytics.ts
-│   │       ├── useKnowledge.ts
-│   │       └── useChat.ts
-│   ├── pages/
-│   │   ├── LoginPage.tsx         # Página de login
-│   │   ├── RegisterPage.tsx      # Wizard de registro (3 passos)
-│   │   ├── DashboardPage.tsx     # Dashboard com métricas
-│   │   ├── KnowledgePage.tsx     # Gerenciamento de documentos
-│   │   ├── ChatPage.tsx          # Lista de sessões de chat
-│   │   ├── ChatSessionPage.tsx   # Interface de chat com SSE
-│   │   ├── WidgetPage.tsx        # Configuração do widget
-│   │   ├── BillingPage.tsx       # Planos e billing
-│   │   └── SettingsPage.tsx      # Configurações do usuário
-│   ├── stores/
-│   │   └── authStore.ts          # Zustand store para autenticação
-│   ├── App.tsx                   # Configuração de rotas
-│   ├── main.tsx                  # Entry point
-│   ├── index.css                 # Estilos globais + Tailwind
-│   └── vite-env.d.ts            # TypeScript declarations
-├── .env                          # Variáveis de ambiente
-├── .env.example                  # Template de variáveis
-├── package.json                  # Dependências
-├── tsconfig.json                 # Configuração TypeScript
-├── vite.config.ts               # Configuração Vite
-├── tailwind.config.js           # Configuração Tailwind
-└── postcss.config.js            # Configuração PostCSS
+frontend/src/
+├── components/
+│   ├── ui/                    # Button, Input, Card, Badge, FormField
+│   ├── Header.tsx
+│   ├── Sidebar.tsx            # Logo clicável → /dashboard
+│   ├── ProtectedRoute.tsx
+│   └── StateViews.tsx         # Loading, Error, Empty states
+├── layouts/
+│   └── DashboardLayout.tsx
+├── lib/
+│   ├── api.ts                 # Axios instance com interceptors JWT
+│   ├── auth.ts                # Interfaces + funções de auth
+│   ├── utils.ts               # cn() helper
+│   └── hooks/
+│       ├── useAuth.ts
+│       └── useOperations.ts
+├── pages/
+│   ├── LoginPage.tsx          # Login email + Google OAuth
+│   ├── RegisterPage.tsx       # Wizard 3 passos + seleção de plano
+│   ├── DashboardPage.tsx      # Métricas + gráficos
+│   ├── ClientsPage.tsx        # CRUD + importação XLSX
+│   ├── DocumentsPage.tsx      # Upload Supabase + categorização
+│   ├── FinancePage.tsx        # Receitas/despesas + gráficos
+│   ├── DeadlinesPage.tsx      # Prazos fiscais + status
+│   ├── CertificatesPage.tsx   # Certificados A1/A3 + validade
+│   ├── SettingsPage.tsx       # 5 tabs de configuração
+│   └── BillingPage.tsx        # (legado — substituído por tab em Settings)
+├── stores/
+│   └── authStore.ts           # Zustand: user, isAuthenticated, updateUser
+├── App.tsx                    # Rotas + React.lazy + Suspense
+└── main.tsx
 ```
 
-## Comandos Disponíveis
+## Comandos
 
 ```bash
-# Instalar dependências
-npm install
-
-# Iniciar servidor de desenvolvimento (porta 3000)
-npm run dev
-
-# Build para produção
-npm run build
-
-# Preview do build de produção
-npm run preview
-
-# Verificação de tipos TypeScript
-npm run type-check
-
-# Lint do código
-npm run lint
+npm install          # Instalar dependências
+npm run dev          # Dev server em http://localhost:3000
+npm run build        # Build de produção (TypeScript + Vite)
+npm run type-check   # Verificação TypeScript sem emit
+npm run lint         # ESLint 9 flat config
+npm run preview      # Preview do build local
 ```
 
-## Rotas Implementadas
+## Rotas
 
-### Rotas Públicas
-- `/login` - Página de login
-- `/register` - Wizard de registro (3 passos)
+### Públicas
+| Rota | Página |
+|------|--------|
+| `/login` | Login com email/senha ou Google OAuth |
+| `/register` | Wizard 3 passos: empresa → usuário+OAuth → plano |
 
-### Rotas Protegidas (requerem autenticação)
-- `/` - Redirect para `/dashboard`
-- `/dashboard` - Dashboard com métricas e gráficos
-- `/knowledge` - Gerenciamento da base de conhecimento
-- `/chat` - Lista de sessões de chat
-- `/chat/:sessionId` - Interface de chat com streaming SSE
-- `/widget` - Configuração e preview do widget
-- `/billing` - Planos e gerenciamento de assinatura
-- `/settings` - Configurações do usuário e tenant
+### Protegidas (requerem JWT)
+| Rota | Página |
+|------|--------|
+| `/dashboard` | Métricas, gráficos, atalhos rápidos |
+| `/clientes` | Lista, CRUD, importação XLSX |
+| `/documentos` | Upload, categorização, associação a clientes |
+| `/financeiro` | Receitas/despesas, filtros, gráficos |
+| `/prazos` | Obrigações fiscais, status, alertas |
+| `/certificados` | Certificados digitais, controle de validade |
+| `/configuracoes` | Perfil, escritório, plano, senha, pagamento |
 
 ## Autenticação
 
-- **Login**: Email + senha via OAuth2 Password Flow
-- **Registro**: Wizard de 3 passos (empresa → usuário → plano)
-- **Storage**: localStorage para `access_token`, `tenant_id` e `user`
-- **Interceptors**: Axios adiciona automaticamente token e X-Tenant-ID
-- **Redirect**: 401 redireciona para `/login` automaticamente
+- **Storage**: `localStorage` → `access_token`, `tenant_id`, `user` (JSON)
+- **Interceptors**: Axios adiciona automaticamente `Authorization: Bearer` e `X-Tenant-ID`
+- **401**: Redireciona para `/login` automaticamente
+- **Google OAuth**: `@react-oauth/google` com `useGoogleLogin` (popup flow)
+- **Zustand `updateUser`**: atualiza campos parciais do usuário com sync no localStorage
 
-## Funcionalidades Principais
+## Configurações (SettingsPage)
 
-### Dashboard
-- Cards com métricas (sessões, mensagens, tokens, custo)
-- Gráfico de uso diário (últimos 30 dias)
-- Análise de sessões (média de mensagens e tokens)
-- Status da base de conhecimento
+5 tabs implementadas:
 
-### Base de Conhecimento
-- Adicionar documentos via URL
-- Adicionar documentos via texto
-- Visualizar status (pending, processing, processed, failed)
-- Deletar documentos
-- Badges de status coloridos
+| Tab | Endpoint | Descrição |
+|-----|----------|-----------|
+| Perfil | `PATCH /auth/me` | Nome, telefone |
+| Escritório | `PATCH /auth/tenant` | Razão social, CNPJ, endereço, site |
+| Plano | `PATCH /auth/tenant` | Free / Starter / Pro |
+| Segurança | `POST /auth/change-password` | Troca de senha com validação |
+| Pagamento | — | Estrutura preparada (Stripe futuro) |
 
-### Chat
-- Lista de sessões com histórico
-- Criar nova sessão
-- Interface de chat com mensagens
-- **Streaming SSE** em tempo real
-- Detecção de quota excedida
-- Scroll automático
-- Timestamps e contagem de tokens
+## Registro (RegisterPage)
 
-### Widget
-- Código de integração para copiar
-- Preview do widget em iframe
-- Informações do tenant ID
+Wizard com `react-hook-form` por step:
 
-### Billing
-- Visualização do plano atual
-- Barra de progresso de uso de tokens
-- Cards de planos disponíveis (Free, Starter, Pro)
-- Botões de upgrade
+1. **Step 1** — Dados da empresa (nome + CNPJ)
+2. **Step 2** — Dados do contador (nome, email, telefone, senha) + botão Google OAuth
+3. **Step 3** — Seleção de plano (Free / Starter / Pro com feature list)
 
-### Settings
-- Perfil do usuário (nome, email, role)
-- Informações do tenant
-- Tenant ID para integração
+Layout split: painel escuro com brand (lg+) + painel de formulário.
 
-## Design System
+## Performance
 
-### Cores (Tailwind CSS Variables)
-- `--background`: Fundo principal
-- `--foreground`: Texto principal
-- `--card`: Fundo de cards
-- `--primary`: Cor primária (azul)
-- `--muted`: Cor secundária
-- `--accent`: Cor de destaque
-- `--destructive`: Cor de erro/delete
+| Métrica | Valor |
+|---------|-------|
+| Chunks gerados | 30+ |
+| Maior chunk | 393 kB (recharts, gzip ~108 kB) |
+| Build time | ~6s |
+| Code splitting | React.lazy + Suspense em todas as páginas |
+| Vendor chunks | react, query, charts, motion, form, utils |
 
-### Componentes UI
-- **Button**: 4 variantes (default, outline, ghost, destructive) + 3 tamanhos
-- **Input**: Estilizado com focus states
-- **Card**: Header, Title, Description, Content, Footer
-- **Badge**: 5 variantes (default, success, warning, error, info)
+## Segurança
 
-## State Management
-
-### Zustand (authStore)
-- `user`: Dados do usuário logado
-- `isAuthenticated`: Status de autenticação
-- `setUser()`: Atualizar usuário
-- `logout()`: Fazer logout
-- `checkAuth()`: Verificar autenticação
-
-### TanStack Query
-- Cache automático de requisições
-- Invalidação inteligente
-- Loading e error states
-- Retry automático (1x)
+- `npm audit`: **0 vulnerabilidades**
+- `xlsx` (Prototype Pollution + ReDoS) → substituído por `read-excel-file`
+- `vite` 6.4.2 corrige GHSA-67mh-4wv8-2f99 (esbuild)
+- ESLint 9 sem packages deprecados
 
 ## Variáveis de Ambiente
 
 ```env
-VITE_API_URL=http://localhost:8000
-```
-
-Para produção:
-```env
 VITE_API_URL=https://contaflow.fly.dev
+VITE_GOOGLE_CLIENT_ID=<google-oauth-client-id>
 ```
-
-## Validação
-
-### TypeScript
-```bash
-npm run type-check
-```
-Status: Sem erros de compilação
-
-### Dev Server
-```bash
-npm run dev
-```
-Status: Rodando em http://localhost:3000
-
-## Próximos Passos
-
-1. **Deploy no Railway/Vercel**
-   - Configurar variável `VITE_API_URL` para produção
-   - Build command: `npm run build`
-   - Output directory: `dist`
-
-2. **Configurar CORS no Backend**
-   - Adicionar URL do frontend em `ALLOWED_ORIGINS`
-
-3. **Testes**
-   - Testar fluxo completo de registro
-   - Testar adição de documentos
-   - Testar chat com streaming
-   - Testar widget
-
-## Notas Técnicas
-
-- **Proxy Vite**: Configurado para `/api` → `http://localhost:8000`
-- **Path Aliases**: `@/*` aponta para `src/*`
-- **SSE Streaming**: Implementado com Fetch API nativa
-- **Responsive**: Design mobile-first com Tailwind
-- **Dark Mode**: Suporte via CSS variables (não implementado toggle)
-
-## Conformidade com Especificação
-
-- Todas as páginas especificadas implementadas
-- Autenticação com JWT + X-Tenant-ID
-- SSE streaming para chat
-- Gráficos com Recharts
-- Formulários com React Hook Form + Zod
-- State management com Zustand
-- Data fetching com TanStack Query
-- TypeScript sem erros
-- Tailwind CSS + componentes reutilizáveis
-- Rotas protegidas com ProtectedRoute
 
 ---
 
-**FiscWise Frontend**
-**Data**: 27/04/2026
-**Fase**: 11 - Frontend Dashboard
+**FiscWise** por Vstack Solutions | Atualizado: 21/05/2026

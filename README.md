@@ -1,269 +1,224 @@
-# FiscWise
+# FiscWise — Plataforma de Gestão Contábil SaaS
 
-> Production-grade B2B SaaS platform for Brazilian accounting and financial services
+> Sistema de gestão para escritórios de contabilidade. Multi-tenant, seguro e pronto para escala.
+> Produzido por **[Vstack Solutions](https://vstack-solution.com)**
 
-**Version:** 1.0.0  
-**Status:** Phase 1 - Core Backend & Local Infrastructure
+## Links de Produção
 
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Docker & Docker Compose
-- Git
-
-### 1. Clone & Setup
-
-```bash
-cd "C:\Users\VINICIUS\Videos\MEUS PROJETOS\ContaFlow"
-```
-
-### 2. Start Infrastructure
-
-```bash
-# Start PostgreSQL (with pgvector) and Redis
-docker-compose up -d
-
-# Verify containers are running
-docker-compose ps
-```
-
-### 3. Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv .venv
-
-# Activate virtual environment (Windows)
-.venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy environment template
-copy .env.example .env
-
-# Run the API
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 4. Verify Installation
-
-- **API Health Check:** http://localhost:8000/health
-- **API Documentation:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
-
-Expected response from `/health`:
-```json
-{
-  "status": "FiscWise API Online"
-}
-```
+| Serviço | URL |
+|---------|-----|
+| Frontend | https://frontend-orcin-one-22.vercel.app |
+| Backend API | https://contaflow.fly.dev |
+| API Docs | https://contaflow.fly.dev/docs |
+| Monitoramento Fly.io | https://fly.io/apps/contaflow/monitoring |
 
 ---
 
-## 📁 Project Structure
+## Stack
+
+### Backend
+- **Python 3.12** + **FastAPI** — API REST assíncrona
+- **SQLAlchemy 2.x async** + **asyncpg** — ORM com driver async para PostgreSQL
+- **Alembic** — Migrações versionadas
+- **Supabase** — PostgreSQL gerenciado + Storage para arquivos
+- **JWT (python-jose)** + **bcrypt** — Autenticação e senhas
+- **Pydantic v2** — Validação e DTOs
+- **Docker** — Containerização
+- **Fly.io** — Plataforma de deploy (app ID: `contaflow`)
+
+### Frontend
+- **React 18** + **TypeScript 5.5** — UI
+- **Vite 6.4** — Build tool (zero vulnerabilidades CVE)
+- **Tailwind CSS 3** — Estilização
+- **React Router v6** — Roteamento SPA
+- **TanStack Query v5** — Data fetching e cache
+- **Zustand** — Estado global
+- **React Hook Form + Zod** — Formulários com validação
+- **Recharts** — Gráficos e dashboards
+- **Framer Motion** — Animações
+- **Vercel** — Hospedagem do frontend
+
+---
+
+## Arquitetura
 
 ```
 FiscWise/
-├── backend/              # FastAPI application
+├── backend/                    # API FastAPI
 │   ├── app/
-│   │   ├── main.py      # Application entry point
-│   │   └── __init__.py
-│   ├── alembic/         # Database migrations
-│   ├── requirements.txt # Python dependencies
-│   ├── alembic.ini      # Alembic configuration
-│   └── .env.example     # Environment template
-├── frontend/            # Next.js application (future)
-├── infra/               # Infrastructure as Code
-│   └── postgres/
-│       └── init.sql     # PostgreSQL initialization
-├── docs/                # Documentation
-│   └── 00-architecture.md
-├── docker-compose.yml   # Local development stack
-└── README.md           # This file
+│   │   ├── api/v1/endpoints/  # Rotas HTTP
+│   │   ├── core/              # Config, segurança, JWT
+│   │   ├── models/            # ORM SQLAlchemy (User, Tenant, Client, etc.)
+│   │   ├── schemas/           # Pydantic DTOs
+│   │   ├── services/          # Lógica de negócio
+│   │   └── main.py            # App + lifespan handler
+│   ├── alembic/               # Migrações de banco
+│   ├── tests/                 # pytest
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── run_migrations.py      # Script de migração para release_command
+├── frontend/                   # SPA React
+│   ├── src/
+│   │   ├── pages/             # 10 páginas
+│   │   ├── components/        # UI reutilizável
+│   │   ├── lib/               # auth.ts, api.ts, hooks/
+│   │   └── stores/            # Zustand stores
+│   ├── vite.config.ts
+│   └── package.json
+├── fly.toml                    # Config Fly.io (com release_command)
+└── README.md
+```
+
+### Modelo Multi-Tenant
+
+Toda entidade de dados possui `tenant_id`. O middleware `TenantMiddleware` injeta o tenant automaticamente a partir do JWT. Não há compartilhamento de dados entre tenants.
+
+---
+
+## Funcionalidades Implementadas
+
+### Autenticação & Perfil
+- Registro em 3 passos (empresa → usuário → plano)
+- Login email/senha + Google OAuth
+- JWT com expiração + refresh implícito
+- Perfil editável (nome, telefone)
+- Troca de senha com validação da senha atual
+
+### Gestão de Clientes
+- CRUD completo com paginação
+- Importação via XLSX (read-excel-file, sem vulnerabilidades CVE)
+- Campos: nome, CNPJ, email, telefone, endereço, tipo de empresa
+- Código de cliente automático (`CLI-XXXX`)
+
+### Documentos
+- Upload para Supabase Storage
+- Categorização por tipo (Contrato, Declaração, Relatório, etc.)
+- Associação a clientes
+- Visualização e download
+
+### Financeiro
+- Registro de receitas e despesas
+- Categorias personalizadas
+- Filtros por período
+- Gráficos de fluxo de caixa
+
+### Prazos / Obrigações Fiscais
+- Cadastro de prazos por tipo de obrigação
+- Associação a clientes
+- Status: Pendente / Em andamento / Concluído / Atrasado
+- Visualização em lista com alertas visuais
+
+### Certificados Digitais
+- Cadastro de certificados A1/A3
+- Controle de validade com alertas de vencimento
+- Associação a CPF/CNPJ
+
+### Configurações
+- **Perfil**: nome, telefone (editável)
+- **Escritório**: razão social, CNPJ, endereço, site, telefone
+- **Plano**: Free / Starter / Pro com troca em tempo real
+- **Segurança**: troca de senha
+- **Pagamento**: estrutura preparada (integração futura Stripe)
+
+---
+
+## Deploy
+
+### Backend — Fly.io
+
+```bash
+# Deploy completo (migrations + app)
+fly deploy
+
+# Migrações rodam automaticamente via release_command antes dos containers
+# Ver fly.toml → [deploy] release_command
+```
+
+### Frontend — Vercel
+
+```bash
+# Deploy via CLI Vercel (configurado no projeto)
+vercel --prod
+```
+
+### Variáveis de Ambiente (Backend)
+
+| Variável | Descrição |
+|----------|-----------|
+| `DATABASE_URL` | PostgreSQL connection string (asyncpg) |
+| `JWT_SECRET_KEY` | Chave secreta JWT |
+| `SUPABASE_URL` | URL do projeto Supabase |
+| `SUPABASE_KEY` | Anon key Supabase |
+| `SUPABASE_SECRET_KEY` | Service role key Supabase (uploads) |
+| `GOOGLE_CLIENT_ID` | OAuth Google |
+| `ALLOWED_ORIGINS` | CORS origins separados por vírgula |
+
+### Variáveis de Ambiente (Frontend)
+
+| Variável | Descrição |
+|----------|-----------|
+| `VITE_API_URL` | URL da API backend |
+| `VITE_GOOGLE_CLIENT_ID` | OAuth Google Client ID |
+
+---
+
+## Desenvolvimento Local
+
+```bash
+# Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev   # http://localhost:3000
 ```
 
 ---
 
-## 🛠️ Technology Stack
-
-### Backend
-- **FastAPI** 0.115.0 - Modern async web framework
-- **SQLAlchemy** 2.0.35 - Async ORM
-- **PostgreSQL** 16 with **pgvector** - Vector database for AI/ML
-- **Redis** 7 - Cache & rate limiting
-- **Alembic** 1.13.3 - Database migrations
-- **Pydantic** 2.9.2 - Data validation
-
-### Infrastructure
-- **Docker** - Containerization
-- **Docker Compose** - Local orchestration
-
----
-
-## 🗄️ Database
-
-### PostgreSQL Extensions Enabled
-
-- `uuid-ossp` - UUID generation
-- `pgcrypto` - Cryptographic functions
-- `vector` - pgvector for embeddings
-
-### Connection Details (Development)
-
-- **Host:** localhost
-- **Port:** 5432
-- **Database:** contaflow_db
-- **User:** contaflow
-- **Password:** contaflow_dev_2026
-
-### Redis Connection (Development)
-
-- **Host:** localhost
-- **Port:** 6379
-- **Password:** contaflow_redis_2026
-
----
-
-## 📝 Available Commands
-
-### Docker
+## Migrações
 
 ```bash
-# Start all services
-docker-compose up -d
+# Criar nova migração
+cd backend
+alembic revision --autogenerate -m "descricao"
 
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-
-# Rebuild containers
-docker-compose up -d --build
-```
-
-### Alembic (Database Migrations)
-
-```bash
-# Create new migration
-alembic revision --autogenerate -m "description"
-
-# Apply migrations
+# Aplicar migrações
 alembic upgrade head
 
-# Rollback last migration
-alembic downgrade -1
-
-# View current revision
+# Ver status
 alembic current
-
-# View migration history
-alembic history --verbose
 ```
 
-### Development
+---
+
+## Testes
 
 ```bash
-# Run API with hot-reload
-python -m uvicorn app.main:app --reload
-
-# Run tests (when implemented)
-pytest
-
-# Check code coverage
-pytest --cov=app tests/
+cd backend
+pytest tests/ -v
 ```
 
 ---
 
-## 🔐 Environment Variables
+## Histórico de Commits Recentes
 
-Copy `.env.example` to `.env` and configure:
-
-```env
-# Application
-APP_NAME=FiscWise
-DEBUG=True
-ENVIRONMENT=development
-
-# Database
-DATABASE_URL=postgresql+asyncpg://contaflow:contaflow_dev_2026@localhost:5432/contaflow_db
-
-# Redis
-REDIS_URL=redis://:contaflow_redis_2026@localhost:6379/0
-
-# JWT (generate with: python -c "import secrets; print(secrets.token_hex(64))")
-JWT_SECRET_KEY=your-secret-key-here
-
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
-```
+| Commit | Descrição |
+|--------|-----------|
+| `ae39fab` | fix: elimina todos os erros e avisos de build, segurança e qualidade |
+| `0c4c1a3` | feat: perfil completo, configurações e cadastro redesenhado |
+| `4603696` | feat(sidebar): logo clicável retorna ao dashboard |
+| `5df15ab` | feat(seo): crédito Vstack Solutions + SEO estruturado |
+| `179fdd4` | feat(brand): identidade de marca FiscWise — logo, favicon e meta tags |
+| `22af9b1` | feat(ui): redesign visual completo — dark mode, animações, nova sidebar |
 
 ---
 
-## 📚 Documentation
+## Empresa
 
-- [Architecture Blueprint](docs/00-architecture.md) - System design and technical decisions
-
----
-
-## 🎯 Development Roadmap
-
-### Phase 0: Foundation ✅
-- [x] Project structure
-- [x] Docker Compose setup
-- [x] FastAPI base application
-- [x] Alembic configuration
-- [x] Documentation
-
-### Phase 1: Core Backend (Current)
-- [ ] Database models (User, Tenant, etc.)
-- [ ] Authentication system (JWT)
-- [ ] Multi-tenancy middleware
-- [ ] RBAC implementation
-- [ ] User management endpoints
-- [ ] Health checks with DB connectivity
-- [ ] Unit & integration tests
-
-### Phase 2: Core Frontend
-- [ ] Next.js 14 setup
-- [ ] Authentication UI
-- [ ] Dashboard layout
-- [ ] User management UI
-
-### Phase 3: Business Features
-- [ ] Domain-specific features (TBD)
-
-### Phase 4: Polish & Launch
-- [ ] Performance optimization
-- [ ] Security audit
-- [ ] Production deployment
-
----
-
-## 🤝 Contributing
-
-This is a private project. For internal team members:
-
-1. Create a feature branch
-2. Make your changes
-3. Write/update tests
-4. Submit for review
-
----
-
-## 📄 License
-
-Proprietary - All rights reserved
-
----
-
-**Built by THE ARCHITECT — Omega v2**  
-*Building what endures.*
+**Vstack Solutions** — https://vstack-solution.com
+Todos os direitos reservados © 2026

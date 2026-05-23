@@ -25,6 +25,11 @@ export interface AccountingClient {
   notes?: string | null;
   created_at: string;
   updated_at: string;
+  responsible_name?: string | null;
+  responsible_cpf?: string | null;
+  responsible_address?: string | null;
+  responsible_phone?: string | null;
+  responsible_email?: string | null;
 }
 
 export interface AccountingClientCreate {
@@ -38,6 +43,11 @@ export interface AccountingClientCreate {
   state_registration?: string;
   status: ClientStatus;
   notes?: string;
+  responsible_name?: string;
+  responsible_cpf?: string;
+  responsible_address?: string;
+  responsible_phone?: string;
+  responsible_email?: string;
 }
 
 export interface DeadlineItem {
@@ -353,4 +363,166 @@ export function dateBR(value: string | null | undefined) {
   }
 
   return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR');
+}
+
+export interface CompanyPartner {
+  id: string;
+  client_id: string;
+  tenant_id: string;
+  name: string;
+  cpf: string;
+  participation_percentage: number;
+  entry_date?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerCreate {
+  name: string;
+  cpf: string;
+  participation_percentage: number;
+  entry_date?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface CompanyDocument {
+  id: string;
+  client_id: string;
+  tenant_id: string;
+  document_type: string;
+  file_url: string;
+  upload_date: string;
+  expiration_date?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyDocumentCreate {
+  document_type: string;
+  file_url: string;
+  expiration_date?: string;
+  status?: string;
+  notes?: string;
+}
+
+export function useUpdateClient() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<AccountingClientCreate> }) => {
+      const { data } = await api.put<AccountingClient>(`/api/v1/clients/${id}`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}
+
+export function usePartners(clientId: string) {
+  return useQuery({
+    queryKey: [...operationsKey, 'clients', clientId, 'partners'],
+    queryFn: async () => {
+      const { data } = await api.get<CompanyPartner[]>(`/api/v1/clients/${clientId}/partners`);
+      return data;
+    },
+    enabled: !!clientId,
+  });
+}
+
+export function useCreatePartner(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: PartnerCreate) => {
+      const { data } = await api.post<CompanyPartner>(`/api/v1/clients/${clientId}/partners`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...operationsKey, 'clients', clientId, 'partners'] });
+    },
+  });
+}
+
+export function useUpdatePartner(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<PartnerCreate> }) => {
+      const { data } = await api.put<CompanyPartner>(`/api/v1/clients/${clientId}/partners/${id}`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...operationsKey, 'clients', clientId, 'partners'] });
+    },
+  });
+}
+
+export function useDeletePartner(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/v1/clients/${clientId}/partners/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...operationsKey, 'clients', clientId, 'partners'] });
+    },
+  });
+}
+
+export function useCompanyDocuments(clientId: string) {
+  return useQuery({
+    queryKey: [...operationsKey, 'clients', clientId, 'company-documents'],
+    queryFn: async () => {
+      const { data } = await api.get<CompanyDocument[]>(`/api/v1/clients/${clientId}/company-documents`);
+      return data;
+    },
+    enabled: !!clientId,
+  });
+}
+
+export function useCreateCompanyDocument(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: CompanyDocumentCreate) => {
+      const { data } = await api.post<CompanyDocument>(`/api/v1/clients/${clientId}/company-documents`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...operationsKey, 'clients', clientId, 'company-documents'] });
+    },
+  });
+}
+
+export function useDeleteCompanyDocument(clientId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/v1/clients/${clientId}/company-documents/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...operationsKey, 'clients', clientId, 'company-documents'] });
+    },
+  });
+}
+
+export function useExpiringCompanyDocuments(clientId: string, days = 30) {
+  return useQuery({
+    queryKey: [...operationsKey, 'clients', clientId, 'company-documents', 'expiring-soon', days],
+    queryFn: async () => {
+      const { data } = await api.get<CompanyDocument[]>(`/api/v1/clients/${clientId}/company-documents/expiring-soon`, {
+        params: { days_threshold: days },
+      });
+      return data;
+    },
+    enabled: !!clientId,
+  });
 }

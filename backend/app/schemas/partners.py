@@ -1,9 +1,9 @@
 """Schemas for company partners management."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PartnerBase(BaseModel):
@@ -33,11 +33,10 @@ class PartnerUpdate(BaseModel):
 
 class PartnerResponse(PartnerBase):
     """Schema for partner response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     client_id: UUID
     tenant_id: UUID
-    created_at: str
-    updated_at: str
-
-    class Config:
-        from_attributes = True
+    created_at: datetime
+    updated_at: datetime

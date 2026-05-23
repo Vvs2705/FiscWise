@@ -381,6 +381,7 @@ async def create_client(
 
 
 @router.patch("/clients/{client_id}", response_model=AccountingClientResponse)
+@router.put("/clients/{client_id}", response_model=AccountingClientResponse)
 async def update_client(
     client_id: uuid.UUID,
     payload: AccountingClientUpdate,

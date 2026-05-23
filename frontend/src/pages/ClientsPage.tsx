@@ -5,7 +5,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Download, Upload, Loader2, Lock } from 'lucide-react';
+import { Plus, Trash2, Download, Upload, Loader2, Lock, Briefcase } from 'lucide-react';
 import readXlsxFile from 'read-excel-file';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -14,12 +14,14 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Dialog } from '@/components/ui/Dialog';
 import { SecureNotesDrawer } from '@/components/SecureNotesDrawer';
+import { ClientManageDrawer } from '@/components/ClientManageDrawer';
 import { FormField } from '@/components/ui/FormField';
 import { EmptyState, ErrorState, PageSpinner } from '@/components/ui/StateViews';
 import {
   useClients,
   useCreateClient,
   useDeleteClient,
+  type AccountingClient,
   type AccountingClientCreate,
   type ClientStatus,
 } from '@/lib/hooks/useOperations';
@@ -288,6 +290,7 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
 export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
+  const [selectedClient, setSelectedClient] = useState<AccountingClient | null>(null);
   const { data: clients, isLoading, isError } = useClients();
   const location = useLocation();
 
@@ -423,14 +426,13 @@ export function ClientsPage() {
                     <th className="pb-3 font-medium">Regime</th>
                     <th className="pb-3 font-medium">Contato</th>
                     <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium sr-only">Acoes</th>
-                    <th className="pb-3 font-medium sr-only">Notas</th>
+                    <th className="pb-3 font-medium text-right pr-4">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(clients ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={7}>
                         <EmptyState
                           title="Nenhum cliente cadastrado"
                           description="Cadastre seu primeiro cliente clicando em Novo cliente."
@@ -466,26 +468,36 @@ export function ClientsPage() {
                           {statusLabel[client.status]}
                         </Badge>
                       </td>
-                      <td className="py-4">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(client.id, client.name)}
-                          className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          aria-label={`Excluir cliente ${client.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                      <td className="py-4">
-                        <button
-                          type="button"
-                          onClick={() => setSecureNotes({ id: client.id, name: client.name })}
-                          className="rounded p-1 text-muted-foreground hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          aria-label={`Notas seguras de ${client.name}`}
-                          title="Notas seguras"
-                        >
-                          <Lock className="h-4 w-4" />
-                        </button>
+                      <td className="py-4 text-right pr-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedClient(client)}
+                            className="rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={`Gerenciar cliente ${client.name}`}
+                            title="Gerenciar Empresa"
+                          >
+                            <Briefcase className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSecureNotes({ id: client.id, name: client.name })}
+                            className="rounded p-1 text-muted-foreground hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={`Notas seguras de ${client.name}`}
+                            title="Notas seguras"
+                          >
+                            <Lock className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(client.id, client.name)}
+                            className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={`Excluir cliente ${client.name}`}
+                            title="Excluir cliente"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -502,6 +514,13 @@ export function ClientsPage() {
         onClose={() => setSecureNotes(null)}
         clientId={secureNotes?.id ?? ''}
         clientName={secureNotes?.name ?? ''}
+      />
+
+      {/* Client management drawer */}
+      <ClientManageDrawer
+        open={!!selectedClient}
+        onClose={() => setSelectedClient(null)}
+        client={selectedClient}
       />
 
       {/* New client dialog */}

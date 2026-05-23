@@ -1,8 +1,6 @@
-"""Schemas for company documents management."""
-
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CompanyDocumentBase(BaseModel):
@@ -28,26 +26,24 @@ class CompanyDocumentUpdate(BaseModel):
 
 class CompanyDocumentResponse(CompanyDocumentBase):
     """Schema for company document response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     client_id: UUID
     tenant_id: UUID
     file_url: str
-    upload_date: str
-    created_at: str
-    updated_at: str
-
-    class Config:
-        from_attributes = True
+    upload_date: datetime
+    created_at: datetime
+    updated_at: datetime
 
 
 class CompanyDocumentListResponse(BaseModel):
     """Schema for listing company documents."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     document_type: str
     status: str
-    upload_date: str
+    upload_date: datetime
     expiration_date: date | None
     file_url: str
-
-    class Config:
-        from_attributes = True

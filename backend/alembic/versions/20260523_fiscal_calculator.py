@@ -18,6 +18,7 @@ Creates the following enum types:
 
 from typing import Sequence, Union
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "20260523_fiscal_calculator"
@@ -67,7 +68,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "simulation_type",
-            sa.Enum(
+            postgresql.ENUM(
                 "regime", "icms", "pis_cofins",
                 name="simulation_type_enum",
                 create_type=False,
@@ -129,7 +130,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "regime",
-            sa.Enum(
+            postgresql.ENUM(
                 "simples_nacional", "lucro_presumido", "lucro_real",
                 name="tax_regime_enum",
                 create_type=False,
@@ -182,7 +183,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "role",
-            sa.Enum(
+            postgresql.ENUM(
                 "user", "assistant", "system",
                 name="assistant_role_enum",
                 create_type=False,

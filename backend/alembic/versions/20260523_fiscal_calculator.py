@@ -93,15 +93,11 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index(
-        "ix_calculator_simulations_tenant_id",
-        "calculator_simulations",
-        ["tenant_id"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_calculator_simulations_tenant_id ON calculator_simulations (tenant_id)"
     )
-    op.create_index(
-        "ix_calculator_simulations_simulation_type",
-        "calculator_simulations",
-        ["simulation_type"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_calculator_simulations_simulation_type ON calculator_simulations (simulation_type)"
     )
 
     # ── tax_scenarios ─────────────────────────────────────────────────────────
@@ -155,8 +151,12 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index("ix_tax_scenarios_tenant_id", "tax_scenarios", ["tenant_id"])
-    op.create_index("ix_tax_scenarios_simulation_id", "tax_scenarios", ["simulation_id"])
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_tax_scenarios_tenant_id ON tax_scenarios (tenant_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_tax_scenarios_simulation_id ON tax_scenarios (simulation_id)"
+    )
 
     # ── fiscal_assistant_messages ─────────────────────────────────────────────
     op.create_table(
@@ -205,15 +205,11 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index(
-        "ix_fiscal_assistant_messages_tenant_id",
-        "fiscal_assistant_messages",
-        ["tenant_id"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_fiscal_assistant_messages_tenant_id ON fiscal_assistant_messages (tenant_id)"
     )
-    op.create_index(
-        "ix_fiscal_assistant_messages_simulation_id",
-        "fiscal_assistant_messages",
-        ["simulation_id"],
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_fiscal_assistant_messages_simulation_id ON fiscal_assistant_messages (simulation_id)"
     )
 
     # ── fiscal_benefits ───────────────────────────────────────────────────────
@@ -245,8 +241,12 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index("ix_fiscal_benefits_tax_type", "fiscal_benefits", ["tax_type"])
-    op.create_index("ix_fiscal_benefits_is_active", "fiscal_benefits", ["is_active"])
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_fiscal_benefits_tax_type ON fiscal_benefits (tax_type)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_fiscal_benefits_is_active ON fiscal_benefits (is_active)"
+    )
 
 
 def downgrade() -> None:

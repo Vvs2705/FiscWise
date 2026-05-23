@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = "20260523"
-down_revision = "20260522"
+down_revision = "20260523_fiscal_calculator"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

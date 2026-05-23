@@ -1,7 +1,7 @@
 """Feature #7: Calculadora Fiscal com IA
 
 Revision ID: 20260523_fiscal_calculator
-Revises: 20260521b
+Revises: 20260522
 Create Date: 2026-05-23 00:00:00.000000
 
 Creates the following tables:
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "20260523_fiscal_calculator"
-down_revision: Union[str, None] = "20260521b"
+down_revision: Union[str, None] = "20260522"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

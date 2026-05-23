@@ -1,0 +1,68 @@
+import React, { useEffect, useState } from 'react';
+import { FiscalCalculatorSection } from '../components/FiscalCalculatorSection';
+
+export function CalculatorPage() {
+  const [userPlan, setUserPlan] = useState<'FREE' | 'INTERMEDIARIO' | 'PREMIUM'>('FREE');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // TODO: Buscar plano do usuário da API
+    const fetchUserPlan = async () => {
+      try {
+        // const response = await fetch('/api/v1/auth/me', {
+        //   headers: { 'Authorization': `Bearer ${token}` }
+        // });
+        // const user = await response.json();
+        // setUserPlan(user.subscription_plan || 'FREE');
+        setUserPlan('INTERMEDIARIO'); // Placeholder para demo
+      } catch (err) {
+        console.error('Erro ao buscar plano do usuário:', err);
+        setUserPlan('FREE');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserPlan();
+  }, []);
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Carregando...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <FiscalCalculatorSection userPlan={userPlan} />
+
+      <div className="mt-12 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-3xl mb-2">🎯</div>
+            <h3 className="font-semibold text-gray-900 mb-2">Simulação Rápida</h3>
+            <p className="text-sm text-gray-600">
+              Compare diferentes regimes tributários em segundos
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-3xl mb-2">🤖</div>
+            <h3 className="font-semibold text-gray-900 mb-2">IA Especializada</h3>
+            <p className="text-sm text-gray-600">
+              Receba recomendações personalizadas do assistente fiscal
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="text-3xl mb-2">📈</div>
+            <h3 className="font-semibold text-gray-900 mb-2">Economia Garantida</h3>
+            <p className="text-sm text-gray-600">
+              Descubra quanto você pode economizar em impostos
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default CalculatorPage;

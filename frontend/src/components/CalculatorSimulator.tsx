@@ -1,0 +1,138 @@
+import React, { useState } from 'react';
+import { SimulationResult, SimulationRequest } from '../lib/types/calculator';
+import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { validateSimulation } from '../lib/validations/calculator';
+
+export function CalculatorSimulator({ userPlan = 'FREE' }) {
+  const [formData, setFormData] = useState<SimulationRequest>({
+    monthly_revenue: 0,
+    annual_cogs: 0,
+    state: 'SP',
+    regime: 'simples',
+    has_pis_cofins_credit: false,
+  });
+
+  const [result, setResult] = useState<SimulationResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const validation = validateSimulation(formData);
+    if (!validation.isValid) {
+      setError('Preencha todos os campos corretamente');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await calculatorAPI.simulateRegime(formData);
+      setResult(result);
+    } catch (err) {
+      setError('Erro ao processar simulação');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Receita Mensal (R$)
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={formData.monthly_revenue}
+            onChange={(e) => setFormData({ ...formData, monthly_revenue: parseFloat(e.target.value) })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Custo Anual (R$)
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={formData.annual_cogs}
+            onChange={(e) => setFormData({ ...formData, annual_cogs: parseFloat(e.target.value) })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Estado
+          </label>
+          <select
+            value={formData.state}
+            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            {['SP', 'RJ', 'MG', 'BA', 'SC', 'RS', 'PR'].map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="pis_cofins"
+            checked={formData.has_pis_cofins_credit}
+            onChange={(e) => setFormData({ ...formData, has_pis_cofins_credit: e.target.checked })}
+            className="rounded"
+          />
+          <label htmlFor="pis_cofins" className="ml-2 text-sm text-gray-700">
+            Possui crédito de PIS/COFINS
+          </label>
+        </div>
+
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {loading ? 'Processando...' : 'Simular'}
+        </button>
+      </form>
+
+      {result && (
+        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+          <h3 className="font-semibold text-lg text-gray-900 mb-4">Resultados da Simulação</h3>
+
+          {result.scenarios.map((scenario) => (
+            <div key={scenario.regime} className="mb-4 p-4 bg-white rounded border">
+              <div className="font-semibold text-gray-900">{scenario.regime.toUpperCase()}</div>
+              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                <div>Imposto Anual: <span className="font-semibold">R$ {scenario.annual_tax.toLocaleString('pt-BR')}</span></div>
+                <div>Taxa Efetiva: <span className="font-semibold">{(scenario.effective_rate * 100).toFixed(2)}%</span></div>
+              </div>
+            </div>
+          ))}
+
+          <div className="mt-4 p-4 bg-blue-50 rounded border border-blue-200">
+            <div className="text-lg font-semibold text-blue-900">
+              Melhor Regime: {result.recommended_regime}
+            </div>
+            <div className="text-sm text-blue-800 mt-2">
+              Economia Anual: R$ {result.annual_savings.toLocaleString('pt-BR')}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

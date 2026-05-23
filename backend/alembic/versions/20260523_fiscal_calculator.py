@@ -29,14 +29,14 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # ── Enum types ────────────────────────────────────────────────────────────
     op.execute(
-        "CREATE TYPE simulation_type_enum AS ENUM ('regime', 'icms', 'pis_cofins')"
+        "CREATE TYPE IF NOT EXISTS simulation_type_enum AS ENUM ('regime', 'icms', 'pis_cofins')"
     )
     op.execute(
-        "CREATE TYPE tax_regime_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS tax_regime_enum AS ENUM "
         "('simples_nacional', 'lucro_presumido', 'lucro_real')"
     )
     op.execute(
-        "CREATE TYPE assistant_role_enum AS ENUM ('user', 'assistant', 'system')"
+        "CREATE TYPE IF NOT EXISTS assistant_role_enum AS ENUM ('user', 'assistant', 'system')"
     )
 
     # ── calculator_simulations ────────────────────────────────────────────────

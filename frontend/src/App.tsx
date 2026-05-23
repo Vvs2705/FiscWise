@@ -21,6 +21,7 @@ const DeadlinesPage   = lazy(() => import('@/pages/DeadlinesPage').then(m => ({ 
 const CertificatesPage = lazy(() => import('@/pages/CertificatesPage').then(m => ({ default: m.CertificatesPage })));
 const FinancePage     = lazy(() => import('@/pages/FinancePage').then(m => ({ default: m.FinancePage })));
 const SettingsPage    = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const CalculatorPage  = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -100,6 +101,7 @@ function App() {
                 <Route path="agenda-prazos" element={<DeadlinesPage />} />
                 <Route path="certificados" element={<CertificatesPage />} />
                 <Route path="financeiro"   element={<FinancePage />} />
+                <Route path="calculadora"  element={<CalculatorPage />} />
                 <Route path="configuracoes" element={<SettingsPage />} />
                 <Route path="billing"   element={<Navigate to="/financeiro" replace />} />
                 <Route path="settings"  element={<Navigate to="/configuracoes" replace />} />

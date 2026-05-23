@@ -7,6 +7,7 @@ import {
   Settings,
   ShieldCheck,
   UsersRound,
+  Calculator,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Agenda / Prazos',href: '/agenda-prazos',   icon: CalendarClock },
   { name: 'Certificados',   href: '/certificados',    icon: ShieldCheck },
   { name: 'Financeiro',     href: '/financeiro',      icon: ReceiptText },
+  { name: 'Calculadora Fiscal', href: '/calculadora', icon: Calculator },
   { name: 'Configurações',  href: '/configuracoes',   icon: Settings },
 ];
 

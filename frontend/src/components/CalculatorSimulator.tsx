@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { SimulationResult, SimulationRequest } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
 import { validateSimulation } from '../lib/validations/calculator';
 
-export function CalculatorSimulator({ userPlan = 'FREE' }) {
+interface Props {
+  userPlan?: 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
+}
+
+export function CalculatorSimulator({ userPlan: _userPlan }: Props = {}) {
   const [formData, setFormData] = useState<SimulationRequest>({
     monthly_revenue: 0,
     annual_cogs: 0,

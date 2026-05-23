@@ -1,6 +1,8 @@
 import type { SimulationRequest, SimulationResult, ChatRequest, ChatResponse, Simulation } from './types/calculator';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = (typeof window !== 'undefined' && (window as any).REACT_APP_API_URL)
+  || import.meta.env.VITE_API_URL
+  || 'http://localhost:8000/api/v1';
 
 export const calculatorAPI = {
   async simulateRegime(data: SimulationRequest): Promise<SimulationResult> {

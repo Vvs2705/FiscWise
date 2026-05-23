@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Simulation } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
 

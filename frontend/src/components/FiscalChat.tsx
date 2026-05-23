@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, ChatRequest } from '../lib/types/calculator';
+import { useState, useRef, useEffect } from 'react';
+import { ChatMessage } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
 
 export function FiscalChat({ userPlan = 'FREE' }) {
@@ -25,7 +25,6 @@ export function FiscalChat({ userPlan = 'FREE' }) {
 
   const canUseChat = userPlan !== 'FREE';
   const messageLimit = getMessageLimit();
-  const remainingMessages = messageLimit === Infinity ? 'Ilimitadas' : Math.max(0, messageLimit - messageCount);
 
   const handleSendMessage = async () => {
     if (!input.trim() || !canUseChat || messageCount >= messageLimit) return;

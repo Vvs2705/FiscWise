@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CalculatorSimulator } from './CalculatorSimulator';
 import { FiscalChat } from './FiscalChat';
 import { SimulationHistory } from './SimulationHistory';
 
-export function FiscalCalculatorSection({ userPlan = 'FREE' }) {
+interface Props {
+  userPlan?: 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
+}
+
+export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
   const [activeTab, setActiveTab] = useState<'simulator' | 'chat' | 'history'>('simulator');
 
   const tabs = [

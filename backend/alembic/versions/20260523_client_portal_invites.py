@@ -26,10 +26,9 @@ def upgrade() -> None:
     op.execute("ALTER TYPE user_role_enum ADD VALUE 'client' AFTER 'member'")
 
     # Create invite_status_enum
-    sa.Enum(
-        'pending', 'accepted', 'rejected', 'expired',
-        name='invite_status_enum'
-    ).create(op.get_bind())
+    op.execute(
+        "CREATE TYPE invite_status_enum AS ENUM ('pending', 'accepted', 'rejected', 'expired')"
+    )
 
     # Create client_portal_invites table
     op.create_table(
@@ -38,7 +37,7 @@ def upgrade() -> None:
         sa.Column('tenant_id', sa.UUID(), nullable=False),
         sa.Column('client_id', sa.UUID(), nullable=False),
         sa.Column('email', sa.String(length=255), nullable=False),
-        sa.Column('status', sa.Enum('pending', 'accepted', 'rejected', 'expired', name='invite_status_enum'), nullable=False),
+        sa.Column('status', postgresql.ENUM('pending', 'accepted', 'rejected', 'expired', name='invite_status_enum', create_type=False), nullable=False),
         sa.Column('invited_by', sa.UUID(), nullable=True),
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('accepted_at', sa.DateTime(timezone=True), nullable=True),
@@ -70,6 +69,6 @@ def downgrade() -> None:
     op.drop_table('client_portal_invites')
 
     # Drop enum
-    sa.Enum(name='invite_status_enum').drop(op.get_bind())
+    op.execute('DROP TYPE IF EXISTS invite_status_enum CASCADE')
 
     # Remove CLIENT role (note: cannot remove enum values in PostgreSQL, so we leave it)

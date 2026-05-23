@@ -18,20 +18,9 @@ depends_on = None
 
 def upgrade() -> None:
     # Create company_document_type_enum
-    company_document_type_enum = postgresql.ENUM(
-        'cnpj',
-        'contrato_social',
-        'inscricao_municipal',
-        'inscricao_estadual',
-        'alvara_funcionamento',
-        'licenca_sanitaria',
-        'cnes',
-        'alvara_bombeiros',
-        'cro_juridico',
-        name='company_document_type_enum',
-        create_type=True
+    op.execute(
+        "CREATE TYPE company_document_type_enum AS ENUM ('cnpj', 'contrato_social', 'inscricao_municipal', 'inscricao_estadual', 'alvara_funcionamento', 'licenca_sanitaria', 'cnes', 'alvara_bombeiros', 'cro_juridico')"
     )
-    company_document_type_enum.create(op.get_bind())
 
     # Add columns to accounting_clients table
     op.add_column(
@@ -113,7 +102,7 @@ def upgrade() -> None:
         sa.Column('id', sa.UUID(as_uuid=True), nullable=False),
         sa.Column('tenant_id', sa.UUID(as_uuid=True), nullable=False),
         sa.Column('client_id', sa.UUID(as_uuid=True), nullable=False),
-        sa.Column('document_type', sa.Enum('cnpj', 'contrato_social', 'inscricao_municipal', 'inscricao_estadual', 'alvara_funcionamento', 'licenca_sanitaria', 'cnes', 'alvara_bombeiros', 'cro_juridico', name='company_document_type_enum'), nullable=False),
+        sa.Column('document_type', postgresql.ENUM('cnpj', 'contrato_social', 'inscricao_municipal', 'inscricao_estadual', 'alvara_funcionamento', 'licenca_sanitaria', 'cnes', 'alvara_bombeiros', 'cro_juridico', name='company_document_type_enum', create_type=False), nullable=False),
         sa.Column('file_url', sa.String(1024), nullable=False),
         sa.Column('upload_date', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column('expiration_date', sa.Date(), nullable=True),
@@ -202,7 +191,7 @@ def downgrade() -> None:
     op.drop_table('company_partners')
 
     # Drop enum
-    op.execute('DROP TYPE IF EXISTS company_document_type_enum')
+    op.execute('DROP TYPE IF EXISTS company_document_type_enum CASCADE')
 
     # Remove columns from accounting_clients table
     op.drop_index(

@@ -9,8 +9,7 @@ console_command = "/bin/bash"
 dockerfile = "./backend/Dockerfile"
 
 [deploy]
-  # release_command temporarily disabled - migrations need manual investigation
-  # release_command = "/bin/sh -c 'cd /app && python run_migrations.py'"
+  release_command = "/bin/sh -c 'cd /app && python run_migrations.py'"
 
 [env]
 ENVIRONMENT = "production"

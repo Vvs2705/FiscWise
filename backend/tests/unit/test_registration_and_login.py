@@ -376,7 +376,7 @@ class TestEnumConsistency:
         """
         Verify UserRole enum has expected values matching database.
         """
-        expected_roles = {"owner", "admin", "member"}
+        expected_roles = {"owner", "admin", "member", "client"}
         actual_roles = {role.value for role in UserRole}
         assert actual_roles == expected_roles
 

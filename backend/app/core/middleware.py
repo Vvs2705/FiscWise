@@ -24,11 +24,17 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/docs",
     "/redoc",
     "/openapi.json",
-    "/api/v1/auth",
     "/api/v1/onboarding",
+    "/api/v1/portal/invites", # Public client portal invitation flows
 }
 
-_EXCLUDED_EXACT_PATHS: Set[str] = {"/"}
+_EXCLUDED_EXACT_PATHS: Set[str] = {
+    "/",
+    "/api/v1/auth/login",
+    "/api/v1/auth/google",
+    "/api/v1/auth/logout",
+    "/api/v1/ready",         # Public database readiness check
+}
 
 
 class TenantMiddleware(BaseHTTPMiddleware):

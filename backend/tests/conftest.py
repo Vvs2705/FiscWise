@@ -232,7 +232,10 @@ async def client_with_auth_a(test_db: AsyncSession, user_a: User, client_a: Acco
         role=user_a.role.value,
     )
 
-    http_client.headers.update({"Authorization": f"Bearer {token}"})
+    http_client.headers.update({
+        "Authorization": f"Bearer {token}",
+        "X-Tenant-ID": str(user_a.tenant_id),
+    })
 
     yield http_client, user_a, client_a, test_db
 
@@ -255,7 +258,10 @@ async def client_with_auth_b(test_db: AsyncSession, user_b: User, client_b: Acco
         role=user_b.role.value,
     )
 
-    http_client.headers.update({"Authorization": f"Bearer {token}"})
+    http_client.headers.update({
+        "Authorization": f"Bearer {token}",
+        "X-Tenant-ID": str(user_b.tenant_id),
+    })
 
     yield http_client, user_b, client_b, test_db
 

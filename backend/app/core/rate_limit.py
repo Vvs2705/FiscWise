@@ -91,6 +91,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.debug("Rate limiting disabled - Redis unavailable")
             return await call_next(request)
 
+        current_count = 0
         try:
             client_ip = self._get_client_ip(request)
             rate_limit_key = f"rate_limit:{path}:{client_ip}"
@@ -117,18 +118,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         "retry_after": self.ADMIN_WINDOW
                     }
                 )
+        except Exception as e:
+            logger.error(f"Rate limit middleware error: {str(e)}", exc_info=True)
+            current_count = 0
 
-            # Allow request and continue
-            response = await call_next(request)
+        # Execute downstream handlers. Any exception raised here will propagate naturally.
+        response = await call_next(request)
 
-            # Add rate limit headers to response
+        # Add rate limit headers to response only if rate limiting logic was successfully executed
+        if current_count > 0:
             response.headers["X-RateLimit-Limit"] = str(self.ADMIN_LIMIT)
             response.headers["X-RateLimit-Remaining"] = str(max(0, self.ADMIN_LIMIT - current_count))
             response.headers["X-RateLimit-Reset"] = str(datetime.utcnow().timestamp() + self.ADMIN_WINDOW)
 
-            return response
-
-        except Exception as e:
-            logger.error(f"Rate limit middleware error: {str(e)}", exc_info=True)
-            # Fail open - don't block request if rate limiting fails
-            return await call_next(request)
+        return response

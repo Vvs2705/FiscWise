@@ -92,9 +92,13 @@ class TestClientsCRUD:
         """POST /api/v1/clients with name < 2 chars."""
         client, _, _, _ = client_with_auth_a
 
-        payload = AccountingClientCreate(name="X")
+        payload = {
+            "name": "X",
+            "document": "11.222.333/0001-81",
+            "entity_type": "pj",
+        }
 
-        response = client.post("/api/v1/clients", json=payload.model_dump())
+        response = client.post("/api/v1/clients", json=payload)
 
         assert response.status_code == 422
 
@@ -212,8 +216,8 @@ class TestClientsCRUD:
     async def test_tenant_isolation_client_list(self, test_db: AsyncSession):
         """User A cannot see clients from tenant B in list."""
         # Create two tenants
-        ta = Tenant(id=uuid.uuid4(), name="A", slug="a", plan="pro")
-        tb = Tenant(id=uuid.uuid4(), name="B", slug="b", plan="pro")
+        ta = Tenant(id=uuid.uuid4(), name="A", plan_slug="pro")
+        tb = Tenant(id=uuid.uuid4(), name="B", plan_slug="pro")
         test_db.add_all([ta, tb])
         await test_db.commit()
 
@@ -269,7 +273,7 @@ class TestDeadlinesCRUD:
             priority="high",
         )
 
-        response = client.post("/api/v1/deadlines", json=payload.model_dump())
+        response = client.post("/api/v1/deadlines", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 201
         data = response.json()
@@ -304,7 +308,7 @@ class TestDeadlinesCRUD:
             due_date=date.today() + timedelta(days=1),
         )
 
-        response = client.post("/api/v1/deadlines", json=payload.model_dump())
+        response = client.post("/api/v1/deadlines", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 404
         assert "Client not found" in response.json()["detail"]
@@ -388,7 +392,7 @@ class TestDocumentsCRUD:
             issued_at=date.today() - timedelta(days=365),
         )
 
-        response = client.post("/api/v1/documents", json=payload.model_dump())
+        response = client.post("/api/v1/documents", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 201
         data = response.json()
@@ -406,7 +410,7 @@ class TestDocumentsCRUD:
             document_type="other",
         )
 
-        response = client.post("/api/v1/documents", json=payload.model_dump())
+        response = client.post("/api/v1/documents", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 404
 
@@ -471,7 +475,7 @@ class TestCertificatesCRUD:
             status="valid",
         )
 
-        response = client.post("/api/v1/certificates", json=payload.model_dump())
+        response = client.post("/api/v1/certificates", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 201
         data = response.json()
@@ -556,7 +560,7 @@ class TestReceivablesCRUD:
             status="pending",
         )
 
-        response = client.post("/api/v1/receivables", json=payload.model_dump())
+        response = client.post("/api/v1/receivables", json=payload.model_dump(mode="json"))
 
         assert response.status_code == 201
         data = response.json()
@@ -569,14 +573,15 @@ class TestReceivablesCRUD:
         """POST /api/v1/receivables with amount=0 (must be > 0)."""
         client, _, existing_client, _ = client_with_auth_a
 
-        payload = ReceivableCreate(
-            client_id=existing_client.id,
-            description="Invalid",
-            amount=Decimal("0.00"),
-            due_date=date.today() + timedelta(days=1),
-        )
+        payload = {
+            "client_id": str(existing_client.id),
+            "description": "Invalid",
+            "amount": "0.00",
+            "due_date": (date.today() + timedelta(days=1)).isoformat(),
+            "status": "pending",
+        }
 
-        response = client.post("/api/v1/receivables", json=payload.model_dump())
+        response = client.post("/api/v1/receivables", json=payload)
 
         assert response.status_code == 422
 
@@ -585,14 +590,15 @@ class TestReceivablesCRUD:
         """POST /api/v1/receivables with amount < 0."""
         client, _, existing_client, _ = client_with_auth_a
 
-        payload = ReceivableCreate(
-            client_id=existing_client.id,
-            description="Invalid",
-            amount=Decimal("-500.00"),
-            due_date=date.today() + timedelta(days=1),
-        )
+        payload = {
+            "client_id": str(existing_client.id),
+            "description": "Invalid",
+            "amount": "-500.00",
+            "due_date": (date.today() + timedelta(days=1)).isoformat(),
+            "status": "pending",
+        }
 
-        response = client.post("/api/v1/receivables", json=payload.model_dump())
+        response = client.post("/api/v1/receivables", json=payload)
 
         assert response.status_code == 422
 
@@ -661,8 +667,8 @@ class TestTenantIsolation:
     async def test_user_a_cannot_get_client_from_tenant_b(self, test_db: AsyncSession):
         """User A cannot GET /api/v1/clients/{id_of_client_from_tenant_b}."""
         # Setup
-        ta = Tenant(id=uuid.uuid4(), name="A", slug="a", plan="pro")
-        tb = Tenant(id=uuid.uuid4(), name="B", slug="b", plan="pro")
+        ta = Tenant(id=uuid.uuid4(), name="A", plan_slug="pro")
+        tb = Tenant(id=uuid.uuid4(), name="B", plan_slug="pro")
         test_db.add_all([ta, tb])
         await test_db.commit()
 
@@ -701,8 +707,8 @@ class TestTenantIsolation:
     @pytest.mark.asyncio
     async def test_tenant_isolation_prevents_cross_tenant_updates(self, test_db: AsyncSession):
         """Updating a deadline from another tenant fails (tenant_id check)."""
-        ta = Tenant(id=uuid.uuid4(), name="A", slug="a", plan="pro")
-        tb = Tenant(id=uuid.uuid4(), name="B", slug="b", plan="pro")
+        ta = Tenant(id=uuid.uuid4(), name="A", plan_slug="pro")
+        tb = Tenant(id=uuid.uuid4(), name="B", plan_slug="pro")
         test_db.add_all([ta, tb])
         await test_db.commit()
 

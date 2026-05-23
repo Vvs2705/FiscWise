@@ -13,14 +13,14 @@ def test_health_endpoints_are_public_without_tenant_header(client):
 
 
 def test_protected_route_requires_tenant_header(client):
-    response = client.get("/api/v1/ready")
+    response = client.get("/api/v1/clients")
 
     assert response.status_code == 400
     assert response.json()["error_code"] == "TENANT_ID_REQUIRED"
 
 
 def test_protected_route_rejects_invalid_tenant_uuid(client):
-    response = client.get("/api/v1/ready", headers={"X-Tenant-ID": "not-a-uuid"})
+    response = client.get("/api/v1/clients", headers={"X-Tenant-ID": "not-a-uuid"})
 
     assert response.status_code == 400
     assert response.json()["error_code"] == "TENANT_ID_INVALID"

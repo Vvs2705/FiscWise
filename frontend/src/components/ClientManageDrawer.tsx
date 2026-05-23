@@ -644,22 +644,24 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <button
                           type="button"
                           onClick={() => setPartnerToEdit(partner)}
-                          className="rounded p-1 text-muted-foreground hover:text-primary hover:bg-muted"
+                          className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           aria-label="Editar"
                         >
                           <Edit2 className="h-4 w-4" />
+                          <span className="text-[9px] font-medium uppercase tracking-wider">Editar</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeletePartner(partner.id, partner.name)}
-                          className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-muted"
+                          className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           aria-label="Excluir"
                         >
                           <Trash2 className="h-4 w-4" />
+                          <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                         </button>
                       </div>
                     </div>
@@ -810,24 +812,26 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                           <a
                             href={doc.file_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-muted"
+                            className="flex flex-col items-center gap-0.5 rounded p-1.5 text-muted-foreground hover:text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             title="Visualizar Documento"
                           >
                             <FileDown className="h-4.5 w-4.5" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Baixar</span>
                           </a>
                           <button
                             type="button"
                             onClick={() => handleDeleteDoc(doc.id, doc.document_type)}
-                            className="rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-muted"
+                            className="flex flex-col items-center gap-0.5 rounded p-1.5 text-muted-foreground hover:text-destructive hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label="Excluir"
                             title="Excluir Documento"
                           >
                             <Trash2 className="h-4.5 w-4.5" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                           </button>
                         </div>
                       </div>

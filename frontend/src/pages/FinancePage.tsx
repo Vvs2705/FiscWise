@@ -233,25 +233,27 @@ export function FinancePage() {
                         </Badge>
                       </td>
                       <td className="py-4">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           {(r.status === 'pending' || r.status === 'overdue') && (
                             <button
                               type="button"
                               onClick={() => handleMarkPaid(r.id)}
-                              className="rounded p-1 text-muted-foreground hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               aria-label={`Marcar como pago: ${r.description}`}
                               title="Marcar como pago"
                             >
                               <CheckCircle2 className="h-4 w-4" />
+                              <span className="text-[9px] font-medium uppercase tracking-wider">Pago</span>
                             </button>
                           )}
                           <button
                             type="button"
                             onClick={() => handleDelete(r.id, r.description)}
-                            className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Excluir cobranca ${r.description}`}
                           >
                             <Trash2 className="h-4 w-4" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                           </button>
                         </div>
                       </td>

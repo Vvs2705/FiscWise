@@ -186,10 +186,11 @@ export function DeadlinesPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(deadline.id, deadline.title)}
-                      className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Excluir prazo ${deadline.title}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
+                      <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                     </button>
                   </div>
                 </div>

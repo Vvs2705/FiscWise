@@ -469,33 +469,36 @@ export function ClientsPage() {
                         </Badge>
                       </td>
                       <td className="py-4 text-right pr-4">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
                             onClick={() => setSelectedClient(client)}
-                            className="rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Gerenciar cliente ${client.name}`}
                             title="Gerenciar Empresa"
                           >
                             <Briefcase className="h-4 w-4" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Gerenciar</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setSecureNotes({ id: client.id, name: client.name })}
-                            className="rounded p-1 text-muted-foreground hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Notas seguras de ${client.name}`}
                             title="Notas seguras"
                           >
                             <Lock className="h-4 w-4" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Anotações</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(client.id, client.name)}
-                            className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Excluir cliente ${client.name}`}
                             title="Excluir cliente"
                           >
                             <Trash2 className="h-4 w-4" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                           </button>
                         </div>
                       </td>

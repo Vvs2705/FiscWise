@@ -578,25 +578,27 @@ export function DocumentsPage() {
                         </Badge>
                       </td>
                       <td className="py-4">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           {doc.file_url && (
                             <a
                               href={doc.file_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               aria-label={`Baixar ${doc.name}`}
                             >
                               <Download className="h-4 w-4" />
+                              <span className="text-[9px] font-medium uppercase tracking-wider">Baixar</span>
                             </a>
                           )}
                           <button
                             type="button"
                             onClick={() => handleDelete(doc.id, doc.name)}
-                            className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`Excluir documento ${doc.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
+                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
                           </button>
                         </div>
                       </td>

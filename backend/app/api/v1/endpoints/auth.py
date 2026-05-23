@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_db, get_current_user
+from app.core.plan_access import resolve_plan
 from app.core.security import verify_password, create_access_token, get_password_hash
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
@@ -304,7 +305,7 @@ async def get_tenant(
         "id": str(tenant.id),
         "name": tenant.name,
         "document": tenant.document,
-        "plan_slug": getattr(tenant, "plan_slug", None),
+        "plan_slug": resolve_plan(getattr(tenant, "plan_slug", None), current_user.email),
         "phone": getattr(tenant, "phone", None),
         "address": getattr(tenant, "address", None),
         "website": getattr(tenant, "website", None),
@@ -376,7 +377,7 @@ async def update_tenant(
         "id": str(tenant.id),
         "name": tenant.name,
         "document": tenant.document,
-        "plan_slug": getattr(tenant, "plan_slug", None),
+        "plan_slug": resolve_plan(getattr(tenant, "plan_slug", None), current_user.email),
         "phone": getattr(tenant, "phone", None),
         "address": getattr(tenant, "address", None),
         "website": getattr(tenant, "website", None),

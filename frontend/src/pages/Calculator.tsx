@@ -28,31 +28,31 @@ export function CalculatorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4 text-foreground">
       <FiscalCalculatorSection userPlan={userPlan} />
 
       <div className="mt-12 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
             <div className="text-3xl mb-2">🎯</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Simulação Rápida</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-foreground mb-2">Simulação Rápida</h3>
+            <p className="text-sm text-muted-foreground">
               Compare diferentes regimes tributários em segundos
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
             <div className="text-3xl mb-2">🤖</div>
-            <h3 className="font-semibold text-gray-900 mb-2">IA Especializada</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-foreground mb-2">IA Especializada</h3>
+            <p className="text-sm text-muted-foreground">
               Receba recomendações personalizadas do assistente fiscal
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
             <div className="text-3xl mb-2">📈</div>
-            <h3 className="font-semibold text-gray-900 mb-2">Economia Garantida</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-foreground mb-2">Economia Garantida</h3>
+            <p className="text-sm text-muted-foreground">
               Descubra quanto você pode economizar em impostos
             </p>
           </div>
@@ -60,6 +60,7 @@ export function CalculatorPage() {
       </div>
     </div>
   );
+
 }
 
 export default CalculatorPage;

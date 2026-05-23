@@ -71,29 +71,29 @@ export function FiscalChat({ userPlan = 'FREE' }) {
 
   if (!canUseChat) {
     return (
-      <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-        <p className="text-yellow-900 font-semibold">Chat com IA não disponível</p>
-        <p className="text-sm text-yellow-800 mt-2">Upgrade para INTERMEDIÁRIO ou PREMIUM para usar o assistente fiscal.</p>
+      <div className="p-6 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/40 rounded-lg text-center shadow-sm">
+        <p className="text-yellow-900 dark:text-yellow-200 font-semibold">Chat com IA não disponível</p>
+        <p className="text-sm text-yellow-800 dark:text-yellow-300 mt-2">Upgrade para INTERMEDIÁRIO ou PREMIUM para usar o assistente fiscal.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-96 bg-white rounded-lg shadow">
+    <div className="flex flex-col h-96 bg-card text-card-foreground rounded-lg border border-border shadow-sm">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 mt-8">
-            <p>Olá! Sou seu assistente fiscal com IA.</p>
+          <div className="text-center text-muted-foreground mt-8">
+            <p className="font-semibold text-foreground">Olá! Sou seu assistente fiscal com IA.</p>
             <p className="text-sm mt-2">Faça perguntas sobre impostos e regimes tributários.</p>
           </div>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-xs px-4 py-2 rounded-lg ${
+                className={`max-w-xs px-4 py-2 rounded-lg text-sm shadow-sm ${
                   msg.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-900'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground border border-border'
                 }`}
               >
                 {msg.content}
@@ -104,8 +104,8 @@ export function FiscalChat({ userPlan = 'FREE' }) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t p-4 space-y-2">
-        <div className="text-xs text-gray-600">
+      <div className="border-t border-border p-4 space-y-2">
+        <div className="text-xs text-muted-foreground">
           Mensagens: {messageCount}/{messageLimit === Infinity ? '∞' : messageLimit}
         </div>
         <div className="flex gap-2">
@@ -116,12 +116,12 @@ export function FiscalChat({ userPlan = 'FREE' }) {
             onKeyPress={(e) => e.key === 'Enter' && !loading && handleSendMessage()}
             placeholder={messageCount >= messageLimit ? 'Limite de mensagens atingido' : 'Digite sua pergunta...'}
             disabled={loading || messageCount >= messageLimit}
-            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+            className="flex-1 rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary px-3 py-2 disabled:bg-muted disabled:text-muted-foreground"
           />
           <button
             onClick={handleSendMessage}
             disabled={loading || !input.trim() || messageCount >= messageLimit}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/95 transition disabled:bg-muted disabled:text-muted-foreground"
           >
             {loading ? '...' : 'Enviar'}
           </button>

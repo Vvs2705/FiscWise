@@ -28,6 +28,12 @@ class AccountingClientCreate(BaseModel):
     state_registration: Optional[str] = Field(None, max_length=80)
     status: ClientStatus = "active"
     notes: Optional[str] = None
+    # Responsible person fields
+    responsible_name: Optional[str] = Field(None, max_length=255)
+    responsible_cpf: Optional[str] = Field(None, max_length=20)
+    responsible_address: Optional[str] = Field(None, max_length=255)
+    responsible_phone: Optional[str] = Field(None, max_length=40)
+    responsible_email: Optional[EmailStr] = None
 
 
 class AccountingClientUpdate(BaseModel):
@@ -41,6 +47,12 @@ class AccountingClientUpdate(BaseModel):
     state_registration: Optional[str] = Field(None, max_length=80)
     status: Optional[ClientStatus] = None
     notes: Optional[str] = None
+    # Responsible person fields
+    responsible_name: Optional[str] = Field(None, max_length=255)
+    responsible_cpf: Optional[str] = Field(None, max_length=20)
+    responsible_address: Optional[str] = Field(None, max_length=255)
+    responsible_phone: Optional[str] = Field(None, max_length=40)
+    responsible_email: Optional[EmailStr] = None
 
 
 class AccountingClientResponse(AccountingClientCreate):

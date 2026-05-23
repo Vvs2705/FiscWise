@@ -21,15 +21,17 @@ from app.models.tenant import Tenant
 class UserRole(str, enum.Enum):
     """
     User role enumeration for RBAC (Role-Based Access Control).
-    
+
     Defines the hierarchy of permissions within a tenant:
     - OWNER: Full control, can manage billing and delete tenant
     - ADMIN: Can manage users and all resources within tenant
     - MEMBER: Standard user with limited permissions
+    - CLIENT: External client with portal access to own client data
     """
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
+    CLIENT = "client"
 
 
 class User(Base, TenantBase):

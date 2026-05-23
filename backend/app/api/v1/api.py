@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents
 
 
 # Create main API router for v1
@@ -50,4 +50,22 @@ api_router.include_router(
     admin.router,
     prefix="/admin",
     tags=["Admin"]
+)
+
+# Include client portal endpoints
+api_router.include_router(
+    portal.router,
+    tags=["Client Portal"]
+)
+
+# Include company partners endpoints
+api_router.include_router(
+    partners.router,
+    tags=["Company Partners"]
+)
+
+# Include company documents endpoints
+api_router.include_router(
+    company_documents.router,
+    tags=["Company Documents"]
 )

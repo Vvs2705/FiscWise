@@ -5,11 +5,12 @@ import random
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import Date as SADate, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,7 @@ from app.models.operations import (
     DigitalCertificate,
 )
 from app.models.user import User
+from app.services.document_parser import parse_document
 from app.schemas.operations import (
     AccountingClientCreate,
     AccountingClientResponse,
@@ -308,6 +310,9 @@ async def dashboard_overview(
 async def list_clients(
     search: str | None = Query(default=None, max_length=120),
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
+    tax_regime: str | None = Query(default=None, max_length=80),
+    entity_type: str | None = Query(default=None, max_length=16),
+    cnae_code: str | None = Query(default=None, max_length=20),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -315,6 +320,12 @@ async def list_clients(
     statement = select(AccountingClient).where(AccountingClient.tenant_id == tenant_id)
     if status_filter:
         statement = statement.where(AccountingClient.status == status_filter)
+    if tax_regime:
+        statement = statement.where(AccountingClient.tax_regime == tax_regime)
+    if entity_type:
+        statement = statement.where(AccountingClient.entity_type == entity_type)
+    if cnae_code:
+        statement = statement.where(AccountingClient.cnae_code.ilike(f"{cnae_code}%"))
     if search:
         term = f"%{search}%"
         statement = statement.where(
@@ -699,4 +710,194 @@ async def update_receivable(
     if payload.status == "paid" and receivable.paid_at is None:
         receivable.paid_at = datetime.now(timezone.utc)
     return await _commit_refresh(db, receivable)
+
+
+@router.post("/receivables/generate-monthly")
+async def generate_monthly_billing(
+    year_month: str = Query(..., regex=r"^\d{4}-\d{2}$", description="Format: YYYY-MM"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Gera automaticamente faturas de honorários para clientes com monthly_fee."""
+    import calendar
+    from dateutil.parser import parse
+
+    tenant_id = _tenant_id(current_user)
+
+    try:
+        year, month = map(int, year_month.split("-"))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Format deve ser YYYY-MM",
+        )
+
+    # Buscar clientes com monthly_fee > 0
+    stmt = select(AccountingClient).where(
+        (AccountingClient.tenant_id == tenant_id)
+        & (AccountingClient.monthly_fee > 0)
+        & (AccountingClient.status == "active")
+    )
+    result = await db.execute(stmt)
+    clients = list(result.scalars().all())
+
+    created_count = 0
+    skipped_count = 0
+
+    for client in clients:
+        # Checar se já existe fatura para este mês
+        existing = await db.execute(
+            select(AccountReceivable).where(
+                (AccountReceivable.client_id == client.id)
+                & (AccountReceivable.description.like(f"Honorários - {year_month}%"))
+            )
+        )
+
+        if existing.scalar_one_or_none():
+            skipped_count += 1
+            continue
+
+        # Calcular vencimento (billing_day do cliente)
+        max_day = calendar.monthrange(year, month)[1]
+        due_day = min(client.billing_day, max_day)
+        due_date = date(year, month, due_day)
+
+        # Criar novo AccountReceivable
+        receivable = AccountReceivable(
+            tenant_id=tenant_id,
+            client_id=client.id,
+            description=f"Honorários - {year_month}",
+            amount=client.monthly_fee,
+            due_date=due_date,
+            status="pending",
+        )
+        db.add(receivable)
+        created_count += 1
+
+    await db.commit()
+
+    return {
+        "status": "success",
+        "year_month": year_month,
+        "created": created_count,
+        "skipped_duplicates": skipped_count,
+        "message": f"Geradas {created_count} faturas de honorários",
+    }
+
+
+@router.post("/clients/{client_id}/documents")
+async def upload_client_document(
+    client_id: uuid.UUID,
+    file: UploadFile = File(...),
+    document_type: str = Query(..., max_length=80, description="Tipo: contract, secret_sheet, certificate, etc"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+) -> DocumentResponse:
+    """Upload de arquivo para cliente (PDF, Excel, Word)."""
+    import tempfile
+    import os
+
+    tenant_id = _tenant_id(current_user)
+
+    # Validar cliente
+    client = await _get_client_or_404(db, tenant_id, client_id)
+
+    # Simular armazenamento em arquivo temporário
+    file_ext = Path(file.filename).suffix if file.filename else ".bin"
+    storage_path = f"{tenant_id}/{uuid.uuid4()}{file_ext}"
+    file_url = f"https://storage.example.com/documents/{storage_path}"
+
+    # Salvar arquivo temporário para parsing
+    with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    # Criar registro no banco
+    document = ClientDocument(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        name=file.filename or "Documento sem nome",
+        document_type=document_type,
+        file_url=file_url,
+        status="available",
+        parse_status="processing",
+    )
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    # Agendar parsing em background
+    background_tasks.add_task(
+        _parse_document_background,
+        document.id,
+        tmp_path,
+        file.filename or "file",
+        tenant_id,
+        db
+    )
+
+    return DocumentResponse.from_orm(document)
+
+
+@router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
+async def list_client_documents(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista documentos de um cliente."""
+    tenant_id = _tenant_id(current_user)
+    await _get_client_or_404(db, tenant_id, client_id)
+
+    stmt = select(ClientDocument).where(ClientDocument.client_id == client_id)
+    result = await db.execute(stmt.order_by(ClientDocument.id.desc()))
+    return list(result.scalars().all())
+
+
+async def _parse_document_background(
+    document_id: uuid.UUID,
+    file_path: str,
+    file_name: str,
+    tenant_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Background task to parse document asynchronously."""
+    import os
+
+    try:
+        parsed_data, error = await parse_document(file_path, file_name)
+
+        # Get document from DB
+        result = await db.execute(
+            select(ClientDocument).where(
+                (ClientDocument.id == document_id)
+                & (ClientDocument.tenant_id == tenant_id)
+            )
+        )
+        document = result.scalar_one_or_none()
+
+        if document:
+            if error:
+                document.parse_status = "failed"
+                document.parse_error = error
+            else:
+                document.parse_status = "completed"
+                document.parsed_data = parsed_data
+                document.parsed_at = datetime.now(timezone.utc)
+
+            db.add(document)
+            await db.commit()
+
+    except Exception as e:
+        logger.error(f"Background parsing error for document {document_id}: {str(e)}")
+
+    finally:
+        # Clean up temporary file
+        try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            logger.error(f"Error cleaning temp file {file_path}: {str(e)}")
 

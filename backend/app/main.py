@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
 from app.api.v1.api import api_router
+from app.services.scheduler import start_scheduler, stop_scheduler
 
 # Configure logging
 logging.basicConfig(
@@ -72,10 +73,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("Application initialized successfully")
 
+    # Start background scheduler for tasks like monthly billing
+    await start_scheduler()
+
     yield  # Application runs here
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
     logger.info("FiscWise API shutting down...")
+    await stop_scheduler()
     logger.info("Cleanup completed successfully")
 
 

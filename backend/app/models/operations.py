@@ -4,12 +4,34 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
+import enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UUID as SQLUUID
+from sqlalchemy import Date, DateTime, ForeignKey, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.models.base import Base, TenantBase
+
+
+class InviteStatus(str, enum.Enum):
+    """Status of a client portal invite."""
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class CompanyDocumentType(str, enum.Enum):
+    """Types of company documents."""
+    CNPJ = "cnpj"
+    CONTRATO_SOCIAL = "contrato_social"
+    INSCRICAO_MUNICIPAL = "inscricao_municipal"
+    INSCRICAO_ESTADUAL = "inscricao_estadual"
+    ALVARA_FUNCIONAMENTO = "alvara_funcionamento"
+    LICENCA_SANITARIA = "licenca_sanitaria"
+    CNES = "cnes"
+    ALVARA_BOMBEIROS = "alvara_bombeiros"
+    CRO_JURIDICO = "cro_juridico"
 
 
 class AccountingClient(Base, TenantBase):
@@ -26,8 +48,9 @@ class AccountingClient(Base, TenantBase):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     document: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
-    entity_type: Mapped[str] = mapped_column(String(16), nullable=False, default="pj")
-    tax_regime: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    entity_type: Mapped[str] = mapped_column(String(16), nullable=False, default="pj", index=True)
+    tax_regime: Mapped[Optional[str]] = mapped_column(String(80), nullable=True, index=True)
+    cnae_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     municipal_registration: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
@@ -35,6 +58,15 @@ class AccountingClient(Base, TenantBase):
     client_code: Mapped[str] = mapped_column(String(4), nullable=False, default="", index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    monthly_fee: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
+    billing_day: Mapped[int] = mapped_column(default=1)
+    portal_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(SQLUUID(as_uuid=True), nullable=True)
+    # Responsible person fields
+    responsible_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    responsible_cpf: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    responsible_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    responsible_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    responsible_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class DeadlineItem(Base, TenantBase):
@@ -89,6 +121,10 @@ class ClientDocument(Base, TenantBase):
     issued_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     expires_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    parse_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    parsed_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    parse_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    parsed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DigitalCertificate(Base, TenantBase):
@@ -140,5 +176,96 @@ class AccountReceivable(Base, TenantBase):
     due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class ClientPortalInvite(Base, TenantBase):
+    """Portal access invitation for accounting clients."""
+
+    __tablename__ = "client_portal_invites"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant identifier for data isolation",
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("accounting_clients.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[InviteStatus] = mapped_column(
+        SQLEnum(InviteStatus, name="invite_status_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=InviteStatus.PENDING,
+        index=True,
+    )
+    invited_by: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who sent the invite",
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CompanyPartner(Base, TenantBase):
+    """Company partner or shareholder information."""
+
+    __tablename__ = "company_partners"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant identifier for data isolation",
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("accounting_clients.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    cpf: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    participation_percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    entry_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class CompanyDocument(Base, TenantBase):
+    """Company official documents (CNPJ, contracts, licenses, etc.)."""
+
+    __tablename__ = "company_documents"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant identifier for data isolation",
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("accounting_clients.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_type: Mapped[CompanyDocumentType] = mapped_column(
+        SQLEnum(CompanyDocumentType, name="company_document_type_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True,
+    )
+    file_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    upload_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=func.now())
+    expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="valid", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 

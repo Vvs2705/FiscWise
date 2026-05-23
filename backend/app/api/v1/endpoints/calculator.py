@@ -517,6 +517,8 @@ async def list_simulations(
                 simulation_type=sim.simulation_type,
                 title=sim.title,
                 plan_slug=sim.plan_slug,
+                input_data=sim.input_data,
+                result_data=sim.result_data,
                 created_at=sim.created_at,
             )
             for sim in simulations

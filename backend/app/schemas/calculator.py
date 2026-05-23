@@ -317,6 +317,8 @@ class SimulationListItem(BaseModel):
     simulation_type: SimulationType
     title: Optional[str]
     plan_slug: Optional[str]
+    input_data: dict[str, Any]
+    result_data: dict[str, Any]
     created_at: datetime
 
 

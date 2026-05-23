@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react';
 import { FiscalCalculatorSection } from '../components/FiscalCalculatorSection';
+import { fetchTenant } from '../lib/auth';
 
 export function CalculatorPage() {
   const [userPlan, setUserPlan] = useState<'FREE' | 'INTERMEDIARIO' | 'PREMIUM'>('FREE');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Buscar plano do usuário da API
     const fetchUserPlan = async () => {
       try {
-        // const response = await fetch('/api/v1/auth/me', {
-        //   headers: { 'Authorization': `Bearer ${token}` }
-        // });
-        // const user = await response.json();
-        // setUserPlan(user.subscription_plan || 'FREE');
-        setUserPlan('INTERMEDIARIO'); // Placeholder para demo
+        const tenant = await fetchTenant();
+        const plan = (tenant.plan_slug || 'FREE').toUpperCase() as 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
+        setUserPlan(plan);
       } catch (err) {
         console.error('Erro ao buscar plano do usuário:', err);
         setUserPlan('FREE');

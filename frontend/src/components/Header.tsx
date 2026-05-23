@@ -13,6 +13,7 @@ const sectionTitles: Record<string, string> = {
   '/agenda-prazos':  'Agenda e prazos',
   '/certificados':   'Certificados digitais',
   '/financeiro':     'Financeiro',
+  '/calculadora':    'Calculadora Fiscal com IA',
   '/configuracoes':  'Configurações',
 };
 

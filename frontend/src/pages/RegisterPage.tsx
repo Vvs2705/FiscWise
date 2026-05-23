@@ -32,22 +32,22 @@ const PLANS = [
     label: 'Free',
     price: 'Grátis',
     description: 'Para começar a organizar',
-    features: ['Até 5 clientes', '1 usuário', 'Documentos básicos'],
+    features: ['Até 5 clientes', '1 usuário', 'Documentos básicos', 'Calculadora fiscal básica'],
   },
   {
-    slug: 'starter',
-    label: 'Starter',
+    slug: 'intermediario',
+    label: 'Intermediário',
     price: 'R$ 49/mês',
     description: 'Para escritórios em crescimento',
     popular: true,
-    features: ['Até 50 clientes', '3 usuários', 'Agenda e prazos', 'Certificados digitais'],
+    features: ['Até 50 clientes', '3 usuários', 'Agenda e prazos', 'Certificados digitais', 'Chat IA (20 msgs/mês)', 'Recomendações IA'],
   },
   {
-    slug: 'pro',
-    label: 'Pro',
+    slug: 'premium',
+    label: 'Premium',
     price: 'R$ 149/mês',
     description: 'Para grandes escritórios',
-    features: ['Clientes ilimitados', '10 usuários', 'Relatórios avançados', 'API access'],
+    features: ['Clientes ilimitados', '10 usuários', 'Relatórios avançados', 'Chat IA ilimitado', 'Exportação PDF', 'API access'],
   },
 ];
 
@@ -195,7 +195,7 @@ export function RegisterPage() {
     setStep(2);
   }
 
-  function handleStep2(_values: Step2Values) {
+  function handleStep2() {
     // Values stay in form2 state; final submit reads them in handleFinish
     setStep(3);
   }

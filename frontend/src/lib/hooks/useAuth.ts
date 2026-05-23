@@ -10,6 +10,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
+    return typeof detail === 'string' ? detail : fallback;
+  }
+  return fallback;
+}
+
 export function useAuth() {
   const { user, isAuthenticated, setUser, logout, checkAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -22,8 +30,8 @@ export function useAuth() {
       setUser(response.user);
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Erro ao fazer login';
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao fazer login');
       toast.error(message);
       throw error;
     } finally {
@@ -38,8 +46,8 @@ export function useAuth() {
       setUser(response.user);
       toast.success('Conta criada com sucesso!');
       navigate('/dashboard');
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Erro ao criar conta';
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao criar conta');
       toast.error(message);
       throw error;
     } finally {
@@ -54,8 +62,8 @@ export function useAuth() {
       setUser(response.user);
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Erro ao entrar com Google';
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao entrar com Google');
       toast.error(message);
       throw error;
     } finally {

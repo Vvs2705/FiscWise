@@ -1,16 +1,27 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingDown, Star, AlertCircle, ChevronDown } from 'lucide-react';
 import { SimulationResult, SimulationRequest } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
-import { validateSimulation } from '../lib/validations/calculator';
+
+const ESTADOS_BR = [
+  'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA',
+  'MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN',
+  'RO','RR','RS','SC','SE','SP','TO',
+];
+
+function moneyBRL(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
 
 interface Props {
   userPlan?: 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
 }
 
-export function CalculatorSimulator({ userPlan: _userPlan }: Props = {}) {
+export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
   const [formData, setFormData] = useState<SimulationRequest>({
-    monthly_revenue: 0,
-    annual_cogs: 0,
+    monthly_revenue: '' as unknown as number,  // starts empty so placeholder shows
+    annual_cogs: '' as unknown as number,
     state: 'SP',
     regime: 'simples',
     has_pis_cofins_credit: false,
@@ -18,125 +29,289 @@ export function CalculatorSimulator({ userPlan: _userPlan }: Props = {}) {
 
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    const rev = Number(formData.monthly_revenue);
+    const costs = Number(formData.annual_cogs);
+
+    if (!formData.monthly_revenue && formData.monthly_revenue !== 0) {
+      errors.monthly_revenue = 'Informe a receita mensal';
+    } else if (isNaN(rev) || rev <= 0) {
+      errors.monthly_revenue = 'Receita mensal deve ser maior que R$ 0';
+    }
+
+    if (formData.annual_cogs !== ('' as unknown as number) && (isNaN(costs) || costs < 0)) {
+      errors.annual_cogs = 'Custo anual não pode ser negativo';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setApiError(null);
 
-    const validation = validateSimulation(formData);
-    if (!validation.isValid) {
-      setError('Preencha todos os campos corretamente');
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
     try {
-      const result = await calculatorAPI.simulateRegime(formData);
-      setResult(result);
-    } catch (err) {
-      setError('Erro ao processar simulação');
+      const res = await calculatorAPI.simulateRegime({
+        ...formData,
+        monthly_revenue: Number(formData.monthly_revenue) || 0,
+        annual_cogs: Number(formData.annual_cogs) || 0,
+      });
+      setResult(res);
+    } catch (rawErr: unknown) {
+      const err = rawErr as { response?: { data?: { detail?: unknown } } };
+      const msg = err?.response?.data?.detail || 'Erro ao processar simulação. Tente novamente.';
+      setApiError(typeof msg === 'string' ? msg : JSON.stringify(msg));
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const field = (id: string) => ({
+    'aria-describedby': fieldErrors[id] ? `${id}-error` : undefined,
+    'aria-invalid': !!fieldErrors[id],
+  });
+
   return (
-    <div className="space-y-6 text-foreground">
-      <form onSubmit={handleSubmit} className="space-y-4 bg-card text-card-foreground p-6 rounded-lg border border-border shadow-sm">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} data-plan={userPlan} className="space-y-5 rounded-xl border border-border bg-card p-6">
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+          Dados da simulação
+        </h3>
+
+        {/* Receita mensal */}
         <div>
-          <label className="block text-sm font-medium text-muted-foreground">
-            Receita Mensal (R$)
+          <label htmlFor="monthly_revenue" className="block text-sm font-medium text-foreground mb-1">
+            Receita Mensal <span className="text-destructive">*</span>
           </label>
-          <input
-            type="number"
-            min="0"
-            value={formData.monthly_revenue}
-            onChange={(e) => setFormData({ ...formData, monthly_revenue: parseFloat(e.target.value) })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary px-3 py-2"
-            required
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+            <input
+              id="monthly_revenue"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={formData.monthly_revenue === ('' as unknown as number) ? '' : formData.monthly_revenue}
+              onChange={(e) =>
+                setFormData({ ...formData, monthly_revenue: e.target.value as unknown as number })
+              }
+              {...field('monthly_revenue')}
+              className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition ${
+                fieldErrors.monthly_revenue ? 'border-destructive' : 'border-input'
+              }`}
+            />
+          </div>
+          {fieldErrors.monthly_revenue && (
+            <p id="monthly_revenue-error" className="mt-1 flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {fieldErrors.monthly_revenue}
+            </p>
+          )}
         </div>
 
+        {/* Custo anual */}
         <div>
-          <label className="block text-sm font-medium text-muted-foreground">
-            Custo Anual (R$)
+          <label htmlFor="annual_cogs" className="block text-sm font-medium text-foreground mb-1">
+            Custo Anual{' '}
+            <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
           </label>
-          <input
-            type="number"
-            min="0"
-            value={formData.annual_cogs}
-            onChange={(e) => setFormData({ ...formData, annual_cogs: parseFloat(e.target.value) })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary px-3 py-2"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+            <input
+              id="annual_cogs"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={formData.annual_cogs === ('' as unknown as number) ? '' : formData.annual_cogs}
+              onChange={(e) =>
+                setFormData({ ...formData, annual_cogs: e.target.value as unknown as number })
+              }
+              {...field('annual_cogs')}
+              className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition ${
+                fieldErrors.annual_cogs ? 'border-destructive' : 'border-input'
+              }`}
+            />
+          </div>
+          {fieldErrors.annual_cogs && (
+            <p id="annual_cogs-error" className="mt-1 flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {fieldErrors.annual_cogs}
+            </p>
+          )}
         </div>
 
+        {/* Estado */}
         <div>
-          <label className="block text-sm font-medium text-muted-foreground">
-            Estado
+          <label htmlFor="state" className="block text-sm font-medium text-foreground mb-1">
+            Estado <span className="text-destructive">*</span>
           </label>
-          <select
-            value={formData.state}
-            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-            className="mt-1 block w-full rounded-md border border-input bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary px-3 py-2"
-          >
-            {['SP', 'RJ', 'MG', 'BA', 'SC', 'RS', 'PR'].map((state) => (
-              <option key={state} value={state} className="bg-background text-foreground">
-                {state}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="state"
+              value={formData.state}
+              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+              className="w-full appearance-none rounded-lg border border-input bg-background text-foreground text-sm pl-3 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+            >
+              {ESTADOS_BR.map((s) => (
+                <option key={s} value={s} className="bg-background text-foreground">
+                  {s}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
+        {/* Crédito PIS/COFINS */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={formData.has_pis_cofins_credit}
             id="pis_cofins"
-            checked={formData.has_pis_cofins_credit}
-            onChange={(e) => setFormData({ ...formData, has_pis_cofins_credit: e.target.checked })}
-            className="rounded border-input bg-background text-primary focus:ring-primary"
-          />
-          <label htmlFor="pis_cofins" className="ml-2 text-sm text-muted-foreground">
+            onClick={() =>
+              setFormData({ ...formData, has_pis_cofins_credit: !formData.has_pis_cofins_credit })
+            }
+            className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+              formData.has_pis_cofins_credit
+                ? 'bg-primary border-primary'
+                : 'border-input bg-background'
+            }`}
+          >
+            {formData.has_pis_cofins_credit && (
+              <svg viewBox="0 0 12 10" className="h-3 w-3 text-primary-foreground" fill="none">
+                <path d="M1 5l3.5 4L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+          <label htmlFor="pis_cofins" className="text-sm text-foreground cursor-pointer select-none" onClick={() => setFormData({ ...formData, has_pis_cofins_credit: !formData.has_pis_cofins_credit })}>
             Possui crédito de PIS/COFINS
           </label>
         </div>
 
-        {error && <div className="text-destructive text-sm font-medium">{error}</div>}
+        {/* API error */}
+        {apiError && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{apiError}</span>
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/95 transition disabled:bg-muted disabled:text-muted-foreground"
+          className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
         >
-          {loading ? 'Processando...' : 'Simular'}
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Calculando...
+            </span>
+          ) : (
+            'Simular regimes tributários'
+          )}
         </button>
       </form>
 
-      {result && (
-        <div className="bg-green-50/50 dark:bg-green-950/20 p-6 rounded-lg border border-green-200/50 dark:border-green-900/30">
-          <h3 className="font-semibold text-lg text-foreground mb-4">Resultados da Simulação</h3>
+      {/* Results */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            key="results"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-4"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+              Resultado da simulação
+            </h3>
 
-          {result.scenarios.map((scenario) => (
-            <div key={scenario.regime} className="mb-4 p-4 bg-card text-card-foreground rounded border border-border shadow-sm">
-              <div className="font-semibold text-foreground">{scenario.regime.toUpperCase()}</div>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                <div className="text-muted-foreground">Imposto Anual: <span className="font-semibold text-foreground">R$ {scenario.annual_tax.toLocaleString('pt-BR')}</span></div>
-                <div className="text-muted-foreground">Taxa Efetiva: <span className="font-semibold text-foreground">{(scenario.effective_rate * 100).toFixed(2)}%</span></div>
-              </div>
+            {/* Scenarios */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {result.scenarios.map((scenario, i) => {
+                const isRecommended = scenario.regime === result.recommended_regime;
+                return (
+                  <motion.div
+                    key={scenario.regime}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                    className={`relative rounded-xl border p-4 transition-all ${
+                      isRecommended
+                        ? 'border-emerald-500/40 bg-emerald-500/5 shadow-sm'
+                        : 'border-border bg-card'
+                    }`}
+                  >
+                    {isRecommended && (
+                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                        <Star className="h-2.5 w-2.5" />
+                        Recomendado
+                      </div>
+                    )}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      {scenario.regime}
+                    </p>
+                    <p className={`text-xl font-bold ${isRecommended ? 'text-emerald-500' : 'text-foreground'}`}>
+                      {moneyBRL(scenario.annual_tax)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">imposto anual</p>
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-xs text-muted-foreground">
+                        Alíquota efetiva:{' '}
+                        <span className="font-semibold text-foreground">
+                          {(scenario.effective_rate * 100).toFixed(2)}%
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Mensal:{' '}
+                        <span className="font-semibold text-foreground">
+                          {moneyBRL(scenario.monthly_tax)}
+                        </span>
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
-          ))}
 
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded border border-blue-200 dark:border-blue-900/40 shadow-sm">
-            <div className="text-lg font-semibold text-blue-900 dark:text-blue-200">
-              Melhor Regime: {result.recommended_regime}
-            </div>
-            <div className="text-sm text-blue-800 dark:text-blue-300 mt-2">
-              Economia Anual: R$ {result.annual_savings.toLocaleString('pt-BR')}
-            </div>
-          </div>
-        </div>
-      )}
+            {/* Savings banner */}
+            {result.annual_savings > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+                className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-5 py-4"
+              >
+                <TrendingDown className="h-6 w-6 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Economia potencial com o melhor regime:{' '}
+                    <span className="text-primary">{moneyBRL(result.annual_savings)}/ano</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Comparado ao regime mais caro disponível para o seu perfil.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -197,6 +197,7 @@ export function useDashboardOverview() {
       const { data } = await api.get<DashboardOverview>('/api/v1/dashboard/overview');
       return data;
     },
+    refetchInterval: 60_000, // auto-refresh every 60 s for real-time feel
   });
 }
 

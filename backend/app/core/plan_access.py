@@ -15,11 +15,17 @@ Feature matrix:
   Chat assistant                → intermediario (20/month) + premium (unlimited)
   PDF export                    → premium only
   Fiscal benefits listing       → premium only
+
+Superuser override:
+  Emails listed in TEST_SUPERUSER_EMAILS always receive PREMIUM access
+  regardless of the plan stored in the database. Intended for explicit
+  operator-controlled test/admin accounts only.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -28,6 +34,30 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Superuser override: these emails always get PREMIUM regardless of DB value
+# Add more via TEST_SUPERUSER_EMAILS env var (comma-separated)
+# ---------------------------------------------------------------------------
+
+_SUPERUSER_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in os.getenv("TEST_SUPERUSER_EMAILS", "").split(",")
+    if e.strip()
+)
+
+
+def resolve_plan(plan_slug: Optional[str], user_email: Optional[str] = None) -> Optional[str]:
+    """
+    Resolve the effective plan for a user.
+
+    If the user's email is in _SUPERUSER_EMAILS, always returns PREMIUM.
+    Otherwise returns plan_slug as stored in the database.
+    """
+    if user_email and user_email.lower() in _SUPERUSER_EMAILS:
+        return PLAN_PREMIUM
+    return plan_slug
+
 
 # ---------------------------------------------------------------------------
 # Plan constants

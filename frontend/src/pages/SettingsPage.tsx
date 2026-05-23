@@ -536,9 +536,12 @@ function SegurancaTab() {
       });
       toast.success('Senha alterada com sucesso');
       reset();
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? 'Erro ao alterar senha';
-      toast.error(msg);
+    } catch (err: unknown) {
+      const msg =
+        typeof err === 'object' && err !== null && 'response' in err
+          ? (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
+          : undefined;
+      toast.error(typeof msg === 'string' ? msg : 'Erro ao alterar senha');
     }
   }
 

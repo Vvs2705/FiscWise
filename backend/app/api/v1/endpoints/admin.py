@@ -290,3 +290,111 @@ async def fix_enum_case(
             "error_type": type(e).__name__,
             "hint": "Check that database connection is valid and user has ALTER TABLE permissions"
         }
+
+
+# ---------------------------------------------------------------------------
+# Plan management endpoints
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as PydanticBaseModel, EmailStr as EmailStrType
+from sqlalchemy import select as sa_select
+from app.models.tenant import Tenant
+from app.models.user import User as UserModel
+
+
+class SetPlanRequest(PydanticBaseModel):
+    email: str
+    plan_slug: str  # "free" | "intermediario" | "premium"
+
+
+@router.post("/set-plan-by-email", summary="Admin: Update tenant plan by user email")
+async def set_plan_by_email(
+    body: SetPlanRequest,
+    request: Request,
+    token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update the plan_slug of the tenant associated with the given email.
+
+    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header.
+    Valid plan slugs: free, intermediario, premium.
+    """
+    VALID_PLANS = {"free", "intermediario", "premium"}
+    if body.plan_slug not in VALID_PLANS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(VALID_PLANS)}",
+        )
+
+    # Find user by email
+    user_result = await db.execute(
+        sa_select(UserModel).where(UserModel.email == body.email)
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No user found with email '{body.email}'",
+        )
+
+    # Find their tenant
+    tenant_result = await db.execute(
+        sa_select(Tenant).where(Tenant.id == user.tenant_id)
+    )
+    tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No tenant found for user '{body.email}'",
+        )
+
+    old_plan = tenant.plan_slug
+    tenant.plan_slug = body.plan_slug
+    await db.commit()
+    await db.refresh(tenant)
+
+    client_ip = _get_client_ip(request)
+    logger.info(
+        f"[ADMIN] plan_slug updated for {body.email}: "
+        f"{old_plan!r} -> {body.plan_slug!r} from {client_ip}"
+    )
+
+    return {
+        "status": "updated",
+        "email": body.email,
+        "tenant_id": str(tenant.id),
+        "old_plan": old_plan,
+        "new_plan": tenant.plan_slug,
+    }
+
+
+@router.get("/tenant-by-email", summary="Admin: Get tenant info by user email")
+async def get_tenant_by_email(
+    email: str,
+    request: Request,
+    token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch tenant info (including plan_slug) for a given user email."""
+    user_result = await db.execute(
+        sa_select(UserModel).where(UserModel.email == email)
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"No user found with email '{email}'")
+
+    tenant_result = await db.execute(
+        sa_select(Tenant).where(Tenant.id == user.tenant_id)
+    )
+    tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail=f"No tenant found for user '{email}'")
+
+    return {
+        "email": email,
+        "tenant_id": str(tenant.id),
+        "tenant_name": tenant.name,
+        "plan_slug": tenant.plan_slug,
+        "subscription_status": tenant.subscription_status.value,
+    }

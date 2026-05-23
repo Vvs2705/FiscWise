@@ -37,6 +37,7 @@ export interface ChatRequest {
 export interface ChatResponse {
   response: string;
   recommendations: string[];
+  remaining_quota?: number | null; // null = unlimited (Premium)
 }
 
 export interface Simulation {

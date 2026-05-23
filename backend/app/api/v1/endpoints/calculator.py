@@ -28,6 +28,7 @@ from app.core.plan_access import (
     check_chat_quota,
     has_plan,
     require_plan,
+    resolve_plan,
 )
 from app.models.calculator import (
     AssistantRole,
@@ -79,7 +80,8 @@ def _tenant_id(current_user: User) -> uuid.UUID:
 
 
 def _plan(current_user: User) -> Optional[str]:
-    return current_user.tenant.plan_slug if current_user.tenant else None
+    raw = current_user.tenant.plan_slug if current_user.tenant else None
+    return resolve_plan(raw, getattr(current_user, "email", None))
 
 
 async def _commit_refresh(db: AsyncSession, instance):

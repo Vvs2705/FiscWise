@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Download, Upload, Loader2, Lock, Briefcase } from 'lucide-react';
+import { Plus, Trash2, Download, Upload, Loader2, Lock, Briefcase, Search, X, Filter } from 'lucide-react';
 import readXlsxFile from 'read-excel-file';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -284,6 +284,14 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Filter types
+// ---------------------------------------------------------------------------
+
+type StatusFilter = '' | 'active' | 'inactive' | 'onboarding';
+type TipoFilter = '' | 'pj' | 'pf';
+type RegimeFilter = '' | 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' | 'MEI';
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -294,6 +302,12 @@ export function ClientsPage() {
   const { data: clients, isLoading, isError } = useClients();
   const location = useLocation();
 
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+  const [tipoFilter, setTipoFilter] = useState<TipoFilter>('');
+  const [regimeFilter, setRegimeFilter] = useState<RegimeFilter>('');
+
   // Abre o dialog automaticamente quando vindo do dashboard com state { openCreate: true }
   useEffect(() => {
     if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
@@ -302,6 +316,7 @@ export function ClientsPage() {
       window.history.replaceState({}, '');
     }
   }, [location.state]);
+
   const createMutation = useCreateClient();
   const deleteMutation = useDeleteClient();
 
@@ -350,6 +365,45 @@ export function ClientsPage() {
   const total = clients?.length ?? 0;
   const activeCount = clients?.filter((c) => c.status === 'active').length ?? 0;
   const onboardingCount = clients?.filter((c) => c.status === 'onboarding').length ?? 0;
+
+  // Derived: are any filters active?
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || statusFilter !== '' || tipoFilter !== '' || regimeFilter !== '';
+
+  // Client-side filtering via useMemo
+  const filteredClients = useMemo(() => {
+    if (!clients) return [];
+
+    const q = searchQuery.trim().toLowerCase();
+
+    return clients.filter((client) => {
+      // Search query: name, document, email
+      if (q) {
+        const matchesName = client.name.toLowerCase().includes(q);
+        const matchesDoc = (client.document ?? '').toLowerCase().includes(q);
+        const matchesEmail = (client.email ?? '').toLowerCase().includes(q);
+        if (!matchesName && !matchesDoc && !matchesEmail) return false;
+      }
+
+      // Status filter
+      if (statusFilter && client.status !== statusFilter) return false;
+
+      // Tipo filter
+      if (tipoFilter && client.entity_type !== tipoFilter) return false;
+
+      // Regime filter
+      if (regimeFilter && client.tax_regime !== regimeFilter) return false;
+
+      return true;
+    });
+  }, [clients, searchQuery, statusFilter, tipoFilter, regimeFilter]);
+
+  function clearFilters() {
+    setSearchQuery('');
+    setStatusFilter('');
+    setTipoFilter('');
+    setRegimeFilter('');
+  }
 
   return (
     <div className="space-y-6">
@@ -407,10 +461,95 @@ export function ClientsPage() {
         </Card>
       </div>
 
+      {/* Filters bar */}
+      {!isLoading && !isError && (
+        <div className="flex flex-wrap gap-3">
+          {/* Search input — takes most of the space */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nome, CNPJ/CPF ou e-mail..."
+              className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              aria-label="Buscar clientes"
+            />
+          </div>
+
+          {/* Selects row + clear button */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Status filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              aria-label="Filtrar por status"
+            >
+              <option value="">Todos os status</option>
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+              <option value="onboarding">Onboarding</option>
+            </select>
+
+            {/* Tipo filter */}
+            <select
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value as TipoFilter)}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              aria-label="Filtrar por tipo"
+            >
+              <option value="">Todos os tipos</option>
+              <option value="pj">Pessoa Jurídica</option>
+              <option value="pf">Pessoa Física</option>
+            </select>
+
+            {/* Regime filter */}
+            <select
+              value={regimeFilter}
+              onChange={(e) => setRegimeFilter(e.target.value as RegimeFilter)}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              aria-label="Filtrar por regime tributário"
+            >
+              <option value="">Todos os regimes</option>
+              <option value="Simples Nacional">Simples Nacional</option>
+              <option value="Lucro Presumido">Lucro Presumido</option>
+              <option value="Lucro Real">Lucro Real</option>
+              <option value="MEI">MEI</option>
+            </select>
+
+            {/* Clear filters button — only when filters are active */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                aria-label="Limpar filtros"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Clients table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <CardTitle className="text-base">Carteira de clientes</CardTitle>
+          {/* Counter */}
+          {!isLoading && !isError && clients && (
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+              {hasActiveFilters
+                ? `${filteredClients.length} de ${total} clientes`
+                : `${total} ${total === 1 ? 'cliente' : 'clientes'}`}
+            </span>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -430,7 +569,8 @@ export function ClientsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(clients ?? []).length === 0 && (
+                  {/* Empty state: no clients at all */}
+                  {total === 0 && (
                     <tr>
                       <td colSpan={7}>
                         <EmptyState
@@ -440,7 +580,34 @@ export function ClientsPage() {
                       </td>
                     </tr>
                   )}
-                  {(clients ?? []).map((client) => (
+
+                  {/* Empty state: clients exist but filters return nothing */}
+                  {total > 0 && filteredClients.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                          <Search className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                          <div>
+                            <p className="font-medium text-foreground">Nenhum cliente encontrado</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Nenhum cliente corresponde aos filtros aplicados.{' '}
+                              <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="underline underline-offset-2 hover:text-foreground transition-colors"
+                              >
+                                Limpar filtros
+                              </button>{' '}
+                              para ver todos os clientes.
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Filtered rows */}
+                  {filteredClients.map((client) => (
                     <tr key={client.id} className="border-b last:border-0">
                       <td className="py-4">
                         <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">

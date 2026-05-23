@@ -23,14 +23,21 @@ export const simulationSchema = {
   },
 };
 
-export const validateSimulation = (data: any) => {
+type SimulationValidationData = {
+  monthly_revenue?: number;
+  annual_cogs?: number;
+  state?: string;
+  regime?: string;
+};
+
+export const validateSimulation = (data: SimulationValidationData) => {
   const errors: Record<string, string> = {};
 
   if (!data.monthly_revenue || data.monthly_revenue < 0) {
     errors.monthly_revenue = 'Receita mensal deve ser maior que 0';
   }
 
-  if (data.annual_cogs < 0) {
+  if ((data.annual_cogs ?? 0) < 0) {
     errors.annual_cogs = 'Custo anual não pode ser negativo';
   }
 

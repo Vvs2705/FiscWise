@@ -71,7 +71,8 @@ async def register_tenant(
         new_tenant = Tenant(
             name=registration.company_name,
             document=registration.document,
-            subscription_status=SubscriptionStatus.TRIAL
+            subscription_status=SubscriptionStatus.TRIAL,
+            plan_slug="free",
         )
         
         db.add(new_tenant)

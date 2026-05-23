@@ -28,16 +28,24 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ── Enum types ────────────────────────────────────────────────────────────
-    op.execute(
-        "CREATE TYPE IF NOT EXISTS simulation_type_enum AS ENUM ('regime', 'icms', 'pis_cofins')"
-    )
-    op.execute(
-        "CREATE TYPE IF NOT EXISTS tax_regime_enum AS ENUM "
-        "('simples_nacional', 'lucro_presumido', 'lucro_real')"
-    )
-    op.execute(
-        "CREATE TYPE IF NOT EXISTS assistant_role_enum AS ENUM ('user', 'assistant', 'system')"
-    )
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE simulation_type_enum AS ENUM ('regime', 'icms', 'pis_cofins');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE tax_regime_enum AS ENUM ('simples_nacional', 'lucro_presumido', 'lucro_real');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE assistant_role_enum AS ENUM ('user', 'assistant', 'system');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
     # ── calculator_simulations ────────────────────────────────────────────────
     op.create_table(

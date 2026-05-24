@@ -5,11 +5,23 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 
-router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def ensure_diagnostics_enabled() -> None:
+    """Disable diagnostic endpoints unless explicitly enabled by environment."""
+    if not settings.DIAGNOSTICS_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnostic endpoints are disabled",
+        )
+
+
+router = APIRouter(dependencies=[Depends(ensure_diagnostics_enabled)])
 
 
 @router.get("/enums", summary="Check enum status in database")

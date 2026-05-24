@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         """
         if not v:
             environment = info.data.get("ENVIRONMENT", "development")
-            if environment == "production":
+            if environment in {"production", "staging"}:
                 # Log a clear warning but do NOT crash at import time.
                 # The startup_event and migration script will surface the
                 # error with a useful message.
@@ -108,6 +108,10 @@ class Settings(BaseSettings):
     # Redis — optional; not used in the current MVP feature set.
     # When rate-limiting or caching is added, set this secret in Fly.io.
     REDIS_URL: str = ""
+    RATE_LIMIT_STRICT: bool = False
+
+    # Internal diagnostics expose database details and are disabled by default.
+    DIAGNOSTICS_ENABLED: bool = False
     
     # JWT Authentication
     JWT_SECRET_KEY: str = ""
@@ -126,7 +130,7 @@ class Settings(BaseSettings):
         environment = info.data.get("ENVIRONMENT", "development")
 
         if not v:
-            if environment == "production":
+            if environment in {"production", "staging"}:
                 import logging as _logging
                 _logging.getLogger(__name__).critical(
                     "JWT_SECRET_KEY secret is not set in Fly.io. "
@@ -136,7 +140,7 @@ class Settings(BaseSettings):
             # Dev default only if not in production
             return "dev_secret_key_do_not_use_in_production_change_in_railway"
 
-        if environment == "production" and "dev_secret" in v.lower():
+        if environment in {"production", "staging"} and "dev_secret" in v.lower():
             # NEVER raise ValueError here — it causes a ValidationError at import
             # time (settings = Settings()) which kills the process before uvicorn
             # starts, resulting in 0.0.0.0:8000 never being bound.
@@ -169,6 +173,11 @@ class Settings(BaseSettings):
 
     # OpenAI (Feature #7 — Calculadora Fiscal com IA)
     OPENAI_API_KEY: str = ""
+
+    # Observability
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    SENTRY_PROFILES_SAMPLE_RATE: float = 0.0
     
     @field_validator("DEBUG", mode="before")
     @classmethod

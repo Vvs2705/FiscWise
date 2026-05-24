@@ -1,5 +1,5 @@
-# ContaFlow Backend Dependencies
-# Python 3.11+
+# FiscWise Backend Dependencies
+# Python 3.12+
 
 # Core Framework
 fastapi==0.115.0
@@ -34,6 +34,7 @@ hiredis==3.0.0
 
 # Logging
 loguru==0.7.2
+sentry-sdk[fastapi]>=2.0.0
 
 # Document Parsing
 pdfplumber==0.11.0

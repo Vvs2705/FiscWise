@@ -210,9 +210,13 @@ export function DasMensalPage() {
 
       toast.success('DAS cadastrado com sucesso!');
       setOpenModal(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err?.response?.data?.detail || 'Erro ao salvar DAS.');
+      const detail =
+        typeof err === 'object' && err !== null && 'response' in err
+          ? (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
+          : undefined;
+      toast.error(typeof detail === 'string' ? detail : 'Erro ao salvar DAS.');
     }
   };
 

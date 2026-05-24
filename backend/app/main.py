@@ -12,6 +12,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
 from app.core.middleware import TenantMiddleware
@@ -25,6 +29,22 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        release=f"fiscwise-api@{settings.APP_VERSION}",
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        profiles_sample_rate=settings.SENTRY_PROFILES_SAMPLE_RATE,
+        integrations=[
+            FastApiIntegration(),
+            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+            SqlalchemyIntegration(),
+        ],
+        send_default_pii=False,
+    )
+    logger.info("Sentry initialized for backend environment=%s", settings.ENVIRONMENT)
 
 
 @asynccontextmanager
@@ -107,7 +127,7 @@ app.add_middleware(
 # Tenant Isolation Middleware
 app.add_middleware(TenantMiddleware)
 
-# Rate Limiting Middleware (Redis-backed, fails open without Redis)
+# Rate limiting middleware. In strict mode, protected routes fail closed without Redis.
 app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
 
 # Include API v1 routes

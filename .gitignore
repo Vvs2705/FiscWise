@@ -36,6 +36,8 @@ ipython_config.py
 .python-version
 .env
 .venv
+.venv/
+backend/.venv/
 env/
 venv/
 ENV/

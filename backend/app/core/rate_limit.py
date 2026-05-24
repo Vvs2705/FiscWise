@@ -7,7 +7,7 @@ Protection for /api/v1/admin/* endpoints (10 attempts per minute per IP).
 
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -35,16 +35,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ADMIN_WINDOW = 60  # seconds
     PROTECTED_PATHS = {"/api/v1/admin"}
 
-    def __init__(self, app, redis_url: Optional[str] = None):
+    def __init__(self, app, redis_url: Optional[str] = None, strict: Optional[bool] = None):
         super().__init__(app)
         self.redis_url = redis_url  # None = disabled; no fallback to localhost
         self.redis_client = None
         self._initialized = False
+        if strict is None:
+            from app.core.config import settings
+
+            strict = settings.RATE_LIMIT_STRICT
+        self.strict = strict
 
     async def _init_redis(self):
         """Lazy initialize Redis connection."""
-        if self._initialized or redis is None:
+        if self._initialized:
             return self.redis_client
+
+        if redis is None:
+            logger.error("Rate limit Redis client is not installed.")
+            self._initialized = True
+            return None
 
         if not self.redis_url:
             # No REDIS_URL configured — rate limiting disabled, skip connection attempt
@@ -52,14 +62,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return None
 
         try:
-            self.redis_client = await redis.from_url(self.redis_url, decode_responses=True)
+            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+            await self.redis_client.ping()
             self._initialized = True
             logger.info("Rate limit Redis connection established: %s", self.redis_url[:30])
         except Exception as e:
             logger.warning("Rate limit Redis unavailable: %s. Rate limiting disabled.", str(e))
+            self.redis_client = None
             self._initialized = True
 
         return self.redis_client
+
+    def _rate_limit_unavailable_response(self) -> JSONResponse:
+        """Return fail-closed response when strict rate limiting is enabled."""
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": "Rate limiting is unavailable",
+                "error_code": "RATE_LIMIT_UNAVAILABLE",
+                "message": "Request rejected because rate limiting cannot be enforced.",
+            },
+        )
 
     def _is_protected_path(self, path: str) -> bool:
         """Check if path matches protected prefixes."""
@@ -86,8 +109,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Initialize Redis if needed
         client = await self._init_redis()
 
-        # If Redis is unavailable, allow request (fail open)
+        # If Redis is unavailable, either fail closed or allow request.
         if client is None:
+            if self.strict:
+                logger.error("Rate limiting unavailable while RATE_LIMIT_STRICT=true")
+                return self._rate_limit_unavailable_response()
             logger.debug("Rate limiting disabled - Redis unavailable")
             return await call_next(request)
 
@@ -120,6 +146,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.error(f"Rate limit middleware error: {str(e)}", exc_info=True)
+            if self.strict:
+                return self._rate_limit_unavailable_response()
             current_count = 0
 
         # Execute downstream handlers. Any exception raised here will propagate naturally.

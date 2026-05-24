@@ -1,0 +1,44 @@
+# Fly.io staging configuration for FiscWise.
+# Deploy with: flyctl deploy -c fly.staging.toml -a fiscwise-staging
+
+app = "fiscwise-staging"
+primary_region = "gru"
+console_command = "/bin/bash"
+
+[build]
+dockerfile = "./backend/Dockerfile"
+
+[deploy]
+  release_command = "/bin/sh -c 'cd /app && python run_migrations.py'"
+
+[env]
+ENVIRONMENT = "staging"
+DEBUG = "False"
+APP_NAME = "FiscWise Staging"
+APP_VERSION = "1.0.0"
+PUBLIC_URL = "https://fiscwise-staging.fly.dev"
+ALLOWED_ORIGINS = "https://fiscwise-staging.vercel.app,http://localhost:3000"
+RATE_LIMIT_STRICT = "true"
+DIAGNOSTICS_ENABLED = "false"
+
+[http_service]
+internal_port = 8000
+force_https = true
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+
+[checks]
+[checks.http]
+grace_period = "120s"
+interval = "15s"
+method = "GET"
+path = "/api/v1/health"
+protocol = "http"
+timeout = "10s"
+type = "http"
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 512

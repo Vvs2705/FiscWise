@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 """
 Run Alembic migrations.
-
-CRITICAL: If enum mismatch causes failures, use POST /api/v1/admin/fix-enum-case
-to manually fix PostgreSQL enum types post-deployment.
 """
 
 import sys
@@ -37,7 +34,7 @@ if __name__ == "__main__":
         if "enum" in msg or "uppercase" in msg or "'<'" in msg:
             print(
                 "ERROR Enum case mismatch detected. "
-                "Use POST /api/v1/admin/fix-enum-case endpoint to fix.",
+                "Check Alembic migration history and run the enum-case migration path.",
                 flush=True,
             )
         sys.exit(1)

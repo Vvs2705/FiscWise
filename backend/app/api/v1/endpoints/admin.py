@@ -1,25 +1,26 @@
-"""Admin endpoints for emergency database fixes."""
+"""Admin endpoints for operational tenant plan management."""
 
-import os
 import hmac
 import logging
+import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 
 from app.core.deps import get_db
+from app.models.tenant import Tenant
+from app.models.user import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Admin token from environment variable (CRITICAL SECURITY FIX)
 ADMIN_TOKEN = os.getenv("ADMIN_EMERGENCY_TOKEN")
 ADMIN_OPERATIONS_ALLOWED = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
 
-# HTTP Bearer token scheme for Authorization header
 security = HTTPBearer(auto_error=False)
 
 
@@ -33,278 +34,52 @@ def _get_client_ip(request: Request) -> str:
 
 async def verify_admin_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    request: Request = None
+    request: Request = None,
 ) -> str:
-    """
-    Verify admin token from Authorization header with timing-safe comparison.
-
-    Expected header: Authorization: Bearer <TOKEN>
-    Uses hmac.compare_digest() to prevent timing attacks.
-
-    Raises:
-        HTTPException: 401 if token missing or invalid
-        HTTPException: 403 if admin operations not enabled
-    """
-    # Check if admin operations are enabled
+    """Verify admin token from Authorization header with timing-safe comparison."""
     if not ADMIN_OPERATIONS_ALLOWED:
         logger.error("Admin endpoint called but ADMIN_OPERATIONS_ALLOWED=false")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin operations are disabled"
+            detail="Admin operations are disabled",
         )
 
-    # Check if token is provided in Authorization header
     if not credentials:
         client_ip = _get_client_ip(request) if request else "unknown"
-        logger.warning(f"Admin endpoint called without Authorization header from {client_ip}")
+        logger.warning("Admin endpoint called without Authorization header from %s", client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Authorization header",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Check if ADMIN_TOKEN is configured
     if not ADMIN_TOKEN:
         logger.error("ADMIN_EMERGENCY_TOKEN environment variable not set")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Admin token not configured"
+            detail="Admin token not configured",
         )
 
-    # Timing-safe token comparison (prevents timing attacks)
     provided_token = credentials.credentials
-    is_valid = hmac.compare_digest(provided_token, ADMIN_TOKEN)
-
-    if not is_valid:
+    if not hmac.compare_digest(provided_token, ADMIN_TOKEN):
         client_ip = _get_client_ip(request) if request else "unknown"
         logger.warning(
-            f"Invalid admin token attempted from {client_ip}. "
-            f"Token length: {len(provided_token)}, Expected length: {len(ADMIN_TOKEN)}"
+            "Invalid admin token attempted from %s. Token length: %s, Expected length: %s",
+            client_ip,
+            len(provided_token),
+            len(ADMIN_TOKEN),
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin token"
+            detail="Invalid admin token",
         )
 
     return provided_token
 
 
-@router.post("/fix-enum-case-raw", summary="Emergency: Fix enum case mismatch (RAW asyncpg)")
-async def fix_enum_case_raw(
-    request: Request,
-    token: str = Depends(verify_admin_token),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Emergency endpoint using raw asyncpg connection to fix enum case mismatch.
-
-    This bypasses SQLAlchemy's type system entirely, using asyncpg's raw execute().
-    This should work even when SQLAlchemy's text() triggers enum errors.
-
-    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header
-    """
-    client_ip = _get_client_ip(request)
-
-    try:
-        # Get the raw asyncpg connection
-        async_conn = await db.connection()
-        raw_conn = async_conn.connection
-
-        logger.info(f"[ADMIN] Raw asyncpg enum fix started from {client_ip}")
-
-        # Execute raw SQL without SQLAlchemy's type handling
-        # CRITICAL: Use explicit transaction to prevent partial updates
-        sql_statements = [
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50)",
-            "UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL",
-            "ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_tenant_email",
-            "ALTER TABLE users DROP COLUMN IF EXISTS role",
-            "DROP TYPE IF EXISTS user_role_enum CASCADE",
-            "CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'member')",
-            "ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum",
-            "UPDATE users SET role = _role_tmp::user_role_enum",
-            "ALTER TABLE users DROP COLUMN IF EXISTS _role_tmp",
-            "CREATE INDEX IF NOT EXISTS ix_users_role ON users(role)",
-            "ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email)",
-            "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS _sub_tmp VARCHAR(50)",
-            "UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text) WHERE _sub_tmp IS NULL",
-            "ALTER TABLE tenants DROP COLUMN IF EXISTS subscription_status",
-            "DROP TYPE IF EXISTS subscription_status_enum CASCADE",
-            "CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'cancelled', 'expired')",
-            "ALTER TABLE tenants ADD COLUMN subscription_status subscription_status_enum NOT NULL DEFAULT 'trial'::subscription_status_enum",
-            "UPDATE tenants SET subscription_status = _sub_tmp::subscription_status_enum",
-            "ALTER TABLE tenants DROP COLUMN IF EXISTS _sub_tmp",
-            "CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status)",
-        ]
-
-        # Execute all statements within a transaction
-        async with raw_conn.transaction():
-            for stmt in sql_statements:
-                logger.debug(f"[ADMIN] Executing: {stmt[:80]}")
-                await raw_conn.execute(stmt)
-
-        logger.info(
-            f"[ADMIN] ✅ Enum fix completed successfully from {client_ip} - "
-            f"{len(sql_statements)} statements executed"
-        )
-
-        return {
-            "status": "fixed",
-            "message": "Enum case mismatch fixed successfully using raw asyncpg",
-            "enums_fixed": ["user_role_enum", "subscription_status_enum"],
-            "statements_executed": len(sql_statements)
-        }
-
-    except Exception as e:
-        logger.error(
-            f"[ADMIN] ❌ Raw asyncpg fix FAILED from {client_ip}: {str(e)}",
-            exc_info=True
-        )
-        return {
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__
-        }
-
-
-@router.post("/fix-enum-case", summary="Emergency: Fix enum case mismatch")
-async def fix_enum_case(
-    request: Request,
-    token: str = Depends(verify_admin_token),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Emergency endpoint to fix enum case mismatch.
-
-    This is a workaround for when Alembic migrations fail to run.
-    Applies the enum case conversion directly via SQL.
-
-    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header
-    """
-    client_ip = _get_client_ip(request)
-
-    try:
-        logger.info(f"[ADMIN] Enum fix started from {client_ip}")
-
-        # CRITICAL: Wrap all fixes in explicit transaction for atomicity
-        # If any statement fails, the entire transaction rolls back
-        async with db.begin():
-            await db.execute(text("""
-                ALTER TABLE users ADD COLUMN IF NOT EXISTS _role_tmp VARCHAR(50);
-            """))
-
-            await db.execute(text("""
-                UPDATE users SET _role_tmp = LOWER(role::text) WHERE _role_tmp IS NULL;
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE users DROP CONSTRAINT IF EXISTS uq_users_tenant_email;
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE users DROP COLUMN IF EXISTS role;
-            """))
-
-            await db.execute(text("""
-                DROP TYPE IF EXISTS user_role_enum CASCADE;
-            """))
-
-            await db.execute(text("""
-                CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'member');
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE users ADD COLUMN role user_role_enum NOT NULL DEFAULT 'member'::user_role_enum;
-            """))
-
-            await db.execute(text("""
-                UPDATE users SET role = _role_tmp::user_role_enum;
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE users DROP COLUMN IF EXISTS _role_tmp;
-            """))
-
-            await db.execute(text("""
-                CREATE INDEX IF NOT EXISTS ix_users_role ON users(role);
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE users ADD CONSTRAINT uq_users_tenant_email UNIQUE (tenant_id, email);
-            """))
-
-            # Fix subscription_status_enum: convert UPPERCASE to lowercase
-            await db.execute(text("""
-                ALTER TABLE tenants ADD COLUMN IF NOT EXISTS _sub_tmp VARCHAR(50);
-            """))
-
-            await db.execute(text("""
-                UPDATE tenants SET _sub_tmp = LOWER(subscription_status::text) WHERE _sub_tmp IS NULL;
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE tenants DROP COLUMN IF EXISTS subscription_status;
-            """))
-
-            await db.execute(text("""
-                DROP TYPE IF EXISTS subscription_status_enum CASCADE;
-            """))
-
-            await db.execute(text("""
-                CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'cancelled', 'expired');
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE tenants ADD COLUMN subscription_status subscription_status_enum NOT NULL DEFAULT 'trial'::subscription_status_enum;
-            """))
-
-            await db.execute(text("""
-                UPDATE tenants SET subscription_status = _sub_tmp::subscription_status_enum;
-            """))
-
-            await db.execute(text("""
-                ALTER TABLE tenants DROP COLUMN IF EXISTS _sub_tmp;
-            """))
-
-            await db.execute(text("""
-                CREATE INDEX IF NOT EXISTS ix_tenants_subscription_status ON tenants(subscription_status);
-            """))
-
-        logger.info(f"[ADMIN] ✅ Enum fix completed successfully from {client_ip}")
-
-        return {
-            "status": "fixed",
-            "message": "Enum case mismatch fixed successfully - enums converted to lowercase",
-            "enums_fixed": ["user_role_enum", "subscription_status_enum"]
-        }
-
-    except Exception as e:
-        # Note: async with db.begin() automatically rolls back on exception
-        logger.error(
-            f"[ADMIN] ❌ Enum fix FAILED from {client_ip}: {str(e)}",
-            exc_info=True
-        )
-        return {
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "hint": "Check that database connection is valid and user has ALTER TABLE permissions"
-        }
-
-
-# ---------------------------------------------------------------------------
-# Plan management endpoints
-# ---------------------------------------------------------------------------
-
-from pydantic import BaseModel as PydanticBaseModel, EmailStr as EmailStrType
-from sqlalchemy import select as sa_select
-from app.models.tenant import Tenant
-from app.models.user import User as UserModel
-
-
-class SetPlanRequest(PydanticBaseModel):
+class SetPlanRequest(BaseModel):
     email: str
-    plan_slug: str  # "free" | "intermediario" | "premium"
+    plan_slug: str
 
 
 @router.post("/set-plan-by-email", summary="Admin: Update tenant plan by user email")
@@ -320,17 +95,14 @@ async def set_plan_by_email(
     Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header.
     Valid plan slugs: free, intermediario, premium.
     """
-    VALID_PLANS = {"free", "intermediario", "premium"}
-    if body.plan_slug not in VALID_PLANS:
+    valid_plans = {"free", "intermediario", "premium"}
+    if body.plan_slug not in valid_plans:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(VALID_PLANS)}",
+            detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(valid_plans)}",
         )
 
-    # Find user by email
-    user_result = await db.execute(
-        sa_select(UserModel).where(UserModel.email == body.email)
-    )
+    user_result = await db.execute(select(User).where(User.email == body.email))
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(
@@ -338,10 +110,7 @@ async def set_plan_by_email(
             detail=f"No user found with email '{body.email}'",
         )
 
-    # Find their tenant
-    tenant_result = await db.execute(
-        sa_select(Tenant).where(Tenant.id == user.tenant_id)
-    )
+    tenant_result = await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(
@@ -356,8 +125,11 @@ async def set_plan_by_email(
 
     client_ip = _get_client_ip(request)
     logger.info(
-        f"[ADMIN] plan_slug updated for {body.email}: "
-        f"{old_plan!r} -> {body.plan_slug!r} from {client_ip}"
+        "[ADMIN] plan_slug updated for %s: %r -> %r from %s",
+        body.email,
+        old_plan,
+        body.plan_slug,
+        client_ip,
     )
 
     return {
@@ -376,20 +148,22 @@ async def get_tenant_by_email(
     token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """Fetch tenant info (including plan_slug) for a given user email."""
-    user_result = await db.execute(
-        sa_select(UserModel).where(UserModel.email == email)
-    )
+    """Fetch tenant info, including plan_slug, for a given user email."""
+    user_result = await db.execute(select(User).where(User.email == email))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail=f"No user found with email '{email}'")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No user found with email '{email}'",
+        )
 
-    tenant_result = await db.execute(
-        sa_select(Tenant).where(Tenant.id == user.tenant_id)
-    )
+    tenant_result = await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     if not tenant:
-        raise HTTPException(status_code=404, detail=f"No tenant found for user '{email}'")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No tenant found for user '{email}'",
+        )
 
     return {
         "email": email,

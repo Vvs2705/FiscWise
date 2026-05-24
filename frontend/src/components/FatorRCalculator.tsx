@@ -118,7 +118,7 @@ function matchHeader(header: string, aliases: string[]): boolean {
   });
 }
 
-function parseMonthIndex(cell: any): number | null {
+function parseMonthIndex(cell: unknown): number | null {
   if (!cell) return null;
   if (cell instanceof Date) {
     return cell.getMonth();
@@ -329,7 +329,7 @@ export function FatorRCalculator() {
       let excelRows;
       try {
         excelRows = await readXlsxFile(file, { sheet: 'Lancamentos' });
-      } catch (err) {
+      } catch {
         excelRows = await readXlsxFile(file);
       }
 

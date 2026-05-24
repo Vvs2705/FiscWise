@@ -25,6 +25,7 @@ from app.models.obligation import (
 from app.models.plan import Plan
 from app.models.portal import PortalMagicToken
 from app.models.notification import NotificationTemplate, NotificationMessage
+from app.models.billing import TenantSubscription, BillingWebhookEvent
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -48,4 +49,6 @@ __all__ = [
     "PortalMagicToken",
     "NotificationTemplate",
     "NotificationMessage",
+    "TenantSubscription",
+    "BillingWebhookEvent",
 ]

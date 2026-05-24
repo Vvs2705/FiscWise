@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -22,9 +22,11 @@ import {
   useCreateReceivable,
   useUpdateReceivable,
   useDeleteReceivable,
+  useInadimplenciaReport,
   type ReceivableCreate,
   type ReceivableStatus,
 } from '@/lib/hooks/useOperations';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -56,6 +58,9 @@ export function FinancePage() {
   const [open, setOpen] = useState(false);
   const { data: receivables, isLoading, isError } = useReceivables();
   const { data: clients } = useClients();
+  const { hasRole } = usePermission();
+  const isAdminOrOwner = hasRole('admin');
+  const { data: inadimplencia } = useInadimplenciaReport();
   const location = useLocation();
 
   // Abre o dialog automaticamente quando vindo do dashboard com state { openCreate: true }
@@ -327,6 +332,64 @@ export function FinancePage() {
           </div>
         </form>
       </Dialog>
+
+      {/* ── Inadimplência Report (owner/admin) ── */}
+      {isAdminOrOwner && inadimplencia && inadimplencia.total_clients > 0 && (
+        <Card className="mt-8 border-red-200 dark:border-red-800/40">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+                <TrendingDown className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Relatório de Inadimplência</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {inadimplencia.total_clients} cliente{inadimplencia.total_clients !== 1 ? 's' : ''} com recebíveis vencidos
+                  &nbsp;·&nbsp;Total: {moneyBRL(inadimplencia.total_overdue_amount)}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-2 pr-4">Cliente</th>
+                    <th className="pb-2 pr-4">E-mail</th>
+                    <th className="pb-2 pr-4 text-right">Qtd.</th>
+                    <th className="pb-2 pr-4 text-right">Total vencido</th>
+                    <th className="pb-2 text-right">Dias em atraso</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {inadimplencia.clients.map((c) => (
+                    <tr key={c.client_id} className="group hover:bg-muted/30">
+                      <td className="py-2.5 pr-4 font-medium">{c.client_name}</td>
+                      <td className="py-2.5 pr-4 text-muted-foreground">{c.email ?? '—'}</td>
+                      <td className="py-2.5 pr-4 text-right">{c.overdue_count}</td>
+                      <td className="py-2.5 pr-4 text-right font-semibold text-red-600 dark:text-red-400">
+                        {moneyBRL(c.overdue_total)}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${
+                          c.days_overdue > 90
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : c.days_overdue > 30
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                        }`}>
+                          {c.days_overdue}d
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

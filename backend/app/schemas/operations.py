@@ -28,6 +28,10 @@ class AccountingClientCreate(BaseModel):
     state_registration: Optional[str] = Field(None, max_length=80)
     status: ClientStatus = "active"
     notes: Optional[str] = None
+    # Honorários / billing
+    monthly_fee: Optional[Decimal] = Field(None, ge=0, max_digits=10, decimal_places=2)
+    billing_day: int = Field(default=1, ge=1, le=28)
+    annual_adjustment_percent: Optional[Decimal] = Field(None, ge=0, le=100, max_digits=5, decimal_places=2)
     # Responsible person fields
     responsible_name: Optional[str] = Field(None, max_length=255)
     responsible_cpf: Optional[str] = Field(None, max_length=20)
@@ -63,6 +67,10 @@ class AccountingClientUpdate(BaseModel):
     state_registration: Optional[str] = Field(None, max_length=80)
     status: Optional[ClientStatus] = None
     notes: Optional[str] = None
+    # Honorários / billing
+    monthly_fee: Optional[Decimal] = Field(None, ge=0, max_digits=10, decimal_places=2)
+    billing_day: Optional[int] = Field(None, ge=1, le=28)
+    annual_adjustment_percent: Optional[Decimal] = Field(None, ge=0, le=100, max_digits=5, decimal_places=2)
     # Responsible person fields
     responsible_name: Optional[str] = Field(None, max_length=255)
     responsible_cpf: Optional[str] = Field(None, max_length=20)
@@ -295,4 +303,54 @@ class ProductivityOverview(BaseModel):
     certificates_expiring_30d: int
     overdue_receivables_count: int
     overdue_receivables_amount: Decimal
+
+
+# ─── Inadimplência / billing history schemas ──────────────────────────────────
+
+class InadimplenciaClientItem(BaseModel):
+    """Client with overdue receivables (inadimplência report)."""
+    client_id: UUID
+    client_name: str
+    document: Optional[str]
+    email: Optional[str]
+    overdue_count: int
+    overdue_total: Decimal
+    oldest_due_date: date
+    days_overdue: int
+
+
+class InadimplenciaReport(BaseModel):
+    """Full inadimplência report for a tenant."""
+    generated_at: str
+    total_clients: int
+    total_overdue_count: int
+    total_overdue_amount: Decimal
+    clients: list[InadimplenciaClientItem]
+
+
+class ClientBillingHistoryItem(BaseModel):
+    """Single receivable in a client's billing history."""
+    id: UUID
+    description: str
+    amount: Decimal
+    due_date: date
+    status: ReceivableStatus
+    paid_at: Optional[str]
+    created_at: str
+
+
+class ClientBillingConfig(BaseModel):
+    """Current billing configuration for a client (honorários)."""
+    client_id: UUID
+    client_name: str
+    monthly_fee: Optional[Decimal]
+    billing_day: int
+    annual_adjustment_percent: Optional[Decimal]
+
+
+class ClientBillingConfigUpdate(BaseModel):
+    """Payload for updating a client's billing configuration."""
+    monthly_fee: Optional[Decimal] = Field(None, ge=0, max_digits=10, decimal_places=2)
+    billing_day: Optional[int] = Field(None, ge=1, le=28)
+    annual_adjustment_percent: Optional[Decimal] = Field(None, ge=0, le=100, max_digits=5, decimal_places=2)
 

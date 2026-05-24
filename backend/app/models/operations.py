@@ -64,6 +64,10 @@ class AccountingClient(Base, TenantBase):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     monthly_fee: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
     billing_day: Mapped[int] = mapped_column(default=1)
+    annual_adjustment_percent: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 2), nullable=True,
+        comment="Annual fee reajuste % (e.g. 5.00 = 5% IPCA)",
+    )
     portal_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(SQLUUID(as_uuid=True), nullable=True)
     # Responsible person fields
     responsible_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

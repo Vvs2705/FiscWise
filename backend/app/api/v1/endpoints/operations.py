@@ -33,6 +33,9 @@ from app.schemas.operations import (
     CertificateCreate,
     CertificateResponse,
     CertificateUpdate,
+    ClientBillingConfig,
+    ClientBillingConfigUpdate,
+    ClientBillingHistoryItem,
     ClientPendingStats,
     CollaboratorStats,
     DailyData,
@@ -43,6 +46,7 @@ from app.schemas.operations import (
     DocumentCreate,
     DocumentResponse,
     DocumentUpdate,
+    InadimplenciaReport,
     MonthlyData,
     ProductivityOverview,
     ReceivableCreate,
@@ -1064,6 +1068,173 @@ async def generate_monthly_billing(
         "skipped_duplicates": skipped_count,
         "message": f"Geradas {created_count} faturas de honorários",
     }
+
+
+@router.get("/clients/{client_id}/billing-config", response_model=ClientBillingConfig)
+async def get_client_billing_config(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ClientBillingConfig:
+    """Get billing / honorários configuration for a specific client."""
+    client = await _get_client_or_404(db, _tenant_id(current_user), client_id)
+    return ClientBillingConfig(
+        client_id=client.id,
+        client_name=client.name,
+        monthly_fee=client.monthly_fee,
+        billing_day=client.billing_day or 1,
+        annual_adjustment_percent=client.annual_adjustment_percent,
+    )
+
+
+@router.patch("/clients/{client_id}/billing-config", response_model=ClientBillingConfig)
+async def update_client_billing_config(
+    client_id: uuid.UUID,
+    payload: ClientBillingConfigUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ClientBillingConfig:
+    """Update billing / honorários configuration for a specific client."""
+    if current_user.role.value not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can update billing configuration",
+        )
+    client = await _get_client_or_404(db, _tenant_id(current_user), client_id)
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(client, key, value)
+
+    db.add(client)
+    await db.commit()
+    await db.refresh(client)
+
+    return ClientBillingConfig(
+        client_id=client.id,
+        client_name=client.name,
+        monthly_fee=client.monthly_fee,
+        billing_day=client.billing_day or 1,
+        annual_adjustment_percent=client.annual_adjustment_percent,
+    )
+
+
+@router.get("/clients/{client_id}/billing-history", response_model=list[ClientBillingHistoryItem])
+async def get_client_billing_history(
+    client_id: uuid.UUID,
+    limit: int = Query(default=24, ge=1, le=120),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ClientBillingHistoryItem]:
+    """Get billing history (honorários receivables) for a specific client."""
+    await _get_client_or_404(db, _tenant_id(current_user), client_id)
+
+    result = await db.execute(
+        select(AccountReceivable)
+        .where(
+            AccountReceivable.tenant_id == _tenant_id(current_user),
+            AccountReceivable.client_id == client_id,
+            AccountReceivable.description.like("Honorários%"),
+        )
+        .order_by(AccountReceivable.due_date.desc())
+        .limit(limit)
+    )
+    receivables = result.scalars().all()
+
+    return [
+        ClientBillingHistoryItem(
+            id=r.id,
+            description=r.description,
+            amount=r.amount,
+            due_date=r.due_date,
+            status=r.status,
+            paid_at=r.paid_at.isoformat() if r.paid_at else None,
+            created_at=r.created_at.isoformat(),
+        )
+        for r in receivables
+    ]
+
+
+@router.get("/financeiro/inadimplencia", response_model=InadimplenciaReport)
+async def get_inadimplencia_report(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InadimplenciaReport:
+    """
+    Inadimplência report: clients with overdue receivables.
+
+    Groups overdue receivables by client and returns ranked by total overdue amount.
+    Owner/admin only.
+    """
+    if current_user.role.value not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can access the inadimplência report",
+        )
+
+    tenant_id = _tenant_id(current_user)
+    today = date.today()
+
+    # Group overdue receivables by client
+    grouped_raw = await db.execute(
+        select(
+            AccountReceivable.client_id,
+            AccountingClient.name.label("client_name"),
+            AccountingClient.document.label("document"),
+            AccountingClient.email.label("email"),
+            func.count().label("overdue_count"),
+            func.coalesce(func.sum(AccountReceivable.amount), 0).label("overdue_total"),
+            func.min(AccountReceivable.due_date).label("oldest_due"),
+        )
+        .join(AccountingClient, AccountReceivable.client_id == AccountingClient.id)
+        .where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status != "paid",
+            AccountReceivable.due_date < today,
+        )
+        .group_by(
+            AccountReceivable.client_id,
+            AccountingClient.name,
+            AccountingClient.document,
+            AccountingClient.email,
+        )
+        .order_by(func.coalesce(func.sum(AccountReceivable.amount), 0).desc())
+    )
+
+    from app.schemas.operations import InadimplenciaClientItem
+    clients_list = []
+    total_overdue_count = 0
+    total_overdue_amount = Decimal(0)
+
+    for row in grouped_raw.all():
+        oldest = row.oldest_due
+        days_overdue = (today - oldest).days if oldest else 0
+        overdue_total = Decimal(row.overdue_total or 0)
+        overdue_count = int(row.overdue_count)
+
+        clients_list.append(
+            InadimplenciaClientItem(
+                client_id=row.client_id,
+                client_name=row.client_name,
+                document=row.document,
+                email=row.email,
+                overdue_count=overdue_count,
+                overdue_total=overdue_total,
+                oldest_due_date=oldest,
+                days_overdue=days_overdue,
+            )
+        )
+        total_overdue_count += overdue_count
+        total_overdue_amount += overdue_total
+
+    from datetime import datetime, timezone
+    return InadimplenciaReport(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        total_clients=len(clients_list),
+        total_overdue_count=total_overdue_count,
+        total_overdue_amount=total_overdue_amount,
+        clients=clients_list,
+    )
 
 
 @router.post("/clients/{client_id}/documents")

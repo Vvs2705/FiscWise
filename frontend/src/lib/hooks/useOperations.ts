@@ -23,6 +23,10 @@ export interface AccountingClient {
   state_registration?: string | null;
   status: ClientStatus;
   notes?: string | null;
+  // Honorários
+  monthly_fee?: string | number | null;
+  billing_day?: number | null;
+  annual_adjustment_percent?: string | number | null;
   created_at: string;
   updated_at: string;
   responsible_name?: string | null;
@@ -43,6 +47,11 @@ export interface AccountingClientCreate {
   state_registration?: string;
   status: ClientStatus;
   notes?: string;
+  // Honorários
+  monthly_fee?: number | null;
+  billing_day?: number;
+  annual_adjustment_percent?: number | null;
+  // Responsible person
   responsible_name?: string;
   responsible_cpf?: string;
   responsible_address?: string;
@@ -661,5 +670,107 @@ export function usePayDas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: operationsKey });
     },
+  });
+}
+
+// ─── Billing / Honorários ─────────────────────────────────────────────────────
+
+export interface ClientBillingConfig {
+  client_id: string;
+  client_name: string;
+  monthly_fee: string | number | null;
+  billing_day: number;
+  annual_adjustment_percent: string | number | null;
+}
+
+export interface ClientBillingHistoryItem {
+  id: string;
+  description: string;
+  amount: string | number;
+  due_date: string;
+  status: ReceivableStatus;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export interface InadimplenciaClientItem {
+  client_id: string;
+  client_name: string;
+  document: string | null;
+  email: string | null;
+  overdue_count: number;
+  overdue_total: string | number;
+  oldest_due_date: string;
+  days_overdue: number;
+}
+
+export interface InadimplenciaReport {
+  generated_at: string;
+  total_clients: number;
+  total_overdue_count: number;
+  total_overdue_amount: string | number;
+  clients: InadimplenciaClientItem[];
+}
+
+export function useClientBillingConfig(clientId: string | undefined) {
+  return useQuery({
+    queryKey: [...operationsKey, 'billing-config', clientId],
+    queryFn: async () => {
+      const { data } = await api.get<ClientBillingConfig>(
+        `/api/v1/clients/${clientId}/billing-config`
+      );
+      return data;
+    },
+    enabled: !!clientId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useUpdateClientBillingConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clientId,
+      payload,
+    }: {
+      clientId: string;
+      payload: Partial<Pick<ClientBillingConfig, 'monthly_fee' | 'billing_day' | 'annual_adjustment_percent'>>;
+    }) => {
+      const { data } = await api.patch<ClientBillingConfig>(
+        `/api/v1/clients/${clientId}/billing-config`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: (_, { clientId }) => {
+      qc.invalidateQueries({ queryKey: [...operationsKey, 'billing-config', clientId] });
+      qc.invalidateQueries({ queryKey: [...operationsKey, 'clients'] });
+    },
+  });
+}
+
+export function useClientBillingHistory(clientId: string | undefined) {
+  return useQuery({
+    queryKey: [...operationsKey, 'billing-history', clientId],
+    queryFn: async () => {
+      const { data } = await api.get<ClientBillingHistoryItem[]>(
+        `/api/v1/clients/${clientId}/billing-history`
+      );
+      return data;
+    },
+    enabled: !!clientId,
+    staleTime: 2 * 60_000,
+  });
+}
+
+export function useInadimplenciaReport() {
+  return useQuery({
+    queryKey: [...operationsKey, 'inadimplencia'],
+    queryFn: async () => {
+      const { data } = await api.get<InadimplenciaReport>('/api/v1/financeiro/inadimplencia');
+      return data;
+    },
+    staleTime: 5 * 60_000,
+    retry: false,
   });
 }

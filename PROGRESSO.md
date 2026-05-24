@@ -160,6 +160,15 @@
   - Corrigido CORS adicionando `www.fiscwise.com.br` e domínios Vercel no `ALLOWED_ORIGINS` do backend.
   - Resolvido crash de boot do frontend adicionando fallback seguro para `VITE_GOOGLE_CLIENT_ID`.
   - Corrigido erro de parsing de query parameter nos endpoints do backend removendo valor padrão inválido de `request: Request`.
+- [x] **Autenticação de Dois Fatores (2FA) — Commit `abe75ab`:**
+  - Migration `20260525k`: campos `two_factor_enabled`, `two_factor_secret`, `two_factor_method` em `users`
+  - Seeds de planos anuais (`intermediario_anual`, `premium_anual`, `enterprise`)
+  - `pyotp` + `qrcode[pil]` adicionados ao `requirements.txt`
+  - `security.py`: `create_mfa_token()` + `verify_mfa_token()` (JWT curto 5min)
+  - `auth.py`: reescrita completa — `/login` detecta 2FA → retorna `requires_2fa`, `/login/verify-2fa`, `/2fa/setup` (QR Code), `/2fa/enable-totp`, `/2fa/confirm-email`, `/2fa/disable`, `/2fa/status`
+  - Frontend: `auth.ts` com API 2FA completa; `useAuth.ts` com estado `mfaChallenge`
+  - `LoginPage.tsx`: tela OTP animada com 6 caixas, countdown reenvio email
+  - `SettingsPage.tsx` aba Segurança: card 2FA com escolha de método, QR Code, ativação TOTP/Email, desativação
 - [ ] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações e templates globais.
 
 ---
@@ -169,8 +178,9 @@
 - Stack: Python 3.12 / FastAPI / SQLAlchemy async / Alembic / React 18 / TypeScript / Vite
 - Deploy: **Fly.io** (backend — app `fiscwise`, https://fiscwise.fly.dev) + **Vercel** (frontend)
 - DB: PostgreSQL via Supabase
-- Segurança: JWT + X-Tenant-ID header, RBAC (owner/admin/member/client)
+- Segurança: JWT + X-Tenant-ID header, RBAC (owner/admin/member/client), **2FA TOTP/Email**
 - ADMIN_OPERATIONS_ALLOWED: `false` em produção (segurança)
 - Email: provider-agnostic — configure `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`
 - Billing: configure `BILLING_PROVIDER=asaas` + `ASAAS_API_KEY` + `BILLING_WEBHOOK_SECRET`
 - LGPD: consentimento gravado no tenant; exportação e exclusão via `/account`
+- 2FA: TOTP via `pyotp` (RFC 6238) + Email OTP (in-process cache, migrar para Redis em produção)

@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   UsersRound,
   Calculator,
+  Coins,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Certificados',   href: '/certificados',    icon: ShieldCheck },
   { name: 'Financeiro',     href: '/financeiro',      icon: ReceiptText },
   { name: 'Calculadora Fiscal', href: '/calculadora', icon: Calculator },
+  { name: 'DAS Mensal',     href: '/das-mensal',      icon: Coins },
   { name: 'Configurações',  href: '/configuracoes',   icon: Settings },
 ];
 

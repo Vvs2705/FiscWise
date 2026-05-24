@@ -269,3 +269,31 @@ class CompanyDocument(Base, TenantBase):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="valid", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+
+class DasPayment(Base, TenantBase):
+    """Monthly Simples Nacional DAS tax payment record for a client."""
+
+    __tablename__ = "das_payments"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant identifier for data isolation",
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("accounting_clients.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False, index=True)  # Format: YYYY-MM
+    revenue: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)  # pending, paid, overdue
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    file_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+

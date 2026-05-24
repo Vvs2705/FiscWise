@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das
 
 
 # Create main API router for v1
@@ -75,4 +75,10 @@ api_router.include_router(
     calculator.router,
     prefix="/calculator",
     tags=["Calculator"]
+)
+
+# Include DAS endpoints
+api_router.include_router(
+    das.router,
+    tags=["DAS Monthly Payments"]
 )

@@ -527,3 +527,87 @@ export function useExpiringCompanyDocuments(clientId: string, days = 30) {
     enabled: !!clientId,
   });
 }
+
+/* ─── DAS MONTHLY PAYMENTS ────────────────────────────────────────── */
+
+export interface DasPayment {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  client_name?: string | null;
+  period: string;
+  revenue: number;
+  tax_amount: number;
+  due_date: string;
+  status: 'pending' | 'paid' | 'overdue';
+  paid_at?: string | null;
+  file_url?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DasPaymentCreate {
+  client_id: string;
+  period: string;
+  revenue: number;
+  tax_amount: number;
+  due_date: string;
+  status: string;
+  notes?: string;
+}
+
+export interface DasPaymentUpdate {
+  revenue?: number;
+  tax_amount?: number;
+  due_date?: string;
+  status?: string;
+  file_url?: string;
+  notes?: string;
+}
+
+export function useDasPayments(clientId?: string, year?: string) {
+  return useQuery({
+    queryKey: [...operationsKey, 'das', clientId, year],
+    queryFn: async () => {
+      const { data } = await api.get<DasPayment[]>('/api/v1/das', {
+        params: { client_id: clientId, year },
+      });
+      return data;
+    },
+  });
+}
+
+export function useCreateDas() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: DasPaymentCreate) => {
+      const { data } = await api.post<DasPayment>('/api/v1/das', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}
+
+export function useUpdateDas() {
+  return useUpdateMutation<DasPaymentUpdate, DasPayment>('/api/v1/das');
+}
+
+export function useDeleteDas() {
+  return useDeleteMutation('/api/v1/das');
+}
+
+export function usePayDas() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch<DasPayment>(`/api/v1/das/${id}/pay`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}

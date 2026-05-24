@@ -19,8 +19,13 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  FileCheck2,
+  Users2,
 } from 'lucide-react';
-import { dateBR, moneyBRL, useDashboardOverview } from '@/lib/hooks/useOperations';
+import { dateBR, moneyBRL, useDashboardOverview, useProductivityOverview } from '@/lib/hooks/useOperations';
+import { usePermission } from '@/lib/hooks/usePermission';
 
 // ─── Variantes de animação ────────────────────────────────────────────────────
 const containerVariants = {
@@ -138,6 +143,9 @@ function statusClass(s: string) {
 export function DashboardPage() {
   const { data, isLoading, isError } = useDashboardOverview();
   const navigate = useNavigate();
+  const { hasRole } = usePermission();
+  const isAdminOrOwner = hasRole('admin');
+  const { data: prod } = useProductivityOverview();
 
   const weeklyData = data?.weekly_received ?? [];
   const monthlyTrend = data?.monthly_received ?? [];
@@ -597,6 +605,239 @@ export function DashboardPage() {
             </table>
           </div>
         </motion.div>
+
+        {/* ── Painel de Produtividade (owner/admin apenas) ── */}
+        {isAdminOrOwner && (
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            {/* Header */}
+            <div className="mb-4 flex items-center gap-3">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-lg"
+                style={{ background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)' }}
+              >
+                <Users2 className="h-4 w-4 text-[#00d4ff]" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">Painel de Produtividade</h2>
+                <p className="text-xs text-[#7a8490]">
+                  Competência {prod?.competence_month ?? '—'} · Visível apenas para administradores
+                </p>
+              </div>
+            </div>
+
+            {/* KPI row */}
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Compliance rate */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Taxa de cumprimento</span>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                </div>
+                <p
+                  className="text-2xl font-bold"
+                  style={{
+                    background:
+                      (prod?.compliance_rate ?? 0) >= 80
+                        ? 'linear-gradient(135deg, #34d399, #6ee7b7)'
+                        : (prod?.compliance_rate ?? 0) >= 50
+                        ? 'linear-gradient(135deg, #fbbf24, #fde68a)'
+                        : 'linear-gradient(135deg, #f87171, #fca5a5)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {prod ? `${prod.compliance_rate}%` : '—'}
+                </p>
+                <p className="mt-1 text-xs text-[#7a8490]">
+                  {prod ? `${prod.total_delivered} entregues / ${prod.total_delivered + prod.total_overdue} fechadas` : 'Sem dados'}
+                </p>
+              </div>
+
+              {/* Pending */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Em aberto</span>
+                  <Clock3 className="h-4 w-4 text-amber-400" />
+                </div>
+                <p
+                  className="text-2xl font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {prod ? prod.total_pending + prod.total_in_progress : '—'}
+                </p>
+                <p className="mt-1 text-xs text-[#7a8490]">
+                  {prod ? `${prod.total_pending} pendentes · ${prod.total_in_progress} em andamento` : 'Sem dados'}
+                </p>
+              </div>
+
+              {/* Docs awaiting approval */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Docs aguardando aprovação</span>
+                  <FileCheck2 className="h-4 w-4 text-[#00d4ff]" />
+                </div>
+                <p
+                  className="text-2xl font-bold"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {prod ? prod.docs_awaiting_approval : '—'}
+                </p>
+                <p className="mt-1 text-xs text-[#7a8490]">Recebidos, aguardando conferência</p>
+              </div>
+
+              {/* Overdue obligations */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Obrigações vencidas</span>
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                </div>
+                <p
+                  className="text-2xl font-bold"
+                  style={{
+                    background:
+                      (prod?.total_overdue ?? 0) > 0
+                        ? 'linear-gradient(135deg, #f87171, #fca5a5)'
+                        : 'linear-gradient(135deg, #34d399, #6ee7b7)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  {prod ? prod.total_overdue : '—'}
+                </p>
+                <p className="mt-1 text-xs text-[#7a8490]">No mês de competência atual</p>
+              </div>
+            </div>
+
+            {/* Collaborators + Top pending clients */}
+            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Obligations by collaborator */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden">
+                <div className="border-b border-white/[0.06] bg-[#141824] px-5 py-3">
+                  <h3 className="text-sm font-bold text-white">Obrigações por colaborador</h3>
+                </div>
+                <div className="divide-y divide-white/[0.04]">
+                  {!prod || prod.obligations_by_collaborator.length === 0 ? (
+                    <p className="px-5 py-6 text-sm text-[#7a8490]">
+                      Nenhuma obrigação atribuída neste mês. Atribua responsáveis na página de Obrigações.
+                    </p>
+                  ) : (
+                    prod.obligations_by_collaborator.map((collab) => {
+                      const pct = collab.total > 0
+                        ? Math.round((collab.delivered / collab.total) * 100)
+                        : 0;
+                      return (
+                        <div key={collab.user_id ?? 'unassigned'} className="px-5 py-3">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <span className="text-sm font-medium text-white">{collab.user_name}</span>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-emerald-400">{collab.delivered} ✓</span>
+                              {collab.overdue > 0 && (
+                                <span className="text-red-400">{collab.overdue} ✗</span>
+                              )}
+                              <span className="text-[#7a8490]">{collab.pending + collab.in_progress} abertos</span>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${pct}%`,
+                                background:
+                                  pct >= 80
+                                    ? 'linear-gradient(90deg, #34d399, #6ee7b7)'
+                                    : pct >= 50
+                                    ? 'linear-gradient(90deg, #fbbf24, #fde68a)'
+                                    : 'linear-gradient(90deg, #00d4ff, #00f0ff)',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Top pending clients */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden">
+                <div className="border-b border-white/[0.06] bg-[#141824] px-5 py-3">
+                  <h3 className="text-sm font-bold text-white">Clientes com mais pendências</h3>
+                </div>
+                <div className="divide-y divide-white/[0.04]">
+                  {!prod || prod.clients_with_most_pending.length === 0 ? (
+                    <p className="px-5 py-6 text-sm text-[#7a8490]">
+                      Nenhuma obrigação pendente no mês. Ótimo desempenho!
+                    </p>
+                  ) : (
+                    prod.clients_with_most_pending.map((client, idx) => (
+                      <div key={client.client_id} className="flex items-center gap-3 px-5 py-3">
+                        <span
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                          style={{
+                            background:
+                              idx === 0
+                                ? 'rgba(251,191,36,0.15)'
+                                : 'rgba(0,212,255,0.08)',
+                            color: idx === 0 ? '#fbbf24' : '#00d4ff',
+                            border: `1px solid ${idx === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(0,212,255,0.2)'}`,
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">
+                          {client.client_name}
+                        </span>
+                        <span className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                          {client.pending_count} pendente{client.pending_count !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Alert strip */}
+                {prod && (prod.certificates_expiring_30d > 0 || prod.overdue_receivables_count > 0) && (
+                  <div className="border-t border-white/[0.06] bg-[#141824] px-5 py-3 space-y-2">
+                    {prod.certificates_expiring_30d > 0 && (
+                      <div className="flex items-center gap-2 text-xs text-amber-400">
+                        <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {prod.certificates_expiring_30d} certificado{prod.certificates_expiring_30d !== 1 ? 's' : ''} vencendo em 30 dias
+                        </span>
+                      </div>
+                    )}
+                    {prod.overdue_receivables_count > 0 && (
+                      <div className="flex items-center gap-2 text-xs text-red-400">
+                        <ReceiptText className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {prod.overdue_receivables_count} recebível{prod.overdue_receivables_count !== 1 ? 'is' : ''} em atraso
+                          &nbsp;({moneyBRL(prod.overdue_receivables_amount)})
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.section>
+        )}
 
         {/* ── Footer ── */}
         <footer className="border-t border-white/[0.06] pt-6 text-center text-xs text-[#7a8490]">

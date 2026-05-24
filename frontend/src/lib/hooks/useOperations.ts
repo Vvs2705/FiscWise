@@ -201,6 +201,58 @@ export function useDashboardOverview() {
   });
 }
 
+// ─── Productivity Dashboard ───────────────────────────────────────────────────
+
+export interface CollaboratorStats {
+  user_id: string | null;
+  user_name: string;
+  pending: number;
+  in_progress: number;
+  delivered: number;
+  overdue: number;
+  total: number;
+}
+
+export interface ClientPendingStats {
+  client_id: string;
+  client_name: string;
+  pending_count: number;
+}
+
+export interface ProductivityOverview {
+  competence_month: string; // "2026-05"
+  compliance_rate: number;
+  total_pending: number;
+  total_in_progress: number;
+  total_delivered: number;
+  total_overdue: number;
+  obligations_by_collaborator: CollaboratorStats[];
+  clients_with_most_pending: ClientPendingStats[];
+  docs_awaiting_approval: number;
+  certificates_expiring_30d: number;
+  overdue_receivables_count: number;
+  overdue_receivables_amount: string | number;
+}
+
+export function useProductivityOverview(year?: number, month?: number) {
+  const params = new URLSearchParams();
+  if (year) params.set('year', String(year));
+  if (month) params.set('month', String(month));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  return useQuery({
+    queryKey: [...operationsKey, 'productivity', year, month],
+    queryFn: async () => {
+      const { data } = await api.get<ProductivityOverview>(
+        `/api/v1/dashboard/productivity${qs}`
+      );
+      return data;
+    },
+    staleTime: 2 * 60 * 1000, // 2 min
+    retry: false, // gracefully skip if user lacks permission
+  });
+}
+
 export function useClients() {
   return useQuery({
     queryKey: [...operationsKey, 'clients'],

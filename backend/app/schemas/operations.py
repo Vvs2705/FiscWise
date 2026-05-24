@@ -260,3 +260,39 @@ class DashboardOverview(BaseModel):
     weekly_received: list[DailyData]
     recent_receivables: list[ReceivableWithClient]
 
+
+# ─── Productivity Dashboard schemas ──────────────────────────────────────────
+
+class CollaboratorStats(BaseModel):
+    """Desempenho de um colaborador no mês de competência."""
+    user_id: Optional[UUID]
+    user_name: str
+    pending: int = 0
+    in_progress: int = 0
+    delivered: int = 0
+    overdue: int = 0
+    total: int = 0
+
+
+class ClientPendingStats(BaseModel):
+    """Cliente com maior volume de obrigações pendentes."""
+    client_id: UUID
+    client_name: str
+    pending_count: int
+
+
+class ProductivityOverview(BaseModel):
+    """Painel de produtividade do escritório (owner/admin apenas)."""
+    competence_month: str           # "2026-05"
+    compliance_rate: float          # delivered / (delivered + overdue) * 100
+    total_pending: int
+    total_in_progress: int
+    total_delivered: int
+    total_overdue: int
+    obligations_by_collaborator: list[CollaboratorStats]
+    clients_with_most_pending: list[ClientPendingStats]
+    docs_awaiting_approval: int
+    certificates_expiring_30d: int
+    overdue_receivables_count: int
+    overdue_receivables_amount: Decimal
+

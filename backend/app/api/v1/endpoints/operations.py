@@ -23,6 +23,7 @@ from app.models.operations import (
     DeadlineItem,
     DigitalCertificate,
 )
+from app.models.obligation import DocumentChecklistItem, ObligationInstance
 from app.models.user import User
 from app.services.document_parser import parse_document
 from app.schemas.operations import (
@@ -32,6 +33,8 @@ from app.schemas.operations import (
     CertificateCreate,
     CertificateResponse,
     CertificateUpdate,
+    ClientPendingStats,
+    CollaboratorStats,
     DailyData,
     DashboardOverview,
     DeadlineCreate,
@@ -41,6 +44,7 @@ from app.schemas.operations import (
     DocumentResponse,
     DocumentUpdate,
     MonthlyData,
+    ProductivityOverview,
     ReceivableCreate,
     ReceivableResponse,
     ReceivableUpdate,
@@ -304,6 +308,182 @@ async def dashboard_overview(
         monthly_received=monthly_received,
         weekly_received=weekly_received,
         recent_receivables=recent_receivables,
+    )
+
+
+@router.get("/dashboard/productivity", response_model=ProductivityOverview)
+async def dashboard_productivity(
+    year: int | None = Query(default=None, ge=2020, le=2100),
+    month: int | None = Query(default=None, ge=1, le=12),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProductivityOverview:
+    """
+    Painel de produtividade do escritório — owner/admin apenas.
+
+    Retorna métricas de obrigações, colaboradores, clientes e alertas
+    para o mês de competência especificado (padrão: mês atual).
+    """
+    if current_user.role.value not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can access the productivity dashboard",
+        )
+
+    tenant_id = _tenant_id(current_user)
+    today = date.today()
+    comp_year = year or today.year
+    comp_month = month or today.month
+    first_of_month = date(comp_year, comp_month, 1)
+    competence_str = f"{comp_year:04d}-{comp_month:02d}"
+
+    async def count_for(statement) -> int:
+        result = await db.execute(statement)
+        return int(result.scalar_one() or 0)
+
+    # ── Obligation status totals for this competence month ─────────────────────
+    status_raw = await db.execute(
+        select(
+            ObligationInstance.status,
+            func.count().label("cnt"),
+        )
+        .where(
+            ObligationInstance.tenant_id == tenant_id,
+            ObligationInstance.competence_month == first_of_month,
+        )
+        .group_by(ObligationInstance.status)
+    )
+    status_map: dict[str, int] = {}
+    for row in status_raw.all():
+        status_map[row.status] = int(row.cnt)
+
+    total_pending = status_map.get("pending", 0)
+    total_in_progress = status_map.get("in_progress", 0)
+    total_delivered = status_map.get("delivered", 0)
+    total_overdue = status_map.get("overdue", 0)
+
+    closed = total_delivered + total_overdue
+    compliance_rate = round((total_delivered / closed * 100) if closed > 0 else 0.0, 1)
+
+    # ── Obligations by collaborator ────────────────────────────────────────────
+    collab_raw = await db.execute(
+        select(
+            ObligationInstance.assigned_to,
+            User.full_name,
+            ObligationInstance.status,
+            func.count().label("cnt"),
+        )
+        .outerjoin(User, ObligationInstance.assigned_to == User.id)
+        .where(
+            ObligationInstance.tenant_id == tenant_id,
+            ObligationInstance.competence_month == first_of_month,
+        )
+        .group_by(
+            ObligationInstance.assigned_to,
+            User.full_name,
+            ObligationInstance.status,
+        )
+        .order_by(ObligationInstance.assigned_to)
+    )
+
+    collab_pivot: dict[str | None, CollaboratorStats] = {}
+    for row in collab_raw.all():
+        key = str(row.assigned_to) if row.assigned_to else "__unassigned__"
+        if key not in collab_pivot:
+            collab_pivot[key] = CollaboratorStats(
+                user_id=row.assigned_to,
+                user_name=row.full_name or "Não atribuído",
+            )
+        s = row.status
+        if s == "pending":
+            collab_pivot[key].pending += int(row.cnt)
+        elif s == "in_progress":
+            collab_pivot[key].in_progress += int(row.cnt)
+        elif s == "delivered":
+            collab_pivot[key].delivered += int(row.cnt)
+        elif s == "overdue":
+            collab_pivot[key].overdue += int(row.cnt)
+        collab_pivot[key].total += int(row.cnt)
+
+    obligations_by_collaborator = sorted(
+        collab_pivot.values(), key=lambda x: x.total, reverse=True
+    )
+
+    # ── Clients with most pending obligations ──────────────────────────────────
+    top_pending_raw = await db.execute(
+        select(
+            ObligationInstance.client_id,
+            AccountingClient.name.label("client_name"),
+            func.count().label("pending_count"),
+        )
+        .join(AccountingClient, ObligationInstance.client_id == AccountingClient.id)
+        .where(
+            ObligationInstance.tenant_id == tenant_id,
+            ObligationInstance.competence_month == first_of_month,
+            ObligationInstance.status == "pending",
+        )
+        .group_by(ObligationInstance.client_id, AccountingClient.name)
+        .order_by(func.count().desc())
+        .limit(5)
+    )
+    clients_with_most_pending = [
+        ClientPendingStats(
+            client_id=row.client_id,
+            client_name=row.client_name,
+            pending_count=int(row.pending_count),
+        )
+        for row in top_pending_raw.all()
+    ]
+
+    # ── Documents awaiting approval (received but not yet approved) ────────────
+    docs_awaiting_approval = await count_for(
+        select(func.count()).select_from(DocumentChecklistItem).where(
+            DocumentChecklistItem.tenant_id == tenant_id,
+            DocumentChecklistItem.competence_month == first_of_month,
+            DocumentChecklistItem.status == "received",
+        )
+    )
+
+    # ── Certificates expiring in the next 30 days ──────────────────────────────
+    limit_date = today + timedelta(days=30)
+    certificates_expiring_30d = await count_for(
+        select(func.count()).select_from(DigitalCertificate).where(
+            DigitalCertificate.tenant_id == tenant_id,
+            DigitalCertificate.status == "valid",
+            DigitalCertificate.valid_until >= today,
+            DigitalCertificate.valid_until <= limit_date,
+        )
+    )
+
+    # ── Overdue receivables ────────────────────────────────────────────────────
+    overdue_receivables_count = await count_for(
+        select(func.count()).select_from(AccountReceivable).where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status != "paid",
+            AccountReceivable.due_date < today,
+        )
+    )
+    overdue_amount_result = await db.execute(
+        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status != "paid",
+            AccountReceivable.due_date < today,
+        )
+    )
+
+    return ProductivityOverview(
+        competence_month=competence_str,
+        compliance_rate=compliance_rate,
+        total_pending=total_pending,
+        total_in_progress=total_in_progress,
+        total_delivered=total_delivered,
+        total_overdue=total_overdue,
+        obligations_by_collaborator=obligations_by_collaborator,
+        clients_with_most_pending=clients_with_most_pending,
+        docs_awaiting_approval=docs_awaiting_approval,
+        certificates_expiring_30d=certificates_expiring_30d,
+        overdue_receivables_count=overdue_receivables_count,
+        overdue_receivables_amount=Decimal(overdue_amount_result.scalar_one() or 0),
     )
 
 

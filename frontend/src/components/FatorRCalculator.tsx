@@ -140,6 +140,20 @@ function parseMonthIndex(cell: any): number | null {
   return null;
 }
 
+function formatBRL(val: number): string {
+  if (val === 0) return '';
+  return val.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function parseCurrencyString(str: string): number {
+  const digits = str.replace(/\D/g, '');
+  if (!digits) return 0;
+  return parseFloat(digits) / 100;
+}
+
 function emptyRow(): MonthRow {
   return {
     receita: 0,
@@ -270,7 +284,7 @@ export function FatorRCalculator() {
   // ---- handlers ----
   const updateCell = useCallback(
     (monthIdx: number, field: keyof MonthRow, raw: string) => {
-      const value = parseFloat(raw) || 0;
+      const value = parseCurrencyString(raw);
       setRows((prev) => {
         const next = [...prev];
         next[monthIdx] = { ...next[monthIdx], [field]: value };
@@ -284,7 +298,7 @@ export function FatorRCalculator() {
 
   const updateTemplateCell = useCallback(
     (field: keyof MonthRow, raw: string) => {
-      const value = parseFloat(raw) || 0;
+      const value = parseCurrencyString(raw);
       setTemplateRow((prev) => ({ ...prev, [field]: value }));
     },
     [],
@@ -509,10 +523,9 @@ export function FatorRCalculator() {
                         R$
                       </span>
                       <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={templateRow[col.key] || ''}
+                        type="text"
+                        placeholder="0,00"
+                        value={templateRow[col.key] ? formatBRL(templateRow[col.key]) : ''}
                         onChange={(e) =>
                           updateTemplateCell(col.key, e.target.value)
                         }
@@ -572,10 +585,9 @@ export function FatorRCalculator() {
                           R$
                         </span>
                         <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row[col.key] || ''}
+                          type="text"
+                          placeholder="0,00"
+                          value={row[col.key] ? formatBRL(row[col.key]) : ''}
                           onChange={(e) =>
                             updateCell(idx, col.key, e.target.value)
                           }

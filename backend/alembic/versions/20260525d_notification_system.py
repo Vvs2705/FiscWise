@@ -95,13 +95,7 @@ def upgrade() -> None:
             'Documentos Pendentes - Padrão',
             'Documentos pendentes para entrega ao escritório',
             E'Olá {{client_name}},\n\nPassamos por aqui para lembrá-lo(a) de que o seu escritório contábil aguarda os seguintes documentos referentes à competência {{competence_month}}:\n\n{{pending_items}}\n\nPor favor, acesse o portal do cliente para enviar os documentos: {{portal_link}}\n\nQualquer dúvida, entre em contato conosco.\n\nAtenciosamente,\nEquipe {{office_name}}',
-            '''{
-                "client_name": "Nome completo do cliente",
-                "competence_month": "Mês de competência (ex: Maio/2026)",
-                "pending_items": "Lista formatada dos documentos pendentes",
-                "portal_link": "Link de acesso ao portal",
-                "office_name": "Nome do escritório"
-            }''',
+            '{"client_name": "Nome completo do cliente", "competence_month": "Mes de competencia (ex: Maio/2026)", "pending_items": "Lista formatada dos documentos pendentes", "portal_link": "Link de acesso ao portal", "office_name": "Nome do escritorio"}',
             true
         )
         ON CONFLICT DO NOTHING;

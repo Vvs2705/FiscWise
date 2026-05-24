@@ -17,7 +17,7 @@ DEBUG = "False"
 APP_NAME = "FiscWise"
 APP_VERSION = "1.0.0"
 PUBLIC_URL = "https://fiscwise.fly.dev"
-ALLOWED_ORIGINS = "https://fiscwise.com.br,https://fiscwise-v-stack-solution.vercel.app,http://localhost:3000"
+ALLOWED_ORIGINS = "https://fiscwise.com.br,https://www.fiscwise.com.br,https://frontend-v-stack-solution.vercel.app,https://fiscwise.vercel.app,http://localhost:3000"
 SUPABASE_URL = "https://lkgmgbieottygodrdubi.supabase.co"
 
 [http_service]

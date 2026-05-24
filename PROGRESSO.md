@@ -91,32 +91,63 @@
 
 ---
 
-## 🔄 EM ANDAMENTO — Mês 4-6 (Produto comercial)
+## ✅ FASE 5 (cont.) — Mês 4-6 (Produto comercial)
 
-- [ ] **5.13 — Gateway de pagamento (Asaas/Iugu)**
-  - [x] Migration: `tenant_subscriptions` + `billing_webhook_events`
-  - [x] Model: `billing.py` (TenantSubscription, BillingWebhookEvent)
-  - [x] Service: `billing_service.py` (webhook handlers, idempotency)
-  - [ ] Endpoint: `billing.py` (GET/POST /billing/subscription, webhooks Asaas/Iugu)
-  - [ ] Registrar router em `api.py`
-  - [ ] Frontend: tela de assinatura/upgrade
+- [x] **5.13 — Gateway de pagamento (Asaas)**
+  - Migration: `tenant_subscriptions` + `billing_webhook_events`
+  - Model: `billing.py` (TenantSubscription, BillingWebhookEvent)
+  - Service: `billing_service.py` (verify_asaas_signature, webhook handlers, idempotency)
+  - Endpoint: `GET/POST /billing/subscription`, `POST /billing/webhooks/asaas`
+  - Middleware exclusion para `/api/v1/billing/webhooks`
+  - Router registrado em `api.py`
+  - **Commit:** (incluído em commits anteriores)
+  - ⚠️ Frontend de assinatura/upgrade ainda pendente (tela de upgrade de plano)
 
-- [ ] **5.14 — IA operacional**
-  - Classificação de documentos
-  - Extração de dados de notas fiscais
-  - Resumo de cliente
-
-- [ ] **5.15 — LGPD mínimo viável**
-  - Termos de uso + Política de privacidade (páginas)
-  - Consentimento no cadastro
-  - `/account/export` e `/account/delete`
-
-- [ ] **5.16 — Row Level Security (RLS)**
-  - Políticas RLS no PostgreSQL para todas as tabelas de tenant
+- [x] **5.15 — LGPD mínimo viável**
+  - Migration `20260525g`: `terms_accepted_at`, `terms_version`, `deletion_requested_at` em `tenants`
+  - Onboarding: armazena `terms_accepted_at=now_utc` e `terms_version='v1.0'`
+  - Schema: campo `terms_accepted: bool` com validator LGPD (422 se false)
+  - Endpoint `GET /account/export` — exporta dados pessoais + tenant + contagens (Art. 18 I)
+  - Endpoint `POST /account/delete` — registra solicitação de exclusão (Art. 18 VI, 202 Accepted)
+  - Router `/account` registrado em `api.py`
+  - `RegisterPage`: checkbox obrigatório com links para `/termos` e `/privacidade`
+  - `TermsPage.tsx`: Termos de Uso completo (12 seções, PT-BR)
+  - `PrivacyPage.tsx`: Política de Privacidade LGPD completa (Art. 18 direitos, tabela base legal)
+  - Rotas públicas `/termos` e `/privacidade` em `App.tsx`
+  - `RegisterData` interface atualizada com `terms_accepted: boolean`
+  - **Commit:** `7b82c1a` — feat(lgpd): implement LGPD Art. 18
 
 ---
 
-## 📋 FASE 6 — Mês 7-12 (Escala e IA avançada)
+## ⚠️ PENDENTE — Ação manual necessária
+
+- [ ] **Deploy Fly.io:** O app no Fly.io chama-se `contaflow` (nome antigo, pré-rebranding).
+  - Atualize `fly.toml` linha 4: `app = "contaflow"` e execute `fly deploy`
+  - **OU** crie o app com o novo nome: `fly apps create fiscwise` e faça `fly deploy`
+  - Código já está no GitHub (`git push` feito com sucesso)
+
+---
+
+## 📋 PENDENTE — Próximas fases
+
+- [ ] **5.14 — IA operacional**
+  - Classificação de documentos (ML/AI)
+  - Extração de dados de notas fiscais
+  - Resumo de cliente
+
+- [ ] **5.16 — Row Level Security (RLS)**
+  - Políticas RLS no PostgreSQL para todas as tabelas de tenant
+  - Tabelas identificadas (todas com `tenant_id`):
+    `accounting_clients`, `deadline_items`, `client_documents`, `digital_certificates`,
+    `account_receivables`, `client_portal_invites`, `company_partners`, `company_documents`,
+    `das_payments`, `calculator_simulations`, `tax_scenarios`, `fiscal_assistant_messages`,
+    `client_obligation_profiles`, `obligation_instances`, `document_checklist_items`,
+    `notification_messages`, `tenant_subscriptions`, `audit_events`, `users`
+  - Implementação via `SET LOCAL app.current_tenant_id` no `get_current_user`
+  - ⚠️ DB user postgres é superuser (bypassa RLS) — avaliar criar role limitado
+
+- [ ] **5.13 (complemento) — Tela de upgrade de plano (frontend)**
+  - Tela de assinatura/upgrade integrada com Asaas
 
 - [ ] **5.17 — WhatsApp Business API**
 - [ ] **5.18 — Monitor fiscal via parceiro**
@@ -128,8 +159,9 @@
 ## Notas técnicas
 
 - Stack: Python 3.12 / FastAPI / SQLAlchemy async / Alembic / React 18 / TypeScript / Vite
-- Deploy: Fly.io (backend `fiscwise`) + Vercel (frontend)
+- Deploy: Fly.io (backend — app `contaflow`) + Vercel (frontend)
 - DB: PostgreSQL via Supabase
 - Segurança: JWT + X-Tenant-ID header, RBAC (owner/admin/member/client)
 - Email: provider-agnostic — configure `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`
 - Billing: configure `BILLING_PROVIDER=asaas` + `ASAAS_API_KEY` + `BILLING_WEBHOOK_SECRET`
+- LGPD: `terms_accepted_at` + `terms_version` gravados no tenant; exportação e exclusão via `/account`

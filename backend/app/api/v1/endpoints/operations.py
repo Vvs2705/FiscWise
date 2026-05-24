@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
-from sqlalchemy import Date as SADate, cast, func, or_, select
+from sqlalchemy import Date as SADate, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -241,7 +241,7 @@ async def dashboard_overview(
     first_of_year = datetime(today.year, 1, 1, tzinfo=timezone.utc)
     monthly_raw = await db.execute(
         select(
-            func.date_trunc("month", AccountReceivable.paid_at).label("month"),
+            func.date_trunc(text("'month'"), AccountReceivable.paid_at).label("month"),
             func.coalesce(func.sum(AccountReceivable.amount), 0).label("total"),
         )
         .where(
@@ -249,8 +249,8 @@ async def dashboard_overview(
             AccountReceivable.status == "paid",
             AccountReceivable.paid_at >= first_of_year,
         )
-        .group_by(func.date_trunc("month", AccountReceivable.paid_at))
-        .order_by(func.date_trunc("month", AccountReceivable.paid_at).asc())
+        .group_by(func.date_trunc(text("'month'"), AccountReceivable.paid_at))
+        .order_by(func.date_trunc(text("'month'"), AccountReceivable.paid_at).asc())
     )
     monthly_received = [
         MonthlyData(mes=_MONTH_PT[row.month.month - 1], valor=Decimal(row.total or 0))

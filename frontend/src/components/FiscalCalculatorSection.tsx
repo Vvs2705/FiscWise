@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CalculatorSimulator } from './CalculatorSimulator';
+import { FatorRCalculator } from './FatorRCalculator';
 import { FiscalChat } from './FiscalChat';
 import { SimulationHistory } from './SimulationHistory';
 
@@ -8,10 +9,11 @@ interface Props {
 }
 
 export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
-  const [activeTab, setActiveTab] = useState<'simulator' | 'chat' | 'history'>('simulator');
+  const [activeTab, setActiveTab] = useState<'simulator' | 'fator-r' | 'chat' | 'history'>('simulator');
 
   const tabs = [
     { id: 'simulator', label: '📊 Simulador', icon: '📊' },
+    { id: 'fator-r', label: '📐 Fator R / DAS', icon: '📐' },
     { id: 'chat', label: '🤖 Chat IA', icon: '🤖' },
     { id: 'history', label: '📋 Histórico', icon: '📋' },
   ];
@@ -48,6 +50,10 @@ export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
         <div className="p-6 bg-card text-card-foreground">
           {activeTab === 'simulator' && (
             <CalculatorSimulator userPlan={userPlan} />
+          )}
+
+          {activeTab === 'fator-r' && (
+            <FatorRCalculator />
           )}
 
           {activeTab === 'chat' && (

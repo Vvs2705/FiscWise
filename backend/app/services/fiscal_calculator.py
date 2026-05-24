@@ -48,6 +48,15 @@ _SIMPLES_ANEXO_IV = [
     (Decimal("4800000"), Decimal("0.33"), Decimal("828000")),
 ]
 
+_SIMPLES_ANEXO_V = [
+    (Decimal("180000"), Decimal("0.155"), Decimal("0")),
+    (Decimal("360000"), Decimal("0.18"), Decimal("4500")),
+    (Decimal("720000"), Decimal("0.195"), Decimal("9900")),
+    (Decimal("1800000"), Decimal("0.205"), Decimal("17100")),
+    (Decimal("3600000"), Decimal("0.23"), Decimal("62100")),
+    (Decimal("4800000"), Decimal("0.305"), Decimal("540000")),
+]
+
 _SIMPLES_LIMITE = Decimal("4800000")
 
 
@@ -479,3 +488,149 @@ def compare_tax_regimes(
         cheapest["is_recommended"] = True
 
     return sorted(scenarios, key=lambda s: s.get("total_tax") or float("inf"))
+
+
+# ---------------------------------------------------------------------------
+# Fator R / DAS Calculator
+# ---------------------------------------------------------------------------
+
+_MONTH_LABELS = [
+    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+]
+
+
+def _find_faixa(rbt12: Decimal, table: list) -> tuple[int, Decimal, Decimal]:
+    """Return (faixa_number, aliquota_nominal, deducao) for a given RBT12."""
+    for i, (upper, aliquota, deducao) in enumerate(table, start=1):
+        if rbt12 <= upper:
+            return i, aliquota, deducao
+    # Above the last bracket — use the last faixa
+    _, aliquota, deducao = table[-1]
+    return len(table), aliquota, deducao
+
+
+def _calc_das_for_table(
+    rbt12: Decimal,
+    monthly_revenues: list[Decimal],
+    table: list,
+    month_labels: list[str],
+) -> tuple[list[dict[str, Any]], Decimal, Decimal]:
+    """
+    Calculate monthly DAS values for a given annex table.
+
+    Returns (monthly_details, total_das_anual, aliquota_efetiva).
+    """
+    if rbt12 <= 0:
+        empty = [
+            {"mes": month_labels[i], "receita": float(r), "das": 0.0, "aliquota_efetiva": 0.0}
+            for i, r in enumerate(monthly_revenues)
+        ]
+        return empty, Decimal("0"), Decimal("0")
+
+    faixa, aliq_nominal, deducao = _find_faixa(rbt12, table)
+    aliquota_efetiva = ((rbt12 * aliq_nominal) - deducao) / rbt12
+    aliquota_efetiva = aliquota_efetiva.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+
+    monthly_details: list[dict[str, Any]] = []
+    total_das = Decimal("0")
+
+    for i, receita in enumerate(monthly_revenues):
+        das = (receita * aliquota_efetiva).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_das += das
+        monthly_details.append({
+            "mes": month_labels[i] if i < len(month_labels) else f"Mês {i + 1}",
+            "receita": float(receita.quantize(Decimal("0.01"))),
+            "das": float(das),
+            "aliquota_efetiva": float(aliquota_efetiva),
+            "faixa": faixa,
+        })
+
+    return monthly_details, total_das, aliquota_efetiva
+
+
+def calculate_fator_r(
+    monthly_revenues: list[Decimal],
+    monthly_payrolls: list[Decimal],
+) -> dict[str, Any]:
+    """
+    Calculate Fator R and DAS for a service company under Simples Nacional.
+
+    The Fator R determines whether the company falls under Anexo III (lower
+    taxes, when payroll is >= 28% of revenue) or Anexo V (higher taxes).
+
+    Parameters
+    ----------
+    monthly_revenues : list[Decimal]
+        Up to 12 monthly gross revenue values.
+    monthly_payrolls : list[Decimal]
+        Up to 12 monthly total payroll (folha de pagamento) values.
+        Must have the same length as monthly_revenues.
+
+    Returns
+    -------
+    dict with rbt12, folha_12m, fator_r, anexo, monthly_details,
+    total_das_anual, and a comparison dict showing the alternative annex.
+    """
+    num_months = len(monthly_revenues)
+
+    # Pad to the number of months provided (no forced 12-month padding)
+    month_labels = _MONTH_LABELS[:num_months] if num_months <= 12 else [
+        f"Mês {i + 1}" for i in range(num_months)
+    ]
+
+    rbt12 = sum(monthly_revenues)
+    folha_12m = sum(monthly_payrolls)
+
+    # Fator R = Folha / RBT12
+    if rbt12 > 0:
+        fator_r = (folha_12m / rbt12).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+    else:
+        fator_r = Decimal("0")
+
+    # Determine Annex
+    fator_r_threshold = Decimal("0.28")
+    anexo = "III" if fator_r >= fator_r_threshold else "V"
+    primary_table = _SIMPLES_ANEXO_III if anexo == "III" else _SIMPLES_ANEXO_V
+    alt_table = _SIMPLES_ANEXO_V if anexo == "III" else _SIMPLES_ANEXO_III
+    alt_anexo = "V" if anexo == "III" else "III"
+
+    # Calculate DAS with the determined annex
+    monthly_details, total_das_anual, aliq_efetiva = _calc_das_for_table(
+        rbt12, monthly_revenues, primary_table, month_labels,
+    )
+
+    # Enrich monthly_details with payroll data
+    for i, detail in enumerate(monthly_details):
+        detail["folha"] = float(monthly_payrolls[i].quantize(Decimal("0.01")))
+
+    # Comparison: what-if in the other annex
+    alt_details, alt_total_das, alt_aliq = _calc_das_for_table(
+        rbt12, monthly_revenues, alt_table, month_labels,
+    )
+
+    if total_das_anual > 0:
+        diff = total_das_anual - alt_total_das
+    else:
+        diff = Decimal("0")
+
+    comparison = {
+        "anexo": alt_anexo,
+        "aliquota_efetiva": float(alt_aliq),
+        "total_das_anual": float(alt_total_das.quantize(Decimal("0.01"))),
+        "diferenca_anual": float(diff.quantize(Decimal("0.01"))),
+        "monthly_details": alt_details,
+    }
+
+    fator_r_pct = (fator_r * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    return {
+        "rbt12": float(rbt12.quantize(Decimal("0.01"))),
+        "folha_12m": float(folha_12m.quantize(Decimal("0.01"))),
+        "fator_r": float(fator_r),
+        "fator_r_percent": f"{fator_r_pct}%",
+        "anexo": anexo,
+        "monthly_details": monthly_details,
+        "total_das_anual": float(total_das_anual.quantize(Decimal("0.01"))),
+        "comparison": comparison,
+    }

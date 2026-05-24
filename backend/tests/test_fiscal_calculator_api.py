@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 from app.models.calculator import CalculatorSimulation, SimulationType, FiscalAssistantMessage, AssistantRole, TaxRegime, TaxScenario
 from app.core.plan_access import PLAN_FREE, PLAN_INTERMEDIARIO, PLAN_PREMIUM
-from app.schemas.calculator import RegimeSimulationCreate, IcmsSimulationCreate, PisCofinsSimulationCreate, AssistantMessageCreate, PdfExportRequest
+from app.schemas.calculator import RegimeSimulationCreate, IcmsSimulationCreate, PisCofinsSimulationCreate, AssistantMessageCreate, PdfExportRequest, FatorRSimulationCreate
 
 @pytest.fixture
 def mock_ai_services():
@@ -16,17 +16,20 @@ def mock_ai_services():
     with patch("app.api.v1.endpoints.calculator.generate_regime_recommendation", new_callable=AsyncMock) as mock_regime, \
          patch("app.api.v1.endpoints.calculator.generate_icms_analysis", new_callable=AsyncMock) as mock_icms, \
          patch("app.api.v1.endpoints.calculator.generate_pis_cofins_analysis", new_callable=AsyncMock) as mock_pis_cofins, \
+         patch("app.api.v1.endpoints.calculator.generate_fator_r_recommendation", new_callable=AsyncMock) as mock_fator_r, \
          patch("app.api.v1.endpoints.calculator.chat_with_fiscal_assistant", new_callable=AsyncMock) as mock_chat:
         
         mock_regime.return_value = "Recomendação Mock Simples Nacional"
         mock_icms.return_value = "Análise Mock ICMS"
         mock_pis_cofins.return_value = "Análise Mock PIS/COFINS"
+        mock_fator_r.return_value = "Recomendação Mock Fator R"
         mock_chat.return_value = ("Resposta Mock Chat", 150)
         
         yield {
             "regime": mock_regime,
             "icms": mock_icms,
             "pis_cofins": mock_pis_cofins,
+            "fator_r": mock_fator_r,
             "chat": mock_chat
         }
 
@@ -360,3 +363,81 @@ async def test_tenant_isolation_on_calculator(client_with_auth_a, client_with_au
         json=payload.model_dump(mode="json"),
     )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_simulate_fator_r_free_plan(client_with_auth_a, test_db, mock_ai_services):
+    """POST /calculator/simulate-fator-r on FREE plan calculates Fator R and does not call AI."""
+    client, user_a, _, _ = client_with_auth_a
+    user_a.tenant.plan_slug = PLAN_FREE
+    await test_db.commit()
+
+    # Define a 12-month payload where payroll is 30% of revenue (Anexo III)
+    payload = {
+        "months": [
+            {
+                "month": "Jan",
+                "revenue": 10000.00,
+                "pro_labore": 3000.00,
+                "inss_pro_labore": 330.00,
+                "irrf_pro_labore": 0.00,
+                "employee_salary": 0.00,
+                "inss_employees": 0.00,
+                "irrf_employees": 0.00,
+                "fgts": 0.00,
+                "other": 0.00
+            }
+        ] * 12,
+        "title": "Fator R Test Free"
+    }
+
+    response = client.post(
+        "/api/v1/calculator/simulate-fator-r",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["title"] == "Fator R Test Free"
+    assert data["anexo"] == "III"  # 3330 * 12 / 10000 * 12 = 33.3% >= 28%
+    assert data["ai_recommendation"] is None
+    mock_ai_services["fator_r"].assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_simulate_fator_r_intermediario_plan(client_with_auth_a, test_db, mock_ai_services):
+    """POST /calculator/simulate-fator-r on INTERMEDIARIO plan calculates Fator R and generates AI recommendation."""
+    client, user_a, _, _ = client_with_auth_a
+    user_a.tenant.plan_slug = PLAN_INTERMEDIARIO
+    await test_db.commit()
+
+    # Define a 12-month payload where payroll is 10% of revenue (Anexo V)
+    payload = {
+        "months": [
+            {
+                "month": "Jan",
+                "revenue": 10000.00,
+                "pro_labore": 1000.00,
+                "inss_pro_labore": 0.00,
+                "irrf_pro_labore": 0.00,
+                "employee_salary": 0.00,
+                "inss_employees": 0.00,
+                "irrf_employees": 0.00,
+                "fgts": 0.00,
+                "other": 0.00
+            }
+        ] * 12,
+        "title": "Fator R Test Intermediario"
+    }
+
+    response = client.post(
+        "/api/v1/calculator/simulate-fator-r",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["title"] == "Fator R Test Intermediario"
+    assert data["anexo"] == "V"  # 10% < 28%
+    assert data["ai_recommendation"] == "Recomendação Mock Fator R"
+    mock_ai_services["fator_r"].assert_called_once()

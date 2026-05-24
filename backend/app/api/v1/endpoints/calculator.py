@@ -43,6 +43,8 @@ from app.schemas.calculator import (
     AssistantMessageCreate,
     AssistantMessageResponse,
     ChatResponse,
+    FatorRSimulationCreate,
+    FatorRSimulationResponse,
     IcmsSimulationCreate,
     IcmsSimulationResponse,
     PdfExportRequest,
@@ -56,11 +58,13 @@ from app.schemas.calculator import (
 )
 from app.services.ai_fiscal import (
     chat_with_fiscal_assistant,
+    generate_fator_r_recommendation,
     generate_icms_analysis,
     generate_pis_cofins_analysis,
     generate_regime_recommendation,
 )
 from app.services.fiscal_calculator import (
+    calculate_fator_r,
     calculate_icms,
     calculate_pis_cofins,
     compare_tax_regimes,
@@ -326,6 +330,80 @@ async def simulate_pis_cofins(
         title=simulation.title,
         input_data=simulation.input_data,
         result_data=simulation.result_data,
+        ai_recommendation=simulation.ai_recommendation,
+        created_at=simulation.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /calculator/simulate-fator-r
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/simulate-fator-r",
+    response_model=FatorRSimulationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Simulação de Fator R e DAS",
+    description=(
+        "Calcula o Fator R (folha/receita) para determinar se a empresa se enquadra "
+        "no Anexo III ou V do Simples Nacional. Inclui cálculo mensal do DAS e "
+        "comparação com o anexo alternativo. Análise de IA disponível no plano Intermediário+."
+    ),
+)
+async def simulate_fator_r(
+    payload: FatorRSimulationCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FatorRSimulationResponse:
+    tenant_id = _tenant_id(current_user)
+    plan = _plan(current_user)
+
+    # ── Extract monthly data from payload ─────────────────────────────────────
+    monthly_revenues = [m.revenue for m in payload.months]
+    monthly_payrolls = [m.total_payroll for m in payload.months]
+
+    # ── Deterministic calculation (all plans) ────────────────────────────────
+    result_data = calculate_fator_r(
+        monthly_revenues=monthly_revenues,
+        monthly_payrolls=monthly_payrolls,
+    )
+
+    # ── AI recommendation (INTERMEDIARIO+ only) ───────────────────────────────
+    ai_recommendation: Optional[str] = None
+    if has_plan(plan, PLAN_INTERMEDIARIO):
+        ai_recommendation = await generate_fator_r_recommendation(result_data)
+
+    # ── Persist simulation ────────────────────────────────────────────────────
+    input_data = payload.model_dump(mode="json")
+
+    simulation = CalculatorSimulation(
+        tenant_id=tenant_id,
+        simulation_type=SimulationType.FATOR_R,
+        title=(
+            payload.title
+            or f"Fator R — {result_data['fator_r_percent']} (Anexo {result_data['anexo']})"
+        ),
+        input_data=input_data,
+        result_data=result_data,
+        ai_recommendation=ai_recommendation,
+        plan_slug=plan,
+    )
+    db.add(simulation)
+    await _commit_refresh(db, simulation)
+
+    return FatorRSimulationResponse(
+        id=simulation.id,
+        simulation_type=simulation.simulation_type,
+        title=simulation.title,
+        rbt12=Decimal(str(result_data["rbt12"])),
+        folha_12m=Decimal(str(result_data["folha_12m"])),
+        fator_r=Decimal(str(result_data["fator_r"])),
+        fator_r_percent=result_data["fator_r_percent"],
+        anexo=result_data["anexo"],
+        monthly_details=result_data["monthly_details"],
+        total_das_anual=Decimal(str(result_data["total_das_anual"])),
+        comparison=result_data["comparison"],
         ai_recommendation=simulation.ai_recommendation,
         created_at=simulation.created_at,
     )

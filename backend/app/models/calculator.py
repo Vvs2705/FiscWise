@@ -29,6 +29,7 @@ class SimulationType(str, enum.Enum):
     REGIME = "regime"
     ICMS = "icms"
     PIS_COFINS = "pis_cofins"
+    FATOR_R = "fator_r"
 
 
 class TaxRegime(str, enum.Enum):

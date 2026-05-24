@@ -205,6 +205,53 @@ async def generate_pis_cofins_analysis(
     return content
 
 
+async def generate_fator_r_recommendation(
+    result: dict[str, Any],
+) -> Optional[str]:
+    """
+    Generate AI recommendation for a Fator R / DAS simulation.
+
+    Provides advice on payroll optimization to reach or maintain the 28%
+    threshold, and compares the cost/benefit of switching annexes.
+    """
+    anexo = result.get("anexo", "?")
+    fator_r_pct = result.get("fator_r_percent", "?")
+    rbt12 = result.get("rbt12", 0)
+    folha_12m = result.get("folha_12m", 0)
+    total_das = result.get("total_das_anual", 0)
+    comparison = result.get("comparison", {})
+    alt_anexo = comparison.get("anexo", "?")
+    alt_total = comparison.get("total_das_anual", 0)
+    diff = comparison.get("diferenca_anual", 0)
+
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Analise a simulação de Fator R e DAS abaixo e forneça recomendações (máx 300 palavras):\n\n"
+                f"**Dados:**\n"
+                f"- RBT12 (receita bruta 12 meses): R$ {rbt12:,.2f}\n"
+                f"- Folha de pagamento 12 meses: R$ {folha_12m:,.2f}\n"
+                f"- Fator R: {fator_r_pct}\n"
+                f"- Anexo enquadrado: {anexo}\n"
+                f"- DAS anual no Anexo {anexo}: R$ {total_das:,.2f}\n"
+                f"- Se fosse Anexo {alt_anexo}: R$ {alt_total:,.2f}\n"
+                f"- Diferença anual: R$ {diff:,.2f}\n\n"
+                f"Recomende:\n"
+                f"1. Se o Fator R atual é favorável ou desfavorável\n"
+                f"2. Se vale a pena aumentar a folha de pagamento para atingir 28% e migrar para o Anexo III\n"
+                f"3. Qual o valor ideal de folha para otimizar a carga tributária\n"
+                f"4. Cuidados com o pró-labore mínimo e limites legais\n"
+                f"Use valores concretos e seja direto."
+            ),
+        },
+    ]
+
+    content, _ = await _call_openai(messages, _MAX_TOKENS_RECOMMENDATION)
+    return content
+
+
 async def chat_with_fiscal_assistant(
     user_message: str,
     conversation_history: list[dict[str, str]],

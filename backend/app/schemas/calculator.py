@@ -261,6 +261,134 @@ class PisCofinsSimulationResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Fator R / DAS simulation
+# ---------------------------------------------------------------------------
+
+class FatorRMonthInput(BaseModel):
+    """Monthly input data for Fator R simulation."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    month: str = Field(
+        ...,
+        max_length=10,
+        description="Month label (e.g. 'Jan', 'Fev')",
+        examples=["Jan"],
+    )
+    revenue: Decimal = Field(
+        ge=0,
+        description="Monthly gross revenue in BRL",
+        examples=[50_000.00],
+    )
+    pro_labore: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="Pró-labore dos sócios",
+    )
+    inss_pro_labore: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="INSS sobre pró-labore",
+    )
+    irrf_pro_labore: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="IRRF sobre pró-labore",
+    )
+    employee_salary: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="Salários de empregados",
+    )
+    inss_employees: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="INSS sobre empregados",
+    )
+    irrf_employees: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="IRRF sobre empregados",
+    )
+    fgts: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="FGTS",
+    )
+    other: Decimal = Field(
+        ge=0,
+        default=Decimal("0"),
+        description="Outras despesas de folha",
+    )
+
+    @field_validator(
+        "revenue", "pro_labore", "inss_pro_labore", "irrf_pro_labore",
+        "employee_salary", "inss_employees", "irrf_employees",
+        "fgts", "other",
+        mode="before",
+    )
+    @classmethod
+    def coerce_decimal(cls, v: Any) -> Optional[Decimal]:
+        if v is None:
+            return Decimal("0")
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return Decimal(v) if not isinstance(v, Decimal) else v
+
+    @property
+    def total_payroll(self) -> Decimal:
+        """Sum all payroll components for this month."""
+        return (
+            self.pro_labore
+            + self.inss_pro_labore
+            + self.irrf_pro_labore
+            + self.employee_salary
+            + self.inss_employees
+            + self.irrf_employees
+            + self.fgts
+            + self.other
+        )
+
+
+class FatorRSimulationCreate(BaseModel):
+    """Input for Fator R / DAS simulation."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    months: list[FatorRMonthInput] = Field(
+        ...,
+        min_length=1,
+        max_length=12,
+        description="Monthly revenue and payroll data (1 to 12 months)",
+    )
+    title: Optional[str] = Field(
+        default=None,
+        max_length=255,
+        description="Optional title for this simulation",
+    )
+
+
+class FatorRSimulationResponse(BaseModel):
+    """Result of a Fator R / DAS simulation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    simulation_type: SimulationType
+    title: Optional[str]
+    rbt12: Decimal
+    folha_12m: Decimal
+    fator_r: Decimal
+    fator_r_percent: str
+    anexo: str
+    monthly_details: list[dict[str, Any]]
+    total_das_anual: Decimal
+    comparison: dict[str, Any]
+    ai_recommendation: Optional[str]
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
 # AI Chat
 # ---------------------------------------------------------------------------
 

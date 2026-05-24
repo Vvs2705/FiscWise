@@ -9,6 +9,7 @@ import {
   UsersRound,
   Calculator,
   Coins,
+  ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Financeiro',     href: '/financeiro',      icon: ReceiptText },
   { name: 'Calculadora Fiscal', href: '/calculadora', icon: Calculator },
   { name: 'DAS Mensal',     href: '/das-mensal',      icon: Coins },
+  { name: 'Obrigações',     href: '/obrigacoes',      icon: ListChecks },
   { name: 'Configurações',  href: '/configuracoes',   icon: Settings },
 ];
 

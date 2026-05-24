@@ -16,6 +16,12 @@ from app.models.operations import (
     DeadlineItem,
     DigitalCertificate,
 )
+from app.models.obligation import (
+    ObligationRule,
+    ClientObligationProfile,
+    ObligationInstance,
+    DocumentChecklistItem,
+)
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -31,4 +37,8 @@ __all__ = [
     "ClientDocument",
     "DigitalCertificate",
     "AccountReceivable",
+    "ObligationRule",
+    "ClientObligationProfile",
+    "ObligationInstance",
+    "DocumentChecklistItem",
 ]

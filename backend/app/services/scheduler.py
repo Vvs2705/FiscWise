@@ -34,9 +34,45 @@ async def start_scheduler():
         replace_existing=True,
     )
 
+    # Schedule obligation engine on the 1st of each month at 3:00 AM UTC
+    # Runs after billing (2:00 AM) to avoid DB contention
+    scheduler.add_job(
+        generate_obligations_scheduled,
+        CronTrigger(day=1, hour=3, minute=0),
+        id="generate_obligations",
+        name="Generate Monthly Fiscal Obligations",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started successfully")
+
+
+async def generate_obligations_scheduled():
+    """
+    Scheduled task to generate monthly fiscal obligations.
+    Runs on the 1st of each month at 3:00 AM UTC.
+    """
+    from app.core.deps import get_sessionmaker
+    from app.services.obligation_engine import generate_obligations_for_month
+
+    try:
+        now = datetime.utcnow()
+        # Generate for PREVIOUS month (we're on day 1 of the new month)
+        if now.month == 1:
+            year, month = now.year - 1, 12
+        else:
+            year, month = now.year, now.month - 1
+
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            summary = await generate_obligations_for_month(db, year, month)
+            logger.info(
+                f"Obligation generation scheduled task completed: {summary}"
+            )
+    except Exception as e:
+        logger.error(f"Error in scheduled obligation generation: {str(e)}")
 
 
 async def stop_scheduler():

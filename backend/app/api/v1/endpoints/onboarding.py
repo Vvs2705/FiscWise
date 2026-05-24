@@ -6,6 +6,7 @@ Creates tenant and owner user in a single atomic transaction.
 """
 
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -68,11 +69,14 @@ async def register_tenant(
     
     try:
         # Step 2: Create Tenant instance
+        now_utc = datetime.now(timezone.utc)
         new_tenant = Tenant(
             name=registration.company_name,
             document=registration.document,
             subscription_status=SubscriptionStatus.TRIAL,
             plan_slug="free",
+            terms_accepted_at=now_utc if registration.terms_accepted else None,
+            terms_version="v1.0",
         )
         
         db.add(new_tenant)

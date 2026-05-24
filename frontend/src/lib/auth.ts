@@ -13,6 +13,7 @@ export interface RegisterData {
   plan_slug: string;
   owner_phone?: string;
   document?: string;
+  terms_accepted: boolean;
 }
 
 export interface AuthUser {

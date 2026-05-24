@@ -4,7 +4,7 @@ Onboarding Schemas for FiscWise
 Pydantic models for tenant registration and onboarding flow.
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 
 
@@ -68,6 +68,19 @@ class TenantRegistrationRequest(BaseModel):
         description="Subscription plan slug",
         examples=["free", "starter", "pro"]
     )
+
+    # LGPD: user must explicitly accept terms of service
+    terms_accepted: bool = Field(
+        default=False,
+        description="Must be true — user accepts Terms of Service and Privacy Policy (LGPD compliance)",
+    )
+
+    @field_validator("terms_accepted")
+    @classmethod
+    def must_accept_terms(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError("Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar")
+        return v
 
 
 class TenantRegistrationResponse(BaseModel):

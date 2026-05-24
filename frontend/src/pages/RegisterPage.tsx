@@ -170,6 +170,8 @@ export function RegisterPage() {
   const { register: registerUser, loginWithGoogle, isLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState('');
 
   // Accumulated form data across steps
   const [step1Data, setStep1Data] = useState<Step1Values | null>(null);
@@ -202,6 +204,11 @@ export function RegisterPage() {
 
   async function handleFinish() {
     if (!step1Data) return;
+    if (!termsAccepted) {
+      setTermsError('Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar.');
+      return;
+    }
+    setTermsError('');
     const step2Values = form2.getValues();
     await registerUser({
       company_name: step1Data.company_name,
@@ -211,6 +218,7 @@ export function RegisterPage() {
       owner_phone: step2Values.owner_phone,
       owner_password: step2Values.owner_password,
       plan_slug: selectedPlan,
+      terms_accepted: true,
     });
   }
 
@@ -434,6 +442,33 @@ export function RegisterPage() {
                 })}
               </div>
 
+              {/* LGPD — terms acceptance checkbox */}
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => {
+                    setTermsAccepted(e.target.checked);
+                    if (e.target.checked) setTermsError('');
+                  }}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                />
+                <span className="text-xs text-muted-foreground leading-relaxed">
+                  Li e aceito os{' '}
+                  <Link to="/termos" target="_blank" className="font-medium text-primary hover:underline">
+                    Termos de Uso
+                  </Link>{' '}
+                  e a{' '}
+                  <Link to="/privacidade" target="_blank" className="font-medium text-primary hover:underline">
+                    Política de Privacidade
+                  </Link>{' '}
+                  do FiscWise, conforme exigido pela LGPD.
+                </span>
+              </label>
+              {termsError && (
+                <p className="text-xs text-destructive">{termsError}</p>
+              )}
+
               <div className="flex gap-2 pt-1">
                 <Button type="button" variant="outline" className="gap-1" onClick={() => setStep(2)}>
                   <ArrowLeft className="h-4 w-4" /> Voltar
@@ -447,18 +482,6 @@ export function RegisterPage() {
                   {isLoading ? 'Criando conta...' : 'Criar minha conta'}
                 </Button>
               </div>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Ao criar sua conta, você concorda com os{' '}
-                <a href="#" className="text-primary hover:underline">
-                  Termos de uso
-                </a>{' '}
-                e{' '}
-                <a href="#" className="text-primary hover:underline">
-                  Política de privacidade
-                </a>
-                .
-              </p>
             </div>
           )}
         </div>

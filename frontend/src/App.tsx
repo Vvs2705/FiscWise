@@ -25,6 +25,8 @@ const CalculatorPage  = lazy(() => import('@/pages/Calculator').then(m => ({ def
 const DasMensalPage   = lazy(() => import('@/pages/DasMensalPage').then(m => ({ default: m.DasMensalPage })));
 const ObrigacoesPage  = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
 const PortalLoginPage = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const TermsPage       = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage     = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -89,6 +91,8 @@ function App() {
               <Route path="/login"    element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
+              <Route path="/termos"      element={<TermsPage />} />
+              <Route path="/privacidade" element={<PrivacyPage />} />
 
               <Route
                 path="/"

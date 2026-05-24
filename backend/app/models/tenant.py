@@ -98,6 +98,20 @@ class Tenant(Base):
         comment="Tenant website URL"
     )
 
+    # LGPD compliance
+    terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="When the owner accepted FiscWise Terms of Service (LGPD compliance)",
+    )
+    terms_version: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True,
+        comment='Version of Terms accepted (e.g. "v1.0")',
+    )
+    deletion_requested_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="When a data deletion request was submitted (LGPD Art. 18)",
+    )
+
     # Subscription Management
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         SQLEnum(SubscriptionStatus, name="subscription_status_enum", create_type=False, values_callable=lambda x: [e.value for e in x]),

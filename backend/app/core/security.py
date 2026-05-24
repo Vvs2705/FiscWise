@@ -93,3 +93,46 @@ def create_access_token(user_id: str, tenant_id: str, role: str) -> str:
     # Encode and return JWT token
     encoded_jwt = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
+
+
+def create_mfa_token(user_id: str) -> str:
+    """
+    Create a short-lived MFA challenge token (5 minutes).
+
+    This token is returned when the user's first login step succeeds but 2FA
+    is enabled. The frontend uses it to call /auth/login/verify-2fa.
+
+    Args:
+        user_id: The user's UUID as string
+
+    Returns:
+        str: Short-lived JWT with type='mfa'
+    """
+    issued_at = datetime.now(timezone.utc)
+    expire = issued_at + timedelta(minutes=5)
+    payload = {
+        "sub": user_id,
+        "type": "mfa",  # Distinguishes from full access tokens
+        "exp": expire,
+        "iat": issued_at,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def verify_mfa_token(token: str) -> str | None:
+    """
+    Verify a MFA challenge token and return the user_id if valid.
+
+    Args:
+        token: The MFA token string
+
+    Returns:
+        str | None: user_id if token is valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "mfa":
+            return None
+        return payload.get("sub")
+    except Exception:
+        return None

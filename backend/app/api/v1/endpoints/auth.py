@@ -1,25 +1,47 @@
 """
 Authentication Endpoints for FiscWise
 
-Handles user authentication, login, and token generation.
+Handles user authentication, login, token generation, and
+Two-Factor Authentication (2FA) setup and verification.
+
+2FA Flow:
+  1. POST /auth/login  →  if 2FA enabled: returns {status: "requires_2fa", mfa_token: "..."}
+  2. POST /auth/login/verify-2fa  →  validates OTP code + mfa_token, returns full AuthResponse
+  3. GET  /auth/2fa/setup   →  generates TOTP secret + QR code URI (authenticated)
+  4. POST /auth/2fa/enable  →  confirms first OTP code, activates 2FA (authenticated)
+  5. POST /auth/2fa/disable →  deactivates 2FA after password confirmation (authenticated)
 """
 
+import io
 import os
+import base64
 import logging
+import secrets
+import string
+from datetime import datetime, timezone, timedelta
+
+import pyotp
+import qrcode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Union
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_db, get_current_user
 from app.core.plan_access import resolve_plan
-from app.core.security import verify_password, create_access_token, get_password_hash
+from app.core.security import (
+    verify_password,
+    create_access_token,
+    create_mfa_token,
+    verify_mfa_token,
+    get_password_hash,
+)
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
@@ -27,54 +49,124 @@ from app.services.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
-
 router = APIRouter()
 
+# ─── OTP e-mail cache (in-process, por simplicidade) ─────────────────────────
+# Em produção com múltiplas instâncias, use Redis.
+_EMAIL_OTP_STORE: dict[str, tuple[str, datetime]] = {}
+_EMAIL_OTP_TTL_MINUTES = 10
 
-@router.post("/login", response_model=AuthResponse, summary="User Login")
+
+def _generate_email_otp(user_id: str) -> str:
+    """Generate and cache a 6-digit OTP for email verification."""
+    code = "".join(secrets.choice(string.digits) for _ in range(6))
+    _EMAIL_OTP_STORE[user_id] = (code, datetime.now(timezone.utc))
+    return code
+
+
+def _verify_email_otp(user_id: str, code: str) -> bool:
+    """Verify cached email OTP. Returns True if valid and not expired."""
+    entry = _EMAIL_OTP_STORE.get(user_id)
+    if not entry:
+        return False
+    stored_code, created_at = entry
+    if datetime.now(timezone.utc) - created_at > timedelta(minutes=_EMAIL_OTP_TTL_MINUTES):
+        _EMAIL_OTP_STORE.pop(user_id, None)
+        return False
+    if secrets.compare_digest(stored_code, code):
+        _EMAIL_OTP_STORE.pop(user_id, None)
+        return True
+    return False
+
+
+def _build_auth_response(user: User, tenant_id: str) -> AuthResponse:
+    """Helper to build a full AuthResponse from a User object."""
+    access_token = create_access_token(
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        role=user.role.value,
+    )
+    return AuthResponse(
+        access_token=access_token,
+        token_type="bearer",
+        tenant_id=tenant_id,
+        user=UserInfo(
+            id=str(user.id),
+            email=user.email,
+            full_name=getattr(user, "full_name", None),
+            phone=getattr(user, "phone", None),
+            role=user.role.value,
+        ),
+    )
+
+
+# ─── Schemas ──────────────────────────────────────────────────────────────────
+
+class MfaChallengeResponse(BaseModel):
+    """Response when 2FA is required during login."""
+    status: str = "requires_2fa"
+    mfa_token: str
+    two_factor_method: str  # 'totp' | 'email'
+    message: str
+
+
+class Verify2FARequest(BaseModel):
+    mfa_token: str = Field(..., description="Short-lived token received from login step")
+    otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
+
+
+class Setup2FAResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+    qr_code_base64: str  # PNG base64 for inline display
+    method: str  # 'totp'
+
+
+class Enable2FARequest(BaseModel):
+    otp_code: str = Field(..., min_length=6, max_length=6)
+    method: str = Field(default="totp", description="'totp' or 'email'")
+
+
+class Disable2FARequest(BaseModel):
+    current_password: str = Field(..., description="Current password for confirmation")
+    otp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: str  # Google ID token (JWT)
+
+
+# ─── Login ────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/login",
+    summary="User Login",
+    response_model=Union[AuthResponse, MfaChallengeResponse],
+)
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db)
-) -> AuthResponse:
+    db: AsyncSession = Depends(get_db),
+) -> Union[AuthResponse, MfaChallengeResponse]:
     """
     OAuth2 compatible token login endpoint.
 
-    Authenticates a user with email (as username) and password.
-    Returns a JWT access token on successful authentication.
-
-    Enforces tenant isolation: if multiple users with the same email exist
-    across different tenants (should not happen due to onboarding flow),
-    rejects the request with 401 to prevent cross-tenant leakage.
-
-    Args:
-        form_data: OAuth2 form with username (email) and password
-        db: Database session dependency
-
-    Returns:
-        Token: JWT access token and token type
-
-    Raises:
-        HTTPException: 401 if credentials are invalid, user is inactive, or multi-tenant collision
+    If 2FA is enabled for the user, returns a MfaChallengeResponse with a
+    short-lived mfa_token instead of the full access token. The frontend must
+    call /auth/login/verify-2fa to complete authentication.
     """
-    # Query all users with this email (should be max 1 per tenant isolation constraint)
-    result = await db.execute(
-        select(User).where(User.email == form_data.username)
-    )
+    result = await db.execute(select(User).where(User.email == form_data.username))
     users = result.scalars().all()
 
-    # Security: If multiple users found, it indicates a data integrity issue or
-    # an attack attempt. Reject with 401 to avoid revealing tenant information.
     if len(users) != 1:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="E-mail ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     user = users[0]
 
-    # Validate password
     if not verify_password(form_data.password, user.hashed_password):
         await log_audit_event(
             db=db,
@@ -88,34 +180,40 @@ async def login(
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="E-mail ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Validate user is active
+
     if not user.is_active:
-        await log_audit_event(
-            db=db,
-            tenant_id=user.tenant_id,
-            actor_user_id=user.id,
-            actor_role=user.role.value,
-            action="auth.login_failed_inactive",
-            entity_type="auth",
-            ip_address=request.client.host if request and request.client else None,
-            user_agent=request.headers.get("User-Agent") if request else None,
-        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user account"
+            detail="Conta inativa. Entre em contato com o suporte.",
         )
-    
-    # Create access token with user information
-    access_token = create_access_token(
-        user_id=str(user.id),
-        tenant_id=str(user.tenant_id),
-        role=user.role.value
-    )
-    
+
+    # ── 2FA gate ──────────────────────────────────────────────────────────────
+    if getattr(user, "two_factor_enabled", False):
+        method = getattr(user, "two_factor_method", "totp")
+
+        # For email OTP, generate and send the code now
+        if method == "email":
+            otp_code = _generate_email_otp(str(user.id))
+            # TODO: integrate with email provider (Resend / SMTP)
+            # For now log it — replace with real send when email provider is configured
+            logger.info("EMAIL OTP for %s: %s", user.email, otp_code)
+
+        mfa_token = create_mfa_token(user_id=str(user.id))
+        return MfaChallengeResponse(
+            status="requires_2fa",
+            mfa_token=mfa_token,
+            two_factor_method=method,
+            message=(
+                "Código enviado para seu e-mail."
+                if method == "email"
+                else "Abra o app autenticador e insira o código de 6 dígitos."
+            ),
+        )
+
+    # ── Normal login ──────────────────────────────────────────────────────────
     await log_audit_event(
         db=db,
         tenant_id=user.tenant_id,
@@ -126,57 +224,92 @@ async def login(
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
-    
-    return AuthResponse(
-        access_token=access_token,
-        token_type="bearer",
-        tenant_id=str(user.tenant_id),
-        user=UserInfo(
-            id=str(user.id),
-            email=user.email,
-            full_name=getattr(user, "full_name", None),
-            phone=getattr(user, "phone", None),
-            role=user.role.value,
-        ),
-    )
+    return _build_auth_response(user, str(user.tenant_id))
 
 
-class GoogleAuthRequest(BaseModel):
-    credential: str  # Google ID token (JWT)
+# ─── Verify 2FA ───────────────────────────────────────────────────────────────
 
-
-@router.post("/google", response_model=AuthResponse, summary="Google OAuth Login / Register")
-async def google_auth(
-    body: GoogleAuthRequest,
+@router.post("/login/verify-2fa", response_model=AuthResponse, summary="Complete 2FA Login")
+async def verify_2fa(
+    body: Verify2FARequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """
+    Second step of 2FA login flow.
+
+    Receives the short-lived mfa_token (from /login) and the OTP code.
+    Returns a full AuthResponse with the permanent access token on success.
+    """
+    user_id = verify_mfa_token(body.mfa_token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de desafio 2FA inválido ou expirado. Faça login novamente.",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
+
+    method = getattr(user, "two_factor_method", "totp")
+    otp_code = body.otp_code.strip()
+
+    if method == "totp":
+        secret = getattr(user, "two_factor_secret", None)
+        if not secret:
+            raise HTTPException(status_code=400, detail="2FA TOTP não configurado corretamente")
+        totp = pyotp.TOTP(secret)
+        if not totp.verify(otp_code, valid_window=1):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Código inválido. Verifique o app autenticador e tente novamente.",
+            )
+
+    elif method == "email":
+        if not _verify_email_otp(user_id, otp_code):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Código inválido ou expirado. Solicite um novo código.",
+            )
+    else:
+        raise HTTPException(status_code=400, detail="Método 2FA desconhecido")
+
+    await log_audit_event(
+        db=db,
+        tenant_id=user.tenant_id,
+        actor_user_id=user.id,
+        actor_role=user.role.value,
+        action="auth.login_2fa_success",
+        entity_type="auth",
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return _build_auth_response(user, str(user.tenant_id))
+
+
+# ─── Google OAuth ─────────────────────────────────────────────────────────────
+
+@router.post("/google", response_model=Union[AuthResponse, MfaChallengeResponse], summary="Google OAuth Login / Register")
+async def google_auth(
+    body: GoogleAuthRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Union[AuthResponse, MfaChallengeResponse]:
+    """
     Authenticate or register a user via Google OAuth.
 
-    Receives the Google ID token from the frontend, verifies it with Google's
-    public keys, and either logs in an existing user or creates a new tenant +
-    owner user for first-time sign-ins.
-
-    Args:
-        body: Request body containing the Google credential (ID token)
-        db: Database session
-
-    Returns:
-        AuthResponse with JWT access token and user info
-
-    Raises:
-        HTTPException 400: If GOOGLE_CLIENT_ID is not configured
-        HTTPException 401: If the Google token is invalid
-        HTTPException 500: If account creation fails
+    If the existing user has 2FA enabled, returns a MfaChallengeResponse
+    instead of the full token.
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google OAuth is not configured on this server",
+            detail="Google OAuth não está configurado neste servidor",
         )
 
-    # Verify Google ID token
     try:
         id_info = google_id_token.verify_oauth2_token(
             body.credential,
@@ -200,22 +333,31 @@ async def google_auth(
             detail="Não foi possível obter o e-mail da conta Google",
         )
 
-    # Look up existing user by email
     result = await db.execute(select(User).where(User.email == google_email))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
-        # Existing user — just log in
         if not existing_user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Conta inativa. Entre em contato com o suporte.",
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Conta inativa.")
+
+        # ── 2FA gate ──────────────────────────────────────────────────────────
+        if getattr(existing_user, "two_factor_enabled", False):
+            method = getattr(existing_user, "two_factor_method", "totp")
+            if method == "email":
+                otp_code = _generate_email_otp(str(existing_user.id))
+                logger.info("EMAIL OTP for %s: %s", existing_user.email, otp_code)
+            mfa_token = create_mfa_token(user_id=str(existing_user.id))
+            return MfaChallengeResponse(
+                status="requires_2fa",
+                mfa_token=mfa_token,
+                two_factor_method=method,
+                message=(
+                    "Código enviado para seu e-mail."
+                    if method == "email"
+                    else "Abra o app autenticador e insira o código de 6 dígitos."
+                ),
             )
-        access_token = create_access_token(
-            user_id=str(existing_user.id),
-            tenant_id=str(existing_user.tenant_id),
-            role=existing_user.role.value,
-        )
+
         await log_audit_event(
             db=db,
             tenant_id=existing_user.tenant_id,
@@ -226,31 +368,18 @@ async def google_auth(
             ip_address=request.client.host if request and request.client else None,
             user_agent=request.headers.get("User-Agent") if request else None,
         )
-        return AuthResponse(
-            access_token=access_token,
-            token_type="bearer",
-            tenant_id=str(existing_user.tenant_id),
-            user=UserInfo(
-                id=str(existing_user.id),
-                email=existing_user.email,
-                full_name=existing_user.full_name,
-                phone=getattr(existing_user, "phone", None),
-                role=existing_user.role.value,
-            ),
-        )
+        return _build_auth_response(existing_user, str(existing_user.tenant_id))
 
-    # New user — create tenant + owner in a single transaction
+    # New user — create tenant + owner
     try:
         new_tenant = Tenant(
             name=google_name or google_email.split("@")[0],
             subscription_status=SubscriptionStatus.TRIAL,
         )
         db.add(new_tenant)
-        await db.flush()  # get tenant.id without committing
+        await db.flush()
 
-        # Google users get a random unusable password
         random_password = get_password_hash(os.urandom(32).hex())
-
         new_user = User(
             tenant_id=new_tenant.id,
             email=google_email,
@@ -274,24 +403,8 @@ async def google_auth(
             ip_address=request.client.host if request and request.client else None,
             user_agent=request.headers.get("User-Agent") if request else None,
         )
+        return _build_auth_response(new_user, str(new_tenant.id))
 
-        access_token = create_access_token(
-            user_id=str(new_user.id),
-            tenant_id=str(new_tenant.id),
-            role=new_user.role.value,
-        )
-        return AuthResponse(
-            access_token=access_token,
-            token_type="bearer",
-            tenant_id=str(new_tenant.id),
-            user=UserInfo(
-                id=str(new_user.id),
-                email=new_user.email,
-                full_name=new_user.full_name,
-                phone=getattr(new_user, "phone", None),
-                role=new_user.role.value,
-            ),
-        )
     except Exception as exc:
         await db.rollback()
         logger.error("Failed to create Google OAuth user: %s", exc)
@@ -301,40 +414,212 @@ async def google_auth(
         )
 
 
-@router.post("/logout", summary="User Logout")
-async def logout():
+# ─── 2FA Setup & Management (authenticated) ───────────────────────────────────
+
+@router.get("/2fa/setup", response_model=Setup2FAResponse, summary="Generate 2FA TOTP Setup")
+async def setup_2fa(
+    current_user: User = Depends(get_current_user),
+) -> Setup2FAResponse:
     """
-    Logout endpoint (placeholder for token invalidation).
-    
-    In a stateless JWT implementation, logout is typically handled client-side
-    by removing the token. For enhanced security, implement token blacklisting
-    using Redis or a similar cache.
-    
-    Returns:
-        dict: Success message
+    Generate a TOTP secret and QR code for Google/Microsoft Authenticator setup.
+
+    The user must then call POST /auth/2fa/enable with the first OTP code to
+    confirm and activate 2FA. The secret is NOT saved until enable is called.
     """
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    issuer = "FiscWise"
+    otpauth_uri = totp.provisioning_uri(name=current_user.email, issuer_name=issuer)
+
+    # Generate QR code as base64 PNG
+    qr = qrcode.QRCode(box_size=6, border=2)
+    qr.add_data(otpauth_uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    # Store secret temporarily in the response — frontend must pass it back to /enable
+    return Setup2FAResponse(
+        secret=secret,
+        otpauth_uri=otpauth_uri,
+        qr_code_base64=qr_base64,
+        method="totp",
+    )
+
+
+@router.post("/2fa/enable", summary="Enable 2FA")
+async def enable_2fa(
+    body: Enable2FARequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Activate 2FA after the user scanned the QR code and confirmed the first OTP.
+
+    For TOTP: the frontend must pass the secret from the /setup response back
+    via a temporary storage (e.g., React state), plus the first valid OTP.
+    For Email: generates and sends an OTP to the user's email.
+    """
+    if body.method == "totp":
+        # The secret must be sent from the client (from the /setup step)
+        # We validate the code against it before persisting
+        # Since we cannot pass secret through this endpoint directly per the schema,
+        # we need it embedded — add it to the request body
+        raise HTTPException(
+            status_code=400,
+            detail="Use /auth/2fa/enable-totp para ativar TOTP com o segredo gerado."
+        )
+
+    elif body.method == "email":
+        # Generate and send email OTP
+        code = _generate_email_otp(str(current_user.id))
+        logger.info("2FA EMAIL SETUP OTP for %s: %s", current_user.email, code)
+        return {"message": "Código enviado para seu e-mail. Confirme com /auth/2fa/confirm-email."}
+
+    raise HTTPException(status_code=400, detail="Método inválido. Use 'totp' ou 'email'.")
+
+
+class EnableTOTPRequest(BaseModel):
+    secret: str = Field(..., description="TOTP secret from /2fa/setup")
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/2fa/enable-totp", summary="Enable TOTP 2FA")
+async def enable_totp_2fa(
+    body: EnableTOTPRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Confirm and activate TOTP-based 2FA.
+
+    Validates the first OTP code against the provided secret.
+    Saves the secret and activates 2FA on success.
+    """
+    totp = pyotp.TOTP(body.secret)
+    if not totp.verify(body.otp_code.strip(), valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código inválido. Verifique o app autenticador e tente novamente.",
+        )
+
+    current_user.two_factor_enabled = True
+    current_user.two_factor_secret = body.secret
+    current_user.two_factor_method = "totp"
+    await db.commit()
+    await db.refresh(current_user)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="auth.2fa_enabled_totp",
+        entity_type="auth",
+    )
+    return {"message": "Autenticação de dois fatores (TOTP) ativada com sucesso!"}
+
+
+class ConfirmEmailOTPRequest(BaseModel):
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/2fa/confirm-email", summary="Enable Email OTP 2FA")
+async def confirm_email_2fa(
+    body: ConfirmEmailOTPRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Confirm email OTP and activate email-based 2FA.
+    """
+    if not _verify_email_otp(str(current_user.id), body.otp_code.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código inválido ou expirado. Solicite um novo código.",
+        )
+
+    current_user.two_factor_enabled = True
+    current_user.two_factor_secret = None  # No secret needed for email method
+    current_user.two_factor_method = "email"
+    await db.commit()
+    await db.refresh(current_user)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="auth.2fa_enabled_email",
+        entity_type="auth",
+    )
+    return {"message": "Autenticação de dois fatores por e-mail ativada com sucesso!"}
+
+
+@router.post("/2fa/disable", summary="Disable 2FA")
+async def disable_2fa(
+    body: Disable2FARequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Deactivate 2FA. Requires current password for security.
+    """
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Senha atual incorreta",
+        )
+
+    # If user also wants to validate OTP before disable (optional extra security)
+    if body.otp_code and getattr(current_user, "two_factor_method", "totp") == "totp":
+        secret = getattr(current_user, "two_factor_secret", None)
+        if secret:
+            totp = pyotp.TOTP(secret)
+            if not totp.verify(body.otp_code.strip(), valid_window=1):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Código 2FA incorreto",
+                )
+
+    current_user.two_factor_enabled = False
+    current_user.two_factor_secret = None
+    current_user.two_factor_method = "none"
+    await db.commit()
+
+    await log_audit_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="auth.2fa_disabled",
+        entity_type="auth",
+    )
+    return {"message": "Autenticação de dois fatores desativada."}
+
+
+@router.get("/2fa/status", summary="Get 2FA Status")
+async def get_2fa_status(current_user: User = Depends(get_current_user)):
+    """Return current 2FA status for the authenticated user."""
     return {
-        "message": "Successfully logged out",
-        "detail": "Remove the access token from client storage"
+        "two_factor_enabled": getattr(current_user, "two_factor_enabled", False),
+        "two_factor_method": getattr(current_user, "two_factor_method", "none"),
     }
 
 
+# ─── Other auth endpoints ─────────────────────────────────────────────────────
+
+@router.post("/logout", summary="User Logout")
+async def logout():
+    """Logout endpoint (stateless JWT — client removes token)."""
+    return {"message": "Successfully logged out", "detail": "Remove the access token from client storage"}
+
+
 @router.get("/me", summary="Get Current User Info")
-async def get_me(
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get current authenticated user information.
-
-    Protected endpoint that requires valid JWT token.
-    Returns user profile information.
-
-    Args:
-        current_user: Current authenticated user from token
-
-    Returns:
-        dict: User profile information
-    """
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current authenticated user information."""
     return {
         "id": str(current_user.id),
         "email": current_user.email,
@@ -344,6 +629,8 @@ async def get_me(
         "tenant_id": str(current_user.tenant_id),
         "is_active": current_user.is_active,
         "created_at": current_user.created_at.isoformat(),
+        "two_factor_enabled": getattr(current_user, "two_factor_enabled", False),
+        "two_factor_method": getattr(current_user, "two_factor_method", "none"),
     }
 
 

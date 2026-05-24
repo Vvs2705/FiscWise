@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,6 +25,13 @@ import {
   CheckCircle2,
   XCircle,
   SkipForward,
+  Smartphone,
+  MailCheck,
+  Shield,
+  QrCode,
+  X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -38,7 +45,15 @@ import {
   updateProfile,
   updateTenant,
   changePassword,
+  get2FAStatus,
+  setup2FA,
+  enableTOTP2FA,
+  initiateEmail2FA,
+  confirmEmail2FA,
+  disable2FA,
   type TenantData,
+  type TwoFAStatus,
+  type Setup2FAResponse,
 } from '@/lib/auth';
 import { useSubscriptionUsage, useAvailablePlans } from '@/lib/hooks/useSubscription';
 import { useSubscription, useCreateSubscription } from '@/lib/hooks/useBilling';
@@ -614,6 +629,339 @@ function PlanoTab({
   );
 }
 
+// ─── 2FA OTP Input ────────────────────────────────────────────────────────────
+function OtpInput6({ value, onChange, disabled }: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = (value + '      ').slice(0, 6).split('');
+
+  const handleKey = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const next = digits.map((d, i) => (i === idx ? ' ' : d)).join('').trimEnd();
+      onChange(next.trim());
+      if (idx > 0) inputs.current[idx - 1]?.focus();
+    }
+  };
+  const handleChange = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const ch = e.target.value.replace(/\D/g, '').slice(-1);
+    if (!ch) return;
+    const next = digits.map((d, i) => (i === idx ? ch : d)).join('').replace(/ /g, '');
+    onChange(next.padEnd(6, ' ').trim());
+    if (idx < 5) inputs.current[idx + 1]?.focus();
+  };
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (text.length > 0) { onChange(text); inputs.current[Math.min(text.length, 5)]?.focus(); }
+    e.preventDefault();
+  };
+
+  return (
+    <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+      {Array.from({ length: 6 }).map((_, idx) => (
+        <input
+          key={idx}
+          ref={(el) => { inputs.current[idx] = el; }}
+          type="text" inputMode="numeric" maxLength={1}
+          value={digits[idx]?.trim() ?? ''}
+          onChange={(e) => handleChange(idx, e)}
+          onKeyDown={(e) => handleKey(idx, e)}
+          disabled={disabled}
+          className={cn(
+            'h-12 w-10 rounded-lg border-2 bg-background text-center text-lg font-bold',
+            'text-foreground transition-all outline-none',
+            'border-border focus:border-primary focus:ring-2 focus:ring-primary/20',
+            disabled && 'cursor-not-allowed opacity-50',
+          )}
+          aria-label={`Dígito ${idx + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── 2FA Card ─────────────────────────────────────────────────────────────────
+function TwoFactorCard() {
+  const [status, setStatus] = useState<TwoFAStatus | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [mode, setMode] = useState<'idle' | 'choose' | 'setup-totp' | 'setup-email' | 'confirm-email' | 'disable'>('idle');
+  const [setupData, setSetupData] = useState<Setup2FAResponse | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
+  const [showDisablePass, setShowDisablePass] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Load 2FA status on mount
+  useEffect(() => {
+    get2FAStatus()
+      .then(setStatus)
+      .catch(() => {})
+      .finally(() => setLoadingStatus(false));
+  }, []);
+
+  const refresh = () => {
+    setLoadingStatus(true);
+    get2FAStatus().then(setStatus).catch(() => {}).finally(() => setLoadingStatus(false));
+  };
+
+  const startSetupTotp = async () => {
+    setBusy(true);
+    try {
+      const data = await setup2FA();
+      setSetupData(data);
+      setOtpCode('');
+      setMode('setup-totp');
+    } catch { toast.error('Erro ao iniciar configuração 2FA'); }
+    finally { setBusy(false); }
+  };
+
+  const startSetupEmail = async () => {
+    setBusy(true);
+    try {
+      await initiateEmail2FA();
+      setOtpCode('');
+      setMode('confirm-email');
+      toast('Código enviado para seu e-mail', { icon: '📧' });
+    } catch { toast.error('Erro ao enviar código'); }
+    finally { setBusy(false); }
+  };
+
+  const confirmTotp = async () => {
+    if (!setupData) return;
+    setBusy(true);
+    try {
+      await enableTOTP2FA(setupData.secret, otpCode.replace(/\s/g, ''));
+      toast.success('2FA ativado! Sua conta está mais segura.');
+      setMode('idle'); setOtpCode(''); setSetupData(null);
+      refresh();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(msg ?? 'Código inválido');
+    } finally { setBusy(false); }
+  };
+
+  const confirmEmail = async () => {
+    setBusy(true);
+    try {
+      await confirmEmail2FA(otpCode.replace(/\s/g, ''));
+      toast.success('2FA por e-mail ativado!');
+      setMode('idle'); setOtpCode('');
+      refresh();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(msg ?? 'Código inválido ou expirado');
+    } finally { setBusy(false); }
+  };
+
+  const handleDisable = async () => {
+    setBusy(true);
+    try {
+      await disable2FA(disablePassword);
+      toast.success('2FA desativado.');
+      setMode('idle'); setDisablePassword('');
+      refresh();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(msg ?? 'Erro ao desativar 2FA');
+    } finally { setBusy(false); }
+  };
+
+  const cancel = () => { setMode('idle'); setOtpCode(''); setSetupData(null); setDisablePassword(''); };
+
+  if (loadingStatus) return null;
+
+  const enabled = status?.two_factor_enabled ?? false;
+  const method = status?.two_factor_method ?? 'none';
+
+  return (
+    <Card className={cn(enabled && 'ring-1 ring-emerald-500/30')}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className={cn('h-5 w-5', enabled ? 'text-emerald-500' : 'text-muted-foreground')} />
+            <CardTitle className="text-base">Autenticação de Dois Fatores (2FA)</CardTitle>
+          </div>
+          {enabled && (
+            <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
+              ✓ Ativo · {method === 'totp' ? 'App Autenticador' : 'E-mail'}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Idle state */}
+        {mode === 'idle' && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              {enabled
+                ? 'Sua conta está protegida por verificação em duas etapas. A cada login, você precisará confirmar sua identidade com um código adicional.'
+                : 'Adicione uma camada extra de segurança. Além da senha, você precisará confirmar um código gerado pelo app ou enviado por e-mail.'}
+            </p>
+            {enabled ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/40 hover:bg-destructive/5"
+                onClick={() => setMode('disable')}
+              >
+                Desativar 2FA
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => setMode('choose')}>
+                Ativar verificação em 2 etapas
+              </Button>
+            )}
+          </>
+        )}
+
+        {/* Choose method */}
+        {mode === 'choose' && (
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Escolha o método de verificação:</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={startSetupTotp}
+                disabled={busy}
+                className="group flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left transition-all hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20">
+                  <Smartphone className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">App Autenticador</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Google Authenticator, Microsoft Authenticator, Authy</p>
+                </div>
+                <Badge variant="outline" className="w-fit text-xs text-emerald-600 border-emerald-500/40">Recomendado</Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={startSetupEmail}
+                disabled={busy}
+                className="group flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left transition-all hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20">
+                  <MailCheck className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">E-mail</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Código enviado para seu e-mail a cada login</p>
+                </div>
+              </button>
+            </div>
+            <button type="button" onClick={cancel} className="text-xs text-muted-foreground hover:text-foreground">
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {/* TOTP setup */}
+        {mode === 'setup-totp' && setupData && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-muted/40 p-4 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-2"><QrCode className="h-4 w-4" /> Escaneie o QR Code</p>
+              <div className="flex justify-center">
+                <img
+                  src={`data:image/png;base64,${setupData.qr_code_base64}`}
+                  alt="QR Code 2FA"
+                  className="h-40 w-40 rounded-lg border border-border"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Ou insira o código manualmente no app:
+              </p>
+              <div className="flex items-center gap-2 justify-center">
+                <code className="rounded bg-muted px-2 py-1 text-xs font-mono tracking-widest">
+                  {setupData.secret}
+                </code>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Digite o primeiro código gerado pelo app:</p>
+              <OtpInput6 value={otpCode} onChange={setOtpCode} disabled={busy} />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={confirmTotp} disabled={busy || otpCode.replace(/\s/g, '').length !== 6}>
+                {busy ? 'Ativando...' : 'Confirmar e ativar'}
+              </Button>
+              <Button variant="outline" onClick={cancel} disabled={busy}>Cancelar</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Email confirm */}
+        {mode === 'confirm-email' && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-4">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                📧 Código enviado para seu e-mail. Verifique a caixa de entrada e insira o código abaixo.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Código de verificação:</p>
+              <OtpInput6 value={otpCode} onChange={setOtpCode} disabled={busy} />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={confirmEmail} disabled={busy || otpCode.replace(/\s/g, '').length !== 6}>
+                {busy ? 'Confirmando...' : 'Confirmar e ativar'}
+              </Button>
+              <Button variant="outline" onClick={cancel} disabled={busy}>Cancelar</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Disable 2FA */}
+        {mode === 'disable' && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4">
+              <p className="text-sm text-destructive">
+                ⚠️ Ao desativar o 2FA, sua conta ficará protegida apenas pela senha.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Confirme sua senha atual:</label>
+              <div className="relative max-w-sm">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type={showDisablePass ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                  className="pl-9 pr-10"
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowDisablePass(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showDisablePass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="border-destructive/40 text-destructive hover:bg-destructive/5"
+                onClick={handleDisable}
+                disabled={busy || !disablePassword}
+              >
+                {busy ? 'Desativando...' : 'Desativar 2FA'}
+              </Button>
+              <Button variant="outline" onClick={cancel} disabled={busy}>Cancelar</Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Segurança tab ────────────────────────────────────────────────────────────
 
 function SegurancaTab() {
@@ -648,6 +996,9 @@ function SegurancaTab() {
 
   return (
     <div className="space-y-6">
+      {/* 2FA Card — NEW */}
+      <TwoFactorCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Alterar senha</CardTitle>

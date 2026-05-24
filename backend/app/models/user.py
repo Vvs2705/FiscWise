@@ -3,6 +3,11 @@ User Model for FiscWise
 
 Defines the users table with multi-tenant isolation.
 Each user belongs to a single tenant and has a specific role within that organization.
+
+2FA Fields:
+- two_factor_enabled: Whether 2FA is active for this user
+- two_factor_secret: Base32 TOTP secret (for Google Authenticator / Microsoft Authenticator)
+- two_factor_method: Active method — 'none' | 'totp' | 'email'
 """
 
 import uuid
@@ -106,7 +111,29 @@ class User(Base, TenantBase):
         index=True,
         comment="Whether the user account is active"
     )
-    
+
+    # ── Two-Factor Authentication (2FA) ──────────────────────────────────────
+    two_factor_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Whether 2FA is enabled for this user"
+    )
+
+    two_factor_secret: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Base32 TOTP secret for Google/Microsoft Authenticator"
+    )
+
+    two_factor_method: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="none",
+        server_default="none",
+        comment="Active 2FA method: none | totp | email"
+    )
+
     # Relationships
     tenant: Mapped["Tenant"] = relationship(
         "Tenant",

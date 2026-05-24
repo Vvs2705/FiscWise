@@ -19,6 +19,7 @@ import {
   FileSignature,
   FolderOpen,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -38,6 +39,7 @@ import {
   type DocumentCreate,
   type DocumentStatus,
 } from '@/lib/hooks/useOperations';
+import { buildDocumentAiView, type ClientDocument as AiClientDocument } from '@/lib/aiDocuments';
 
 /* ─── Tipos de documento por categoria ─────────────────────────── */
 
@@ -358,6 +360,52 @@ function DocTypeIcon({ docType }: { docType: string }) {
   return <cat.Icon className={`h-4 w-4 ${cat.color}`} />;
 }
 
+interface DocumentAiCellProps {
+  document: AiClientDocument;
+}
+
+function DocumentAiCell({ document }: DocumentAiCellProps) {
+  const aiView = buildDocumentAiView(document);
+
+  return (
+    <div className="max-w-[280px] space-y-1.5">
+      <Badge variant={aiView.parseStatusVariant}>{aiView.parseStatusLabel}</Badge>
+      {aiView.classification ? (
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span>{aiView.classification.documentType}</span>
+            {aiView.classification.confidenceLabel && (
+              <span className="text-muted-foreground">
+                {aiView.classification.confidenceLabel}
+              </span>
+            )}
+          </div>
+          {aiView.classification.fields.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {aiView.classification.fields.map((field) => (
+                <span
+                  key={field.label}
+                  className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                >
+                  {field.label}: {field.value}
+                </span>
+              ))}
+            </div>
+          )}
+          {aiView.classification.summary && (
+            <p className="text-xs text-muted-foreground">{aiView.classification.summary}</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {aiView.parseError ?? 'Sem classificacao de IA retornada.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ─── Página principal ──────────────────────────────────────────── */
 
 export function DocumentsPage() {
@@ -523,7 +571,7 @@ export function DocumentsPage() {
             <PageSpinner />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-sm">
+              <table className="w-full min-w-[920px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="pb-3 font-medium">Documento</th>
@@ -531,13 +579,14 @@ export function DocumentsPage() {
                     <th className="pb-3 font-medium">Emissao</th>
                     <th className="pb-3 font-medium">Vencimento</th>
                     <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium">IA</th>
                     <th className="pb-3 font-medium sr-only">Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(documents ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <EmptyState
                           title="Nenhum documento registrado"
                           description="Registre documentos dos clientes para controlar a esteira."
@@ -576,6 +625,9 @@ export function DocumentsPage() {
                         <Badge variant={statusVariant[doc.status]}>
                           {statusLabel[doc.status]}
                         </Badge>
+                      </td>
+                      <td className="py-4 align-top">
+                        <DocumentAiCell document={doc} />
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">

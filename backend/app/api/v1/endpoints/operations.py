@@ -15,7 +15,9 @@ from sqlalchemy import Date as SADate, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_plan
 from app.services.audit import log_audit_event
+from app.models.calculator import AssistantRole, FiscalAssistantMessage
 from app.models.operations import (
     AccountReceivable,
     AccountingClient,
@@ -25,6 +27,7 @@ from app.models.operations import (
 )
 from app.models.obligation import DocumentChecklistItem, ObligationInstance
 from app.models.user import User
+from app.services.ai_fiscal import classify_fiscal_document, generate_client_operational_summary
 from app.services.document_parser import parse_document
 from app.schemas.operations import (
     AccountingClientCreate,
@@ -36,6 +39,7 @@ from app.schemas.operations import (
     ClientBillingConfig,
     ClientBillingConfigUpdate,
     ClientBillingHistoryItem,
+    ClientAiSummaryResponse,
     ClientPendingStats,
     CollaboratorStats,
     DailyData,
@@ -65,6 +69,11 @@ _DAY_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"]  # weekday() == 0 ->
 
 def _tenant_id(current_user: User) -> uuid.UUID:
     return current_user.tenant_id
+
+
+def _plan(current_user: User) -> str | None:
+    raw = current_user.tenant.plan_slug if current_user.tenant else None
+    return resolve_plan(raw, getattr(current_user, "email", None))
 
 
 def _apply_updates(instance: Any, payload: Any) -> None:
@@ -533,6 +542,137 @@ async def get_client(
     """Buscar cliente especifico por ID."""
     tenant_id = _tenant_id(current_user)
     return await _get_client_or_404(db, tenant_id, client_id)
+
+
+@router.post(
+    "/clients/{client_id}/ai-summary",
+    response_model=ClientAiSummaryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def get_client_ai_summary(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ClientAiSummaryResponse:
+    """Generate an AI operational summary for a single client."""
+    tenant_id = _tenant_id(current_user)
+    plan = _plan(current_user)
+    require_plan(plan, PLAN_INTERMEDIARIO, "Resumo por IA de cliente")
+
+    has_quota, _ = await check_chat_quota(tenant_id, plan, db)
+    if not has_quota:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Você atingiu o limite de 20 mensagens mensais do plano Intermediário. "
+                "Faça upgrade para o plano Premium para ter acesso ilimitado."
+            ),
+        )
+
+    client = await _get_client_or_404(db, tenant_id, client_id)
+
+    documents_result = await db.execute(
+        select(ClientDocument)
+        .where(ClientDocument.tenant_id == tenant_id, ClientDocument.client_id == client_id)
+        .order_by(ClientDocument.created_at.desc())
+        .limit(8)
+    )
+    obligations_result = await db.execute(
+        select(ObligationInstance)
+        .where(ObligationInstance.tenant_id == tenant_id, ObligationInstance.client_id == client_id)
+        .order_by(ObligationInstance.due_date.asc())
+        .limit(8)
+    )
+    receivables_result = await db.execute(
+        select(AccountReceivable)
+        .where(AccountReceivable.tenant_id == tenant_id, AccountReceivable.client_id == client_id)
+        .order_by(AccountReceivable.due_date.asc())
+        .limit(8)
+    )
+    certificates_result = await db.execute(
+        select(DigitalCertificate)
+        .where(DigitalCertificate.tenant_id == tenant_id, DigitalCertificate.client_id == client_id)
+        .order_by(DigitalCertificate.valid_until.asc())
+        .limit(5)
+    )
+
+    context = {
+        "client": {
+            "name": client.name,
+            "document": client.document,
+            "status": client.status,
+            "tax_regime": client.tax_regime,
+            "entity_type": client.entity_type,
+            "notes": client.notes,
+        },
+        "documents": [
+            {
+                "name": doc.name,
+                "type": doc.document_type,
+                "status": doc.status,
+                "parse_status": doc.parse_status,
+                "ai_classification": (doc.parsed_data or {}).get("ai_classification")
+                if doc.parsed_data
+                else None,
+            }
+            for doc in documents_result.scalars().all()
+        ],
+        "obligations": [
+            {
+                "due_date": item.due_date,
+                "status": item.status,
+                "priority": item.priority,
+                "competence_month": item.competence_month,
+            }
+            for item in obligations_result.scalars().all()
+        ],
+        "receivables": [
+            {
+                "description": item.description,
+                "amount": item.amount,
+                "due_date": item.due_date,
+                "status": item.status,
+            }
+            for item in receivables_result.scalars().all()
+        ],
+        "certificates": [
+            {
+                "label": item.label,
+                "valid_until": item.valid_until,
+                "status": item.status,
+            }
+            for item in certificates_result.scalars().all()
+        ],
+    }
+
+    user_msg = FiscalAssistantMessage(
+        tenant_id=tenant_id,
+        role=AssistantRole.USER,
+        content=f"Gerar resumo operacional do cliente {client.id}",
+    )
+    db.add(user_msg)
+    await db.flush()
+
+    summary, tokens_used = await generate_client_operational_summary(context)
+    if not summary:
+        summary = "Resumo por IA temporariamente indisponivel. Valide os dados manualmente."
+
+    assistant_msg = FiscalAssistantMessage(
+        tenant_id=tenant_id,
+        role=AssistantRole.ASSISTANT,
+        content=summary,
+        tokens_used=tokens_used,
+    )
+    db.add(assistant_msg)
+    await db.commit()
+
+    _, remaining_after = await check_chat_quota(tenant_id, plan, db)
+    return ClientAiSummaryResponse(
+        client_id=client.id,
+        summary=summary,
+        remaining_quota=remaining_after,
+        tokens_used=tokens_used,
+    )
 
 
 @router.post("/clients", response_model=AccountingClientResponse, status_code=status.HTTP_201_CREATED)
@@ -1349,6 +1489,17 @@ async def _parse_document_background(
                 document.parse_status = "failed"
                 document.parse_error = error
             else:
+                ai_classification = await classify_fiscal_document(
+                    parsed_data,
+                    file_name=file_name,
+                    declared_document_type=document.document_type,
+                )
+                if ai_classification:
+                    parsed_data = {
+                        **(parsed_data or {}),
+                        "ai_classification": ai_classification,
+                    }
+
                 document.parse_status = "completed"
                 document.parsed_data = parsed_data
                 document.parsed_at = datetime.now(timezone.utc)
@@ -1366,4 +1517,3 @@ async def _parse_document_background(
                 os.unlink(file_path)
         except Exception as e:
             logger.error(f"Error cleaning temp file {file_path}: {str(e)}")
-

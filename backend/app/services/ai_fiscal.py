@@ -12,7 +12,9 @@ Design decisions:
 - No streaming — simpler implementation for MVP
 """
 
+import json
 import logging
+import re
 from decimal import Decimal
 from typing import Any, Optional
 
@@ -26,6 +28,7 @@ _OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 _MODEL = "gpt-4o-mini"
 _MAX_TOKENS_RECOMMENDATION = 600
 _MAX_TOKENS_CHAT = 800
+_MAX_TOKENS_DOCUMENT = 700
 
 _SYSTEM_PROMPT = """Você é o FiscWise, um assistente fiscal especializado no sistema tributário brasileiro.
 Você conhece profundamente:
@@ -40,6 +43,112 @@ Você conhece profundamente:
 Responda sempre em português do Brasil. Seja objetivo, preciso e cite a legislação quando relevante.
 Não faça suposições sem dados. Se faltarem informações para uma análise definitiva, peça os dados necessários.
 Não forneça consultoria jurídica formal — indique que o usuário consulte um contador ou advogado tributarista para decisões definitivas."""
+
+
+def mask_brazilian_tax_ids(text: str) -> str:
+    """Mask CPF/CNPJ-like numbers before sending document content to external AI."""
+
+    def mask_match(match: re.Match[str]) -> str:
+        value = match.group(0)
+        digits = re.sub(r"\D", "", value)
+        if len(digits) == 11:
+            return "[CPF_MASCARADO]"
+        if len(digits) == 14:
+            return "[CNPJ_MASCARADO]"
+        return value
+
+    masked = re.sub(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b", mask_match, text)
+    return re.sub(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b", mask_match, masked)
+
+
+def extract_document_text(parsed_data: dict[str, Any] | None) -> str:
+    """Convert parser output into a compact text body for AI classification."""
+    if not parsed_data:
+        return ""
+
+    doc_type = parsed_data.get("type")
+    if doc_type in {"pdf", "word"}:
+        return str(parsed_data.get("full_text") or "")
+    if doc_type == "text":
+        return str(parsed_data.get("content") or "")
+    if doc_type == "excel":
+        chunks: list[str] = []
+        for sheet in parsed_data.get("sheets", [])[:3]:
+            chunks.append(str(sheet.get("name", "")))
+            for row in sheet.get("rows", [])[:20]:
+                chunks.append(" | ".join(str(value) for value in row.get("values", [])))
+        return "\n".join(chunks)
+
+    return json.dumps(parsed_data, ensure_ascii=False)[:5000]
+
+
+async def classify_fiscal_document(
+    parsed_data: dict[str, Any] | None,
+    file_name: str,
+    declared_document_type: str | None = None,
+) -> Optional[dict[str, Any]]:
+    """Classify a parsed document and extract operational hints for the office."""
+    raw_text = extract_document_text(parsed_data)
+    masked_text = mask_brazilian_tax_ids(raw_text)[:5000]
+    if not masked_text.strip():
+        return None
+
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "Classifique o documento fiscal/contabil abaixo e responda exclusivamente em JSON valido, "
+                "sem markdown, no formato: "
+                '{"document_type":"das|nota_fiscal|contrato_social|certidao|extrato|guia|outro",'
+                '"competence_month":"YYYY-MM ou null","amount":"numero ou null","due_date":"YYYY-MM-DD ou null",'
+                '"summary":"resumo operacional em uma frase","confidence":0.0,'
+                '"warning":"Resultado estimado. Valide com o responsavel tecnico."}\n\n'
+                f"Nome do arquivo: {file_name}\n"
+                f"Tipo informado pelo usuario: {declared_document_type or 'nao informado'}\n"
+                f"Conteudo mascarado:\n{masked_text}"
+            ),
+        },
+    ]
+
+    content, tokens = await _call_openai(messages, _MAX_TOKENS_DOCUMENT)
+    if not content:
+        return None
+
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        logger.warning("Document AI classification returned invalid JSON")
+        return None
+
+    if not isinstance(parsed, dict):
+        return None
+
+    parsed["tokens_used"] = tokens
+    parsed["pii_masked"] = raw_text != masked_text
+    parsed.setdefault("warning", "Resultado estimado. Valide com o responsavel tecnico.")
+    return parsed
+
+
+async def generate_client_operational_summary(context: dict[str, Any]) -> tuple[Optional[str], Optional[int]]:
+    """Generate a short operational summary for a client using masked context."""
+    context_json = json.dumps(context, ensure_ascii=False, default=str)
+    masked_context = mask_brazilian_tax_ids(context_json)[:6000]
+
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "Gere um resumo operacional para o escritorio contabil sobre este cliente. "
+                "Responda em ate 120 palavras, em portugues, priorizando riscos, pendencias e proximas acoes. "
+                "Nao invente dados ausentes. Finalize com: Resultado estimado. Valide com o responsavel tecnico.\n\n"
+                f"Contexto mascarado:\n{masked_context}"
+            ),
+        },
+    ]
+
+    return await _call_openai(messages, _MAX_TOKENS_DOCUMENT)
 
 
 async def _call_openai(

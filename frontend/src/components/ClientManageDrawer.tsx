@@ -18,6 +18,7 @@ import {
   Save,
   CheckCircle,
   FileDown,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -31,12 +32,20 @@ import {
   useUpdatePartner,
   useDeletePartner,
   useCompanyDocuments,
+  useClientDocuments,
   useCreateCompanyDocument,
   useDeleteCompanyDocument,
+  useGenerateClientAiSummary,
   useUploadDocument,
   type AccountingClient,
   type CompanyPartner,
 } from '@/lib/hooks/useOperations';
+import {
+  buildClientAiSummaryView,
+  buildDocumentAiView,
+  type ClientAiSummary,
+  type ClientDocument as ParsedClientDocument,
+} from '@/lib/aiDocuments';
 
 interface ClientManageDrawerProps {
   open: boolean;
@@ -94,6 +103,153 @@ const partnerSchema = z.object({
 
 type PartnerFormValues = z.infer<typeof partnerSchema>;
 
+interface ClientAiSummaryPanelProps {
+  summary: ClientAiSummary | null | undefined;
+  isGenerating: boolean;
+  onGenerate: () => void;
+}
+
+function ClientAiSummaryPanel({ summary, isGenerating, onGenerate }: ClientAiSummaryPanelProps) {
+  const view = buildClientAiSummaryView(summary ?? null);
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+            Resumo IA do Cliente
+          </h3>
+        </div>
+        {view.documentsAnalyzedLabel && (
+          <span className="text-xs font-medium text-muted-foreground">
+            {view.documentsAnalyzedLabel}
+          </span>
+        )}
+      </div>
+
+      <p className="text-sm text-foreground">{view.summary}</p>
+
+      <Button
+        type="button"
+        size="sm"
+        variant={view.available ? 'outline' : 'default'}
+        onClick={onGenerate}
+        disabled={isGenerating}
+        className="gap-1.5"
+      >
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
+        {isGenerating ? 'Gerando...' : view.available ? 'Atualizar resumo' : 'Gerar resumo'}
+      </Button>
+
+      {view.available && (view.risks.length > 0 || view.nextActions.length > 0) && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {view.risks.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Riscos</p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {view.risks.map((risk) => (
+                  <li key={risk}>- {risk}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {view.nextActions.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Proximas acoes</p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {view.nextActions.map((action) => (
+                  <li key={action}>- {action}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ParsedDocumentsPanelProps {
+  documents: ParsedClientDocument[];
+  isLoading: boolean;
+}
+
+function ParsedDocumentsPanel({ documents, isLoading }: ParsedDocumentsPanelProps) {
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-dashed bg-muted/5 p-4 text-sm text-muted-foreground">
+        Carregando documentos analisados...
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed bg-muted/5 p-4 text-sm text-muted-foreground">
+        Nenhum documento operacional com IA encontrado para este cliente.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {documents.map((document) => {
+        const aiView = buildDocumentAiView(document);
+
+        return (
+          <div key={document.id} className="rounded-xl border bg-card p-4 space-y-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold text-foreground">{document.name}</p>
+                <p className="text-xs text-muted-foreground">{document.document_type}</p>
+              </div>
+              <Badge variant={aiView.parseStatusVariant}>{aiView.parseStatusLabel}</Badge>
+            </div>
+
+            {aiView.classification ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                    {aiView.classification.documentType}
+                  </span>
+                  {aiView.classification.confidenceLabel && (
+                    <span className="text-muted-foreground">
+                      Confianca {aiView.classification.confidenceLabel}
+                    </span>
+                  )}
+                </div>
+                {aiView.classification.fields.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {aiView.classification.fields.map((field) => (
+                      <span
+                        key={field.label}
+                        className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                      >
+                        {field.label}: {field.value}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {aiView.classification.summary && (
+                  <p className="text-xs text-muted-foreground">
+                    {aiView.classification.summary}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {aiView.parseError ?? 'Classificacao de IA ainda nao disponivel.'}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawerProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'partners' | 'documents'>('info');
 
@@ -106,6 +262,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
   const [docExpiration, setDocExpiration] = useState('');
   const [docNotes, setDocNotes] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [clientAiSummary, setClientAiSummary] = useState<ClientAiSummary | null>(null);
 
   // Queries & Mutations
   const updateClientMutation = useUpdateClient();
@@ -115,8 +272,10 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
   const deletePartnerMutation = useDeletePartner(client?.id ?? '');
 
   const { data: companyDocs = [], refetch: refetchDocs } = useCompanyDocuments(client?.id ?? '');
+  const { data: parsedClientDocs = [], isLoading: isLoadingParsedDocs } = useClientDocuments(client?.id);
   const createDocMutation = useCreateCompanyDocument(client?.id ?? '');
   const deleteDocMutation = useDeleteCompanyDocument(client?.id ?? '');
+  const generateAiSummaryMutation = useGenerateClientAiSummary();
   const uploadFileMutation = useUploadDocument();
 
   // React Hook Forms
@@ -160,6 +319,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
         responsible_phone: client.responsible_phone || '',
         responsible_email: client.responsible_email || '',
       });
+      setClientAiSummary(null);
       refetchPartners();
       refetchDocs();
     }
@@ -238,6 +398,22 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
       refetchPartners();
     } catch {
       toast.error('Erro ao remover sócio');
+    }
+  }
+
+  async function handleGenerateAiSummary() {
+    if (!client) return;
+
+    try {
+      const summary = await generateAiSummaryMutation.mutateAsync(client.id);
+      setClientAiSummary(summary);
+      if (summary) {
+        toast.success('Resumo de IA gerado');
+      } else {
+        toast.error('Resumo de IA indisponivel neste ambiente');
+      }
+    } catch {
+      toast.error('Erro ao gerar resumo de IA');
     }
   }
 
@@ -688,6 +864,19 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                   </div>
                 </div>
               )}
+
+              <ClientAiSummaryPanel
+                summary={clientAiSummary}
+                isGenerating={generateAiSummaryMutation.isPending}
+                onGenerate={handleGenerateAiSummary}
+              />
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                  Documentos Operacionais com IA
+                </h3>
+                <ParsedDocumentsPanel documents={parsedClientDocs} isLoading={isLoadingParsedDocs} />
+              </div>
 
               {/* Upload Document section */}
               <div className="rounded-xl border p-5 bg-card space-y-4">

@@ -2,10 +2,10 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 ClientStatus = Literal["active", "inactive", "onboarding"]
@@ -161,8 +161,29 @@ class DocumentResponse(DocumentCreate):
 
     id: UUID
     tenant_id: UUID
+    parse_status: str = "pending"
+    parsed_data: Optional[dict[str, Any]] = None
+    ai_classification: Optional[dict[str, Any]] = None
+    parse_error: Optional[str] = None
+    parsed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def populate_ai_classification(self) -> "DocumentResponse":
+        if self.ai_classification is None and isinstance(self.parsed_data, dict):
+            classification = self.parsed_data.get("ai_classification")
+            if isinstance(classification, dict):
+                self.ai_classification = classification
+        return self
+
+
+class ClientAiSummaryResponse(BaseModel):
+    client_id: UUID
+    summary: str
+    remaining_quota: Optional[int] = None
+    tokens_used: Optional[int] = None
+    warning: str = "Resultado estimado. Valide com o responsavel tecnico."
 
 
 class CertificateCreate(BaseModel):
@@ -353,4 +374,3 @@ class ClientBillingConfigUpdate(BaseModel):
     monthly_fee: Optional[Decimal] = Field(None, ge=0, max_digits=10, decimal_places=2)
     billing_day: Optional[int] = Field(None, ge=1, le=28)
     annual_adjustment_percent: Optional[Decimal] = Field(None, ge=0, le=100, max_digits=5, decimal_places=2)
-

@@ -5,6 +5,13 @@
 
 ---
 
+## Regra operacional de fases
+
+- Ao completar 100% de uma fase: atualizar este arquivo, commitar, fazer push para GitHub, publicar backend no Fly.io, publicar frontend no Vercel e validar online antes de iniciar a fase seguinte.
+- Fases parcialmente implementadas ficam em "Em andamento" e não contam como encerradas.
+
+---
+
 ## ✅ FASE 1 — Semana 1 (Limpeza e fundação)
 
 - [x] Rebranding ContaFlow → FiscWise (fly.toml, requirements.txt, api.ts)
@@ -108,12 +115,14 @@
 
 ## 📋 PENDENTE — Próximas fases
 
-- [ ] **5.14 — IA operacional**
-  - Classificação de documentos (ML/AI)
-  - Extração de dados de notas fiscais
-  - Resumo de cliente por IA
+- [x] **5.14 — IA operacional**
+  - Classificação de documentos via IA após parsing do upload
+  - Extração estruturada de competência, valor e vencimento quando identificados
+  - Resumo operacional de cliente por IA com controle de plano e quota
+  - Mascaramento de CPF/CNPJ antes de chamadas externas
+  - Frontend exibe parsing, classificação, confiança, campos extraídos e resumo no drawer do cliente
 
-- [ ] **5.16 — Row Level Security (RLS)**
+- [ ] **5.16 — Row Level Security (RLS)** *(em andamento)*
   - Políticas RLS no PostgreSQL para todas as tabelas de tenant
   - `SET LOCAL app.current_tenant_id` no `get_current_user`
 
@@ -130,6 +139,19 @@
 - [ ] **5.18 — Monitor fiscal via parceiro**
 - [ ] **5.19 — RAG fiscal**
 - [ ] **5.20 — API pública + Webhooks**
+
+---
+
+## Em andamento — 2026-05-24
+
+- [x] Clientes desativados separados da carteira operacional no frontend.
+- [x] Ação visual de "Excluir" ajustada para "Desativar", alinhada ao comportamento real de soft-delete.
+- [x] Base de IA operacional para documentos: conteúdo parseado é classificado por IA quando `OPENAI_API_KEY` está configurada.
+- [x] CPF/CNPJ são mascarados antes de envio para IA externa.
+- [x] Resumo operacional de cliente por IA com botão explícito, controle de plano Intermediário+ e quota mensal.
+- [x] Frontend de documentos e drawer do cliente exibem classificação, confiança e campos extraídos.
+- [x] Base segura para RLS: `app.current_tenant_id` passa a ser setado na sessão PostgreSQL durante autenticação e migration cria helper `current_app_tenant_id()`.
+- [ ] Concluir 5.16 com policies RLS reais por tabela e validação online pós-migration.
 
 ---
 

@@ -12,7 +12,7 @@ from typing import AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.config import settings
@@ -128,6 +128,21 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def _set_current_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """Set the current tenant in the PostgreSQL transaction for RLS policies."""
+    get_bind = getattr(db, "get_bind", None)
+    if callable(get_bind):
+        bind = get_bind()
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", None)
+        if dialect_name and dialect_name != "postgresql":
+            return
+
+    await db.execute(
+        text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+        {"tenant_id": str(tenant_id)},
+    )
+
+
 async def get_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
@@ -173,9 +188,20 @@ async def get_current_user(
             user_id = uuid.UUID(user_id_str)
         except ValueError:
             raise credentials_exception
+
+        token_tenant_id_str = payload.get("tenant_id")
+        if token_tenant_id_str is None:
+            raise credentials_exception
+
+        try:
+            token_tenant_id = uuid.UUID(token_tenant_id_str)
+        except ValueError:
+            raise credentials_exception
             
     except JWTError:
         raise credentials_exception
+
+    await _set_current_tenant_context(db, token_tenant_id)
     
     # Query user from database
     result = await db.execute(
@@ -188,8 +214,7 @@ async def get_current_user(
         raise credentials_exception
     
     # Ensure token tenant_id matches user tenant ownership
-    token_tenant_id = payload.get("tenant_id")
-    if token_tenant_id is None or token_tenant_id != str(user.tenant_id):
+    if token_tenant_id != user.tenant_id:
         raise credentials_exception
 
     request_tenant_id = getattr(request.state, "tenant_id", None)
@@ -204,5 +229,5 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user account"
         )
-    
+
     return user

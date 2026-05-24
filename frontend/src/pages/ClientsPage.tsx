@@ -5,7 +5,20 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Download, Upload, Loader2, Lock, Briefcase, Search, X, Filter } from 'lucide-react';
+import {
+  Plus,
+  Archive,
+  Download,
+  Upload,
+  Loader2,
+  Lock,
+  Briefcase,
+  Search,
+  X,
+  Filter,
+  UserCheck,
+  UserX,
+} from 'lucide-react';
 import readXlsxFile from 'read-excel-file';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -287,7 +300,8 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
 // Filter types
 // ---------------------------------------------------------------------------
 
-type StatusFilter = '' | 'active' | 'inactive' | 'onboarding';
+type StatusFilter = '' | 'active' | 'onboarding';
+type ClientView = 'operational' | 'inactive';
 type TipoFilter = '' | 'pj' | 'pf';
 type RegimeFilter = '' | 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' | 'MEI';
 
@@ -303,6 +317,7 @@ export function ClientsPage() {
   const location = useLocation();
 
   // Filter state
+  const [clientView, setClientView] = useState<ClientView>('operational');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('');
@@ -352,31 +367,46 @@ export function ClientsPage() {
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Excluir cliente "${name}"? Esta acao nao pode ser desfeita.`)) return;
+  async function handleDeactivate(id: string, name: string) {
+    if (
+      !confirm(
+        `Desativar cliente "${name}"? Ele saira da carteira operacional e ficara disponivel na aba Desativados.`
+      )
+    ) {
+      return;
+    }
+
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Cliente removido');
+      toast.success('Cliente desativado');
     } catch {
-      toast.error('Erro ao remover cliente');
+      toast.error('Erro ao desativar cliente');
     }
   }
 
   const total = clients?.length ?? 0;
   const activeCount = clients?.filter((c) => c.status === 'active').length ?? 0;
   const onboardingCount = clients?.filter((c) => c.status === 'onboarding').length ?? 0;
+  const inactiveCount = clients?.filter((c) => c.status === 'inactive').length ?? 0;
+  const operationalCount = activeCount + onboardingCount;
 
   // Derived: are any filters active?
   const hasActiveFilters =
     searchQuery.trim() !== '' || statusFilter !== '' || tipoFilter !== '' || regimeFilter !== '';
 
-  // Client-side filtering via useMemo
-  const filteredClients = useMemo(() => {
+  const visibleClients = useMemo(() => {
     if (!clients) return [];
 
+    return clients.filter((client) =>
+      clientView === 'operational' ? client.status !== 'inactive' : client.status === 'inactive'
+    );
+  }, [clients, clientView]);
+
+  // Client-side filtering via useMemo
+  const filteredClients = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
-    return clients.filter((client) => {
+    return visibleClients.filter((client) => {
       // Search query: name, document, email
       if (q) {
         const matchesName = client.name.toLowerCase().includes(q);
@@ -396,7 +426,7 @@ export function ClientsPage() {
 
       return true;
     });
-  }, [clients, searchQuery, statusFilter, tipoFilter, regimeFilter]);
+  }, [visibleClients, searchQuery, statusFilter, tipoFilter, regimeFilter]);
 
   function clearFilters() {
     setSearchQuery('');
@@ -434,7 +464,7 @@ export function ClientsPage() {
       )}
 
       {/* Summary cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total de clientes</CardTitle>
@@ -445,10 +475,10 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Ativos</CardTitle>
+            <CardTitle className="text-sm font-medium">Carteira operacional</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? '...' : activeCount}</div>
+            <div className="text-2xl font-bold">{isLoading ? '...' : operationalCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -459,7 +489,68 @@ export function ClientsPage() {
             <div className="text-2xl font-bold">{isLoading ? '...' : onboardingCount}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Desativados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{isLoading ? '...' : inactiveCount}</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {!isLoading && !isError && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-2">
+          <div
+            className="flex gap-1"
+            role="tablist"
+            aria-label="Separar clientes por status operacional"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={clientView === 'operational'}
+              onClick={() => setClientView('operational')}
+              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                clientView === 'operational'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <UserCheck className="h-4 w-4" aria-hidden="true" />
+              Ativos
+              <span className="rounded bg-background/20 px-1.5 py-0.5 text-xs">
+                {operationalCount}
+              </span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={clientView === 'inactive'}
+              onClick={() => {
+                setClientView('inactive');
+                setStatusFilter('');
+              }}
+              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                clientView === 'inactive'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <UserX className="h-4 w-4" aria-hidden="true" />
+              Desativados
+              <span className="rounded bg-background/20 px-1.5 py-0.5 text-xs">
+                {inactiveCount}
+              </span>
+            </button>
+          </div>
+          <p className="px-2 text-xs text-muted-foreground">
+            {clientView === 'operational'
+              ? 'Clientes ativos e em onboarding aparecem na rotina diaria.'
+              : 'Clientes desativados ficam fora dos fluxos operacionais e dos limites de plano.'}
+          </p>
+        </div>
+      )}
 
       {/* Filters bar */}
       {!isLoading && !isError && (
@@ -482,18 +573,18 @@ export function ClientsPage() {
 
           {/* Selects row + clear button */}
           <div className="flex flex-wrap gap-2 items-center">
-            {/* Status filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              aria-label="Filtrar por status"
-            >
-              <option value="">Todos os status</option>
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-              <option value="onboarding">Onboarding</option>
-            </select>
+            {clientView === 'operational' && (
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                aria-label="Filtrar carteira ativa por status"
+              >
+                <option value="">Ativos + onboarding</option>
+                <option value="active">Somente ativos</option>
+                <option value="onboarding">Somente onboarding</option>
+              </select>
+            )}
 
             {/* Tipo filter */}
             <select
@@ -540,14 +631,18 @@ export function ClientsPage() {
       {/* Clients table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-          <CardTitle className="text-base">Carteira de clientes</CardTitle>
+          <CardTitle className="text-base">
+            {clientView === 'operational' ? 'Carteira ativa' : 'Clientes desativados'}
+          </CardTitle>
           {/* Counter */}
           {!isLoading && !isError && clients && (
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Filter className="h-3.5 w-3.5" aria-hidden="true" />
               {hasActiveFilters
-                ? `${filteredClients.length} de ${total} clientes`
-                : `${total} ${total === 1 ? 'cliente' : 'clientes'}`}
+                ? `${filteredClients.length} de ${visibleClients.length} clientes`
+                : `${visibleClients.length} ${
+                    visibleClients.length === 1 ? 'cliente' : 'clientes'
+                  }`}
             </span>
           )}
         </CardHeader>
@@ -581,8 +676,36 @@ export function ClientsPage() {
                     </tr>
                   )}
 
+                  {total > 0 && visibleClients.length === 0 && !hasActiveFilters && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                          {clientView === 'operational' ? (
+                            <UserCheck className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                          ) : (
+                            <UserX className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                          )}
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {clientView === 'operational'
+                                ? 'Nenhum cliente ativo'
+                                : 'Nenhum cliente desativado'}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {clientView === 'operational'
+                                ? 'Clientes inativos ficam fora desta carteira. Cadastre ou reative um cliente para aparecer aqui.'
+                                : 'Quando um cliente for desativado, ele aparecera nesta aba sem misturar com a carteira ativa.'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
                   {/* Empty state: clients exist but filters return nothing */}
-                  {total > 0 && filteredClients.length === 0 && (
+                  {total > 0 &&
+                    filteredClients.length === 0 &&
+                    (visibleClients.length > 0 || hasActiveFilters) && (
                     <tr>
                       <td colSpan={7}>
                         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -657,16 +780,18 @@ export function ClientsPage() {
                             <Lock className="h-4 w-4" />
                             <span className="text-[9px] font-medium uppercase tracking-wider">Anotações</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(client.id, client.name)}
-                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Excluir cliente ${client.name}`}
-                            title="Excluir cliente"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
-                          </button>
+                          {client.status !== 'inactive' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeactivate(client.id, client.name)}
+                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label={`Desativar cliente ${client.name}`}
+                              title="Desativar cliente"
+                            >
+                              <Archive className="h-4 w-4" />
+                              <span className="text-[9px] font-medium uppercase tracking-wider">Desativar</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

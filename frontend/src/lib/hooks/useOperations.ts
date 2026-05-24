@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { api } from '@/lib/api';
+import type { ClientAiSummary, ClientDocument as AiClientDocument } from '@/lib/aiDocuments';
 
 export type ClientStatus = 'active' | 'inactive' | 'onboarding';
 export type EntityType = 'pj' | 'pf';
@@ -84,7 +86,7 @@ export interface DeadlineCreate {
   description?: string;
 }
 
-export interface ClientDocument {
+export interface ClientDocument extends Omit<AiClientDocument, 'status'> {
   id: string;
   tenant_id: string;
   client_id: string;
@@ -95,6 +97,10 @@ export interface ClientDocument {
   issued_at?: string | null;
   expires_at?: string | null;
   notes?: string | null;
+  parse_status?: string | null;
+  parsed_data?: Record<string, unknown> | null;
+  parse_error?: string | null;
+  parsed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -288,6 +294,41 @@ export function useDocuments() {
     queryFn: async () => {
       const { data } = await api.get<ClientDocument[]>('/api/v1/documents');
       return data;
+    },
+  });
+}
+
+export function useClientDocuments(clientId: string | undefined) {
+  return useQuery({
+    queryKey: [...operationsKey, 'clients', clientId, 'documents'],
+    queryFn: async () => {
+      const { data } = await api.get<ClientDocument[]>(`/api/v1/clients/${clientId}/documents`);
+      return data;
+    },
+    enabled: !!clientId,
+  });
+}
+
+export function useGenerateClientAiSummary() {
+  return useMutation({
+    mutationFn: async (clientId: string) => {
+      try {
+        const { data } = await api.post<ClientAiSummary>(
+          `/api/v1/clients/${clientId}/ai-summary`
+        );
+        return data;
+      } catch (error) {
+        if (!axios.isAxiosError(error)) {
+          throw error;
+        }
+
+        const statusCode = error.response?.status;
+        if (statusCode && [403, 404, 405, 501].includes(statusCode)) {
+          return null;
+        }
+
+        throw error;
+      }
     },
   });
 }

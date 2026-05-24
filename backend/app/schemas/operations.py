@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 ClientStatus = Literal["active", "inactive", "onboarding"]
@@ -35,6 +35,22 @@ class AccountingClientCreate(BaseModel):
     responsible_phone: Optional[str] = Field(None, max_length=40)
     responsible_email: Optional[EmailStr] = None
 
+    @field_validator("document")
+    @classmethod
+    def validate_client_document(cls, v: Optional[str]) -> Optional[str]:
+        from app.core.validators import validate_optional_cpf_or_cnpj
+        return validate_optional_cpf_or_cnpj(v)
+
+    @field_validator("responsible_cpf")
+    @classmethod
+    def validate_responsible_cpf(cls, v: Optional[str]) -> Optional[str]:
+        from app.core.validators import validate_cpf
+        if not v:
+            return v
+        if not validate_cpf(v):
+            raise ValueError("Invalid CPF for responsible person")
+        return v
+
 
 class AccountingClientUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
@@ -53,6 +69,22 @@ class AccountingClientUpdate(BaseModel):
     responsible_address: Optional[str] = Field(None, max_length=255)
     responsible_phone: Optional[str] = Field(None, max_length=40)
     responsible_email: Optional[EmailStr] = None
+
+    @field_validator("document")
+    @classmethod
+    def validate_client_document(cls, v: Optional[str]) -> Optional[str]:
+        from app.core.validators import validate_optional_cpf_or_cnpj
+        return validate_optional_cpf_or_cnpj(v)
+
+    @field_validator("responsible_cpf")
+    @classmethod
+    def validate_responsible_cpf(cls, v: Optional[str]) -> Optional[str]:
+        from app.core.validators import validate_cpf
+        if not v:
+            return v
+        if not validate_cpf(v):
+            raise ValueError("Invalid CPF for responsible person")
+        return v
 
 
 class AccountingClientResponse(AccountingClientCreate):

@@ -57,7 +57,7 @@ class TestClientsCRUD:
 
         payload = AccountingClientCreate(
             name="New Client",
-            document="99.888.777/0001-55",
+            document="25653010546621",
             entity_type="pj",
             tax_regime="lucro_real",
             email="new@client.com",
@@ -68,7 +68,7 @@ class TestClientsCRUD:
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == "New Client"
-        assert data["document"] == "99.888.777/0001-55"
+        assert data["document"] == "25653010546621"
         assert data["status"] == "active"
         assert data["tenant_id"] == str(user_a.tenant_id)
 

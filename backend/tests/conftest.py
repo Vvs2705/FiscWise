@@ -182,7 +182,7 @@ async def client_a(test_db: AsyncSession, tenant_a: Tenant) -> AccountingClient:
         id=uuid.uuid4(),
         tenant_id=tenant_a.id,
         name="Client from Firm A",
-        document="11.222.333/0001-81",
+        document="76069336914468",
         entity_type="pj",
         tax_regime="lucro_presumido",
         email="client.a@example.com",
@@ -201,7 +201,7 @@ async def client_b(test_db: AsyncSession, tenant_b: Tenant) -> AccountingClient:
         id=uuid.uuid4(),
         tenant_id=tenant_b.id,
         name="Client from Firm B",
-        document="44.555.666/0001-77",
+        document="09134865420327",
         entity_type="pj",
         status="active",
     )

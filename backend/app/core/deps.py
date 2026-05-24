@@ -103,6 +103,12 @@ def _get_engine():
     return _engine, _AsyncSessionLocal
 
 
+def get_sessionmaker() -> async_sessionmaker:
+    """Return the shared async sessionmaker."""
+    _, session_factory = _get_engine()
+    return session_factory
+
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database session.

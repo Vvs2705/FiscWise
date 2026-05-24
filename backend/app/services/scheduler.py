@@ -53,20 +53,15 @@ async def generate_monthly_billing_scheduled():
     Runs on the 1st of each month.
     """
     from sqlalchemy import select, and_
-    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-    from sqlalchemy.orm import sessionmaker
     import calendar
 
-    from app.core.config import settings
+    from app.core.deps import get_sessionmaker
     from app.models.operations import AccountingClient, AccountReceivable
     from app.models.tenant import Tenant
 
     try:
-        # Create database connection
-        engine = create_async_engine(settings.DATABASE_URL, echo=False)
-        async_session = sessionmaker(
-            engine, class_=AsyncSession, expire_on_commit=False
-        )
+        # Get shared database sessionmaker
+        async_session = get_sessionmaker()
 
         async with async_session() as db:
             # Get current month
@@ -133,8 +128,6 @@ async def generate_monthly_billing_scheduled():
                 f"Monthly billing scheduled task completed: "
                 f"created={total_created}, skipped={total_skipped}"
             )
-
-        await engine.dispose()
 
     except Exception as e:
         logger.error(f"Error in scheduled monthly billing generation: {str(e)}")

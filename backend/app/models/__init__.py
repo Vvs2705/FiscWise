@@ -8,6 +8,7 @@ Import this module to ensure all models are loaded for Alembic migrations.
 from app.models.base import Base, TenantBase
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
+from app.models.audit import AuditEvent
 from app.models.operations import (
     AccountReceivable,
     AccountingClient,
@@ -24,6 +25,7 @@ __all__ = [
     "SubscriptionStatus",
     "User",
     "UserRole",
+    "AuditEvent",
     "AccountingClient",
     "DeadlineItem",
     "ClientDocument",

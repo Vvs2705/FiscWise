@@ -7,7 +7,7 @@ Handles user authentication, login, and token generation.
 import os
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -23,6 +23,7 @@ from app.core.security import verify_password, create_access_token, get_password
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
+from app.services.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ router = APIRouter()
 @router.post("/login", response_model=AuthResponse, summary="User Login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    request: Request = None,
     db: AsyncSession = Depends(get_db)
 ) -> AuthResponse:
     """
@@ -74,6 +76,16 @@ async def login(
 
     # Validate password
     if not verify_password(form_data.password, user.hashed_password):
+        await log_audit_event(
+            db=db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            actor_role=user.role.value,
+            action="auth.login_failed",
+            entity_type="auth",
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("User-Agent") if request else None,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -82,6 +94,16 @@ async def login(
     
     # Validate user is active
     if not user.is_active:
+        await log_audit_event(
+            db=db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            actor_role=user.role.value,
+            action="auth.login_failed_inactive",
+            entity_type="auth",
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("User-Agent") if request else None,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user account"
@@ -92,6 +114,17 @@ async def login(
         user_id=str(user.id),
         tenant_id=str(user.tenant_id),
         role=user.role.value
+    )
+    
+    await log_audit_event(
+        db=db,
+        tenant_id=user.tenant_id,
+        actor_user_id=user.id,
+        actor_role=user.role.value,
+        action="auth.login_success",
+        entity_type="auth",
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
     )
     
     return AuthResponse(
@@ -115,6 +148,7 @@ class GoogleAuthRequest(BaseModel):
 @router.post("/google", response_model=AuthResponse, summary="Google OAuth Login / Register")
 async def google_auth(
     body: GoogleAuthRequest,
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """
@@ -182,6 +216,16 @@ async def google_auth(
             tenant_id=str(existing_user.tenant_id),
             role=existing_user.role.value,
         )
+        await log_audit_event(
+            db=db,
+            tenant_id=existing_user.tenant_id,
+            actor_user_id=existing_user.id,
+            actor_role=existing_user.role.value,
+            action="auth.login_google_success",
+            entity_type="auth",
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("User-Agent") if request else None,
+        )
         return AuthResponse(
             access_token=access_token,
             token_type="bearer",
@@ -219,6 +263,17 @@ async def google_auth(
         await db.commit()
         await db.refresh(new_tenant)
         await db.refresh(new_user)
+
+        await log_audit_event(
+            db=db,
+            tenant_id=new_tenant.id,
+            actor_user_id=new_user.id,
+            actor_role=new_user.role.value,
+            action="auth.register_google_success",
+            entity_type="auth",
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("User-Agent") if request else None,
+        )
 
         access_token = create_access_token(
             user_id=str(new_user.id),

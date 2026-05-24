@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.audit import log_audit_event
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -122,6 +123,19 @@ async def set_plan_by_email(
     tenant.plan_slug = body.plan_slug
     await db.commit()
     await db.refresh(tenant)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant.id,
+        actor_role="admin_token",
+        action="admin.set_plan",
+        entity_type="tenant",
+        entity_id=tenant.id,
+        before_data={"plan_slug": old_plan},
+        after_data={"plan_slug": tenant.plan_slug},
+        ip_address=_get_client_ip(request),
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
 
     client_ip = _get_client_ip(request)
     logger.info(

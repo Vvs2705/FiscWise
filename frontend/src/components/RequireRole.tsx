@@ -1,30 +1,16 @@
-import type { ReactNode } from 'react';
+import React from 'react';
 import { usePermission, type UserRole } from '@/lib/hooks/usePermission';
 
 interface RequireRoleProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-  mode?: 'minimum' | 'exact';
-  role?: UserRole;
-  roles?: UserRole[];
+  allowedRoles: UserRole[];
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
-export function RequireRole({
-  children,
-  fallback = null,
-  mode = 'minimum',
-  role,
-  roles,
-}: RequireRoleProps) {
-  const { hasAnyRole, hasRole } = usePermission();
+export function RequireRole({ allowedRoles, children, fallback = null }: RequireRoleProps) {
+  const { hasAnyRole } = usePermission();
 
-  const isAllowed = roles?.length
-    ? hasAnyRole(roles, { mode })
-    : role
-      ? hasRole(role, { mode })
-      : false;
-
-  if (!isAllowed) {
+  if (!hasAnyRole(allowedRoles)) {
     return <>{fallback}</>;
   }
 

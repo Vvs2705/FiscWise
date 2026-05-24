@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 import enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum
+from sqlalchemy import Date, DateTime, ForeignKey, Index, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -38,6 +38,10 @@ class AccountingClient(Base, TenantBase):
     """Client or taxpayer managed by an accounting office tenant."""
 
     __tablename__ = "accounting_clients"
+
+    __table_args__ = (
+        Index("idx_clients_tenant_status", "tenant_id", "status"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
@@ -74,6 +78,10 @@ class DeadlineItem(Base, TenantBase):
 
     __tablename__ = "deadline_items"
 
+    __table_args__ = (
+        Index("idx_deadlines_tenant_due_status", "tenant_id", "due_date", "status"),
+    )
+
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="CASCADE"),
@@ -100,6 +108,10 @@ class ClientDocument(Base, TenantBase):
     """Document metadata for client dossiers."""
 
     __tablename__ = "client_documents"
+
+    __table_args__ = (
+        Index("idx_documents_tenant_client_created", "tenant_id", "client_id", "created_at"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
@@ -157,6 +169,10 @@ class AccountReceivable(Base, TenantBase):
     """Receivable billing item for accounting office honorarios."""
 
     __tablename__ = "account_receivables"
+
+    __table_args__ = (
+        Index("idx_receivables_tenant_due_status", "tenant_id", "due_date", "status"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
@@ -274,6 +290,10 @@ class DasPayment(Base, TenantBase):
     """Monthly Simples Nacional DAS tax payment record for a client."""
 
     __tablename__ = "das_payments"
+
+    __table_args__ = (
+        Index("idx_das_tenant_client_period", "tenant_id", "client_id", "period"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),

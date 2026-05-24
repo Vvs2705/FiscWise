@@ -10,11 +10,12 @@ from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import Date as SADate, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.services.audit import log_audit_event
 from app.models.operations import (
     AccountReceivable,
     AccountingClient,
@@ -353,6 +354,7 @@ async def get_client(
 @router.post("/clients", response_model=AccountingClientResponse, status_code=status.HTTP_201_CREATED)
 async def create_client(
     payload: AccountingClientCreate,
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -377,7 +379,20 @@ async def create_client(
         **payload.model_dump(),
     )
     db.add(client)
-    return await _commit_refresh(db, client)
+    client = await _commit_refresh(db, client)
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="client.create",
+        entity_type="client",
+        entity_id=client.id,
+        after_data={"name": client.name, "document": client.document},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return client
 
 
 @router.patch("/clients/{client_id}", response_model=AccountingClientResponse)
@@ -385,25 +400,57 @@ async def create_client(
 async def update_client(
     client_id: uuid.UUID,
     payload: AccountingClientUpdate,
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     client = await _get_client_or_404(db, tenant_id, client_id)
+    before_data = {"name": client.name, "document": client.document}
     _apply_updates(client, payload)
-    return await _commit_refresh(db, client)
+    client = await _commit_refresh(db, client)
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="client.update",
+        entity_type="client",
+        entity_id=client.id,
+        before_data=before_data,
+        after_data={"name": client.name, "document": client.document},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return client
 
 
 @router.delete("/clients/{client_id}", response_model=AccountingClientResponse)
 async def deactivate_client(
     client_id: uuid.UUID,
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     client = await _get_client_or_404(db, tenant_id, client_id)
+    before_status = client.status
     client.status = "inactive"
-    return await _commit_refresh(db, client)
+    client = await _commit_refresh(db, client)
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="client.deactivate",
+        entity_type="client",
+        entity_id=client.id,
+        before_data={"status": before_status},
+        after_data={"status": "inactive"},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return client
 
 
 @router.get("/deadlines", response_model=list[DeadlineResponse])
@@ -516,13 +563,27 @@ async def update_document(
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: uuid.UUID,
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     document = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    doc_name = document.name
     await db.delete(document)
     await db.commit()
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="document.delete",
+        entity_type="document",
+        entity_id=document_id,
+        before_data={"name": doc_name},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
 
 
 @router.post("/documents/upload")
@@ -791,6 +852,7 @@ async def upload_client_document(
     client_id: uuid.UUID,
     file: UploadFile = File(...),
     document_type: str = Query(..., max_length=80, description="Tipo: contract, secret_sheet, certificate, etc"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     background_tasks: BackgroundTasks = BackgroundTasks(),
@@ -828,6 +890,19 @@ async def upload_client_document(
     db.add(document)
     await db.commit()
     await db.refresh(document)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="document.upload",
+        entity_type="document",
+        entity_id=document.id,
+        after_data={"name": document.name, "document_type": document.document_type},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
 
     # Agendar parsing em background
     background_tasks.add_task(

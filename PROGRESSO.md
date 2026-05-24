@@ -122,9 +122,12 @@
   - Mascaramento de CPF/CNPJ antes de chamadas externas
   - Frontend exibe parsing, classificação, confiança, campos extraídos e resumo no drawer do cliente
 
-- [ ] **5.16 — Row Level Security (RLS)** *(em andamento)*
-  - Políticas RLS no PostgreSQL para todas as tabelas de tenant
+- [x] **5.16 — Row Level Security (RLS) — primeira fatia segura**
   - `SET LOCAL app.current_tenant_id` no `get_current_user`
+  - Helper PostgreSQL `current_app_tenant_id()`
+  - Policies RLS em tabelas operacionais estritamente tenant-scoped
+  - Background parser, audit log e schedulers ajustados para restaurar contexto de tenant quando necessário
+  - Tabelas de auth, portal, billing webhooks e catálogos globais adiadas para rollout específico
 
 - [ ] **5.13 (complemento) — Tela de upgrade de plano** (frontend)
 
@@ -151,7 +154,8 @@
 - [x] Resumo operacional de cliente por IA com botão explícito, controle de plano Intermediário+ e quota mensal.
 - [x] Frontend de documentos e drawer do cliente exibem classificação, confiança e campos extraídos.
 - [x] Base segura para RLS: `app.current_tenant_id` passa a ser setado na sessão PostgreSQL durante autenticação e migration cria helper `current_app_tenant_id()`.
-- [ ] Concluir 5.16 com policies RLS reais por tabela e validação online pós-migration.
+- [x] Primeira fatia RLS: policies em tabelas operacionais estritamente tenant-scoped, sem `FORCE ROW LEVEL SECURITY`.
+- [ ] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações e templates globais.
 
 ---
 

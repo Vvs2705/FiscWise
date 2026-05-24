@@ -7,6 +7,7 @@ from typing import Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditEvent
+from app.core.deps import _set_current_tenant_context
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ async def log_audit_event(
     database errors gracefully, logging the failure without breaking the parent transaction.
     """
     try:
+        await _set_current_tenant_context(db, tenant_id)
+
         event = AuditEvent(
             tenant_id=tenant_id,
             actor_user_id=actor_user_id,

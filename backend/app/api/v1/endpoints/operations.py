@@ -1441,7 +1441,6 @@ async def upload_client_document(
         tmp_path,
         file.filename or "file",
         tenant_id,
-        db
     )
 
     return DocumentResponse.from_orm(document)
@@ -1467,45 +1466,49 @@ async def _parse_document_background(
     file_path: str,
     file_name: str,
     tenant_id: uuid.UUID,
-    db: AsyncSession,
 ) -> None:
     """Background task to parse document asynchronously."""
     import os
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
 
     try:
         parsed_data, error = await parse_document(file_path, file_name)
 
-        # Get document from DB
-        result = await db.execute(
-            select(ClientDocument).where(
-                (ClientDocument.id == document_id)
-                & (ClientDocument.tenant_id == tenant_id)
-            )
-        )
-        document = result.scalar_one_or_none()
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            await _set_current_tenant_context(db, tenant_id)
 
-        if document:
-            if error:
-                document.parse_status = "failed"
-                document.parse_error = error
-            else:
-                ai_classification = await classify_fiscal_document(
-                    parsed_data,
-                    file_name=file_name,
-                    declared_document_type=document.document_type,
+            # Get document from DB
+            result = await db.execute(
+                select(ClientDocument).where(
+                    (ClientDocument.id == document_id)
+                    & (ClientDocument.tenant_id == tenant_id)
                 )
-                if ai_classification:
-                    parsed_data = {
-                        **(parsed_data or {}),
-                        "ai_classification": ai_classification,
-                    }
+            )
+            document = result.scalar_one_or_none()
 
-                document.parse_status = "completed"
-                document.parsed_data = parsed_data
-                document.parsed_at = datetime.now(timezone.utc)
+            if document:
+                if error:
+                    document.parse_status = "failed"
+                    document.parse_error = error
+                else:
+                    ai_classification = await classify_fiscal_document(
+                        parsed_data,
+                        file_name=file_name,
+                        declared_document_type=document.document_type,
+                    )
+                    if ai_classification:
+                        parsed_data = {
+                            **(parsed_data or {}),
+                            "ai_classification": ai_classification,
+                        }
 
-            db.add(document)
-            await db.commit()
+                    document.parse_status = "completed"
+                    document.parsed_data = parsed_data
+                    document.parsed_at = datetime.now(timezone.utc)
+
+                db.add(document)
+                await db.commit()
 
     except Exception as e:
         logger.error(f"Background parsing error for document {document_id}: {str(e)}")

@@ -28,6 +28,7 @@ from app.models.notification import NotificationMessage, NotificationTemplate
 from app.models.obligation import DocumentChecklistItem
 from app.models.operations import AccountingClient
 from app.models.tenant import Tenant, SubscriptionStatus
+from app.core.deps import _set_current_tenant_context
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ async def notify_pending_documents_for_tenant(
     """
     today = date.today()
     comp_month = competence_month or date(today.year, today.month, 1)
+    await _set_current_tenant_context(db, tenant_id)
 
     # Load tenant name for email signature
     tenant_result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))

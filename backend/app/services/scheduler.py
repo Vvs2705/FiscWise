@@ -117,7 +117,7 @@ async def generate_monthly_billing_scheduled():
     from sqlalchemy import select, and_
     import calendar
 
-    from app.core.deps import get_sessionmaker
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
     from app.models.operations import AccountingClient, AccountReceivable
     from app.models.tenant import Tenant
 
@@ -138,6 +138,8 @@ async def generate_monthly_billing_scheduled():
             total_skipped = 0
 
             for tenant in tenants:
+                await _set_current_tenant_context(db, tenant.id)
+
                 # Find clients with monthly_fee > 0
                 stmt = select(AccountingClient).where(
                     and_(
@@ -154,6 +156,7 @@ async def generate_monthly_billing_scheduled():
                     existing = await db.execute(
                         select(AccountReceivable).where(
                             and_(
+                                AccountReceivable.tenant_id == tenant.id,
                                 AccountReceivable.client_id == client.id,
                                 AccountReceivable.description.like(
                                     f"Honorários - {year:04d}-{month:02d}%"

@@ -25,6 +25,7 @@ from app.models.obligation import (
 )
 from app.models.operations import AccountingClient
 from app.models.tenant import Tenant, SubscriptionStatus
+from app.core.deps import _set_current_tenant_context
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,8 @@ async def generate_obligations_for_month(
 
     for tenant in tenants:
         try:
+            await _set_current_tenant_context(db, tenant.id)
+
             # Get all active clients for this tenant
             clients_result = await db.execute(
                 select(AccountingClient).where(
@@ -173,7 +176,10 @@ async def generate_obligations_for_month(
                 # Fetch fiscal profile (may not exist yet)
                 profile_result = await db.execute(
                     select(ClientObligationProfile).where(
-                        ClientObligationProfile.client_id == client.id
+                        and_(
+                            ClientObligationProfile.tenant_id == tenant.id,
+                            ClientObligationProfile.client_id == client.id,
+                        )
                     )
                 )
                 profile = profile_result.scalar_one_or_none()
@@ -189,6 +195,7 @@ async def generate_obligations_for_month(
                     existing_result = await db.execute(
                         select(ObligationInstance).where(
                             and_(
+                                ObligationInstance.tenant_id == tenant.id,
                                 ObligationInstance.client_id == client.id,
                                 ObligationInstance.rule_id == rule.id,
                                 ObligationInstance.competence_month == competence_month,

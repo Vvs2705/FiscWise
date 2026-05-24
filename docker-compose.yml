@@ -5,13 +5,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: contaflow_api
+    container_name: fiscwise_api
     environment:
-      - DATABASE_URL=postgresql+asyncpg://contaflow:contaflow_dev_2026@postgres:5432/contaflow_db
-      - REDIS_URL=redis://:contaflow_redis_2026@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://fiscwise:fiscwise_dev_2026@postgres:5432/fiscwise_db
+      - REDIS_URL=redis://:fiscwise_redis_2026@redis:6379/0
       - DEBUG=True
       - ENVIRONMENT=development
-      - JWT_SECRET_KEY=contaflow_dev_secret_key_2026_do_not_use_in_production_generate_with_openssl_rand_hex_64
+      - JWT_SECRET_KEY=fiscwise_dev_secret_key_2026_do_not_use_in_production_generate_with_openssl_rand_hex_64
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - VOYAGE_API_KEY=${VOYAGE_API_KEY}
     ports:
@@ -24,35 +24,35 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - contaflow_network
+      - fiscwise_network
     restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: contaflow_postgres
+    container_name: fiscwise_postgres
     environment:
-      POSTGRES_USER: contaflow
-      POSTGRES_PASSWORD: contaflow_dev_2026
-      POSTGRES_DB: contaflow_db
+      POSTGRES_USER: fiscwise
+      POSTGRES_PASSWORD: fiscwise_dev_2026
+      POSTGRES_DB: fiscwise_db
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U contaflow -d contaflow_db"]
+      test: ["CMD-SHELL", "pg_isready -U fiscwise -d fiscwise_db"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - contaflow_network
+      - fiscwise_network
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: contaflow_redis
-    command: redis-server --appendonly yes --requirepass contaflow_redis_2026
+    container_name: fiscwise_redis
+    command: redis-server --appendonly yes --requirepass fiscwise_redis_2026
     ports:
       - "6379:6379"
     volumes:
@@ -63,7 +63,7 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - contaflow_network
+      - fiscwise_network
     restart: unless-stopped
 
 volumes:
@@ -73,5 +73,5 @@ volumes:
     driver: local
 
 networks:
-  contaflow_network:
+  fiscwise_network:
     driver: bridge

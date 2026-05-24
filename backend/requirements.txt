@@ -32,7 +32,7 @@ python-dotenv==1.0.1
 redis==5.1.1
 hiredis==3.0.0
 
-# Logging
+# Logging & Observability
 loguru==0.7.2
 sentry-sdk[fastapi]>=2.0.0
 

@@ -1,20 +1,25 @@
-"""Admin endpoints for operational tenant plan management."""
+"""Admin endpoints for FiscWise — plan management and tenant operations.
 
+NOTE: Emergency enum-fix endpoints (fix-enum-case, fix-enum-case-raw) were
+removed in cleanup sprint 24/05/2026 — the underlying enum bug was fully
+resolved by migration 20260520_fix_enum_case and those endpoints were dead
+code with unnecessary attack surface.
+"""
+
+import os
 import hmac
 import logging
-import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select as sa_select
 
 from app.core.deps import get_db
 from app.models.tenant import Tenant
-from app.models.user import User
-from app.services.audit import log_audit_event
+from app.models.user import User as UserModel
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -26,7 +31,6 @@ security = HTTPBearer(auto_error=False)
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request."""
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
@@ -35,52 +39,32 @@ def _get_client_ip(request: Request) -> str:
 
 async def verify_admin_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    request: Request = None,
+    request: Request = None
 ) -> str:
-    """Verify admin token from Authorization header with timing-safe comparison."""
     if not ADMIN_OPERATIONS_ALLOWED:
-        logger.error("Admin endpoint called but ADMIN_OPERATIONS_ALLOWED=false")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin operations are disabled",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin operations are disabled")
 
     if not credentials:
-        client_ip = _get_client_ip(request) if request else "unknown"
-        logger.warning("Admin endpoint called without Authorization header from %s", client_ip)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        logger.warning(f"Admin endpoint called without Authorization from {_get_client_ip(request) if request else 'unknown'}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Authorization header", headers={"WWW-Authenticate": "Bearer"})
 
     if not ADMIN_TOKEN:
-        logger.error("ADMIN_EMERGENCY_TOKEN environment variable not set")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Admin token not configured",
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Admin token not configured")
 
-    provided_token = credentials.credentials
-    if not hmac.compare_digest(provided_token, ADMIN_TOKEN):
-        client_ip = _get_client_ip(request) if request else "unknown"
-        logger.warning(
-            "Invalid admin token attempted from %s. Token length: %s, Expected length: %s",
-            client_ip,
-            len(provided_token),
-            len(ADMIN_TOKEN),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin token",
-        )
+    if not hmac.compare_digest(credentials.credentials, ADMIN_TOKEN):
+        logger.warning(f"Invalid admin token from {_get_client_ip(request) if request else 'unknown'}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin token")
 
-    return provided_token
+    return credentials.credentials
 
 
-class SetPlanRequest(BaseModel):
+# ---------------------------------------------------------------------------
+# Plan management
+# ---------------------------------------------------------------------------
+
+class SetPlanRequest(PydanticBaseModel):
     email: str
-    plan_slug: str
+    plan_slug: str  # "free" | "intermediario" | "premium"
 
 
 @router.post("/set-plan-by-email", summary="Admin: Update tenant plan by user email")
@@ -90,61 +74,30 @@ async def set_plan_by_email(
     token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Update the plan_slug of the tenant associated with the given email.
-
-    Requires: Authorization: Bearer <ADMIN_EMERGENCY_TOKEN> header.
-    Valid plan slugs: free, intermediario, premium.
-    """
-    valid_plans = {"free", "intermediario", "premium"}
-    if body.plan_slug not in valid_plans:
+    """Update the plan_slug of the tenant associated with the given email."""
+    VALID_PLANS = {"free", "intermediario", "premium"}
+    if body.plan_slug not in VALID_PLANS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(valid_plans)}",
+            detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(VALID_PLANS)}",
         )
 
-    user_result = await db.execute(select(User).where(User.email == body.email))
+    user_result = await db.execute(sa_select(UserModel).where(UserModel.email == body.email))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No user found with email '{body.email}'",
-        )
+        raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
 
-    tenant_result = await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+    tenant_result = await db.execute(sa_select(Tenant).where(Tenant.id == user.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No tenant found for user '{body.email}'",
-        )
+        raise HTTPException(status_code=404, detail=f"No tenant found for user '{body.email}'")
 
     old_plan = tenant.plan_slug
     tenant.plan_slug = body.plan_slug
     await db.commit()
     await db.refresh(tenant)
 
-    await log_audit_event(
-        db=db,
-        tenant_id=tenant.id,
-        actor_role="admin_token",
-        action="admin.set_plan",
-        entity_type="tenant",
-        entity_id=tenant.id,
-        before_data={"plan_slug": old_plan},
-        after_data={"plan_slug": tenant.plan_slug},
-        ip_address=_get_client_ip(request),
-        user_agent=request.headers.get("User-Agent") if request else None,
-    )
-
-    client_ip = _get_client_ip(request)
-    logger.info(
-        "[ADMIN] plan_slug updated for %s: %r -> %r from %s",
-        body.email,
-        old_plan,
-        body.plan_slug,
-        client_ip,
-    )
+    logger.info(f"[ADMIN] plan_slug updated for {body.email}: {old_plan!r} -> {body.plan_slug!r} from {_get_client_ip(request)}")
 
     return {
         "status": "updated",
@@ -162,22 +115,16 @@ async def get_tenant_by_email(
     token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """Fetch tenant info, including plan_slug, for a given user email."""
-    user_result = await db.execute(select(User).where(User.email == email))
+    """Fetch tenant info (including plan_slug) for a given user email."""
+    user_result = await db.execute(sa_select(UserModel).where(UserModel.email == email))
     user = user_result.scalar_one_or_none()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No user found with email '{email}'",
-        )
+        raise HTTPException(status_code=404, detail=f"No user found with email '{email}'")
 
-    tenant_result = await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+    tenant_result = await db.execute(sa_select(Tenant).where(Tenant.id == user.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No tenant found for user '{email}'",
-        )
+        raise HTTPException(status_code=404, detail=f"No tenant found for user '{email}'")
 
     return {
         "email": email,

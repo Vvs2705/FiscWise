@@ -39,7 +39,7 @@ export function PortalLoginPage() {
       // Store auth credentials in localStorage (same pattern as regular login)
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('tenant_id', tenant_id);
-      const portalUser = { id: '', email, full_name: null, phone: null, role: 'client' };
+      const portalUser = { id: '', email, full_name: '', phone: undefined, role: 'client' };
       localStorage.setItem('user', JSON.stringify(portalUser));
       login(portalUser);
 

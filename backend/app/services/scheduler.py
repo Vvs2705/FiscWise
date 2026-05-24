@@ -44,6 +44,15 @@ async def start_scheduler():
         replace_existing=True,
     )
 
+    # Schedule weekly document pending notifications — every Monday at 09:00 AM UTC
+    scheduler.add_job(
+        notify_pending_documents_scheduled,
+        CronTrigger(day_of_week="mon", hour=9, minute=0),
+        id="notify_pending_documents",
+        name="Weekly Pending Document Notifications",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started successfully")
@@ -73,6 +82,23 @@ async def generate_obligations_scheduled():
             )
     except Exception as e:
         logger.error(f"Error in scheduled obligation generation: {str(e)}")
+
+
+async def notify_pending_documents_scheduled():
+    """
+    Weekly scheduled task: send pending document notifications to clients.
+    Runs every Monday at 09:00 AM UTC.
+    """
+    from app.core.deps import get_sessionmaker
+    from app.services.notification_engine import notify_pending_documents_all_tenants
+
+    try:
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            summary = await notify_pending_documents_all_tenants(db)
+            logger.info("Weekly document notification job completed: %s", summary)
+    except Exception as exc:
+        logger.error("Error in weekly document notification job: %s", exc, exc_info=True)
 
 
 async def stop_scheduler():

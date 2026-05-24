@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications
 
 
 # Create main API router for v1
@@ -95,4 +95,10 @@ api_router.include_router(
     subscription.router,
     prefix="/subscription",
     tags=["Subscription"]
+)
+
+# Include Notification endpoints
+api_router.include_router(
+    notifications.router,
+    tags=["Notifications"]
 )

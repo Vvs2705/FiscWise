@@ -21,6 +21,11 @@ import {
   EyeOff,
   ChevronRight,
   Star,
+  Bell,
+  Send,
+  CheckCircle2,
+  XCircle,
+  SkipForward,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -37,6 +42,11 @@ import {
   type TenantData,
 } from '@/lib/auth';
 import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
+import {
+  useNotificationMessages,
+  useNotificationStats,
+  useTriggerPendingDocNotifications,
+} from '@/lib/hooks/useNotifications';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -98,11 +108,12 @@ const PLANS = [
 // ─── Tab config ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'perfil',     label: 'Perfil',        icon: User },
-  { id: 'escritorio', label: 'Escritório',     icon: Building2 },
-  { id: 'plano',      label: 'Plano',          icon: Sparkles },
-  { id: 'seguranca',  label: 'Segurança',      icon: ShieldCheck },
-  { id: 'pagamento',  label: 'Pagamento',      icon: CreditCard },
+  { id: 'perfil',         label: 'Perfil',          icon: User },
+  { id: 'escritorio',     label: 'Escritório',       icon: Building2 },
+  { id: 'plano',          label: 'Plano',            icon: Sparkles },
+  { id: 'seguranca',      label: 'Segurança',        icon: ShieldCheck },
+  { id: 'pagamento',      label: 'Pagamento',        icon: CreditCard },
+  { id: 'notificacoes',   label: 'Notificações',     icon: Bell },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -175,6 +186,7 @@ export function SettingsPage() {
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
         {activeTab === 'pagamento' && <PagamentoTab currentPlan={currentPlan} />}
+        {activeTab === 'notificacoes' && <NotificacoesTab />}
       </div>
     </div>
   );
@@ -777,6 +789,148 @@ function PagamentoTab({ currentPlan }: { currentPlan: (typeof PLANS)[number] }) 
           faturamento@vstack-solutions.com.br
         </a>
       </p>
+    </div>
+  );
+}
+
+// ─── Notificações tab ─────────────────────────────────────────────────────────
+
+function statusIcon(status: string) {
+  if (status === 'sent' || status === 'delivered') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
+  if (status === 'failed') return <XCircle className="h-3.5 w-3.5 text-red-500" />;
+  if (status === 'skipped') return <SkipForward className="h-3.5 w-3.5 text-amber-500" />;
+  return <Send className="h-3.5 w-3.5 text-muted-foreground" />;
+}
+
+function statusLabel(status: string) {
+  if (status === 'sent') return 'Enviado';
+  if (status === 'delivered') return 'Entregue';
+  if (status === 'failed') return 'Falha';
+  if (status === 'skipped') return 'Ignorado';
+  return 'Pendente';
+}
+
+function NotificacoesTab() {
+  const { data: stats, isLoading: loadingStats } = useNotificationStats();
+  const { data: messages, isLoading: loadingMessages } = useNotificationMessages(30);
+  const trigger = useTriggerPendingDocNotifications();
+  const [result, setResult] = useState<null | { sent: number; skipped: number; failed: number; clients_notified: number; competence_month: string }>(null);
+
+  async function handleTrigger() {
+    try {
+      const res = await trigger.mutateAsync(undefined);
+      setResult(res);
+      toast.success(`Notificações disparadas — ${res.clients_notified} cliente(s) processados`);
+    } catch {
+      toast.error('Não foi possível disparar as notificações. Tente novamente.');
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Estatísticas (últimos 30 dias)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingStats ? (
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: 'Enviados', value: stats?.sent ?? 0, color: 'text-emerald-600 dark:text-emerald-400' },
+                { label: 'Ignorados', value: stats?.skipped ?? 0, color: 'text-amber-600 dark:text-amber-400' },
+                { label: 'Falhas', value: stats?.failed ?? 0, color: 'text-red-600 dark:text-red-400' },
+                { label: 'Total', value: stats?.total ?? 0, color: 'text-foreground' },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border p-3 text-center">
+                  <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Manual trigger */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Disparar notificação manual</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Envia e-mails de cobrança de documentos pendentes para todos os clientes do mês atual.
+            O sistema dispara automaticamente toda segunda-feira às 09h.
+          </p>
+
+          {result && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
+              <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                Resultado: {result.clients_notified} cliente(s) processados
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Enviados: {result.sent} · Ignorados: {result.skipped} · Falhas: {result.failed}
+              </p>
+              {result.sent === 0 && result.skipped > 0 && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Mensagens registradas como "ignoradas" — configure EMAIL_PROVIDER no servidor para envio real.
+                </p>
+              )}
+            </div>
+          )}
+
+          <Button
+            onClick={handleTrigger}
+            disabled={trigger.isPending}
+            className="gap-2"
+          >
+            <Send className="h-4 w-4" />
+            {trigger.isPending ? 'Disparando...' : 'Disparar agora'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Recent messages */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mensagens recentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingMessages ? (
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          ) : !messages || messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Bell className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-muted-foreground">Nenhuma notificação enviada ainda</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use o botão acima ou aguarde o disparo automático de segunda-feira.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {messages.map((msg) => (
+                <div key={msg.id} className="flex items-start gap-3 py-3">
+                  <div className="mt-0.5 shrink-0">{statusIcon(msg.status)}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{msg.recipient}</p>
+                    {msg.subject && (
+                      <p className="truncate text-xs text-muted-foreground">{msg.subject}</p>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="text-xs text-muted-foreground">{statusLabel(msg.status)}</span>
+                    <p className="text-[10px] text-muted-foreground/60">
+                      {new Date(msg.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

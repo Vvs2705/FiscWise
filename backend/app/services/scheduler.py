@@ -53,6 +53,15 @@ async def start_scheduler():
         replace_existing=True,
     )
 
+    # Limpa entradas expiradas do rate limiter a cada hora (evita memory leak)
+    scheduler.add_job(
+        cleanup_auth_rate_limiter,
+        CronTrigger(minute=0),  # todo hora cheia
+        id="cleanup_auth_rate_limiter",
+        name="Auth Rate Limiter Cleanup",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started successfully")
@@ -107,6 +116,17 @@ async def stop_scheduler():
     if scheduler and scheduler.running:
         scheduler.shutdown()
         logger.info("Scheduler stopped")
+
+
+async def cleanup_auth_rate_limiter():
+    """
+    Remove entradas expiradas do rate limiter de autenticação.
+    Roda a cada hora para evitar memory leak em deploys long-running.
+    """
+    from app.core.auth_rate_limiter import auth_rate_limiter
+    removed = auth_rate_limiter.cleanup_expired()
+    if removed:
+        logger.info("Auth rate limiter cleanup: %d entradas removidas", removed)
 
 
 async def generate_monthly_billing_scheduled():

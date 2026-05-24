@@ -42,6 +42,7 @@ from app.core.security import (
     verify_mfa_token,
     get_password_hash,
 )
+from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
@@ -151,14 +152,19 @@ async def login(
     """
     OAuth2 compatible token login endpoint.
 
-    If 2FA is enabled for the user, returns a MfaChallengeResponse with a
-    short-lived mfa_token instead of the full access token. The frontend must
-    call /auth/login/verify-2fa to complete authentication.
+    Rate limited: max 10 tentativas por IP a cada 15 minutos.
+    Se 2FA ativo, retorna MfaChallengeResponse em vez do JWT definitivo.
     """
+    client_ip = get_client_ip(request)
+
+    # ── Rate limit check (IP) ───────────────────────────────────────────
+    auth_rate_limiter.check_login_ip(client_ip)
     result = await db.execute(select(User).where(User.email == form_data.username))
     users = result.scalars().all()
 
     if len(users) != 1:
+        # Conta falha mesmo para emails inexistentes (evita user enumeration)
+        auth_rate_limiter.record_login_failure(client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
@@ -168,6 +174,7 @@ async def login(
     user = users[0]
 
     if not verify_password(form_data.password, user.hashed_password):
+        auth_rate_limiter.record_login_failure(client_ip)
         await log_audit_event(
             db=db,
             tenant_id=user.tenant_id,
@@ -175,7 +182,7 @@ async def login(
             actor_role=user.role.value,
             action="auth.login_failed",
             entity_type="auth",
-            ip_address=request.client.host if request and request.client else None,
+            ip_address=client_ip,
             user_agent=request.headers.get("User-Agent") if request else None,
         )
         raise HTTPException(
@@ -213,7 +220,9 @@ async def login(
             ),
         )
 
-    # ── Normal login ──────────────────────────────────────────────────────────
+    # ── Normal login ───────────────────────────────────────────
+    # Login bem-sucedido — reseta contador de falhas
+    auth_rate_limiter.record_login_success(client_ip)
     await log_audit_event(
         db=db,
         tenant_id=user.tenant_id,
@@ -221,7 +230,7 @@ async def login(
         actor_role=user.role.value,
         action="auth.login_success",
         entity_type="auth",
-        ip_address=request.client.host if request and request.client else None,
+        ip_address=client_ip,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
     return _build_auth_response(user, str(user.tenant_id))
@@ -236,10 +245,10 @@ async def verify_2fa(
     db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """
-    Second step of 2FA login flow.
+    Segundo passo do fluxo de login 2FA.
 
-    Receives the short-lived mfa_token (from /login) and the OTP code.
-    Returns a full AuthResponse with the permanent access token on success.
+    Rate limited: max 5 tentativas por user_id a cada 15 minutos.
+    Após 5 falhas o user_id é bloqueado por 15 minutos.
     """
     user_id = verify_mfa_token(body.mfa_token)
     if not user_id:
@@ -247,6 +256,9 @@ async def verify_2fa(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token de desafio 2FA inválido ou expirado. Faça login novamente.",
         )
+
+    # ── Rate limit check (user_id) ───────────────────────────────────
+    auth_rate_limiter.check_otp_user(user_id)
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -263,19 +275,32 @@ async def verify_2fa(
             raise HTTPException(status_code=400, detail="2FA TOTP não configurado corretamente")
         totp = pyotp.TOTP(secret)
         if not totp.verify(otp_code, valid_window=1):
+            auth_rate_limiter.record_otp_failure(user_id)
+            remaining = auth_rate_limiter.get_otp_remaining_attempts(user_id)
+            detail = "Código inválido. Verifique o app autenticador e tente novamente."
+            if remaining > 0:
+                detail += f" ({remaining} tentativa(s) restante(s) antes do bloqueio)"
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Código inválido. Verifique o app autenticador e tente novamente.",
+                detail=detail,
             )
 
     elif method == "email":
         if not _verify_email_otp(user_id, otp_code):
+            auth_rate_limiter.record_otp_failure(user_id)
+            remaining = auth_rate_limiter.get_otp_remaining_attempts(user_id)
+            detail = "Código inválido ou expirado. Solicite um novo código."
+            if remaining > 0:
+                detail += f" ({remaining} tentativa(s) restante(s) antes do bloqueio)"
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Código inválido ou expirado. Solicite um novo código.",
+                detail=detail,
             )
     else:
         raise HTTPException(status_code=400, detail="Método 2FA desconhecido")
+
+    # OTP válido — reseta contador
+    auth_rate_limiter.record_otp_success(user_id)
 
     await log_audit_event(
         db=db,

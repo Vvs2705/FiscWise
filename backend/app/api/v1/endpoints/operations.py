@@ -678,7 +678,7 @@ async def get_client_ai_summary(
 @router.post("/clients", response_model=AccountingClientResponse, status_code=status.HTTP_201_CREATED)
 async def create_client(
     payload: AccountingClientCreate,
-    request: Request = None,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -763,7 +763,7 @@ async def create_client(
 async def update_client(
     client_id: uuid.UUID,
     payload: AccountingClientUpdate,
-    request: Request = None,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -791,7 +791,7 @@ async def update_client(
 @router.delete("/clients/{client_id}", response_model=AccountingClientResponse)
 async def deactivate_client(
     client_id: uuid.UUID,
-    request: Request = None,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -926,7 +926,7 @@ async def update_document(
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: uuid.UUID,
-    request: Request = None,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1380,9 +1380,9 @@ async def get_inadimplencia_report(
 @router.post("/clients/{client_id}/documents")
 async def upload_client_document(
     client_id: uuid.UUID,
+    request: Request,
     file: UploadFile = File(...),
     document_type: str = Query(..., max_length=80, description="Tipo: contract, secret_sheet, certificate, etc"),
-    request: Request = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     background_tasks: BackgroundTasks = BackgroundTasks(),

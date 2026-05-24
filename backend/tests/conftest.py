@@ -7,6 +7,16 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+
+@compiles(ARRAY, "sqlite")
+def compile_array_sqlite(element, compiler, **kw):
+    return "TEXT"
+
+@compiles(JSONB, "sqlite")
+def compile_jsonb_sqlite(element, compiler, **kw):
+    return "JSON"
 
 # Optional imports (only needed for integration tests, not unit tests)
 try:

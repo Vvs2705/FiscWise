@@ -331,7 +331,7 @@ def _hash_token(raw_token: str) -> str:
 @router.post("/magic-link/request", summary="Request magic link for portal login")
 async def request_magic_link(
     body: MagicLinkRequestSchema,
-    request: Request = None,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -421,7 +421,7 @@ async def request_magic_link(
 @router.post("/magic-link/verify", summary="Verify magic link token and get JWT")
 async def verify_magic_link(
     body: MagicLinkVerifySchema,
-    request: Request = None,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """

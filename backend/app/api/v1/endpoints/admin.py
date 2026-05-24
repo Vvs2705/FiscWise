@@ -38,8 +38,8 @@ def _get_client_ip(request: Request) -> str:
 
 
 async def verify_admin_token(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    request: Request = None
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> str:
     if not ADMIN_OPERATIONS_ALLOWED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin operations are disabled")

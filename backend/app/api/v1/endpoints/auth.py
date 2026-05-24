@@ -33,8 +33,8 @@ router = APIRouter()
 
 @router.post("/login", response_model=AuthResponse, summary="User Login")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    request: Request = None,
     db: AsyncSession = Depends(get_db)
 ) -> AuthResponse:
     """
@@ -148,7 +148,7 @@ class GoogleAuthRequest(BaseModel):
 @router.post("/google", response_model=AuthResponse, summary="Google OAuth Login / Register")
 async def google_auth(
     body: GoogleAuthRequest,
-    request: Request = None,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> AuthResponse:
     """

@@ -25,7 +25,8 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/redoc",
     "/openapi.json",
     "/api/v1/onboarding",
-    "/api/v1/portal/invites", # Public client portal invitation flows
+    "/api/v1/portal/invites",       # Public client portal invitation flows
+    "/api/v1/portal/magic-link",    # Magic link request/verify (public)
 }
 
 _EXCLUDED_EXACT_PATHS: Set[str] = {

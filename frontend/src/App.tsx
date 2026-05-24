@@ -24,6 +24,7 @@ const SettingsPage    = lazy(() => import('@/pages/SettingsPage').then(m => ({ d
 const CalculatorPage  = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
 const DasMensalPage   = lazy(() => import('@/pages/DasMensalPage').then(m => ({ default: m.DasMensalPage })));
 const ObrigacoesPage  = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
+const PortalLoginPage = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -87,6 +88,7 @@ function App() {
             <Routes>
               <Route path="/login"    element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/portal/login" element={<PortalLoginPage />} />
 
               <Route
                 path="/"

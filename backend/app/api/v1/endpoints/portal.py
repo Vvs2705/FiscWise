@@ -1,23 +1,32 @@
 """Client Portal Endpoints for FiscWise
 
-Handles client portal invitations and access management.
+Handles client portal invitations, magic link authentication, and client data.
 """
 
+import hashlib
+import logging
+import os
+import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user
+from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
 from app.core.security import create_access_token
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["Client Portal"])
+
+# Frontend portal URL — override via PORTAL_URL env var in production
+_PORTAL_URL = os.getenv("PORTAL_URL", "https://fiscwise.com.br/portal")
 
 
 class InviteClientRequest(BaseModel):
@@ -297,4 +306,186 @@ async def get_my_data(
         "email": client.email,
         "phone": client.phone,
         "status": client.status
+    }
+
+
+# ---------------------------------------------------------------------------
+# Magic Link Authentication
+# ---------------------------------------------------------------------------
+
+class MagicLinkRequestSchema(BaseModel):
+    """Request a magic link for a client portal user."""
+    email: EmailStr
+
+
+class MagicLinkVerifySchema(BaseModel):
+    """Verify a magic link token."""
+    token: str
+
+
+def _hash_token(raw_token: str) -> str:
+    """SHA-256 hash of the raw token for safe storage."""
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+@router.post("/magic-link/request", summary="Request magic link for portal login")
+async def request_magic_link(
+    body: MagicLinkRequestSchema,
+    request: Request = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate a one-time magic link for a client portal user.
+
+    The office staff calls this endpoint to send a login link to a client.
+    The link is valid for 24 hours and can only be used once.
+
+    NOTE: In production, the link should be emailed to the client.
+    Currently returns the link in the response for integration/testing.
+    When an email provider (Resend/SendGrid) is configured, the link will
+    be sent automatically and the response will only confirm the request.
+    """
+    if current_user.role.value not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can issue magic links",
+        )
+
+    # Find the CLIENT user with this email in this tenant
+    user_result = await db.execute(
+        select(User).where(
+            and_(
+                User.email == body.email,
+                User.tenant_id == current_user.tenant_id,
+                User.role == UserRole.CLIENT,
+                User.is_active == True,
+            )
+        )
+    )
+    client_user = user_result.scalar_one_or_none()
+    if not client_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active client portal user found with email '{body.email}'",
+        )
+
+    # Generate a cryptographically secure token (32 bytes = 64 hex chars)
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = _hash_token(raw_token)
+
+    # Invalidate any existing unused tokens for this user
+    existing_result = await db.execute(
+        select(PortalMagicToken).where(
+            and_(
+                PortalMagicToken.user_id == client_user.id,
+                PortalMagicToken.used == False,
+            )
+        )
+    )
+    for old_token in existing_result.scalars().all():
+        old_token.used = True
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    ip = request.client.host if request and request.client else None
+
+    magic_token = PortalMagicToken(
+        tenant_id=current_user.tenant_id,
+        user_id=client_user.id,
+        token_hash=token_hash,
+        email=body.email,
+        expires_at=expires_at,
+        ip_address=ip,
+    )
+    db.add(magic_token)
+    await db.commit()
+
+    portal_link = f"{_PORTAL_URL}/login?token={raw_token}"
+
+    logger.info(
+        "Magic link issued for client user %s by %s (tenant %s)",
+        body.email, current_user.email, current_user.tenant_id
+    )
+
+    # TODO: when email provider is configured, send portal_link to body.email
+    # For now, return it in the response so integrators can use it directly.
+    return {
+        "status": "issued",
+        "email": body.email,
+        "expires_at": expires_at.isoformat(),
+        "portal_link": portal_link,
+        "note": "In production, this link will be sent via email. Store it securely.",
+    }
+
+
+@router.post("/magic-link/verify", summary="Verify magic link token and get JWT")
+async def verify_magic_link(
+    body: MagicLinkVerifySchema,
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Exchange a magic link token for a JWT access token.
+
+    This is a public endpoint (no auth required).
+    The client receives this token via the link emailed by their accounting office.
+    """
+    token_hash = _hash_token(body.token)
+
+    result = await db.execute(
+        select(PortalMagicToken).where(PortalMagicToken.token_hash == token_hash)
+    )
+    magic = result.scalar_one_or_none()
+
+    if not magic:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido ou expirado",
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if magic.used:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Este link já foi utilizado. Solicite um novo link ao seu escritório.",
+        )
+
+    if now > magic.expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Link expirado. Solicite um novo link ao seu escritório.",
+        )
+
+    # Fetch the associated user
+    user_result = await db.execute(select(User).where(User.id == magic.user_id))
+    user = user_result.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Conta de portal inativa. Entre em contato com o escritório.",
+        )
+
+    # Mark token as used
+    magic.used = True
+    magic.used_at = now
+    await db.commit()
+
+    access_token = create_access_token(
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        role=user.role.value,
+    )
+
+    logger.info(
+        "Magic link verified and JWT issued for client user %s (tenant %s)",
+        user.email, user.tenant_id,
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "email": user.email,
+        "tenant_id": str(user.tenant_id),
     }

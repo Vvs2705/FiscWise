@@ -23,6 +23,7 @@ from app.models.obligation import (
     DocumentChecklistItem,
 )
 from app.models.plan import Plan
+from app.models.portal import PortalMagicToken
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "ObligationInstance",
     "DocumentChecklistItem",
     "Plan",
+    "PortalMagicToken",
 ]

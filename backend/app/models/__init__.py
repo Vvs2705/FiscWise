@@ -22,6 +22,7 @@ from app.models.obligation import (
     ObligationInstance,
     DocumentChecklistItem,
 )
+from app.models.plan import Plan
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -41,4 +42,5 @@ __all__ = [
     "ClientObligationProfile",
     "ObligationInstance",
     "DocumentChecklistItem",
+    "Plan",
 ]

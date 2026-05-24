@@ -36,6 +36,7 @@ import {
   changePassword,
   type TenantData,
 } from '@/lib/auth';
+import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -72,25 +73,25 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 const PLANS = [
   {
     slug: 'free',
-    label: 'Free',
+    label: 'Gratuito',
     price: 'Grátis',
     color: 'text-muted-foreground',
-    features: ['Até 5 clientes', '1 usuário', 'Documentos básicos', 'Suporte por e-mail'],
+    features: ['Até 10 clientes', '2 usuários', 'Calculadora fiscal', 'Documentos e prazos', 'Suporte por e-mail'],
   },
   {
-    slug: 'starter',
-    label: 'Starter',
-    price: 'R$ 49/mês',
+    slug: 'intermediario',
+    label: 'Intermediário',
+    price: 'R$ 149/mês',
     color: 'text-primary',
     popular: true,
-    features: ['Até 50 clientes', '3 usuários', 'Todos os documentos', 'Agenda e prazos', 'Suporte prioritário'],
+    features: ['Até 80 clientes', '5 usuários', 'IA Fiscal (20 msgs/mês)', 'Motor de obrigações', 'Portal do cliente', 'Suporte prioritário'],
   },
   {
-    slug: 'pro',
-    label: 'Pro',
-    price: 'R$ 149/mês',
+    slug: 'premium',
+    label: 'Premium',
+    price: 'R$ 299/mês',
     color: 'text-amber-500',
-    features: ['Clientes ilimitados', '10 usuários', 'Tudo do Starter', 'Relatórios avançados', 'API access', 'Suporte dedicado'],
+    features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
   },
 ];
 
@@ -401,6 +402,29 @@ function TenantTab({
 
 // ─── Plano tab ────────────────────────────────────────────────────────────────
 
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  const pct = limit ? Math.min((used / limit) * 100, 100) : 0;
+  const isNearLimit = limit && pct >= 80;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={isNearLimit ? 'font-semibold text-amber-500' : 'text-muted-foreground'}>
+          {used} / {limit === null ? '∞' : limit}
+        </span>
+      </div>
+      {limit !== null && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-primary'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanoTab({
   currentPlan,
   tenant,
@@ -411,6 +435,7 @@ function PlanoTab({
   onPlanChange: (slug: string) => void;
 }) {
   const [changing, setChanging] = useState<string | null>(null);
+  const { data: usage } = useSubscriptionUsage();
 
   async function handleChangePlan(slug: string) {
     if (slug === currentPlan.slug) return;
@@ -451,6 +476,22 @@ function PlanoTab({
           </div>
         </CardContent>
       </Card>
+
+      {/* Usage metrics */}
+      {usage && (
+        <Card className="border-border/60 bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">Uso do plano este mês</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <UsageBar label="Clientes ativos" used={usage.clients.used} limit={usage.clients.limit} />
+            <UsageBar label="Usuários" used={usage.users.used} limit={usage.users.limit} />
+            {usage.ai_calls_this_month.limit !== 0 && (
+              <UsageBar label="Mensagens IA" used={usage.ai_calls_this_month.used} limit={usage.ai_calls_this_month.limit} />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* All plans */}
       <div className="grid gap-4 md:grid-cols-3">

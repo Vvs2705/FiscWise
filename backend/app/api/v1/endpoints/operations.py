@@ -359,6 +359,45 @@ async def create_client(
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
+
+    # ── Plan limit enforcement ────────────────────────────────────────────────
+    try:
+        from app.core.plan_access import resolve_plan
+        from app.models.plan import Plan
+        from app.models.tenant import Tenant
+
+        tenant_row = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant_obj = tenant_row.scalar_one_or_none()
+        effective_slug = resolve_plan(
+            tenant_obj.plan_slug if tenant_obj else None, current_user.email
+        ) or "free"
+
+        plan_row = await db.execute(select(Plan).where(Plan.slug == effective_slug))
+        plan_obj = plan_row.scalar_one_or_none()
+
+        if plan_obj and plan_obj.max_clients is not None:
+            count_result = await db.execute(
+                select(func.count()).select_from(AccountingClient).where(
+                    AccountingClient.tenant_id == tenant_id,
+                    AccountingClient.status == "active",
+                )
+            )
+            current_count = int(count_result.scalar_one() or 0)
+            if current_count >= plan_obj.max_clients:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        f"Limite de clientes atingido para o plano {plan_obj.name} "
+                        f"({plan_obj.max_clients} clientes ativos). "
+                        f"Faça upgrade em fiscwise.com.br/planos."
+                    ),
+                )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Plan limit check failed (non-fatal): %s", exc)
+    # ─────────────────────────────────────────────────────────────────────────
+
     if payload.document:
         existing = await db.execute(
             select(AccountingClient).where(

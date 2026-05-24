@@ -5,7 +5,7 @@ import * as Sentry from '@sentry/react'
 import App from './App.tsx'
 import './index.css'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '123456-dummy.apps.googleusercontent.com'
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN ?? ''
 
 if (SENTRY_DSN) {

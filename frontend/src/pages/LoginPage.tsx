@@ -116,23 +116,25 @@ export function LoginPage() {
           </div>
 
           {/* Google login */}
-          <div
-            className={cn(
-              'animate-fade-in-up animation-delay-150',
-              isLoading && 'pointer-events-none opacity-60',
-            )}
-          >
-            <GoogleLogin
-              onSuccess={(res) => {
-                if (res.credential) loginWithGoogle(res.credential);
-              }}
-              onError={() => {}}
-              width="100%"
-              text="signin_with"
-              shape="rectangular"
-              logo_alignment="left"
-            />
-          </div>
+          {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+            <div
+              className={cn(
+                'animate-fade-in-up animation-delay-150',
+                isLoading && 'pointer-events-none opacity-60',
+              )}
+            >
+              <GoogleLogin
+                onSuccess={(res) => {
+                  if (res.credential) loginWithGoogle(res.credential);
+                }}
+                onError={() => {}}
+                width="100%"
+                text="signin_with"
+                shape="rectangular"
+                logo_alignment="left"
+              />
+            </div>
+          )}
 
           {/* Divider */}
           <div className="animate-fade-in-up animation-delay-150 relative flex items-center gap-3">

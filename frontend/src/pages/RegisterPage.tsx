@@ -296,22 +296,24 @@ export function RegisterPage() {
           {step === 2 && (
             <div className="space-y-5 animation-delay-75 animate-fade-in-up">
               {/* Google shortcut */}
-              <div className="space-y-3">
-                <div className="flex justify-center">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => {}}
-                    text="signup_with"
-                    shape="pill"
-                    width="100%"
-                  />
+              {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                <div className="space-y-3">
+                  <div className="flex justify-center">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => {}}
+                      text="signup_with"
+                      shape="pill"
+                      width="100%"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-muted-foreground">ou preencha abaixo</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">ou preencha abaixo</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-              </div>
+              )}
 
               <form onSubmit={form2.handleSubmit(handleStep2)} className="space-y-4" noValidate>
                 <FormField label="Nome completo" htmlFor="owner_full_name" error={form2.formState.errors.owner_full_name?.message} required>

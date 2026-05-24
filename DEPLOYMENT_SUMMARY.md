@@ -10,7 +10,7 @@
 
 ### Backend (Fly.io)
 ✅ **OPERACIONAL**
-- URL: https://contaflow.fly.dev/api/v1
+- URL: https://fiscwise.fly.dev/api/v1
 - Health: ✅ 200 OK
 - Database: ✅ PostgreSQL Connected
 - Migrations: ✅ 27 Executadas
@@ -50,7 +50,7 @@
 
 ### Variáveis de Ambiente
 ```env
-NEXT_PUBLIC_API_URL=https://contaflow.fly.dev/api/v1
+NEXT_PUBLIC_API_URL=https://fiscwise.fly.dev/api/v1
 OPENAI_API_KEY=sk-proj-**** (configurada em .env.local)
 NEXT_PUBLIC_APP_NAME=FiscWise
 NEXT_PUBLIC_APP_VERSION=1.0.0
@@ -97,8 +97,8 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 
 ```
 Frontend: https://vstack-site.vercel.app
-Backend API: https://contaflow.fly.dev/api/v1
-Health: https://contaflow.fly.dev/api/v1/health
+Backend API: https://fiscwise.fly.dev/api/v1
+Health: https://fiscwise.fly.dev/api/v1/health
 ```
 
 ---

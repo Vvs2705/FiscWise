@@ -13,7 +13,7 @@
 - [ ] Testes locais passando: `npm run test` ou `npm run dev`
 - [ ] Build local funciona: `npm run build`
 - [ ] Variáveis de ambiente configuradas localmente
-- [ ] Backend em Fly.io online e respondendo (`https://contaflow.fly.dev/api/v1/health`)
+- [ ] Backend em Fly.io online e respondendo (`https://fiscwise.fly.dev/api/v1/health`)
 
 ---
 
@@ -37,7 +37,7 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 #### Vercel (Project Settings → Environment Variables)
 ```env
 # API Backend (PRODUÇÃO)
-NEXT_PUBLIC_API_URL=https://contaflow.fly.dev/api/v1
+NEXT_PUBLIC_API_URL=https://fiscwise.fly.dev/api/v1
 
 # OpenAI (PRODUÇÃO - precisa ser gerada/validada)
 OPENAI_API_KEY=sk-...
@@ -70,7 +70,7 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 - [ ] Verificar imports corretos (sem hardcoded URLs)
 - [ ] Verificar variáveis de ambiente:
   ```bash
-  grep -r "localhost:8000\|contaflow.fly.dev" src/
+  grep -r "localhost:8000\|fiscwise.fly.dev" src/
   # Devem estar em .env.local, não no código
   ```
 - [ ] Verificar que não há secrets em commits:
@@ -212,8 +212,8 @@ PREMIUM Plan:
 **Causa**: NEXT_PUBLIC_API_URL incorreta ou backend offline
 **Solução**:
 1. Verificar `NEXT_PUBLIC_API_URL` em Vercel settings
-2. Testar manualmente: `curl https://contaflow.fly.dev/api/v1/health`
-3. Se offline, fazer restart: `flyctl machines restart -a contaflow`
+2. Testar manualmente: `curl https://fiscwise.fly.dev/api/v1/health`
+3. Se offline, fazer restart: `flyctl machines restart -a fiscwise`
 
 ### Erro: "OpenAI API Error"
 **Causa**: API key inválida, expirada ou sem saldo
@@ -235,13 +235,13 @@ PREMIUM Plan:
 **Solução**:
 1. Verificar CORS config em `backend/app/main.py`
 2. Adicionar domínio Vercel à lista de `allow_origins`
-3. Fazer rebuild backend: `flyctl deploy -a contaflow`
+3. Fazer rebuild backend: `flyctl deploy -a fiscwise`
 
 ### Lentidão (> 5s para simulação)
 **Causa**: Rede lenta ou backend sobrecarregado
 **Solução**:
-1. Testar direto a API: `curl https://contaflow.fly.dev/api/v1/health`
-2. Verificar Fly.io logs: `flyctl logs -a contaflow`
+1. Testar direto a API: `curl https://fiscwise.fly.dev/api/v1/health`
+2. Verificar Fly.io logs: `flyctl logs -a fiscwise`
 3. Se muita carga, escalar máquina Fly.io
 4. Implementar cache local no frontend
 

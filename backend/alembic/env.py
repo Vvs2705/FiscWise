@@ -86,7 +86,7 @@ def get_url():
     """
     database_url = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://contaflow:contaflow_dev_2026@localhost:5432/contaflow_db"
+        "postgresql+asyncpg://fiscwise:fiscwise_dev_2026@localhost:5432/fiscwise_db"
     )
     logger.info(f"DATABASE_URL loaded from environment: {database_url[:50]}...")
     try:

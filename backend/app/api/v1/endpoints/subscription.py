@@ -5,6 +5,7 @@ GET /api/v1/subscription/plans  — list available plans (public)
 """
 
 import logging
+import uuid
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +29,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 class PlanOut(BaseModel):
+    id: uuid.UUID
     slug: str
     name: str
     description: Optional[str]

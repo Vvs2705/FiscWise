@@ -10,7 +10,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  BACKEND (Fly.io) ✅ OPERACIONAL                    │
-│  ├─ API: https://contaflow.fly.dev/api/v1          │
+│  ├─ API: https://fiscwise.fly.dev/api/v1          │
 │  ├─ Health: ✅ 200 OK                              │
 │  ├─ Database: ✅ PostgreSQL Connected              │
 │  ├─ Migrations: ✅ 27 executadas                   │
@@ -82,9 +82,9 @@ vercel deploy --prod
 
 **⚠️ ANTES DE DEPLOYR**:
 - [ ] OpenAI API key está em `.env.local`?
-- [ ] `NEXT_PUBLIC_API_URL=https://contaflow.fly.dev/api/v1` está configurada?
+- [ ] `NEXT_PUBLIC_API_URL=https://fiscwise.fly.dev/api/v1` está configurada?
 - [ ] Build local passa sem erros?
-- [ ] Backend está online? (`curl https://contaflow.fly.dev/api/v1/health`)
+- [ ] Backend está online? (`curl https://fiscwise.fly.dev/api/v1/health`)
 
 ---
 
@@ -134,7 +134,7 @@ Após deploy, monitorar estes valores:
 
 | Erro | Causa Provável | Solução |
 |------|---|---|
-| "Failed to fetch" | Backend offline | `flyctl machines restart -a contaflow` |
+| "Failed to fetch" | Backend offline | `flyctl machines restart -a fiscwise` |
 | "OpenAI Error" | API key inválida | Gerar nova key em OpenAI dashboard |
 | "Build failed" | Dependências | `npm install && npm run build` |
 | "CORS error" | Configuração backend | Adicionar domínio Vercel ao CORS do backend |
@@ -145,10 +145,10 @@ Após deploy, monitorar estes valores:
 
 ```
 Backend (Fly.io):
-- API Base: https://contaflow.fly.dev/api/v1
-- Health: https://contaflow.fly.dev/api/v1/health
-- Monitoring: https://fly.io/apps/contaflow/monitoring
-- Logs: flyctl logs -a contaflow
+- API Base: https://fiscwise.fly.dev/api/v1
+- Health: https://fiscwise.fly.dev/api/v1/health
+- Monitoring: https://fly.io/apps/fiscwise/monitoring
+- Logs: flyctl logs -a fiscwise
 
 Frontend (Vercel - post-deploy):
 - App: https://vstack-site-xxx.vercel.app

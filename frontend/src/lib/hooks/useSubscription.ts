@@ -17,6 +17,7 @@ export interface SubscriptionUsage {
 }
 
 export interface Plan {
+  id: string;
   slug: string;
   name: string;
   description: string | null;

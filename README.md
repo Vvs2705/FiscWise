@@ -8,9 +8,9 @@
 | Serviço | URL |
 |---------|-----|
 | Frontend | https://frontend-orcin-one-22.vercel.app |
-| Backend API | https://contaflow.fly.dev |
-| API Docs | https://contaflow.fly.dev/docs |
-| Monitoramento Fly.io | https://fly.io/apps/contaflow/monitoring |
+| Backend API | https://fiscwise.fly.dev |
+| API Docs | https://fiscwise.fly.dev/docs |
+| Monitoramento Fly.io | https://fly.io/apps/fiscwise/monitoring |
 
 ---
 
@@ -24,7 +24,7 @@
 - **JWT (python-jose)** + **bcrypt** — Autenticação e senhas
 - **Pydantic v2** — Validação e DTOs
 - **Docker** — Containerização
-- **Fly.io** — Plataforma de deploy (app ID: `contaflow`)
+- **Fly.io** — Plataforma de deploy (app ID: `fiscwise`)
 
 ### Frontend
 - **React 18** + **TypeScript 5.5** — UI

@@ -8,7 +8,7 @@
 
 | Componente | Status | URL/Info |
 |-----------|--------|----------|
-| **Backend API** | ✅ PRODUÇÃO | https://contaflow.fly.dev |
+| **Backend API** | ✅ PRODUÇÃO | https://fiscwise.fly.dev |
 | **Health Check** | ✅ 200 OK | `/api/v1/health` |
 | **Database** | ✅ CONECTADO | PostgreSQL (Fly.io) |
 | **Migrations** | ✅ EXECUTADAS | Alembic sync com BD |
@@ -25,15 +25,15 @@
 
 #### Aplicação Ativa
 ```
-App: contaflow (Fly.io)
+App: fiscwise (Fly.io)
 Machine: d8d1340c164d28 (região: gru)
 Status: STARTED ✅
-Image: contaflow:deployment-01KS9K3Z9741QFMC9CKJM1P51Y
+Image: fiscwise:deployment-01KS9K3Z9741QFMC9CKJM1P51Y
 ```
 
 #### Verificação de Saúde
 ```bash
-curl https://contaflow.fly.dev/api/v1/health
+curl https://fiscwise.fly.dev/api/v1/health
 # Resposta: {"status":"healthy","service":"fiscwise-api","version":"1.0.0"}
 ```
 
@@ -102,7 +102,7 @@ a940e63 fix: lineariza cadeia de migrations Alembic
 vercel deploy --prod
 
 # Variáveis de ambiente necessárias:
-NEXT_PUBLIC_API_URL=https://contaflow.fly.dev/api/v1
+NEXT_PUBLIC_API_URL=https://fiscwise.fly.dev/api/v1
 ```
 
 **Componentes a testar no Frontend**:
@@ -263,14 +263,14 @@ Database:
 ## 📞 Contatos de Suporte
 
 **Em Caso de Falhas em Produção**:
-1. Verificar logs em: `flyctl logs -a contaflow`
-2. Verificar health: `curl https://contaflow.fly.dev/api/v1/health`
-3. Restart machine: `flyctl machines restart d8d1340c164d28 -a contaflow`
-4. Último deploy: `flyctl deploy -a contaflow` (recompila + executa migrations)
+1. Verificar logs in: `flyctl logs -a fiscwise`
+2. Verificar health: `curl https://fiscwise.fly.dev/api/v1/health`
+3. Restart machine: `flyctl machines restart d8d1340c164d28 -a fiscwise`
+4. Último deploy: `flyctl deploy -a fiscwise` (recompila + executa migrations)
 
 **URLs Importantes**:
-- API: https://contaflow.fly.dev/api/v1
-- Monitoring: https://fly.io/apps/contaflow/monitoring
-- Dashboard: https://fly.io/apps/contaflow
+- API: https://fiscwise.fly.dev/api/v1
+- Monitoring: https://fly.io/apps/fiscwise/monitoring
+- Dashboard: https://fly.io/apps/fiscwise
 
 **Próximo Passo**: Deploy vstack-site em Vercel ✈️

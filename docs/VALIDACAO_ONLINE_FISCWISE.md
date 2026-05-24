@@ -39,7 +39,7 @@ Este documento detalha os testes e validações executados localmente e o plano/
 ## 2. Validação Online e Deploy
 
 ### Provedor Detectado
-- **Backend API**: Fly.io (App: `contaflow`)
+- **Backend API**: Fly.io (App: `fiscwise`)
 - **Frontend SPA**: Vercel
 
 ### Execução de Commit e Deploy
@@ -50,5 +50,5 @@ Após commitar localmente, o processo de deploy prosseguirá assim:
 2. **Frontend**: `vercel --prod`.
 
 ### Teste de Fumaça (Smoke Test) Recomendado contra Produção:
-1. `GET https://contaflow.fly.dev/api/v1/health` (deve retornar `{"status": "FiscWise API Online"}`)
+1. `GET https://fiscwise.fly.dev/api/v1/health` (deve retornar `{"status": "FiscWise API Online"}`)
 2. `GET https://frontend-orcin-one-22.vercel.app` (deve renderizar a tela de login/onboarding com dark mode e animações premium)

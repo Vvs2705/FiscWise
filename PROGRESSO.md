@@ -155,6 +155,11 @@
 - [x] Frontend de documentos e drawer do cliente exibem classificação, confiança e campos extraídos.
 - [x] Base segura para RLS: `app.current_tenant_id` passa a ser setado na sessão PostgreSQL durante autenticação e migration cria helper `current_app_tenant_id()`.
 - [x] Primeira fatia RLS: policies em tabelas operacionais estritamente tenant-scoped, sem `FORCE ROW LEVEL SECURITY`.
+- [x] **Correções críticas de estabilidade (produção):**
+  - Resolvido bug de GroupingError no PostgreSQL em `/api/v1/dashboard/overview` usando literal de texto cru em `date_trunc`.
+  - Corrigido CORS adicionando `www.fiscwise.com.br` e domínios Vercel no `ALLOWED_ORIGINS` do backend.
+  - Resolvido crash de boot do frontend adicionando fallback seguro para `VITE_GOOGLE_CLIENT_ID`.
+  - Corrigido erro de parsing de query parameter nos endpoints do backend removendo valor padrão inválido de `request: Request`.
 - [ ] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações e templates globais.
 
 ---

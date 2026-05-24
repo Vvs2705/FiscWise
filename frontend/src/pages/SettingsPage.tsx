@@ -19,7 +19,6 @@ import {
   FileText,
   Eye,
   EyeOff,
-  ChevronRight,
   Star,
   Bell,
   Send,
@@ -41,7 +40,8 @@ import {
   changePassword,
   type TenantData,
 } from '@/lib/auth';
-import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
+import { useSubscriptionUsage, useAvailablePlans } from '@/lib/hooks/useSubscription';
+import { useSubscription, useCreateSubscription } from '@/lib/hooks/useBilling';
 import {
   useNotificationMessages,
   useNotificationStats,
@@ -185,7 +185,7 @@ export function SettingsPage() {
           }} />
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
-        {activeTab === 'pagamento' && <PagamentoTab currentPlan={currentPlan} />}
+        {activeTab === 'pagamento' && <PagamentoTab />}
         {activeTab === 'notificacoes' && <NotificacoesTab />}
       </div>
     </div>
@@ -447,15 +447,27 @@ function PlanoTab({
   onPlanChange: (slug: string) => void;
 }) {
   const [changing, setChanging] = useState<string | null>(null);
+  const { user } = useAuthStore();
   const { data: usage } = useSubscriptionUsage();
+  const { data: dbPlans, isLoading: loadingPlans } = useAvailablePlans();
+  const createSub = useCreateSubscription();
 
-  async function handleChangePlan(slug: string) {
-    if (slug === currentPlan.slug) return;
-    setChanging(slug);
+  async function handleChangePlan(plan: any) {
+    if (plan.slug === currentPlan.slug) return;
+    
+    if (user?.role !== 'owner') {
+      toast.error('Apenas o proprietário do escritório pode alterar o plano.');
+      return;
+    }
+
+    setChanging(plan.slug);
     try {
-      await updateTenant({ plan_slug: slug });
-      onPlanChange(slug);
-      toast.success('Plano atualizado');
+      if (plan.slug !== 'free') {
+        await createSub.mutateAsync({ plan_id: plan.id });
+      }
+      await updateTenant({ plan_slug: plan.slug });
+      onPlanChange(plan.slug);
+      toast.success(`Plano alterado para ${plan.name} com sucesso!`);
     } catch {
       toast.error('Erro ao alterar plano');
     } finally {
@@ -470,6 +482,30 @@ function PlanoTab({
     cancelled: 'Cancelado',
     expired: 'Expirado',
   };
+
+  const planMeta: Record<string, { color: string; popular?: boolean; features: string[] }> = {
+    free: {
+      color: 'text-muted-foreground',
+      features: ['Até 10 clientes', '2 usuários', 'Calculadora fiscal', 'Documentos e prazos', 'Suporte por e-mail'],
+    },
+    intermediario: {
+      color: 'text-primary',
+      popular: true,
+      features: ['Até 80 clientes', '5 usuários', 'IA Fiscal (20 msgs/mês)', 'Motor de obrigações', 'Portal do cliente', 'Suporte prioritário'],
+    },
+    premium: {
+      color: 'text-amber-500',
+      features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
+    },
+  };
+
+  if (loadingPlans) {
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -507,8 +543,20 @@ function PlanoTab({
 
       {/* All plans */}
       <div className="grid gap-4 md:grid-cols-3">
-        {PLANS.map((plan) => {
+        {(dbPlans || []).map((plan) => {
           const isActive = plan.slug === currentPlan.slug;
+          const meta = planMeta[plan.slug] || {
+            color: 'text-foreground',
+            features: [
+              plan.max_clients ? `Até ${plan.max_clients} clientes` : 'Clientes ilimitados',
+              plan.max_users ? `Até ${plan.max_users} usuários` : 'Usuários ilimitados',
+              'Calculadora fiscal',
+            ],
+          };
+          const priceDisplay = plan.price_monthly === 0 || plan.price_monthly === null 
+            ? 'Grátis' 
+            : `R$ ${Number(plan.price_monthly).toLocaleString('pt-BR')}/mês`;
+
           return (
             <Card
               key={plan.slug}
@@ -517,7 +565,7 @@ function PlanoTab({
                 isActive ? 'border-primary shadow-md' : 'hover:border-primary/50',
               )}
             >
-              {plan.popular && (
+              {meta.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
                     <Star className="h-3 w-3" />
@@ -526,12 +574,12 @@ function PlanoTab({
                 </div>
               )}
               <CardHeader className="pb-3 pt-5">
-                <CardTitle className={cn('text-xl', plan.color)}>{plan.label}</CardTitle>
-                <p className="text-2xl font-bold">{plan.price}</p>
+                <CardTitle className={cn('text-xl', meta.color)}>{plan.name}</CardTitle>
+                <p className="text-2xl font-bold">{priceDisplay}</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-2">
-                  {plan.features.map((f) => (
+                  {meta.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                       {f}
@@ -542,7 +590,7 @@ function PlanoTab({
                   className="w-full"
                   variant={isActive ? 'outline' : 'default'}
                   disabled={isActive || changing !== null}
-                  onClick={() => handleChangePlan(plan.slug)}
+                  onClick={() => handleChangePlan(plan)}
                 >
                   {changing === plan.slug
                     ? 'Alterando...'
@@ -712,62 +760,137 @@ function SegurancaTab() {
 
 // ─── Pagamento tab ────────────────────────────────────────────────────────────
 
-function PagamentoTab({ currentPlan }: { currentPlan: (typeof PLANS)[number] }) {
+function PagamentoTab() {
+  const { data: subscription, isLoading } = useSubscription();
+  const { user } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-48 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const isOwner = user?.role === 'owner';
+  
+  const statusColors: Record<string, string> = {
+    trialing: 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20',
+    active: 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20',
+    past_due: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
+    suspended: 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20',
+    cancelled: 'bg-zinc-500/10 text-zinc-500 hover:bg-zinc-500/20',
+  };
+
+  const statusLabel: Record<string, string> = {
+    trialing: 'Período de Teste (Trial)',
+    active: 'Assinatura Ativa',
+    past_due: 'Fatura em Atraso',
+    suspended: 'Acesso Suspenso',
+    cancelled: 'Cancelada',
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('pt-BR');
+  };
+
+  const amountFormatted = subscription?.amount 
+    ? Number(subscription.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : '—';
+
   return (
     <div className="space-y-6">
-      {/* Coming soon banner */}
-      <Card className="overflow-hidden border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10">
-        <CardContent className="flex items-center gap-4 pt-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-            <Sparkles className="h-5 w-5 text-amber-500" />
-          </div>
-          <div>
-            <p className="font-semibold text-amber-800 dark:text-amber-300">Em breve</p>
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              Gerenciamento de pagamentos estará disponível na próxima versão.
+      {subscription ? (
+        <>
+          {/* Subscription Status Card */}
+          <Card className="border-primary/20 bg-card">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Assinatura Ativa</CardTitle>
+                <Badge className={statusColors[subscription.status] || 'bg-primary/10 text-primary'}>
+                  {statusLabel[subscription.status] || subscription.status}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Valor Mensal</p>
+                  <p className="mt-1 text-lg font-bold text-foreground">{amountFormatted}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Provedor de Pagamento</p>
+                  <p className="mt-1 text-sm font-semibold uppercase text-foreground">
+                    {subscription.billing_provider || 'Manual'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {subscription.status === 'trialing' ? 'Fim do Período de Teste' : 'Próxima Renovação'}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {formatDate(subscription.status === 'trialing' ? subscription.trial_ends_at : subscription.current_period_end)}
+                  </p>
+                </div>
+              </div>
+
+              {isOwner && (
+                <div className="flex justify-end pt-2">
+                  <a
+                    href="https://www.asaas.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition hover:bg-primary/90"
+                  >
+                    Gerenciar no Asaas
+                  </a>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Formas de pagamento associadas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Método de Cobrança</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                    <CreditCard className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Cobrança Direta (Asaas)</p>
+                    <p className="text-xs text-muted-foreground">As faturas são emitidas via Boleto/Pix direto para o seu e-mail cadastrado.</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        /* Free state view */
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Faturamento Desativado (Plano Gratuito)</h3>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                Sua conta atual está no plano Gratuito de testes. Para liberar o faturamento recorrente e outras ferramentas avançadas, faça o upgrade de plano.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Você pode alterar seu plano a qualquer momento na aba de **Planos** acima.
             </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Payment method placeholder */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Forma de pagamento</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-dashed p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                <CreditCard className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Nenhum cartão cadastrado</p>
-                <p className="text-xs text-muted-foreground">Adicione um cartão para gerenciar sua assinatura</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" disabled>
-              Adicionar
-            </Button>
-          </div>
-
-          <div className="rounded-lg border p-4">
-            <p className="text-sm font-medium">Assinatura atual</p>
-            <div className="mt-3 flex items-center justify-between">
-              <div>
-                <p className="font-semibold">Plano {currentPlan.label}</p>
-                <p className="text-sm text-muted-foreground">{currentPlan.price}</p>
-              </div>
-              <Button variant="outline" size="sm" disabled className="gap-1">
-                Gerenciar
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Billing history placeholder */}
+      {/* Histórico de faturas */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Histórico de faturas</CardTitle>
@@ -777,7 +900,7 @@ function PagamentoTab({ currentPlan }: { currentPlan: (typeof PLANS)[number] }) 
             <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm font-medium text-muted-foreground">Nenhuma fatura disponível</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Seu histórico de cobranças aparecerá aqui quando disponível.
+              Seu histórico de cobranças aparecerá aqui quando as faturas do Asaas forem geradas.
             </p>
           </div>
         </CardContent>

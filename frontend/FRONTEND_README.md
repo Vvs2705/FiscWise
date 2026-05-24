@@ -141,7 +141,7 @@ Layout split: painel escuro com brand (lg+) + painel de formulário.
 ## Variáveis de Ambiente
 
 ```env
-VITE_API_URL=https://contaflow.fly.dev
+VITE_API_URL=https://fiscwise.fly.dev
 VITE_GOOGLE_CLIENT_ID=<google-oauth-client-id>
 ```
 

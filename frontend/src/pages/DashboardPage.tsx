@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { dateBR, moneyBRL, useDashboardOverview, useProductivityOverview } from '@/lib/hooks/useOperations';
 import { DashboardHero } from '@/features/dashboard/components/DashboardHero';
@@ -11,6 +11,7 @@ import { MonthlyClosingCard } from '@/features/dashboard/components/MonthlyClosi
 import { PortfolioRiskCard } from '@/features/dashboard/components/PortfolioRiskCard';
 import { QuickActions } from '@/features/dashboard/components/QuickActions';
 import { staggerContainer, fadeIn } from '@/lib/motion';
+import { ModoFocoModal } from '@/features/dashboard/components/ModoFocoModal';
 
 function startOfToday() {
   const today = new Date();
@@ -30,6 +31,7 @@ function daysUntil(value: string) {
 }
 
 export function DashboardPage() {
+  const [isModoFocoOpen, setIsModoFocoOpen] = useState(false);
   const { data, isLoading, isError } = useDashboardOverview();
   const { data: prod } = useProductivityOverview();
 
@@ -241,6 +243,13 @@ export function DashboardPage() {
         status: 'warning' as const,
       });
     }
+    if (overdueReceivables > 0) {
+      factors.push({
+        label: 'Recebíveis em atraso',
+        impact: -overdueReceivables * 4,
+        status: 'critical' as const,
+      });
+    }
 
     return { score, factors };
   }, [data, prod]);
@@ -264,16 +273,17 @@ export function DashboardPage() {
       >
         {/* Hero Section */}
         <motion.div variants={fadeIn}>
-          <DashboardHero isError={isError} />
+          <DashboardHero isError={isError} onStartFocusMode={() => setIsModoFocoOpen(true)} />
         </motion.div>
 
         {/* Daily Focus + Metrics Grid */}
         <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-          <motion.div variants={fadeIn}>
+          <motion.div variants={fadeIn} id="tour-focus">
             <DailyFocusCard
               focusItems={focusItems}
               totalCount={totalFocusCount}
               isLoading={isLoading}
+              onStartFocusMode={() => setIsModoFocoOpen(true)}
             />
           </motion.div>
 
@@ -286,11 +296,11 @@ export function DashboardPage() {
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           {/* Left Column */}
           <motion.div variants={staggerContainer} className="space-y-6">
-            <motion.div variants={fadeIn}>
+            <motion.div variants={fadeIn} id="tour-attention">
               <ClientAttentionList clients={attentionClients} isLoading={isLoading} />
             </motion.div>
 
-            <motion.div variants={fadeIn}>
+            <motion.div variants={fadeIn} id="tour-deadlines">
               <FiscalWeekTimeline timeline={weekTimeline} isLoading={isLoading} />
             </motion.div>
 
@@ -318,16 +328,23 @@ export function DashboardPage() {
               />
             </motion.div>
 
-            <motion.div variants={fadeIn}>
+            <motion.div variants={fadeIn} id="tour-risk">
               <PortfolioRiskCard
                 score={portfolioRisk.score}
                 factors={portfolioRisk.factors}
                 isLoading={isLoading}
+                onStartFocusMode={() => setIsModoFocoOpen(true)}
               />
             </motion.div>
           </motion.div>
         </div>
       </motion.div>
+
+      <ModoFocoModal
+        isOpen={isModoFocoOpen}
+        onClose={() => setIsModoFocoOpen(false)}
+        beforeScore={portfolioRisk.score}
+      />
     </div>
   );
 }

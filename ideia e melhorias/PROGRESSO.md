@@ -129,18 +129,13 @@
   - Background parser, audit log e schedulers ajustados para restaurar contexto de tenant quando necessário
   - Tabelas de auth, portal, billing webhooks e catálogos globais adiadas para rollout específico
 
-- [ ] **5.13 (complemento) — Tela de upgrade de plano** (frontend)
+- [x] **5.13 (complemento) — Tela de upgrade de plano** (frontend)
 
-- [ ] **Limpeza de docs** — ainda há referências a `contaflow.fly.dev` em:
-  - `DEPLOYMENT_SUMMARY.md`, `PRODUCTION_STATUS.md`, `README.md`
-  - `README_DEPLOYMENT.md`, `FRONTEND_DEPLOYMENT_CHECKLIST.md`
-  - `frontend/FRONTEND_README.md`, `docs/VALIDACAO_ONLINE_FISCWISE.md`
-  - `backend/alembic/env.py` (fallback URL de dev)
-  - `ROADMAP.md` (item de migração já concluído)
+- [x] **Limpeza de docs** — referências a `contaflow.fly.dev` limpas em todos os arquivos de documentação e configurações.
 
-- [ ] **5.17 — WhatsApp Business API**
-- [ ] **5.18 — Monitor fiscal via parceiro**
-- [ ] **5.19 — RAG fiscal**
+- [x] **5.17 — WhatsApp Business API** (Concluído em 2026-05-25: models, migrations RLS, inbox unificada, whatsapp widget no cockpit)
+- [x] **5.18 — Monitor fiscal via parceiro** (Concluído em 2026-05-25: models `FiscalMonitorSummary` e `FiscalNFe`, sync automatico de status/guias/NF-es e aba de cockpit diário)
+- [x] **5.19 — RAG fiscal** (Concluído em 2026-05-25: vectors/procedures `RagDocument`, indexação de keywords tf-idf, injeção de contexto na IA e aba de Base de Conhecimento em Configurações)
 - [ ] **5.20 — API pública + Webhooks**
 
 ---
@@ -170,6 +165,57 @@
   - `LoginPage.tsx`: tela OTP animada com 6 caixas, countdown reenvio email
   - `SettingsPage.tsx` aba Segurança: card 2FA com escolha de método, QR Code, ativação TOTP/Email, desativação
 - [ ] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações e templates globais.
+
+---
+
+## ✅ REDESIGN — FASES 1 a 5: Nova Experiência Premium (Concluído em 2026-05-25)
+
+- [x] **Fase 1: Reposicionamento e visual** (Ajuste de textos de escritório para contador autônomo, design tokens, paleta de cores teal/emerald)
+- [x] **Fase 2: Login premium** (Painel esquerdo com radar fiscal e cards flutuantes, ajuste de layout e formulário responsivo, tela de 2FA limpa)
+- [x] **Fase 3: Dashboard cockpit** (DailyFocusCard "Foco de Hoje", ClientAttentionList, FiscalWeekTimeline, remoção de painel de colaboradores)
+- [x] **Fase 4: Design system** (Button, Card, Badge, Drawer, Table, CommandMenu, EmptyState, LoadingSkeleton, ProgressRing, FiscalTimeline)
+- [x] **Fase 5: Tabelas e drawers nas telas principais**
+  - [x] Rota `/clientes/:id` e painel cockpit de clientes (`ClientDetailCockpit`)
+  - [x] Slider lateral `ClientDetailsDrawer` e `ClientDetailPage`
+  - [x] Dropzone de upload e drawer de visualização de PDF/imagem inline em `DocumentsPage`
+  - [x] Agenda Fiscal (`DeadlinesPage`) com ação rápida de conclusão e filtros
+  - [x] Criação de obrigações avulsas (`CreateObligationDrawer`) em `ObrigacoesPage`
+  - [x] Certificados Digitais (`CertificatesPage`) com `CertificateCard`, dias restantes e aviso ao cliente
+  - [x] Financeiro (`FinancePage`) com `MetricCard` KPIs e listagem de recebíveis em grade/lista
+
+---
+
+## ✅ REDESIGN — FASE 6: Central "Aprender" & Onboarding (Concluído em 2026-05-25)
+
+- [x] Criar rota `/aprender` e a tela principal `LearningPage`
+- [x] Criar cards de tutoriais e caminhos de aprendizado contábil
+- [x] Desenvolver checklist de primeiros passos no onboarding (Setup Tracker dinâmico)
+- [x] Adicionar tour interativo guiado com Driver.js (Dashboard, Clientes, Documentos)
+- [x] Inserir botões contextuais "Guia" (Aprender sobre esta tela) nas páginas principais (Painel, Clientes, Documentos, Certificados, Financeiro)
+
+---
+
+## ✅ REDESIGN — FASE 7: Diferenciais, Comunicação e Relatórios (Concluído em 2026-05-25)
+
+- [x] Criar e integrar a experiência imersiva do `<ModoFocoModal />` no dashboard
+- [x] Implementar ações operacionais diretas no Modo Foco (Concluir, Adiar 7 dias, Aguardar Cliente, Pular) integradas a mutações reais no banco
+- [x] Tornar o Score da Carteira (`PortfolioRiskCard`) interativo com regras de cálculo detalhadas e dicas acionáveis de recuperação
+- [x] Enriquecer a Timeline de Atividades do cliente no cockpit com Certificados e Recebíveis
+- [x] Adicionar botões de ações rápidas inline diretamente na Timeline (Pagar DAS e Honorários)
+- [x] Criar a aba `Comunicação` no cockpit de detalhes do cliente com gerador de modelos (DAS, documentos pendentes, certificados)
+- [x] Integrar triggers de comunicação por e-mail e atalho direto formatado para WhatsApp Web
+- [x] Inserir lembretes inteligentes contextuais nas abas de Prazos e Certificados
+- [x] Desenvolver o componente `ClientStatusReportModal` para impressão nativa e download PDF de diagnóstico do cliente
+- [x] Validar compilação limpa do frontend com 0 erros ou warnings de tipo
+
+---
+
+## ✅ REDESIGN — FASE 8: Tela de Upgrade & Limpeza de Docs (Concluído em 2026-05-25)
+
+- [x] Criar componente `<UpgradePlanoModal />` com multi-step checkout (Pix, Boleto, Cartão com animação virtual)
+- [x] Integrar `<UpgradePlanoModal />` na aba Planos (`SettingsPage.tsx`) com mutações reais no Asaas
+- [x] Validar compilação limpa do frontend com 0 erros/warnings
+- [x] Confirmar e certificar limpeza completa de referências a `contaflow.fly.dev` em todos os documentos
 
 ---
 

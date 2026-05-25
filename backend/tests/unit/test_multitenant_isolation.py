@@ -69,7 +69,7 @@ class TestMultiTenantEmailCollision:
         )
 
         assert response.status_code == 401
-        assert "Incorrect email or password" in response.json()["detail"]
+        assert "E-mail ou senha incorretos" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_registration_prevents_email_reuse_across_tenants(
@@ -338,7 +338,7 @@ class TestDataLeakagePrevention:
         # We need to use the test fixtures, so this test relies on conftest
 
         error_message_1 = response1.json()["detail"]
-        assert "Incorrect email or password" in error_message_1
+        assert "E-mail ou senha incorretos" in error_message_1
 
     @pytest.mark.asyncio
     async def test_multi_tenant_collision_doesnt_leak_tenant_info(
@@ -381,7 +381,8 @@ class TestDataLeakagePrevention:
         # Message should not mention tenants or reveal ambiguity
         assert "tenant" not in error.lower()
         assert "multiple" not in error.lower()
-        assert "Incorrect email or password" in error
+        assert "Incorrect email or password" not in error  # Just ensure it's not leaking other things if needed, or check for Portuguese
+        assert "E-mail ou senha incorretos" in error
 
 
 # ============================================================================

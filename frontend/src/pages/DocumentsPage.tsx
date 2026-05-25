@@ -1,9 +1,9 @@
 'use client';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   Plus,
   Trash2,
@@ -20,7 +20,15 @@ import {
   FolderOpen,
   ChevronDown,
   Sparkles,
+  Search,
+  Filter,
+  LayoutList,
+  LayoutGrid,
+  Eye,
+  BookOpen,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { startTour } from '@/lib/tours';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +37,16 @@ import { Select } from '@/components/ui/Select';
 import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { EmptyState, ErrorState, PageSpinner } from '@/components/ui/StateViews';
+import { DocumentPreviewDrawer } from '@/components/DocumentPreviewDrawer';
+import { DocumentCard } from '@/components/ui/Card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/Table';
 import {
   dateBR,
   useClients,
@@ -38,17 +56,16 @@ import {
   useUploadDocument,
   type DocumentCreate,
   type DocumentStatus,
+  type ClientDocument,
 } from '@/lib/hooks/useOperations';
-import { buildDocumentAiView, type ClientDocument as AiClientDocument } from '@/lib/aiDocuments';
+import { buildDocumentAiView } from '@/lib/aiDocuments';
 
 /* ─── Tipos de documento por categoria ─────────────────────────── */
 
 interface DocType {
   value: string;
   label: string;
-  /** Quantidade de anos para auto-calcular vencimento a partir da emissão */
   autoExpireYears?: number;
-  /** Sugestão de nome automático */
   autoName?: string;
 }
 
@@ -153,7 +170,6 @@ const DOC_CATEGORIES: DocCategory[] = [
   },
 ];
 
-/** Dado o valor retorna o DocType correspondente */
 function findDocType(value: string): DocType | undefined {
   for (const cat of DOC_CATEGORIES) {
     const found = cat.types.find((t) => t.value === value);
@@ -162,7 +178,6 @@ function findDocType(value: string): DocType | undefined {
   return undefined;
 }
 
-/** Adiciona N anos a uma data ISO (YYYY-MM-DD) */
 function addYears(isoDate: string, years: number): string {
   const d = new Date(`${isoDate}T00:00:00`);
   d.setFullYear(d.getFullYear() + years);
@@ -223,10 +238,10 @@ function FileDropZone({ file, onChange, uploading }: FileDropZoneProps) {
 
   if (file) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
-        <FileText className="h-5 w-5 shrink-0 text-primary" />
+      <div className="flex items-center gap-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3">
+        <FileText className="h-5 w-5 shrink-0 text-primary animate-pulse" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{file.name}</p>
+          <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
           <p className="text-xs text-muted-foreground">
             {(file.size / 1024).toFixed(0)} KB
             {uploading && ' · Enviando...'}
@@ -235,7 +250,7 @@ function FileDropZone({ file, onChange, uploading }: FileDropZoneProps) {
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive"
+          className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
           disabled={uploading}
         >
           <X className="h-4 w-4" />
@@ -253,13 +268,13 @@ function FileDropZone({ file, onChange, uploading }: FileDropZoneProps) {
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors
-        ${dragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/30'}`}
+      className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-200
+        ${dragging ? 'border-primary bg-primary/5 shadow-glow-sm scale-[0.99]' : 'border-border hover:border-primary/50 hover:bg-muted/40'}`}
     >
-      <Upload className="h-6 w-6 text-muted-foreground" />
+      <Upload className="h-6 w-6 text-muted-foreground hover:text-primary transition-colors" />
       <div>
-        <p className="text-sm font-medium">Arraste ou clique para selecionar</p>
-        <p className="text-xs text-muted-foreground">PDF, XML, XLSX, ZIP, PNG, JPG — até 20 MB</p>
+        <p className="text-sm font-semibold">Arraste ou clique para selecionar</p>
+        <p className="text-xs text-muted-foreground mt-0.5">PDF, XML, XLSX, ZIP, PNG, JPG — até 20 MB</p>
       </div>
       <input
         ref={inputRef}
@@ -293,9 +308,9 @@ function DocTypeSelector({ value, onChange }: DocTypeSelectorProps) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full items-center justify-between rounded-lg border border-border/80 bg-background px-3 py-2 text-sm transition-all hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        <span className={selectedType ? 'text-foreground' : 'text-muted-foreground'}>
+        <span className={selectedType ? 'text-foreground font-semibold' : 'text-muted-foreground'}>
           {selectedType
             ? `${selectedCat?.label} · ${selectedType.label}`
             : 'Selecione a categoria e tipo'}
@@ -304,8 +319,8 @@ function DocTypeSelector({ value, onChange }: DocTypeSelectorProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
-          <div className="max-h-72 overflow-y-auto py-1">
+        <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-border/80 bg-card shadow-lg max-h-72 overflow-y-auto scrollbar">
+          <div className="py-1">
             {DOC_CATEGORIES.map((cat) => {
               const isExpanded = expandedCat === cat.label;
               return (
@@ -313,7 +328,7 @@ function DocTypeSelector({ value, onChange }: DocTypeSelectorProps) {
                   <button
                     type="button"
                     onClick={() => setExpandedCat(isExpanded ? null : cat.label)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-accent"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold hover:bg-muted"
                   >
                     <cat.Icon className={`h-4 w-4 ${cat.color}`} />
                     <span className="flex-1 text-left">{cat.label}</span>
@@ -331,12 +346,12 @@ function DocTypeSelector({ value, onChange }: DocTypeSelectorProps) {
                           setOpen(false);
                           setExpandedCat(null);
                         }}
-                        className={`flex w-full items-center gap-2 pl-8 pr-3 py-1.5 text-sm hover:bg-accent
-                          ${t.value === value ? 'bg-accent font-medium' : ''}`}
+                        className={`flex w-full items-center gap-2 pl-8 pr-3 py-1.5 text-xs hover:bg-muted
+                          ${t.value === value ? 'bg-primary/10 text-primary font-bold' : 'text-foreground/80'}`}
                       >
                         {t.label}
                         {t.autoExpireYears && (
-                          <span className="ml-auto text-xs text-muted-foreground">
+                          <span className="ml-auto text-[10px] text-muted-foreground">
                             {t.autoExpireYears}a
                           </span>
                         )}
@@ -361,23 +376,23 @@ function DocTypeIcon({ docType }: { docType: string }) {
 }
 
 interface DocumentAiCellProps {
-  document: AiClientDocument;
+  document: ClientDocument;
 }
 
 function DocumentAiCell({ document }: DocumentAiCellProps) {
-  const aiView = buildDocumentAiView(document);
+  const aiView = buildDocumentAiView(document as any);
 
   return (
     <div className="max-w-[280px] space-y-1.5">
       <Badge variant={aiView.parseStatusVariant}>{aiView.parseStatusLabel}</Badge>
       {aiView.classification ? (
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
             <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
             <span>{aiView.classification.documentType}</span>
             {aiView.classification.confidenceLabel && (
-              <span className="text-muted-foreground">
-                {aiView.classification.confidenceLabel}
+              <span className="text-muted-foreground text-[10px]">
+                ({aiView.classification.confidenceLabel})
               </span>
             )}
           </div>
@@ -386,20 +401,17 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
               {aiView.classification.fields.map((field) => (
                 <span
                   key={field.label}
-                  className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                  className="rounded bg-muted border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground"
                 >
                   {field.label}: {field.value}
                 </span>
               ))}
             </div>
           )}
-          {aiView.classification.summary && (
-            <p className="text-xs text-muted-foreground">{aiView.classification.summary}</p>
-          )}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {aiView.parseError ?? 'Sem classificacao de IA retornada.'}
+          {aiView.parseError ?? 'Aguardando processamento.'}
         </p>
       )}
     </div>
@@ -409,14 +421,32 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
 /* ─── Página principal ──────────────────────────────────────────── */
 
 export function DocumentsPage() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+
+  // Filter and preview states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [clientFilter, setClientFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<ClientDocument | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
   const { data: documents, isLoading, isError } = useDocuments();
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
   const uploadMutation = useUploadDocument();
+
+  // Search Debouncing
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const {
     register,
@@ -434,14 +464,11 @@ export function DocumentsPage() {
   const watchedType = watch('document_type');
   const watchedIssued = watch('issued_at');
 
-  /** Auto-fill: quando tipo muda, preenche vencimento se possível */
   const handleTypeChange = useCallback(
     (newType: string, currentIssuedAt?: string) => {
       const dt = findDocType(newType);
       if (!dt) return;
 
-      // Auto-fill nome se campo vazio
-      // (sem acesso ao watch aqui — feito via setValue)
       const issued = currentIssuedAt || watchedIssued;
 
       if (dt.autoExpireYears && issued) {
@@ -451,7 +478,6 @@ export function DocumentsPage() {
     [setValue, watchedIssued],
   );
 
-  /** Auto-recalcula vencimento quando a data de emissão muda */
   const handleIssuedChange = useCallback(
     (newIssued: string) => {
       const dt = findDocType(watchedType);
@@ -465,7 +491,6 @@ export function DocumentsPage() {
   async function onSubmit(values: FormValues) {
     let fileUrl: string | undefined;
 
-    // 1. Upload do arquivo (se houver)
     if (file) {
       try {
         const result = await uploadMutation.mutateAsync(file);
@@ -476,7 +501,6 @@ export function DocumentsPage() {
       }
     }
 
-    // 2. Criar registro do documento
     const payload: DocumentCreate = {
       ...values,
       file_url: fileUrl,
@@ -516,28 +540,81 @@ export function DocumentsPage() {
   const isUploading = uploadMutation.isPending;
   const isBusy = isSubmitting || isUploading;
 
+  // Filter Logic
+  const filteredDocuments = useMemo(() => {
+    if (!documents) return [];
+    const q = debouncedSearchQuery.trim().toLowerCase();
+
+    return documents.filter((doc) => {
+      if (q) {
+        const matchesName = doc.name.toLowerCase().includes(q);
+        const matchesNotes = (doc.notes ?? '').toLowerCase().includes(q);
+        const client = clients?.find((c) => c.id === doc.client_id);
+        const matchesClient = client ? client.name.toLowerCase().includes(q) : false;
+        if (!matchesName && !matchesNotes && !matchesClient) return false;
+      }
+      if (clientFilter && doc.client_id !== clientFilter) return false;
+      if (categoryFilter) {
+        const cat = DOC_CATEGORIES.find((c) => c.label === categoryFilter);
+        if (cat) {
+          const typeMatches = cat.types.some((t) => t.value === doc.document_type);
+          if (!typeMatches) return false;
+        } else if (doc.document_type !== categoryFilter) {
+          return false;
+        }
+      }
+      if (statusFilter && doc.status !== statusFilter) return false;
+      return true;
+    });
+  }, [documents, debouncedSearchQuery, clientFilter, categoryFilter, statusFilter, clients]);
+
+  const hasActiveFilters =
+    debouncedSearchQuery.trim() !== '' || clientFilter !== '' || categoryFilter !== '' || statusFilter !== '';
+
+  function clearFilters() {
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+    setClientFilter('');
+    setCategoryFilter('');
+    setStatusFilter('');
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">Documentos</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Controle solicitacoes, recebimentos e situacao documental por cliente.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Novo documento
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => startTour('documents', navigate, '/documentos')}
+            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            title="Aprender sobre esta tela"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Guia</span>
+          </Button>
+          <Button id="tour-docs-upload" onClick={() => setOpen(true)} size="sm" className="h-9">
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Novo documento
+          </Button>
+        </div>
       </div>
 
       {isError && <ErrorState message="Nao foi possivel carregar os documentos." />}
 
       {/* Contadores */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Disponiveis</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Disponiveis
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : availableCount}</div>
@@ -545,7 +622,9 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Pendentes
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : missingCount}</div>
@@ -553,7 +632,9 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Em revisao</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Em revisao
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : reviewCount}</div>
@@ -561,107 +642,272 @@ export function DocumentsPage() {
         </Card>
       </div>
 
-      {/* Tabela */}
+      {/* Filters Bar */}
+      {!isLoading && !isError && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Search input */}
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nome, notas ou cliente..."
+              className="w-full rounded-lg border border-border/80 bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              aria-label="Buscar documentos"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Selects + View Modes */}
+          <div className="flex flex-wrap gap-2 items-center justify-between sm:justify-start">
+            <div className="flex flex-wrap gap-2 items-center">
+              <select
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all max-w-[160px] truncate"
+                aria-label="Filtrar por cliente"
+              >
+                <option value="">Todos os clientes</option>
+                {(clients ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                aria-label="Filtrar por categoria"
+              >
+                <option value="">Todas as categorias</option>
+                {DOC_CATEGORIES.map((cat) => (
+                  <option key={cat.label} value={cat.label}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                aria-label="Filtrar por status"
+              >
+                <option value="">Todos os status</option>
+                <option value="available">Disponíveis</option>
+                <option value="missing">Pendentes</option>
+                <option value="review">Em revisão</option>
+                <option value="expired">Vencidos</option>
+              </select>
+
+              {hasActiveFilters && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-9 gap-1.5"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+
+            {/* List vs Card Toggle */}
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-primary text-primary-foreground shadow-glow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Visualização em Lista"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('card')}
+                className={`p-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                  viewMode === 'card'
+                    ? 'bg-primary text-primary-foreground shadow-glow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Visualização em Cards"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Esteira documental</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+          <CardTitle className="text-base font-bold">Esteira documental</CardTitle>
+          {!isLoading && !isError && documents && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
+              <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+              {hasActiveFilters
+                ? `${filteredDocuments.length} de ${documents.length} filtrados`
+                : `${documents.length} no total`}
+            </span>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <PageSpinner />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">Documento</th>
-                    <th className="pb-3 font-medium">Categoria</th>
-                    <th className="pb-3 font-medium">Emissao</th>
-                    <th className="pb-3 font-medium">Vencimento</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">IA</th>
-                    <th className="pb-3 font-medium sr-only">Acoes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(documents ?? []).length === 0 && (
-                    <tr>
-                      <td colSpan={7}>
-                        <EmptyState
-                          title="Nenhum documento registrado"
-                          description="Registre documentos dos clientes para controlar a esteira."
-                          action={
-                            <Button size="sm" onClick={() => setOpen(true)}>
-                              Novo documento
-                            </Button>
-                          }
-                        />
-                      </td>
-                    </tr>
-                  )}
-                  {(documents ?? []).map((doc) => (
-                    <tr key={doc.id} className="border-b last:border-0">
-                      <td className="py-4">
+          ) : filteredDocuments.length === 0 ? (
+            <EmptyState
+              title="Nenhum documento encontrado"
+              description={hasActiveFilters ? "Tente ajustar seus filtros para encontrar o que procura." : "Registre documentos dos clientes para controlar a esteira."}
+              action={
+                !hasActiveFilters ? (
+                  <Button size="sm" onClick={() => setOpen(true)} className="h-9">
+                    Novo documento
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={clearFilters} className="h-9">
+                    Limpar filtros
+                  </Button>
+                )
+              }
+            />
+          ) : viewMode === 'list' ? (
+            <Table id="tour-docs-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Emissao</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>IA</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDocuments.map((doc) => {
+                  const client = clients?.find((c) => c.id === doc.client_id);
+                  return (
+                    <TableRow key={doc.id}>
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <DocTypeIcon docType={doc.document_type} />
                           <div>
-                            <div className="font-medium">{doc.name}</div>
+                            <div className="font-bold text-foreground">{doc.name}</div>
                             {doc.notes && (
-                              <div className="text-xs text-muted-foreground">{doc.notes}</div>
+                              <div className="text-xs text-muted-foreground max-w-[200px] truncate" title={doc.notes}>
+                                {doc.notes}
+                              </div>
                             )}
                           </div>
                         </div>
-                      </td>
-                      <td className="py-4 text-muted-foreground">{doc.document_type}</td>
-                      <td className="py-4">{dateBR(doc.issued_at)}</td>
-                      <td className="py-4">
-                        <span
-                          className={doc.status === 'expired' ? 'font-medium text-destructive' : ''}
-                        >
+                      </TableCell>
+                      <TableCell className="font-medium text-foreground/80 max-w-[150px] truncate" title={client?.name}>
+                        {client?.name ?? 'Cliente desconhecido'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{doc.document_type}</TableCell>
+                      <TableCell className="text-xs">{dateBR(doc.issued_at)}</TableCell>
+                      <TableCell className="text-xs">
+                        <span className={doc.status === 'expired' ? 'font-bold text-destructive animate-pulse' : ''}>
                           {dateBR(doc.expires_at)}
                         </span>
-                      </td>
-                      <td className="py-4">
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={statusVariant[doc.status]}>
                           {statusLabel[doc.status]}
                         </Badge>
-                      </td>
-                      <td className="py-4 align-top">
+                      </TableCell>
+                      <TableCell>
                         <DocumentAiCell document={doc} />
-                      </td>
-                      <td className="py-4">
-                        <div className="flex items-center gap-2">
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
                           {doc.file_url && (
-                            <a
-                              href={doc.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-label={`Baixar ${doc.name}`}
-                            >
-                              <Download className="h-4 w-4" />
-                              <span className="text-[9px] font-medium uppercase tracking-wider">Baixar</span>
-                            </a>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedPreviewDoc(doc)}
+                                className="h-8 gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                                title="Visualizar documento"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <a href={doc.file_url} download className="block">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                  title="Baixar"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </a>
+                            </>
                           )}
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleDelete(doc.id, doc.name)}
-                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Excluir documento ${doc.name}`}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Excluir documento"
                           >
                             <Trash2 className="h-4 w-4" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
-                          </button>
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredDocuments.map((doc) => {
+                const client = clients?.find((c) => c.id === doc.client_id);
+                return (
+                  <DocumentCard
+                    key={doc.id}
+                    name={doc.name}
+                    type={`${client?.name ?? 'Cliente'} · ${doc.document_type}`}
+                    date={`Vencimento: ${dateBR(doc.expires_at)}`}
+                    status={doc.status}
+                    onClick={() => setSelectedPreviewDoc(doc)}
+                  />
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Inline Document Preview Drawer */}
+      <DocumentPreviewDrawer
+        document={selectedPreviewDoc}
+        isOpen={!!selectedPreviewDoc}
+        onClose={() => setSelectedPreviewDoc(null)}
+      />
 
       {/* Modal novo documento */}
       <Dialog open={open} onClose={handleClose} title="Novo documento">

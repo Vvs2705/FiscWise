@@ -1,12 +1,27 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, CheckCircle2, TrendingDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import {
+  Plus,
+  Trash2,
+  CheckCircle2,
+  TrendingDown,
+  LayoutGrid,
+  List,
+  Search,
+  DollarSign,
+  CreditCard,
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  User,
+  BookOpen,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, MetricCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -14,6 +29,14 @@ import { Select } from '@/components/ui/Select';
 import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { EmptyState, ErrorState, PageSpinner } from '@/components/ui/StateViews';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/Table';
 import {
   dateBR,
   moneyBRL,
@@ -55,7 +78,13 @@ const statusVariant: Record<ReceivableStatus, 'warning' | 'success' | 'error' | 
 };
 
 export function FinancePage() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedClient, setSelectedClient] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
   const { data: receivables, isLoading, isError } = useReceivables();
   const { data: clients } = useClients();
   const { hasRole } = usePermission();
@@ -70,6 +99,7 @@ export function FinancePage() {
       window.history.replaceState({}, '');
     }
   }, [location.state]);
+
   const createMutation = useCreateReceivable();
   const updateMutation = useUpdateReceivable();
   const deleteMutation = useDeleteReceivable();
@@ -133,144 +163,309 @@ export function FinancePage() {
     .filter((r) => r.status === 'overdue')
     .reduce((sum, r) => sum + Number(r.amount), 0);
 
+  const paidList = (receivables ?? []).filter((r) => r.status === 'paid');
+  const ticketMedio = paidList.length > 0
+    ? paidList.reduce((sum, r) => sum + Number(r.amount), 0) / paidList.length
+    : 0;
+
+  const filteredReceivables = (receivables ?? []).filter((r) => {
+    const client = clients?.find((c) => c.id === r.client_id);
+    const clientName = client?.name?.toLowerCase() || '';
+    const desc = r.description?.toLowerCase() || '';
+    const notes = r.notes?.toLowerCase() || '';
+    const query = search.toLowerCase();
+
+    const matchesSearch = clientName.includes(query) || desc.includes(query) || notes.includes(query);
+    const matchesClient = !selectedClient || r.client_id === selectedClient;
+    const matchesStatus = !selectedStatus || r.status === selectedStatus;
+
+    return matchesSearch && matchesClient && matchesStatus;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl">Financeiro</h1>
-          <p className="text-muted-foreground">
-            Acompanhe honorarios, vencimentos e cobranças em atraso.
+          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-emerald-400 to-sky-400">
+            Financeiro
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Acompanhe honorários recorrentes, vencimentos e controle cobranças em atraso.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Nova cobranca
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/aprender')}
+            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            title="Aprender sobre esta tela"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Guia</span>
+          </Button>
+          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-md">
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Nova cobranca
+          </Button>
+        </div>
       </div>
 
       {isError && <ErrorState message="Nao foi possivel carregar as cobranças." />}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">A receber</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? '...' : moneyBRL(openTotal)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Recebido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
-              {isLoading ? '...' : moneyBRL(paidTotal)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Em atraso</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {isLoading ? '...' : moneyBRL(overdueTotal)}
-            </div>
-          </CardContent>
-        </Card>
+      {/* KPI Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="A receber"
+          value={isLoading ? '...' : moneyBRL(openTotal)}
+          icon={CreditCard}
+          className="bg-card/45 backdrop-blur-sm border-border/50"
+        />
+        <MetricCard
+          title="Recebido"
+          value={isLoading ? '...' : moneyBRL(paidTotal)}
+          icon={DollarSign}
+          className="bg-card/45 backdrop-blur-sm border-border/50 text-emerald-500"
+        />
+        <MetricCard
+          title="Em atraso"
+          value={isLoading ? '...' : moneyBRL(overdueTotal)}
+          icon={AlertTriangle}
+          className="bg-card/45 backdrop-blur-sm border-border/50 text-destructive"
+        />
+        <MetricCard
+          title="Ticket Médio"
+          value={isLoading ? '...' : moneyBRL(ticketMedio)}
+          icon={BarChart3}
+          className="bg-card/45 backdrop-blur-sm border-border/50"
+        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Cobranças</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <PageSpinner />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">Descricao</th>
-                    <th className="pb-3 font-medium">Valor</th>
-                    <th className="pb-3 font-medium">Vencimento</th>
-                    <th className="pb-3 font-medium">Pago em</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium sr-only">Acoes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(receivables ?? []).length === 0 && (
-                    <tr>
-                      <td colSpan={6}>
-                        <EmptyState
-                          title="Nenhuma cobranca registrada"
-                          description="Registre honorarios e cobranças dos clientes."
-                          action={
-                            <Button size="sm" onClick={() => setOpen(true)}>
-                              Nova cobranca
-                            </Button>
-                          }
-                        />
-                      </td>
-                    </tr>
-                  )}
-                  {(receivables ?? []).map((r) => (
-                    <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-4">
-                        <div className="font-medium">{r.description}</div>
-                        {r.notes && (
-                          <div className="text-xs text-muted-foreground">{r.notes}</div>
-                        )}
-                      </td>
-                      <td className="py-4 font-medium">{moneyBRL(r.amount)}</td>
-                      <td className="py-4">
-                        <span className={r.status === 'overdue' ? 'text-destructive font-medium' : ''}>
-                          {dateBR(r.due_date)}
-                        </span>
-                      </td>
-                      <td className="py-4">{dateBR(r.paid_at)}</td>
-                      <td className="py-4">
-                        <Badge variant={statusVariant[r.status]}>
-                          {statusLabel[r.status]}
-                        </Badge>
-                      </td>
-                      <td className="py-4">
-                        <div className="flex items-center gap-2">
-                          {(r.status === 'pending' || r.status === 'overdue') && (
-                            <button
-                              type="button"
-                              onClick={() => handleMarkPaid(r.id)}
-                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-label={`Marcar como pago: ${r.description}`}
-                              title="Marcar como pago"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              <span className="text-[9px] font-medium uppercase tracking-wider">Pago</span>
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(r.id, r.description)}
-                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Excluir cobranca ${r.description}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* Filters Toolbar */}
+      <Card className="p-4 bg-card/40 backdrop-blur-md border-border/50">
+        <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
+          <div className="flex flex-1 flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por descrição ou cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-muted/20 border-border/50 focus:border-teal-500/50"
+              />
             </div>
-          )}
-        </CardContent>
+
+            <Select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="sm:w-[220px] bg-muted/20 border-border/50"
+            >
+              <option value="">Todos os Clientes</option>
+              {(clients ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="sm:w-[180px] bg-muted/20 border-border/50"
+            >
+              <option value="">Todos Status</option>
+              <option value="pending">Em aberto</option>
+              <option value="paid">Pago</option>
+              <option value="overdue">Atrasado</option>
+              <option value="cancelled">Cancelado</option>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2 self-end lg:self-auto border-t lg:border-t-0 pt-3 lg:pt-0 border-border/30">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  : 'text-muted-foreground hover:bg-muted/30 border border-transparent'
+              }`}
+              title="Exibição em Grid"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-all ${
+                viewMode === 'list'
+                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  : 'text-muted-foreground hover:bg-muted/30 border border-transparent'
+              }`}
+              title="Exibição em Lista"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </Card>
 
+      {/* Main List/Grid View */}
+      {isLoading ? (
+        <PageSpinner />
+      ) : filteredReceivables.length === 0 ? (
+        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+          <CardContent className="pt-6">
+            <EmptyState
+              title="Nenhuma cobrança encontrada"
+              description="Nenhum registro atende aos filtros de busca aplicados."
+              action={
+                <Button size="sm" onClick={() => setOpen(true)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
+                  Nova cobranca
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : viewMode === 'grid' ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredReceivables.map((r) => {
+            const client = clients?.find((c) => c.id === r.client_id);
+            const clientName = client?.name || 'Cliente Desconhecido';
+
+            return (
+              <Card key={r.id} className="relative group border border-border/50 hover:border-primary/30 p-5 bg-card/45 backdrop-blur-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <h4 className="font-bold text-foreground text-base leading-snug line-clamp-2">{r.description}</h4>
+                    <Badge variant={statusVariant[r.status]} className="shrink-0">
+                      {statusLabel[r.status]}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-muted-foreground mt-3">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary/70 shrink-0" />
+                      <span className="font-medium text-foreground truncate">{clientName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-primary/70 shrink-0" />
+                      <span className="font-bold text-foreground">{moneyBRL(r.amount)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-primary/70 shrink-0" />
+                      <span>Vencimento: <strong className={r.status === 'overdue' ? 'text-destructive' : 'text-foreground'}>{dateBR(r.due_date)}</strong></span>
+                    </div>
+                    {r.paid_at && (
+                      <div className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/10 w-fit">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Pago em: {dateBR(r.paid_at)}</span>
+                      </div>
+                    )}
+                    {r.notes && (
+                      <p className="text-xs italic bg-muted/20 p-2 rounded border border-border/20 mt-2 line-clamp-3">
+                        {r.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 mt-5 border-t border-border/20 pt-3">
+                  {(r.status === 'pending' || r.status === 'overdue') && (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                      onClick={() => handleMarkPaid(r.id)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      Pago
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(r.id, r.description)}
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Descrição</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Valor</TableHead>
+              <TableHead>Vencimento</TableHead>
+              <TableHead>Pago em</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredReceivables.map((r) => {
+              const client = clients?.find((c) => c.id === r.client_id);
+              const clientName = client?.name || 'Cliente Desconhecido';
+
+              return (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <div className="font-semibold text-foreground">{r.description}</div>
+                    {r.notes && (
+                      <div className="text-xs text-muted-foreground max-w-[300px] truncate" title={r.notes}>
+                        {r.notes}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">{clientName}</TableCell>
+                  <TableCell className="font-bold text-foreground">{moneyBRL(r.amount)}</TableCell>
+                  <TableCell>
+                    <span className={r.status === 'overdue' ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
+                      {dateBR(r.due_date)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{dateBR(r.paid_at)}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant[r.status]}>
+                      {statusLabel[r.status]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-2">
+                      {(r.status === 'pending' || r.status === 'overdue') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleMarkPaid(r.id)}
+                          className="h-8 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                          title="Marcar como Pago"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Pago</span>
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(r.id, r.description)}
+                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        title="Excluir cobrança"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+      {/* Dialog Form for New Receivable */}
       <Dialog open={open} onClose={() => setOpen(false)} title="Nova cobranca">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <FormField label="Cliente" htmlFor="client_id" error={errors.client_id?.message} required>
@@ -326,7 +521,7 @@ export function FinancePage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white">
               {isSubmitting ? 'Salvando...' : 'Salvar cobranca'}
             </Button>
           </div>
@@ -335,58 +530,56 @@ export function FinancePage() {
 
       {/* ── Inadimplência Report (owner/admin) ── */}
       {isAdminOrOwner && inadimplencia && inadimplencia.total_clients > 0 && (
-        <Card className="mt-8 border-red-200 dark:border-red-800/40">
+        <Card className="mt-8 border-red-200 dark:border-red-800/40 bg-card/45 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 border border-red-500/20">
                 <TrendingDown className="h-4 w-4 text-red-500" />
               </div>
               <div>
-                <CardTitle className="text-base">Relatório de Inadimplência</CardTitle>
-                <p className="text-xs text-muted-foreground">
+                <CardTitle className="text-base font-bold text-foreground">Relatório de Inadimplência</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {inadimplencia.total_clients} cliente{inadimplencia.total_clients !== 1 ? 's' : ''} com recebíveis vencidos
-                  &nbsp;·&nbsp;Total: {moneyBRL(inadimplencia.total_overdue_amount)}
+                  &nbsp;·&nbsp;Total: <strong className="text-red-500 font-bold">{moneyBRL(inadimplencia.total_overdue_amount)}</strong>
                 </p>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-2 pr-4">Cliente</th>
-                    <th className="pb-2 pr-4">E-mail</th>
-                    <th className="pb-2 pr-4 text-right">Qtd.</th>
-                    <th className="pb-2 pr-4 text-right">Total vencido</th>
-                    <th className="pb-2 text-right">Dias em atraso</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {inadimplencia.clients.map((c) => (
-                    <tr key={c.client_id} className="group hover:bg-muted/30">
-                      <td className="py-2.5 pr-4 font-medium">{c.client_name}</td>
-                      <td className="py-2.5 pr-4 text-muted-foreground">{c.email ?? '—'}</td>
-                      <td className="py-2.5 pr-4 text-right">{c.overdue_count}</td>
-                      <td className="py-2.5 pr-4 text-right font-semibold text-red-600 dark:text-red-400">
-                        {moneyBRL(c.overdue_total)}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${
-                          c.days_overdue > 90
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            : c.days_overdue > 30
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                        }`}>
-                          {c.days_overdue}d
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead className="text-right">Qtd. Cobranças</TableHead>
+                  <TableHead className="text-right">Total Vencido</TableHead>
+                  <TableHead className="text-right">Dias em Atraso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {inadimplencia.clients.map((c) => (
+                  <TableRow key={c.client_id}>
+                    <TableCell className="font-semibold text-foreground">{c.client_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.email ?? '—'}</TableCell>
+                    <TableCell className="text-right font-medium text-foreground">{c.overdue_count}</TableCell>
+                    <TableCell className="text-right font-bold text-red-500">
+                      {moneyBRL(c.overdue_total)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                        c.days_overdue > 90
+                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                          : c.days_overdue > 30
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                      }`}>
+                        {c.days_overdue} dias
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

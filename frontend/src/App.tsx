@@ -28,6 +28,9 @@ const ObrigacoesPage  = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({
 const PortalLoginPage = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
 const TermsPage       = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage     = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
+const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
+const WhatsAppInboxPage = lazy(() => import('@/pages/WhatsAppInboxPage').then(m => ({ default: m.WhatsAppInboxPage })));
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -107,6 +110,9 @@ function App() {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard"    element={<DashboardPage />} />
                 <Route path="clientes"     element={<ClientsPage />} />
+                <Route path="clientes/:id" element={<ClientDetailPage />} />
+                <Route path="aprender"     element={<LearningPage />} />
+                <Route path="mensagens"    element={<WhatsAppInboxPage />} />
                 <Route path="documentos"   element={<DocumentsPage />} />
                 <Route path="agenda-prazos" element={<DeadlinesPage />} />
                 <Route path="certificados" element={<CertificatesPage />} />

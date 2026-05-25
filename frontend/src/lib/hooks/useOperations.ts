@@ -426,6 +426,10 @@ export function useDeleteDeadline() {
   return useDeleteMutation('/api/v1/deadlines');
 }
 
+export function useUpdateDeadline() {
+  return useUpdateMutation<DeadlineCreate, DeadlineItem>('/api/v1/deadlines');
+}
+
 export function useDeleteDocument() {
   return useDeleteMutation('/api/v1/documents');
 }

@@ -18,23 +18,15 @@ def compile_array_sqlite(element, compiler, **kw):
 def compile_jsonb_sqlite(element, compiler, **kw):
     return "JSON"
 
-# Optional imports (only needed for integration tests, not unit tests)
-try:
-    from fastapi.testclient import TestClient
-    FASTAPI_AVAILABLE = True
-except ImportError:
-    FASTAPI_AVAILABLE = False
-    TestClient = None
+from fastapi.testclient import TestClient
+FASTAPI_AVAILABLE = True
 
-try:
-    from app.core.security import get_password_hash, create_access_token
-    from app.models.base import Base
-    from app.models.operations import AccountingClient
-    from app.models.tenant import Tenant, SubscriptionStatus
-    from app.models.user import User, UserRole
-    APP_MODELS_AVAILABLE = True
-except ImportError:
-    APP_MODELS_AVAILABLE = False
+from app.core.security import get_password_hash, create_access_token
+from app.models.base import Base
+from app.models.operations import AccountingClient
+from app.models.tenant import Tenant, SubscriptionStatus
+from app.models.user import User, UserRole
+APP_MODELS_AVAILABLE = True
 
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test")

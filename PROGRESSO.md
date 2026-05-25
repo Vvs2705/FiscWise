@@ -278,20 +278,18 @@
 
 # PARTE C — Pendências técnicas e backlog
 
+
 ## 📋 Pendências técnicas
 
 - [ ] **RLS — próxima fatia**: policies para auth, portal magic link, subscriptions, webhooks, notification templates globais
-- [ ] **5.13 complemento** — tela de upgrade de plano (frontend Asaas)
-- [ ] **Limpeza de docs** — referências `contaflow.fly.dev` ainda existem em:
-  `DEPLOYMENT_SUMMARY.md`, `PRODUCTION_STATUS.md`, `README.md`, `README_DEPLOYMENT.md`,
-  `FRONTEND_DEPLOYMENT_CHECKLIST.md`, `frontend/FRONTEND_README.md`,
-  `docs/VALIDACAO_ONLINE_FISCWISE.md`, `backend/alembic/env.py`, `ROADMAP.md`
+- [x] **5.13 complemento** — tela de upgrade de plano (frontend Asaas)
+- [x] **Limpeza de docs** — referências `contaflow.fly.dev` limpas
 
 ## 📋 Backlog — Fase 6 do plano original
 
-- [ ] **5.17 — WhatsApp Business API**
-- [ ] **5.18 — Monitor fiscal via parceiro**
-- [ ] **5.19 — RAG fiscal** (busca em legislação)
+- [x] **5.17 — WhatsApp Business API** (Concluído em 2026-05-25: models, migrations RLS, inbox unificada, whatsapp widget no cockpit)
+- [x] **5.18 — Monitor fiscal via parceiro** (Concluído em 2026-05-25: models `FiscalMonitorSummary` e `FiscalNFe`, sync automatico de status/guias/NF-es e aba de cockpit diário)
+- [x] **5.19 — RAG fiscal** (Concluído em 2026-05-25: vectors/procedures `RagDocument`, indexação de keywords tf-idf, injeção de contexto na IA e aba de Base de Conhecimento em Configurações)
 - [ ] **5.20 — API pública + Webhooks**
 
 ---

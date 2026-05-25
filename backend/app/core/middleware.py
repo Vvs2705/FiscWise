@@ -28,6 +28,7 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/api/v1/portal/invites",       # Public client portal invitation flows
     "/api/v1/portal/magic-link",    # Magic link request/verify (public)
     "/api/v1/billing/webhooks",     # Payment gateway webhooks (public — provider calls these)
+    "/api/v1/whatsapp/webhooks",    # WhatsApp provider webhooks (public)
 }
 
 _EXCLUDED_EXACT_PATHS: Set[str] = {

@@ -16,11 +16,14 @@ import json
 import logging
 import re
 from decimal import Decimal
+import uuid
 from typing import Any, Optional
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.services import rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +367,8 @@ async def generate_fator_r_recommendation(
 async def chat_with_fiscal_assistant(
     user_message: str,
     conversation_history: list[dict[str, str]],
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
     simulation_context: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[str], Optional[int]]:
     """
@@ -376,6 +381,30 @@ async def chat_with_fiscal_assistant(
     Returns (response_text, tokens_used) or (None, None) on failure.
     """
     messages: list[dict[str, str]] = [{"role": "system", "content": _SYSTEM_PROMPT}]
+
+    # RAG: Search knowledge base for office-specific custom procedures
+    try:
+        rag_results = await rag_service.search_knowledge_base(
+            db=db,
+            query=user_message,
+            tenant_id=tenant_id,
+            limit=2
+        )
+        if rag_results:
+            rag_lines = [
+                "INFORMAÇÃO DA BASE DE CONHECIMENTO DO ESCRITÓRIO (FONTES CONFIÁVEIS):",
+                "Você deve basear sua resposta prioritariamente nestas diretrizes e citar as fontes e o respectivo grau de confiança em sua resposta.",
+            ]
+            for doc, confidence in rag_results:
+                rag_lines.append(
+                    f"- Documento: {doc.title}\n"
+                    f"  Fonte: {doc.source}\n"
+                    f"  Grau de Confiança: {confidence:.0f}%\n"
+                    f"  Procedimento:\n{doc.content}"
+                )
+            messages.append({"role": "system", "content": "\n\n".join(rag_lines)})
+    except Exception as exc:
+        logger.warning("RAG Fiscal search failed: %s", exc)
 
     # Inject simulation context if provided
     if simulation_context:

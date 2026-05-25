@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface FormFieldProps {
   label: string;
-  htmlFor: string;
+  htmlFor?: string;
   error?: string;
   required?: boolean;
   children: ReactNode;

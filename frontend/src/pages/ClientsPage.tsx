@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   Plus,
   Archive,
@@ -18,22 +18,36 @@ import {
   Filter,
   UserCheck,
   UserX,
+  LayoutList,
+  LayoutGrid,
+  BookOpen,
 } from 'lucide-react';
+import { startTour } from '@/lib/tours';
 import readXlsxFile from 'read-excel-file';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Dialog } from '@/components/ui/Dialog';
 import { SecureNotesDrawer } from '@/components/SecureNotesDrawer';
-import { ClientManageDrawer } from '@/components/ClientManageDrawer';
+import { ClientDetailsDrawer } from '@/features/clients/components/ClientDetailsDrawer';
 import { FormField } from '@/components/ui/FormField';
 import { EmptyState, ErrorState, PageSpinner } from '@/components/ui/StateViews';
+import { ProgressRing } from '@/components/ui/ProgressRing';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/Table';
 import {
   useClients,
   useCreateClient,
   useDeleteClient,
+  useDeadlines,
   type AccountingClient,
   type AccountingClientCreate,
   type ClientStatus,
@@ -196,7 +210,6 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
     }
 
     try {
-      // read-excel-file aceita o File diretamente — sem FileReader necessário
       const rows = await readXlsxFile(file, { sheet: 'Dados do Cliente' });
 
       if (rows.length < 2) {
@@ -204,7 +217,6 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
         return;
       }
 
-      // Linha 0 = cabeçalhos, linha 1 = primeiro registro de dados
       const headers = rows[0].map(String);
       const dataRow = rows[1];
 
@@ -219,13 +231,12 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
         const rawValue = record[colName];
         if (rawValue !== undefined && rawValue !== '') {
           const value = String(rawValue).trim();
-          if (fieldName === 'entity_type') continue; // tratado abaixo
+          if (fieldName === 'entity_type') continue;
           setValue(fieldName, value);
           mapped = true;
         }
       }
 
-      // entity_type tratado separadamente
       const tipoRaw = record['Tipo (PJ ou PF)'];
       if (tipoRaw !== undefined && tipoRaw !== '') {
         const tipo = String(tipoRaw).trim().toUpperCase();
@@ -249,7 +260,6 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) void processFile(file);
-    // reset para permitir re-upload do mesmo arquivo
     e.target.value = '';
   }
 
@@ -306,28 +316,272 @@ type TipoFilter = '' | 'pj' | 'pf';
 type RegimeFilter = '' | 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' | 'MEI';
 
 // ---------------------------------------------------------------------------
+// Sub-components for Row & Card
+// ---------------------------------------------------------------------------
+
+interface ClientItemProps {
+  client: AccountingClient;
+  deadlines: any[];
+  onManage: () => void;
+  onNotes: () => void;
+  onDeactivate: () => void;
+}
+
+function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
+  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+  const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
+  
+  const lastAction = useMemo(() => {
+    if (clientDeadlines.length === 0) return 'Nenhuma';
+    const sorted = [...clientDeadlines].sort(
+      (a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+    );
+    const last = sorted[0];
+    const dateStr = new Date(last.updated_at || last.created_at).toLocaleDateString('pt-BR');
+    return `${last.title} (${dateStr})`;
+  }, [clientDeadlines]);
+
+  const healthScore = useMemo(() => {
+    let score = 100;
+    const overdueDl = clientDeadlines.filter((d) => d.status === 'overdue').length;
+    score -= overdueDl * 15;
+    return Math.max(0, Math.min(100, score));
+  }, [clientDeadlines]);
+
+  return (
+    <TableRow>
+      <TableCell>
+        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+          #{client.client_code}
+        </span>
+      </TableCell>
+      <TableCell>
+        <div className="font-bold text-foreground">{client.name}</div>
+        {client.document && <div className="text-xs text-muted-foreground font-mono">{client.document}</div>}
+      </TableCell>
+      <TableCell className="uppercase text-xs font-semibold text-muted-foreground">
+        {client.entity_type}
+      </TableCell>
+      <TableCell>
+        {client.tax_regime ? (
+          <Badge className="border-primary/20 bg-primary/5 text-primary text-xs">
+            {client.tax_regime}
+          </Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="text-xs">{client.email ?? '-'}</div>
+        {client.phone && <div className="text-xs text-muted-foreground">{client.phone}</div>}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <ProgressRing score={healthScore} size={28} strokeWidth={2.5} />
+          <span className="text-xs font-semibold text-foreground/80">{pendingCount} pendentes</span>
+        </div>
+      </TableCell>
+      <TableCell className="max-w-[180px] truncate text-xs text-muted-foreground" title={lastAction}>
+        {lastAction}
+      </TableCell>
+      <TableCell>
+        <Badge variant={statusVariant[client.status]}>
+          {statusLabel[client.status]}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onManage}
+            className="h-8 gap-1 text-primary hover:text-primary hover:bg-primary/10"
+            title="Gerenciar Empresa"
+          >
+            <Briefcase className="h-4 w-4" />
+            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Gerenciar</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onNotes}
+            className="h-8 gap-1 text-amber-500 hover:text-amber-500 hover:bg-amber-500/10"
+            title="Notas seguras"
+          >
+            <Lock className="h-4 w-4" />
+            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Notas</span>
+          </Button>
+          {client.status !== 'inactive' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDeactivate}
+              className="h-8 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Desativar cliente"
+            >
+              <Archive className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Desativar</span>
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
+  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+  const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
+
+  const lastAction = useMemo(() => {
+    if (clientDeadlines.length === 0) return 'Nenhuma';
+    const sorted = [...clientDeadlines].sort(
+      (a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+    );
+    const last = sorted[0];
+    const dateStr = new Date(last.updated_at || last.created_at).toLocaleDateString('pt-BR');
+    return `${last.title} (${dateStr})`;
+  }, [clientDeadlines]);
+
+  const healthScore = useMemo(() => {
+    let score = 100;
+    const overdueDl = clientDeadlines.filter((d) => d.status === 'overdue').length;
+    score -= overdueDl * 15;
+    return Math.max(0, Math.min(100, score));
+  }, [clientDeadlines]);
+
+  return (
+    <Card className="hover:border-primary/40 relative group flex flex-col justify-between h-full">
+      <CardHeader className="pb-3 flex flex-row justify-between items-start gap-4">
+        <div className="min-w-0">
+          <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+            #{client.client_code}
+          </span>
+          <h4 className="font-bold text-foreground text-base leading-tight mt-2 truncate" title={client.name}>
+            {client.name}
+          </h4>
+          {client.document && (
+            <p className="text-xs text-muted-foreground font-mono mt-1 truncate">{client.document}</p>
+          )}
+        </div>
+        <ProgressRing score={healthScore} size={36} strokeWidth={3} />
+      </CardHeader>
+
+      <CardContent className="pb-4 space-y-3 flex-1 flex flex-col justify-between">
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant={statusVariant[client.status]}>{statusLabel[client.status]}</Badge>
+            <Badge className="border-primary/20 bg-primary/5 text-primary">
+              {client.tax_regime ?? 'Não informado'}
+            </Badge>
+            <Badge className="uppercase text-[10px]">
+              {client.entity_type}
+            </Badge>
+          </div>
+
+          <div className="text-xs space-y-1 bg-muted/20 rounded-lg p-2.5 border border-border/40">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Prazos pendentes:</span>
+              <span className="font-semibold text-foreground">{pendingCount} itens</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">Última ação:</span>
+              <span className="font-semibold text-foreground truncate text-right w-full" title={lastAction}>
+                {lastAction}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground space-y-0.5 pt-3">
+          <p className="truncate" title={client.email || ''}>📧 {client.email || 'Sem e-mail'}</p>
+          <p>📞 {client.phone || 'Sem telefone'}</p>
+        </div>
+      </CardContent>
+
+      <CardFooter className="pt-3 border-t border-border/40 flex justify-between gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onManage}
+          className="flex-1 h-8 gap-1.5 text-primary hover:bg-primary/10 hover:text-primary"
+        >
+          <Briefcase className="h-3.5 w-3.5" />
+          <span>Gerenciar</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onNotes}
+          className="flex-1 h-8 gap-1.5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+        >
+          <Lock className="h-3.5 w-3.5" />
+          <span>Notas</span>
+        </Button>
+        {client.status !== 'inactive' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDeactivate}
+            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            title="Desativar cliente"
+          >
+            <Archive className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
 export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
-  const [selectedClient, setSelectedClient] = useState<AccountingClient | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const { data: clients, isLoading, isError } = useClients();
+  const { data: deadlines = [] } = useDeadlines();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // View state: list (table) vs card grid
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
   // Filter state
   const [clientView, setClientView] = useState<ClientView>('operational');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('');
   const [regimeFilter, setRegimeFilter] = useState<RegimeFilter>('');
 
-  // Abre o dialog automaticamente quando vindo do dashboard com state { openCreate: true }
+  // Search Debouncing
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Handle URL redirect query parameters (e.g. ?id=... from global search)
+  const idParam = searchParams.get('id');
+  useEffect(() => {
+    if (idParam) {
+      setSelectedClientId(idParam);
+      // clean query params to avoid re-opening
+      searchParams.delete('id');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [idParam, searchParams, setSearchParams]);
+
+  // Open creation modal if navigated with openCreate state
   useEffect(() => {
     if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
       setOpen(true);
-      // Limpa o state para não reabrir ao voltar para a página
       window.history.replaceState({}, '');
     }
   }, [location.state]);
@@ -390,46 +644,36 @@ export function ClientsPage() {
   const inactiveCount = clients?.filter((c) => c.status === 'inactive').length ?? 0;
   const operationalCount = activeCount + onboardingCount;
 
-  // Derived: are any filters active?
   const hasActiveFilters =
-    searchQuery.trim() !== '' || statusFilter !== '' || tipoFilter !== '' || regimeFilter !== '';
+    debouncedSearchQuery.trim() !== '' || statusFilter !== '' || tipoFilter !== '' || regimeFilter !== '';
 
   const visibleClients = useMemo(() => {
     if (!clients) return [];
-
     return clients.filter((client) =>
       clientView === 'operational' ? client.status !== 'inactive' : client.status === 'inactive'
     );
   }, [clients, clientView]);
 
-  // Client-side filtering via useMemo
   const filteredClients = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedSearchQuery.trim().toLowerCase();
 
     return visibleClients.filter((client) => {
-      // Search query: name, document, email
       if (q) {
         const matchesName = client.name.toLowerCase().includes(q);
         const matchesDoc = (client.document ?? '').toLowerCase().includes(q);
         const matchesEmail = (client.email ?? '').toLowerCase().includes(q);
         if (!matchesName && !matchesDoc && !matchesEmail) return false;
       }
-
-      // Status filter
       if (statusFilter && client.status !== statusFilter) return false;
-
-      // Tipo filter
       if (tipoFilter && client.entity_type !== tipoFilter) return false;
-
-      // Regime filter
       if (regimeFilter && client.tax_regime !== regimeFilter) return false;
-
       return true;
     });
-  }, [visibleClients, searchQuery, statusFilter, tipoFilter, regimeFilter]);
+  }, [visibleClients, debouncedSearchQuery, statusFilter, tipoFilter, regimeFilter]);
 
   function clearFilters() {
     setSearchQuery('');
+    setDebouncedSearchQuery('');
     setStatusFilter('');
     setTipoFilter('');
     setRegimeFilter('');
@@ -440,19 +684,29 @@ export function ClientsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl">Clientes</h1>
-          <p className="text-muted-foreground">
+          <h1 id="tour-clients-title" className="text-2xl font-bold md:text-3xl">Clientes</h1>
+          <p className="text-muted-foreground text-sm">
             Acompanhe a carteira e situacao operacional de cada cliente.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => startTour('clients', navigate, '/clientes')}
+            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            title="Aprender sobre esta tela"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Guia</span>
+          </Button>
           <a href="/template-cadastro-cliente.xlsx" download>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="h-9">
               <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
               Modelo XLSX
             </Button>
           </a>
-          <Button onClick={() => setOpen(true)} size="sm">
+          <Button onClick={() => setOpen(true)} size="sm" className="h-9">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo cliente
           </Button>
@@ -464,10 +718,12 @@ export function ClientsPage() {
       )}
 
       {/* Summary cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de clientes</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Total de clientes
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : total}</div>
@@ -475,7 +731,9 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Carteira operacional</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Carteira operacional
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : operationalCount}</div>
@@ -483,7 +741,9 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Em onboarding</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Em onboarding
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : onboardingCount}</div>
@@ -491,7 +751,9 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Desativados</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Desativados
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '...' : inactiveCount}</div>
@@ -500,7 +762,7 @@ export function ClientsPage() {
       </div>
 
       {!isLoading && !isError && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card/45 p-2 backdrop-blur-sm">
           <div
             className="flex gap-1"
             role="tablist"
@@ -511,15 +773,15 @@ export function ClientsPage() {
               role="tab"
               aria-selected={clientView === 'operational'}
               onClick={() => setClientView('operational')}
-              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 clientView === 'operational'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-glow-sm'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               <UserCheck className="h-4 w-4" aria-hidden="true" />
               Ativos
-              <span className="rounded bg-background/20 px-1.5 py-0.5 text-xs">
+              <span className="rounded bg-background/20 px-1.5 py-0.5 text-[10px]">
                 {operationalCount}
               </span>
             </button>
@@ -531,15 +793,15 @@ export function ClientsPage() {
                 setClientView('inactive');
                 setStatusFilter('');
               }}
-              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 clientView === 'inactive'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-glow-sm'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               <UserX className="h-4 w-4" aria-hidden="true" />
               Desativados
-              <span className="rounded bg-background/20 px-1.5 py-0.5 text-xs">
+              <span className="rounded bg-background/20 px-1.5 py-0.5 text-[10px]">
                 {inactiveCount}
               </span>
             </button>
@@ -547,16 +809,16 @@ export function ClientsPage() {
           <p className="px-2 text-xs text-muted-foreground">
             {clientView === 'operational'
               ? 'Clientes ativos e em onboarding aparecem na rotina diaria.'
-              : 'Clientes desativados ficam fora dos fluxos operacionais e dos limites de plano.'}
+              : 'Clientes desativados ficam fora dos fluxos operacionais.'}
           </p>
         </div>
       )}
 
       {/* Filters bar */}
       {!isLoading && !isError && (
-        <div className="flex flex-wrap gap-3">
-          {/* Search input — takes most of the space */}
-          <div className="relative flex-1 min-w-[200px]">
+        <div id="tour-clients-search" className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Search input */}
+          <div className="relative flex-1">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none"
               aria-hidden="true"
@@ -566,238 +828,204 @@ export function ClientsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nome, CNPJ/CPF ou e-mail..."
-              className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              className="w-full rounded-lg border border-border/80 bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               aria-label="Buscar clientes"
             />
-          </div>
-
-          {/* Selects row + clear button */}
-          <div className="flex flex-wrap gap-2 items-center">
-            {clientView === 'operational' && (
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                aria-label="Filtrar carteira ativa por status"
-              >
-                <option value="">Ativos + onboarding</option>
-                <option value="active">Somente ativos</option>
-                <option value="onboarding">Somente onboarding</option>
-              </select>
-            )}
-
-            {/* Tipo filter */}
-            <select
-              value={tipoFilter}
-              onChange={(e) => setTipoFilter(e.target.value as TipoFilter)}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              aria-label="Filtrar por tipo"
-            >
-              <option value="">Todos os tipos</option>
-              <option value="pj">Pessoa Jurídica</option>
-              <option value="pf">Pessoa Física</option>
-            </select>
-
-            {/* Regime filter */}
-            <select
-              value={regimeFilter}
-              onChange={(e) => setRegimeFilter(e.target.value as RegimeFilter)}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              aria-label="Filtrar por regime tributário"
-            >
-              <option value="">Todos os regimes</option>
-              <option value="Simples Nacional">Simples Nacional</option>
-              <option value="Lucro Presumido">Lucro Presumido</option>
-              <option value="Lucro Real">Lucro Real</option>
-              <option value="MEI">MEI</option>
-            </select>
-
-            {/* Clear filters button — only when filters are active */}
-            {hasActiveFilters && (
+            {searchQuery && (
               <button
                 type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Limpar filtros"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-                Limpar filtros
+                <X className="h-4 w-4" />
               </button>
             )}
+          </div>
+
+          {/* Selects + View Mode Toggles */}
+          <div className="flex flex-wrap gap-2 items-center justify-between sm:justify-start">
+            <div className="flex flex-wrap gap-2 items-center">
+              {clientView === 'operational' && (
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                  className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  aria-label="Filtrar carteira ativa por status"
+                >
+                  <option value="">Ativos + onboarding</option>
+                  <option value="active">Somente ativos</option>
+                  <option value="onboarding">Somente onboarding</option>
+                </select>
+              )}
+
+              <select
+                value={tipoFilter}
+                onChange={(e) => setTipoFilter(e.target.value as TipoFilter)}
+                className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                aria-label="Filtrar por tipo"
+              >
+                <option value="">Todos os tipos</option>
+                <option value="pj">Pessoa Jurídica</option>
+                <option value="pf">Pessoa Física</option>
+              </select>
+
+              <select
+                value={regimeFilter}
+                onChange={(e) => setRegimeFilter(e.target.value as RegimeFilter)}
+                className="rounded-lg border border-border/80 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                aria-label="Filtrar por regime tributário"
+              >
+                <option value="">Todos os regimes</option>
+                <option value="Simples Nacional">Simples Nacional</option>
+                <option value="Lucro Presumido">Lucro Presumido</option>
+                <option value="Lucro Real">Lucro Real</option>
+                <option value="MEI">MEI</option>
+              </select>
+
+              {hasActiveFilters && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-9 gap-1.5"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+
+            {/* List vs Card Toggle */}
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-primary text-primary-foreground shadow-glow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Visualização em Lista"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('card')}
+                className={`p-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-all ${
+                  viewMode === 'card'
+                    ? 'bg-primary text-primary-foreground shadow-glow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Visualização em Cards"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Clients table */}
+      {/* Main clients content (Table vs Grid) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-          <CardTitle className="text-base">
+          <CardTitle className="text-base font-bold">
             {clientView === 'operational' ? 'Carteira ativa' : 'Clientes desativados'}
           </CardTitle>
-          {/* Counter */}
           {!isLoading && !isError && clients && (
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
               <Filter className="h-3.5 w-3.5" aria-hidden="true" />
               {hasActiveFilters
-                ? `${filteredClients.length} de ${visibleClients.length} clientes`
-                : `${visibleClients.length} ${
-                    visibleClients.length === 1 ? 'cliente' : 'clientes'
-                  }`}
+                ? `${filteredClients.length} de ${visibleClients.length} filtrados`
+                : `${visibleClients.length} cadastrados`}
             </span>
           )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <PageSpinner />
+          ) : total === 0 ? (
+            <EmptyState
+              title="Nenhum cliente cadastrado"
+              description="Cadastre seu primeiro cliente clicando em Novo cliente."
+            />
+          ) : visibleClients.length === 0 && !hasActiveFilters ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              {clientView === 'operational' ? (
+                <UserCheck className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+              ) : (
+                <UserX className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+              )}
+              <div>
+                <p className="font-bold text-foreground">
+                  {clientView === 'operational' ? 'Nenhum cliente ativo' : 'Nenhum cliente desativado'}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {clientView === 'operational'
+                    ? 'Clientes inativos ficam fora desta carteira. Cadastre ou reative um cliente para ver aqui.'
+                    : 'Quando um cliente for desativado, ele aparecerá nesta aba.'}
+                </p>
+              </div>
+            </div>
+          ) : filteredClients.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+              <div>
+                <p className="font-bold text-foreground">Nenhum cliente encontrado</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Nenhum cliente corresponde aos filtros aplicados.{' '}
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="underline text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Limpar filtros
+                  </button>{' '}
+                  para ver todos.
+                </p>
+              </div>
+            </div>
+          ) : viewMode === 'list' ? (
+            <Table id="tour-clients-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Código</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead className="w-[80px]">Tipo</TableHead>
+                  <TableHead>Regime</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Checklist</TableHead>
+                  <TableHead>Última Ação</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.map((client) => (
+                  <ClientTableRow
+                    key={client.id}
+                    client={client}
+                    deadlines={deadlines}
+                    onManage={() => setSelectedClientId(client.id)}
+                    onNotes={() => setSecureNotes({ id: client.id, name: client.name })}
+                    onDeactivate={() => handleDeactivate(client.id, client.name)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[740px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">Codigo</th>
-                    <th className="pb-3 font-medium">Cliente</th>
-                    <th className="pb-3 font-medium">Tipo</th>
-                    <th className="pb-3 font-medium">Regime</th>
-                    <th className="pb-3 font-medium">Contato</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium text-right pr-4">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Empty state: no clients at all */}
-                  {total === 0 && (
-                    <tr>
-                      <td colSpan={7}>
-                        <EmptyState
-                          title="Nenhum cliente cadastrado"
-                          description="Cadastre seu primeiro cliente clicando em Novo cliente."
-                        />
-                      </td>
-                    </tr>
-                  )}
-
-                  {total > 0 && visibleClients.length === 0 && !hasActiveFilters && (
-                    <tr>
-                      <td colSpan={7}>
-                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                          {clientView === 'operational' ? (
-                            <UserCheck className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
-                          ) : (
-                            <UserX className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
-                          )}
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {clientView === 'operational'
-                                ? 'Nenhum cliente ativo'
-                                : 'Nenhum cliente desativado'}
-                            </p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {clientView === 'operational'
-                                ? 'Clientes inativos ficam fora desta carteira. Cadastre ou reative um cliente para aparecer aqui.'
-                                : 'Quando um cliente for desativado, ele aparecera nesta aba sem misturar com a carteira ativa.'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-
-                  {/* Empty state: clients exist but filters return nothing */}
-                  {total > 0 &&
-                    filteredClients.length === 0 &&
-                    (visibleClients.length > 0 || hasActiveFilters) && (
-                    <tr>
-                      <td colSpan={7}>
-                        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                          <Search className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
-                          <div>
-                            <p className="font-medium text-foreground">Nenhum cliente encontrado</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              Nenhum cliente corresponde aos filtros aplicados.{' '}
-                              <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="underline underline-offset-2 hover:text-foreground transition-colors"
-                              >
-                                Limpar filtros
-                              </button>{' '}
-                              para ver todos os clientes.
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-
-                  {/* Filtered rows */}
-                  {filteredClients.map((client) => (
-                    <tr key={client.id} className="border-b last:border-0">
-                      <td className="py-4">
-                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                          #{client.client_code}
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <div className="font-medium">{client.name}</div>
-                        {client.document && (
-                          <div className="text-muted-foreground">{client.document}</div>
-                        )}
-                      </td>
-                      <td className="py-4 uppercase text-xs font-medium">
-                        {client.entity_type}
-                      </td>
-                      <td className="py-4">{client.tax_regime ?? '-'}</td>
-                      <td className="py-4">
-                        <div>{client.email ?? '-'}</div>
-                        {client.phone && (
-                          <div className="text-muted-foreground">{client.phone}</div>
-                        )}
-                      </td>
-                      <td className="py-4">
-                        <Badge variant={statusVariant[client.status]}>
-                          {statusLabel[client.status]}
-                        </Badge>
-                      </td>
-                      <td className="py-4 text-right pr-4">
-                        <div className="flex items-center justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedClient(client)}
-                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Gerenciar cliente ${client.name}`}
-                            title="Gerenciar Empresa"
-                          >
-                            <Briefcase className="h-4 w-4" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Gerenciar</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSecureNotes({ id: client.id, name: client.name })}
-                            className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            aria-label={`Notas seguras de ${client.name}`}
-                            title="Notas seguras"
-                          >
-                            <Lock className="h-4 w-4" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Anotações</span>
-                          </button>
-                          {client.status !== 'inactive' && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeactivate(client.id, client.name)}
-                              className="flex flex-col items-center gap-0.5 rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-label={`Desativar cliente ${client.name}`}
-                              title="Desativar cliente"
-                            >
-                              <Archive className="h-4 w-4" />
-                              <span className="text-[9px] font-medium uppercase tracking-wider">Desativar</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredClients.map((client) => (
+                <ClientGridCard
+                  key={client.id}
+                  client={client}
+                  deadlines={deadlines}
+                  onManage={() => setSelectedClientId(client.id)}
+                  onNotes={() => setSecureNotes({ id: client.id, name: client.name })}
+                  onDeactivate={() => handleDeactivate(client.id, client.name)}
+                />
+              ))}
             </div>
           )}
         </CardContent>
@@ -811,11 +1039,11 @@ export function ClientsPage() {
         clientName={secureNotes?.name ?? ''}
       />
 
-      {/* Client management drawer */}
-      <ClientManageDrawer
-        open={!!selectedClient}
-        onClose={() => setSelectedClient(null)}
-        client={selectedClient}
+      {/* Client details drawer */}
+      <ClientDetailsDrawer
+        isOpen={!!selectedClientId}
+        onClose={() => setSelectedClientId(null)}
+        clientId={selectedClientId}
       />
 
       {/* New client dialog */}

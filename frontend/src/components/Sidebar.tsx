@@ -10,6 +10,8 @@ import {
   Calculator,
   Coins,
   ListChecks,
+  BookOpen,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -17,6 +19,7 @@ import { Logo } from '@/components/Logo';
 const navigation = [
   { name: 'Painel',             href: '/dashboard',      icon: LayoutDashboard },
   { name: 'Clientes',           href: '/clientes',       icon: UsersRound },
+  { name: 'Mensagens',          href: '/mensagens',      icon: MessageSquare },
   { name: 'Agenda Fiscal',      href: '/agenda-prazos',  icon: CalendarClock },
   { name: 'Obrigações',         href: '/obrigacoes',     icon: ListChecks },
   { name: 'Documentos',         href: '/documentos',     icon: FolderKanban },
@@ -24,6 +27,7 @@ const navigation = [
   { name: 'Certificados',       href: '/certificados',   icon: ShieldCheck },
   { name: 'Financeiro',         href: '/financeiro',     icon: ReceiptText },
   { name: 'Calculadora',        href: '/calculadora',    icon: Calculator },
+  { name: 'Aprender',           href: '/aprender',       icon: BookOpen },
   { name: 'Configurações',      href: '/configuracoes',  icon: Settings },
 ];
 

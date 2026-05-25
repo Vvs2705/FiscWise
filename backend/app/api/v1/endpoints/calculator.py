@@ -494,6 +494,8 @@ async def chat(
         user_message=payload.content,
         conversation_history=conversation_history,
         simulation_context=simulation_context,
+        db=db,
+        tenant_id=tenant_id,
     )
 
     # Persist assistant message

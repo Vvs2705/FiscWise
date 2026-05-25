@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Command } from 'cmdk';
-import { Search, User, FileText, Calendar, Plus, Settings, Receipt } from 'lucide-react';
+import { Search, User, FileText, Calendar, Plus, Settings, Receipt, MessageSquare } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { cn } from '@/lib/utils';
 
@@ -79,7 +79,14 @@ export function CommandMenu() {
               <span>Subir Documento Fiscal</span>
             </Command.Item>
             <Command.Item
-              onSelect={() => runCommand(() => navigate('/agenda'))}
+              onSelect={() => runCommand(() => navigate('/mensagens'))}
+              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Abrir Central de Mensagens WhatsApp</span>
+            </Command.Item>
+            <Command.Item
+              onSelect={() => runCommand(() => navigate('/agenda-prazos'))}
               className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
             >
               <Calendar className="w-4 h-4" />

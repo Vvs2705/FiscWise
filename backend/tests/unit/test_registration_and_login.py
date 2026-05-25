@@ -262,7 +262,7 @@ class TestLogin:
         )
 
         assert response.status_code == 401
-        assert "Incorrect email or password" in response.json()["detail"]
+        assert "E-mail ou senha incorretos" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_login_nonexistent_user(self, client):
@@ -276,7 +276,7 @@ class TestLogin:
         )
 
         assert response.status_code == 401
-        assert "Incorrect email or password" in response.json()["detail"]
+        assert "E-mail ou senha incorretos" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_login_inactive_user(self, client, test_db: AsyncSession, tenant_a: Tenant):
@@ -301,7 +301,7 @@ class TestLogin:
         )
 
         assert response.status_code == 403
-        assert "Inactive user account" in response.json()["detail"]
+        assert "Conta inativa. Entre em contato com o suporte." in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_login_returns_correct_tenant_id(self, client, test_db: AsyncSession, tenant_a: Tenant):

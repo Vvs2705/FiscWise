@@ -11,6 +11,7 @@ interface DailyFocusCardProps {
   focusItems: FocusItem[];
   totalCount: number;
   isLoading?: boolean;
+  onStartFocusMode: () => void;
 }
 
 function toneClasses(tone: FocusItem['tone']) {
@@ -29,7 +30,7 @@ function toneClasses(tone: FocusItem['tone']) {
   return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-100';
 }
 
-export function DailyFocusCard({ focusItems, totalCount, isLoading }: DailyFocusCardProps) {
+export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocusMode }: DailyFocusCardProps) {
   return (
     <div className="rounded-[26px] border border-white/10 bg-[#0b131f]/90 p-5 backdrop-blur">
       <div className="flex items-center justify-between">
@@ -69,9 +70,17 @@ export function DailyFocusCard({ focusItems, totalCount, isLoading }: DailyFocus
       <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Próximo passo</p>
         <p className="mt-2 text-sm leading-6 text-slate-200">
-          Comece pela agenda fiscal e depois avance para clientes com pendências abertas ou
-          documentos sem conferência.
+          Comece o Modo Foco para resolver as pendências críticas ordenadamente, ou acesse a agenda fiscal.
         </p>
+        {totalCount > 0 && (
+          <button
+            type="button"
+            onClick={onStartFocusMode}
+            className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-200 hover:-translate-y-0.5 active:translate-y-0"
+          >
+            Iniciar Modo Foco ({totalCount} pendências)
+          </button>
+        )}
       </div>
     </div>
   );

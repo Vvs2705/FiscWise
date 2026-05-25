@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, AlertTriangle } from 'lucide-react';
+import { ArrowRight, AlertTriangle, BookOpen } from 'lucide-react';
+import { startTour } from '@/lib/tours';
 
 interface DashboardHeroProps {
   isError?: boolean;
+  onStartFocusMode: () => void;
 }
 
-export function DashboardHero({ isError }: DashboardHeroProps) {
+export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps) {
   const navigate = useNavigate();
 
   return (
@@ -15,7 +17,7 @@ export function DashboardHero({ isError }: DashboardHeroProps) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200/90">
           Painel
         </p>
-        <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white md:text-[2.8rem]">
+        <h1 id="tour-welcome" className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white md:text-[2.8rem]">
           Veja o que precisa da sua atenção hoje
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
@@ -25,7 +27,15 @@ export function DashboardHero({ isError }: DashboardHeroProps) {
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => navigate('/obrigacoes')}
+            onClick={() => startTour('dashboard', navigate, '/dashboard')}
+            className="inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/10 px-5 py-3 text-sm font-semibold text-teal-300 transition hover:-translate-y-0.5 hover:bg-teal-500/20"
+          >
+            <BookOpen className="h-4 w-4" />
+            Iniciar Guia
+          </button>
+          <button
+            type="button"
+            onClick={onStartFocusMode}
             className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-200"
           >
             Resolver agora

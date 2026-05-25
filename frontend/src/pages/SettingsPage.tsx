@@ -29,12 +29,17 @@ import {
   MailCheck,
   Shield,
   QrCode,
+  Plus,
+  Trash2,
+  Edit3,
+  Search,
+  HelpCircle,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { useAuthStore } from '@/stores/authStore';
@@ -54,12 +59,20 @@ import {
   type Setup2FAResponse,
 } from '@/lib/auth';
 import { useSubscriptionUsage, useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
-import { useSubscription, useCreateSubscription } from '@/lib/hooks/useBilling';
+import { useSubscription } from '@/lib/hooks/useBilling';
+import { UpgradePlanoModal } from '@/features/subscription/components/UpgradePlanoModal';
 import {
   useNotificationMessages,
   useNotificationStats,
   useTriggerPendingDocNotifications,
 } from '@/lib/hooks/useNotifications';
+import {
+  useRagDocuments,
+  useCreateRagDocument,
+  useUpdateRagDocument,
+  useDeleteRagDocument,
+  type RagDocument,
+} from '@/lib/hooks/useRagFiscal';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -124,6 +137,7 @@ const TABS = [
   { id: 'perfil',         label: 'Perfil',          icon: User },
   { id: 'escritorio',     label: 'Escritório',       icon: Building2 },
   { id: 'plano',          label: 'Plano',            icon: Sparkles },
+  { id: 'base_conhecimento', label: 'Base de Conhecimento', icon: FileText },
   { id: 'seguranca',      label: 'Segurança',        icon: ShieldCheck },
   { id: 'pagamento',      label: 'Pagamento',        icon: CreditCard },
   { id: 'notificacoes',   label: 'Notificações',     icon: Bell },
@@ -198,6 +212,12 @@ export function SettingsPage() {
           }} />
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
+        {activeTab === 'base_conhecimento' && (
+          <BaseConhecimentoTab
+            tenant={tenant}
+            onNavigateToPlans={() => setActiveTab('plano')}
+          />
+        )}
         {activeTab === 'pagamento' && <PagamentoTab onNavigateToPlans={() => setActiveTab('plano')} />}
         {activeTab === 'notificacoes' && <NotificacoesTab />}
       </div>
@@ -459,36 +479,9 @@ function PlanoTab({
   tenant: TenantData | null;
   onPlanChange: (slug: string) => void;
 }) {
-  const [changing, setChanging] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const { user } = useAuthStore();
   const { data: usage } = useSubscriptionUsage();
   const { data: dbPlans, isLoading: loadingPlans } = useAvailablePlans();
-  const createSub = useCreateSubscription();
-
-  async function handleChangePlan(plan: Plan) {
-    if (plan.slug === currentPlan.slug) return;
-
-    if (user?.role !== 'owner') {
-      toast.error('Apenas o proprietário do escritório pode alterar o plano.');
-      return;
-    }
-
-    setChanging(plan.slug);
-    try {
-      if (plan.slug !== 'free') {
-        await createSub.mutateAsync({ plan_id: plan.id });
-      }
-      await updateTenant({ plan_slug: plan.slug });
-      onPlanChange(plan.slug);
-      setSelectedPlan(null);
-      toast.success(`Plano alterado para ${plan.name} com sucesso!`);
-    } catch {
-      toast.error('Erro ao alterar plano');
-    } finally {
-      setChanging(null);
-    }
-  }
 
   const statusLabel: Record<string, string> = {
     trial: 'Trial',
@@ -704,14 +697,10 @@ function PlanoTab({
                 <Button
                   className="w-full"
                   variant={isActive ? 'outline' : 'default'}
-                  disabled={isActive || changing !== null}
+                  disabled={isActive}
                   onClick={() => setSelectedPlan(plan)}
                 >
-                  {changing === plan.slug
-                    ? 'Alterando...'
-                    : isActive
-                    ? 'Plano atual'
-                    : planCtas[intent]}
+                  {isActive ? 'Plano atual' : planCtas[intent]}
                 </Button>
               </CardContent>
             </Card>
@@ -726,78 +715,15 @@ function PlanoTab({
         </a>
       </p>
 
-      <Dialog
+      <UpgradePlanoModal
         open={selectedPlan !== null}
-        onClose={() => changing === null && setSelectedPlan(null)}
-        title={selectedPlan ? `Confirmar mudança para ${selectedPlan.name}` : 'Confirmar mudança de plano'}
-        footer={
-          selectedPlan ? (
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedPlan(null)}
-                disabled={changing !== null}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => void handleChangePlan(selectedPlan)}
-                disabled={changing !== null}
-              >
-                {changing === selectedPlan.slug ? 'Processando...' : `${planCtas[getPlanIntent(selectedPlan)]} agora`}
-              </Button>
-            </div>
-          ) : null
-        }
-      >
-        {selectedPlan && (
-          <div className="space-y-4">
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resumo da alteração</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Plano atual</p>
-                  <p className="text-base font-semibold text-foreground">{currentPlan.label}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Novo plano</p>
-                  <p className="text-base font-semibold text-foreground">{selectedPlan.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Preço mensal</p>
-                  <p className="text-base font-semibold text-foreground">{getPlanPrice(selectedPlan)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Impacto</p>
-                  <p className="text-base font-semibold text-foreground">
-                    {getPlanIntent(selectedPlan) === 'upgrade'
-                      ? 'Amplia recursos e capacidade'
-                      : getPlanIntent(selectedPlan) === 'downgrade'
-                      ? 'Reduz capacidade disponível'
-                      : 'Atualização de configuração'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">Recursos incluídos</p>
-              <ul className="space-y-2">
-                {getPlanFeatures(selectedPlan).map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
-              Ao confirmar, o FiscWise provisiona a assinatura quando aplicável e sincroniza o plano do escritório.
-            </div>
-          </div>
-        )}
-      </Dialog>
+        onClose={() => setSelectedPlan(null)}
+        selectedPlan={selectedPlan}
+        onUpgradeSuccess={(slug) => {
+          onPlanChange(slug);
+          setSelectedPlan(null);
+        }}
+      />
     </div>
   );
 }
@@ -1582,3 +1508,390 @@ function NotificacoesTab() {
     </div>
   );
 }
+
+// ─── Base de Conhecimento Tab (RAG Fiscal) ────────────────────────────────────
+
+function BaseConhecimentoTab({
+  tenant,
+  onNavigateToPlans,
+}: {
+  tenant: TenantData | null;
+  onNavigateToPlans: () => void;
+}) {
+  const isFree = tenant?.plan_slug === 'free' || !tenant?.plan_slug;
+
+  const { data: documents, isLoading } = useRagDocuments();
+  const createMutation = useCreateRagDocument();
+  const updateMutation = useUpdateRagDocument();
+  const deleteMutation = useDeleteRagDocument();
+
+  // Search & Filter state
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('todos');
+
+  // Form state
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<RagDocument | null>(null);
+
+  // Form Fields
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [source, setSource] = useState('');
+  const [category, setCategory] = useState('procedimento');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Expanded document IDs
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+
+  // Setup form for editing
+  const handleEditClick = (doc: RagDocument) => {
+    setEditingDoc(doc);
+    setTitle(doc.title);
+    setContent(doc.content);
+    setSource(doc.source);
+    setCategory(doc.category);
+    setErrors({});
+    setIsFormOpen(true);
+  };
+
+  // Reset form
+  const handleCancel = () => {
+    setIsFormOpen(false);
+    setEditingDoc(null);
+    setTitle('');
+    setContent('');
+    setSource('');
+    setCategory('procedimento');
+    setErrors({});
+  };
+
+  const handleOpenCreate = () => {
+    setEditingDoc(null);
+    setTitle('');
+    setContent('');
+    setSource('Procedimento Interno');
+    setCategory('procedimento');
+    setErrors({});
+    setIsFormOpen(true);
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!title.trim() || title.length < 2) {
+      newErrors.title = 'O título deve ter no mínimo 2 caracteres.';
+    }
+    if (title.length > 255) {
+      newErrors.title = 'O título não pode exceder 255 caracteres.';
+    }
+    if (!content.trim() || content.length < 10) {
+      newErrors.content = 'O conteúdo deve descrever a regra/faq com no mínimo 10 caracteres.';
+    }
+    if (source.length > 255) {
+      newErrors.source = 'A fonte não pode exceder 255 caracteres.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const payload = {
+      title: title.trim(),
+      content: content.trim(),
+      source: source.trim() || 'Procedimento Interno',
+      category,
+    };
+
+    try {
+      if (editingDoc) {
+        await updateMutation.mutateAsync({ id: editingDoc.id, payload });
+        toast.success('Documento atualizado com sucesso');
+      } else {
+        await createMutation.mutateAsync(payload);
+        toast.success('Documento adicionado à base RAG');
+      }
+      handleCancel();
+    } catch {
+      toast.error('Erro ao salvar documento na base RAG');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir permanentemente esta regra da base de conhecimento? A IA do escritório deixará de usá-la.')) {
+      return;
+    }
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast.success('Documento excluído da base');
+    } catch {
+      toast.error('Erro ao excluir documento');
+    }
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  if (isFree) {
+    return (
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background p-8 text-center">
+        <CardContent className="flex flex-col items-center justify-center space-y-4 py-8">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold">Base de Conhecimento RAG com IA</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Alimente o cérebro da IA fiscal do seu escritório com regras, FAQs e procedimentos próprios. Quando você fizer perguntas na calculadora com IA, ela responderá baseada prioritariamente nas diretrizes do seu escritório, citando fontes e confiança!
+          </p>
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+            Esta funcionalidade premium está disponível a partir do Plano Intermediário.
+          </div>
+          <Button onClick={onNavigateToPlans} className="mt-2">
+            Fazer Upgrade de Plano
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Filter documents locally
+  const filteredDocs = (documents || []).filter((doc) => {
+    const matchesSearch =
+      doc.title.toLowerCase().includes(search.toLowerCase()) ||
+      doc.content.toLowerCase().includes(search.toLowerCase()) ||
+      doc.source.toLowerCase().includes(search.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'todos' || doc.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const getCategoryLabel = (cat: string) => {
+    switch (cat) {
+      case 'procedimento': return 'Procedimento';
+      case 'faq': return 'FAQ / Dúvida';
+      case 'regulamento': return 'Regulamento';
+      default: return 'Outros';
+    }
+  };
+
+  const getCategoryBadgeColor = (cat: string) => {
+    switch (cat) {
+      case 'procedimento': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+      case 'faq': return 'bg-sky-500/10 text-sky-500 border-sky-500/20';
+      case 'regulamento': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Intro info */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <BookOpen className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Base de Conhecimento RAG do Escritório</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cadastre procedimentos operacionais, circulares estaduais e entendimentos internos.
+                O FiscWise (GPT-4o Mini) consultará estes documentos e aplicará as diretrizes
+                automaticamente ao responder perguntas na calculadora tributária.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Form Card */}
+      {isFormOpen && (
+        <Card className="border-primary/40 bg-muted/20 animate-slide-up">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {editingDoc ? 'Editar Diretriz de Conhecimento' : 'Adicionar Diretriz à Base RAG'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Título do Documento" error={errors.title} required>
+                  <Input
+                    placeholder="Ex: Isenção de ICMS Simples Nacional SP Art. X"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </FormField>
+
+                <FormField label="Categoria" required>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option value="procedimento">Procedimento Interno</option>
+                    <option value="faq">FAQ / Respostas Frequentes</option>
+                    <option value="regulamento">Regulamento / Decreto</option>
+                    <option value="outro">Outros</option>
+                  </select>
+                </FormField>
+              </div>
+
+              <FormField label="Fonte / Origem do Conhecimento" error={errors.source}>
+                <Input
+                  placeholder="Ex: Decreto 45.123/2024 SP ou Manual de Integração do Cliente"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                />
+              </FormField>
+
+              <FormField label="Conteúdo / Regra de Aplicação (Instruções detalhadas)" error={errors.content} required>
+                <textarea
+                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Descreva aqui o procedimento, FAQ ou regulamento. Seja específico, pois a IA interpretará este texto literalmente para responder às perguntas."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                />
+              </FormField>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? 'Salvando...' : 'Salvar na Base RAG'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main List Management */}
+      {!isFormOpen && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar regras e manuais..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Create Trigger Button */}
+            <Button onClick={handleOpenCreate} className="gap-2 shrink-0">
+              <Plus className="h-4 w-4" />
+              Nova Diretriz
+            </Button>
+          </div>
+
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-1.5 border-b pb-2">
+            {[
+              { id: 'todos', label: 'Todos' },
+              { id: 'procedimento', label: 'Procedimentos' },
+              { id: 'faq', label: 'FAQs / Dúvidas' },
+              { id: 'regulamento', label: 'Regulamentos' },
+              { id: 'outro', label: 'Outros' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                  selectedCategory === cat.id
+                    ? 'bg-primary/10 text-primary border border-primary/20'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Documents Grid / List */}
+          {isLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredDocs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+              <HelpCircle className="mb-2 h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm font-medium text-muted-foreground">Nenhuma regra fiscal encontrada</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {search ? 'Tente ajustar os termos de pesquisa ou o filtro de categoria.' : 'Clique no botão acima para adicionar a primeira regra fiscal.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {filteredDocs.map((doc) => {
+                const isExpanded = expandedIds[doc.id] || false;
+                const truncated = doc.content.length > 180 ? `${doc.content.slice(0, 180)}...` : doc.content;
+
+                return (
+                  <Card key={doc.id} className="flex flex-col justify-between hover:border-primary/30 transition-all duration-200">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <Badge variant="regular" className={getCategoryBadgeColor(doc.category)}>
+                          {getCategoryLabel(doc.category)}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditClick(doc)}
+                            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Editar diretriz"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(doc.id)}
+                            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                            title="Excluir diretriz"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <CardTitle className="mt-2 text-sm font-bold line-clamp-1">{doc.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3 text-xs flex-1 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {isExpanded ? doc.content : truncated}
+                        </p>
+                        {doc.content.length > 180 && (
+                          <button
+                            onClick={() => toggleExpand(doc.id)}
+                            className="text-primary hover:underline font-semibold"
+                          >
+                            {isExpanded ? 'Ver menos' : 'Ver mais'}
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-4 pt-2 border-t text-[10px] text-muted-foreground/80 flex items-center justify-between">
+                        <span>Fonte: <strong className="text-foreground/80">{doc.source}</strong></span>
+                        <span>Atualizado em: {new Date(doc.updated_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+

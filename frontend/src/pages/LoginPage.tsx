@@ -148,22 +148,28 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-foreground lg:flex">
+    <div className="min-h-screen bg-slate-50 text-foreground lg:grid lg:grid-cols-[46%_54%] lg:h-screen lg:max-h-screen lg:overflow-hidden">
+      <style>{`
+        @media (min-width: 1024px) {
+          body {
+            overflow: hidden !important;
+            height: 100vh !important;
+          }
+        }
+      `}</style>
       <LoginBrandPanel />
 
-      <section className="relative flex min-h-screen flex-1 flex-col items-center justify-start overflow-y-auto overflow-x-hidden px-5 py-8 sm:px-8 lg:px-10 lg:pt-16 lg:pb-8">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(circle at top, rgba(45,212,191,0.10), transparent 28%), linear-gradient(180deg, rgba(241,245,249,0.95) 0%, rgba(248,250,252,1) 100%)',
-          }}
-        />
+      <section
+        className="relative flex min-h-screen lg:min-h-0 flex-1 flex-col items-center justify-center lg:justify-end lg:h-screen lg:max-h-screen lg:overflow-hidden px-5 py-8 lg:py-0 lg:pl-[clamp(32px,5vw,80px)] lg:pr-[clamp(72px,8vw,150px)]"
+        style={{
+          background:
+            'radial-gradient(circle at 70% 20%, rgba(45, 212, 191, 0.12), transparent 28%), radial-gradient(circle at 20% 80%, rgba(56, 189, 248, 0.10), transparent 26%), linear-gradient(135deg, #f8fbff 0%, #eef6fb 100%)',
+        }}
+      >
         <div className="pointer-events-none absolute right-10 top-10 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-sky-200/25 blur-3xl" />
 
-        <div className="relative z-10 flex w-full max-w-[480px] flex-col">
+        <div className="relative z-10 flex w-full max-w-[480px] flex-col items-center gap-[22px]">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -189,7 +195,7 @@ export function LoginPage() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_28px_100px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:p-8"
+              className="w-full rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_28px_100px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:p-8"
             >
               <div className="mb-6 space-y-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
@@ -326,7 +332,7 @@ export function LoginPage() {
             </motion.div>
           )}
 
-          <footer className="mt-6 text-center">
+          <footer className="text-center">
             <p className="text-xs text-slate-500/80">
               Desenvolvido por{' '}
               <a

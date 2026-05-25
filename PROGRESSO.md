@@ -1,6 +1,6 @@
 # FiscWise — Progresso de Implementação
 
-> Atualizado em: 2026-05-24
+> Atualizado em: 2026-05-25
 > Referências: `Evolução seguinte.md` · `FISCWISE_REDESIGN_MASTERPLAN.md`
 
 ---
@@ -102,7 +102,7 @@
 
 ---
 
-## ✅ FASE R2 — Login premium
+## ✅ REDESIGN — FASE 2: Login premium
 
 > A primeira impressão do produto. Deve vender antes do usuário entrar.
 

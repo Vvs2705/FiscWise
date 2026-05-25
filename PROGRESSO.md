@@ -98,7 +98,7 @@
 
 **Critério de conclusão:** ✅ Produto fala com contador autônomo, tokens visuais existem e estão disponíveis para uso.
 
-**Commit:** Pendente
+**Commit:** `2053fe4`
 
 ---
 

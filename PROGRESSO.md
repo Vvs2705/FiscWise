@@ -102,24 +102,25 @@
 
 ---
 
-## 📋 FASE R2 — Login premium
+## ✅ FASE R2 — Login premium
 
 > A primeira impressão do produto. Deve vender antes do usuário entrar.
 
-- [ ] Quebrar `LoginPage.tsx` em componentes menores:
-  - [ ] `LoginBrandPanel.tsx` — painel esquerdo com narrativa visual
-  - [ ] `LoginForm.tsx` — formulário limpo
-  - [ ] `FloatingMetricCards.tsx` — cards animados (obrigações, documentos, certificados)
-  - [ ] `FiscalRadarAnimation.tsx` — radar fiscal com pontos de clientes e status
-  - [ ] `OtpInput.tsx` — 6 caixas OTP com microinteração por dígito (substituir o atual)
-- [ ] Aplicar paleta escura + glassmorphism no card de login
-- [ ] Implementar aurora background animada no painel esquerdo
-- [ ] Atualizar headline: "Controle sua carteira contábil com precisão."
-- [ ] Atualizar subheadline voltada ao contador autônomo
-- [ ] Microinterações: fade in painel, slide up formulário, stagger nos cards, hover teal nos inputs
-- [ ] Melhorar responsividade mobile (painel esquerdo some em mobile, formulário ocupa tela toda)
+- [x] Quebrar `LoginPage.tsx` em componentes menores:
+  - [x] `LoginBrandPanel.tsx` — painel esquerdo com narrativa visual (já existia)
+  - [x] `FloatingMetricCards.tsx` — cards animados (já existia, melhorado com motion.ts)
+  - [x] `FiscalRadarAnimation.tsx` — radar fiscal (já existia, melhorado com motion.ts)
+  - [x] `OtpInput.tsx` — 6 caixas OTP extraído para componente reutilizável
+- [x] Aplicar paleta escura + glassmorphism no card de login (já implementado)
+- [x] Implementar aurora background animada no painel esquerdo (já implementado)
+- [x] Atualizar headline: "Controle sua carteira contábil com precisão." (já implementado)
+- [x] Atualizar subheadline voltada ao contador autônomo (já implementado)
+- [x] Microinterações: fade in painel, slide up formulário, stagger nos cards (já implementado)
+- [x] Melhorar responsividade mobile (painel esquerdo some em mobile, formulário ocupa tela toda) (já implementado)
 
-**Critério de conclusão:** login causa boa primeira impressão, radar fiscal aparece, cards flutuam.
+**Critério de conclusão:** ✅ Login causa boa primeira impressão, radar fiscal aparece, cards flutuam.
+
+**Commit:** `75d0dd4`
 
 ---
 

@@ -224,9 +224,16 @@
   }
 
   .fiscwise-surface {
-    background-color: hsl(var(--surface-elevated) / 0.82);
+    background-color: hsl(var(--surface-elevated) / 0.90);
     color: hsl(var(--surface-elevated-foreground));
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 4px 20px rgba(4, 14, 26, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.50);
+  }
+
+  .dark .fiscwise-surface {
+    background-color: hsl(var(--surface-elevated) / 0.82);
     box-shadow:
       0 18px 42px rgba(4, 14, 26, 0.16),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);

@@ -85,3 +85,24 @@ def test_tenant_rls_migration_covers_only_publishable_table_slice(monkeypatch):
 
     for table in DEFERRED_OR_GLOBAL_TABLES:
         assert f'"{table}"' not in sql
+
+
+def test_plan_security_migration_points_to_existing_rls_slice_revision():
+    migration = _load_migration("20260525k_evolucao_planos_e_seguranca.py")
+
+    assert migration.revision == "20260525k"
+    assert migration.down_revision == "20260525j"
+
+
+def test_plan_security_migration_uses_existing_plans_table_columns():
+    migration = VERSIONS_DIR / "20260525k_evolucao_planos_e_seguranca.py"
+    sql = migration.read_text(encoding="utf-8")
+
+    assert "INSERT INTO plans (" in sql
+    assert "price_monthly" in sql
+    assert "max_ai_calls_month" in sql
+    assert "max_documents_per_client" in sql
+    assert "display_name" not in sql
+    assert "price_cents" not in sql
+    assert "ai_summary_quota" not in sql
+    assert "is_active" not in sql

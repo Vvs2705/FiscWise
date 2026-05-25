@@ -1,12 +1,12 @@
 """evolucao_planos_e_seguranca
 
 Revision ID: 20260525k
-Revises: 20260525j_rls_slice_two_policies
+Revises: 20260525j
 Create Date: 2026-05-25 00:00:00.000000
 
 Changes:
 - Add two_factor_enabled, two_factor_secret, two_factor_method columns to users table
-- Insert annual plan seeds (intermediario_anual, premium_anual, enterprise)
+- Insert annual plan seeds aligned with the current plans table schema
 """
 
 from alembic import op
@@ -14,13 +14,12 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20260525k"
-down_revision = "20260525j_rls_slice_two_policies"
+down_revision = "20260525j"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    # ── 2FA columns on users ──────────────────────────────────────────────────
     op.add_column(
         "users",
         sa.Column(
@@ -51,34 +50,71 @@ def upgrade() -> None:
         ),
     )
 
-    # ── New plan seeds ────────────────────────────────────────────────────────
-    # Using execute with raw SQL for simplicity
     op.execute(
         """
-        INSERT INTO plans (slug, display_name, price_cents, max_clients, max_users,
-                           ai_summary_quota, features, is_active)
+        INSERT INTO plans (
+            id,
+            slug,
+            name,
+            description,
+            price_monthly,
+            max_clients,
+            max_users,
+            max_ai_calls_month,
+            max_documents_per_client,
+            features,
+            active
+        )
         VALUES
-          ('intermediario_anual', 'Intermediário Anual', 142800, 80, 5, 240,
-           '["Até 80 clientes","5 usuários","IA Fiscal (20 msgs/mês)","Motor de obrigações","Portal do cliente","Suporte prioritário","2 meses grátis"]',
-           true),
-          ('premium_anual', 'Premium Anual', 286800, 2147483647, 2147483647, -1,
-           '["Clientes ilimitados","Usuários ilimitados","IA Fiscal ilimitada","Export PDF","Todas as funcionalidades","Suporte dedicado","2 meses grátis"]',
-           true),
-          ('enterprise', 'Enterprise', 0, 2147483647, 2147483647, -1,
-           '["Tudo do Premium","Migração de sistema legado","SLA dedicado","Treinamento","Contrato personalizado","Faturamento customizado"]',
-           true)
+          (
+            gen_random_uuid(),
+            'intermediario_anual',
+            'Intermediario Anual',
+            'Plano anual para escritorios em crescimento com economia de dois meses.',
+            119.00,
+            80,
+            5,
+            20,
+            100,
+            '{"calculator": true, "ai_chat": true, "pdf_export": false, "portal_cliente": true, "obrigacoes": true, "annual_plan": true}'::jsonb,
+            true
+          ),
+          (
+            gen_random_uuid(),
+            'premium_anual',
+            'Premium Anual',
+            'Plano anual sem limites operacionais com economia de dois meses.',
+            239.00,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '{"calculator": true, "ai_chat": true, "pdf_export": true, "portal_cliente": true, "obrigacoes": true, "annual_plan": true}'::jsonb,
+            true
+          ),
+          (
+            gen_random_uuid(),
+            'enterprise',
+            'Enterprise',
+            'Plano corporativo com migracao assistida, SLA dedicado e contrato personalizado.',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            '{"calculator": true, "ai_chat": true, "pdf_export": true, "portal_cliente": true, "obrigacoes": true, "enterprise": true, "migration_assisted": true}'::jsonb,
+            true
+          )
         ON CONFLICT (slug) DO NOTHING;
         """
     )
 
 
 def downgrade() -> None:
-    # Remove plan seeds
     op.execute(
         "DELETE FROM plans WHERE slug IN ('intermediario_anual', 'premium_anual', 'enterprise');"
     )
 
-    # Remove 2FA columns
     op.drop_column("users", "two_factor_method")
     op.drop_column("users", "two_factor_secret")
     op.drop_column("users", "two_factor_enabled")

@@ -163,29 +163,29 @@
 
 ---
 
-## 📋 FASE R4 — Design system premium
+## ✅ FASE R4 — Design system premium
 
 > Sem design system, cada tela fica inconsistente. Esta fase cria a base reutilizável.
 
-- [ ] Instalar e configurar `shadcn/ui` (customizado com tokens FiscWise — não usar visual padrão)
-- [ ] Instalar `sonner` (substituir `react-hot-toast`)
-- [ ] Instalar `vaul` (drawers)
-- [ ] Instalar `cmdk` (command palette)
-- [ ] Instalar `@tanstack/react-table`
-- [ ] Instalar `driver.js`
-- [ ] Instalar `embla-carousel-react`
-- [ ] Criar `Button` com variantes premium (primary, secondary, ghost, danger, premium com gradiente teal)
-- [ ] Criar `Card` com variantes (MetricCard, ActionCard, RiskCard, DocumentCard, CertificateCard)
-- [ ] Criar `Badge` / `StatusPill` com variantes (regular, attention, critical, pending, completed, overdue, paid, expiring)
-- [ ] Criar `Drawer` base usando Vaul
-- [ ] Criar `Table` base usando TanStack Table
-- [ ] Criar `CommandMenu` (`Ctrl+K`) com busca de clientes e ações rápidas
-- [ ] Criar `EmptyState` premium (ilustração + CTA — substituir o atual)
-- [ ] Criar `LoadingSkeleton` consistente para todas as telas
-- [ ] Criar `ProgressRing` para score da carteira
-- [ ] Criar `FiscalTimeline` para timeline de cliente
+- [x] Instalar e configurar `shadcn/ui` (customizado com tokens FiscWise — não usar visual padrão)
+- [x] Instalar `sonner` (substituir `react-hot-toast`)
+- [x] Instalar `vaul` (drawers)
+- [x] Instalar `cmdk` (command palette)
+- [x] Instalar `@tanstack/react-table`
+- [x] Instalar `driver.js`
+- [x] Instalar `embla-carousel-react`
+- [x] Criar `Button` com variantes premium (primary, secondary, ghost, danger, premium com gradiente teal)
+- [x] Criar `Card` com variantes (MetricCard, ActionCard, RiskCard, DocumentCard, CertificateCard)
+- [x] Criar `Badge` / `StatusPill` com variantes (regular, attention, critical, pending, completed, overdue, paid, expiring)
+- [x] Criar `Drawer` base usando Vaul
+- [x] Criar `Table` base usando TanStack Table
+- [x] Criar `CommandMenu` (`Ctrl+K`) com busca de clientes e ações rápidas
+- [x] Criar `EmptyState` premium (ilustração + CTA — substituir o atual)
+- [x] Criar `LoadingSkeleton` consistente para todas as telas
+- [x] Criar `ProgressRing` para score da carteira
+- [x] Criar `FiscalTimeline` para timeline de cliente
 
-**Critério de conclusão:** componentes existem, são usados nas novas telas, command palette funciona com `Ctrl+K`.
+**Critério de conclusão:** ✅ Componentes de fundação do design system criados e exportados para reuso, Command Palette funcional com `Ctrl+K` e `sonner` Toaster integrado globalmente.
 
 ---
 

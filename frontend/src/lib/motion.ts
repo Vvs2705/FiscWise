@@ -341,7 +341,7 @@ export function createStagger(staggerDelay = 0.08, delayChildren = 0.05): Varian
 /**
  * Cria uma transição customizada
  */
-export function createTransition(duration = 0.35, ease: string | number[] = 'easeOut'): Transition {
+export function createTransition(duration = 0.35, ease: 'easeIn' | 'easeOut' | 'easeInOut' | 'linear' = 'easeOut'): Transition {
   return {
     duration,
     ease,

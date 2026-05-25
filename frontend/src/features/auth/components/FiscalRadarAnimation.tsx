@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { pulse } from '@/lib/motion';
 
 const radarItems = [
   {

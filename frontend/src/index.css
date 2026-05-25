@@ -2,11 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ═══════════════════════════════════════════════════════════════════
-   FiscWise Design Tokens — Importação
-   ═══════════════════════════════════════════════════════════════════ */
-@import './styles/tokens.css';
-
 /* ─── Design tokens — Light mode ────────────────────────────────── */
 @layer base {
   :root {

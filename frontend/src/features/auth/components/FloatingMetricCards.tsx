@@ -5,7 +5,6 @@ import {
   Files,
   ShieldAlert,
 } from 'lucide-react';
-import { floating } from '@/lib/motion';
 
 const metrics = [
   {

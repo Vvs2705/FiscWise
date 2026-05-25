@@ -6,9 +6,10 @@ import { initTheme } from '@/lib/hooks/useTheme';
 initTheme();
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
+import { CommandMenu } from '@/components/ui/CommandMenu';
 
 // Lazy-loaded pages — each page is its own JS chunk, loaded only when visited.
 // This reduces the initial bundle from ~1.36 MB to the layout + current page only.
@@ -86,6 +87,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <CommandMenu />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login"    element={<LoginPage />} />
@@ -119,7 +121,7 @@ function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
-        <Toaster position="top-right" />
+        <Toaster position="top-right" theme="dark" richColors closeButton />
       </QueryClientProvider>
     </ErrorBoundary>
   );

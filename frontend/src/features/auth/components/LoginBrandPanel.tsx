@@ -11,16 +11,16 @@ const trustPoints = [
   {
     icon: BriefcaseBusiness,
     title: 'Carteira organizada',
-    description: 'Clientes, obrigacoes e documentos reunidos no mesmo ambiente.',
+    description: 'Clientes, obrigações e documentos reunidos no mesmo ambiente.',
   },
   {
     icon: Clock3,
-    title: 'Rotina mais previsivel',
+    title: 'Rotina mais previsível',
     description: 'Saiba exatamente o que vence hoje e o que ainda depende do cliente.',
   },
   {
     icon: ShieldCheck,
-    title: 'Seguranca real',
+    title: 'Segurança real',
     description: 'Seus clientes e documentos protegidos em um ambiente exclusivo.',
   },
 ];
@@ -28,7 +28,7 @@ const trustPoints = [
 export function LoginBrandPanel() {
   return (
     <section
-      className="relative overflow-hidden border-white/10 px-6 py-8 text-white lg:flex lg:min-h-screen lg:w-[54%] lg:max-w-[760px] lg:border-r lg:px-10 lg:py-10"
+      className="relative border-white/10 px-6 py-8 text-white lg:flex lg:min-h-screen lg:w-[54%] lg:max-w-[760px] lg:border-r lg:px-10 lg:py-10 overflow-y-auto overflow-x-hidden"
       style={{
         background:
           'radial-gradient(circle at 14% 18%, rgba(45,212,191,0.22), transparent 26%), radial-gradient(circle at 86% 18%, rgba(56,189,248,0.18), transparent 24%), linear-gradient(135deg, #06111f 0%, #0d2136 55%, #081321 100%)',
@@ -47,19 +47,19 @@ export function LoginBrandPanel() {
           </div>
         </div>
 
-        <div className="mt-10 max-w-xl">
+        <div className="mt-6 lg:mt-8 max-w-xl">
           <span className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
-            Feito para contador autonomo
+            Feito para contador autônomo
           </span>
-          <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-5xl">
-            Controle sua carteira contabil com precisao.
+          <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-5xl">
+            Controle sua carteira contábil com precisão.
           </h1>
           <p className="mt-4 max-w-lg text-base leading-7 text-slate-300 sm:text-lg">
-            Clientes, documentos, prazos, certificados e obrigacoes fiscais em uma central feita para quem precisa manter a rotina em dia e saber onde agir primeiro.
+            Clientes, documentos, prazos, certificados e obrigações fiscais em uma central feita para quem precisa manter a rotina em dia e saber onde agir primeiro.
           </p>
         </div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {trustPoints.map((point) => (
             <div
               key={point.title}
@@ -74,17 +74,17 @@ export function LoginBrandPanel() {
           ))}
         </div>
 
-        <div className="mt-8">
+        <div className="mt-6">
           <FloatingMetricCards />
         </div>
 
-        <div className="mt-8 flex-1">
+        <div className="mt-6 flex-1">
           <FiscalRadarAnimation />
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2 text-xs text-slate-300">
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-            Atencao de hoje
+            Atenção de hoje
           </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
             Obrigações e prazos

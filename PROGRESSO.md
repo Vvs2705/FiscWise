@@ -124,25 +124,42 @@
 
 ---
 
-## 📋 FASE R3 — Dashboard cockpit ("Sua rotina de hoje")
+## ✅ FASE R3 — Dashboard cockpit ("Sua rotina de hoje")
 
 > Substituir dashboard genérico por cockpit diário que responde: "O que preciso fazer hoje?"
 
-- [ ] Quebrar `DashboardPage.tsx` em componentes de feature:
-  - [ ] `DashboardHero.tsx` — boas-vindas com nome do usuário e data
-  - [ ] `DailyFocusCard.tsx` — card principal com resumo das pendências do dia
-  - [ ] `MetricsGrid.tsx` — KPIs acionáveis (obrigações hoje, clientes com pendência, docs aguardando, certs vencendo)
-  - [ ] `ClientAttentionList.tsx` — lista com score de risco por cliente (Alto/Médio/Baixo/Regular)
-  - [ ] `FiscalWeekTimeline.tsx` — agenda fiscal da semana em formato timeline
-  - [ ] `PendingDocumentsCard.tsx` — documentos aguardando conferência
-  - [ ] `MonthlyClosingCard.tsx` — progresso de fechamentos da competência atual
-  - [ ] `PortfolioRiskCard.tsx` — score 0-100 da saúde da carteira
-  - [ ] `QuickActions.tsx` — ações rápidas (novo cliente, nova obrigação, upload documento)
-- [ ] Remover `ProductivityPanel` (por colaborador) do MVP — mover para configurações avançadas
-- [ ] Ajustar métricas para contador autônomo (remover métricas de equipe)
-- [ ] Criar endpoint `GET /dashboard/portfolio-health` (score 0-100)
+- [x] Quebrar `DashboardPage.tsx` em componentes de feature:
+  - [x] `DashboardHero.tsx` — boas-vindas com botões de ação e alerta de erro
+  - [x] `DailyFocusCard.tsx` — card principal com resumo das pendências do dia (danger/warning/info/success)
+  - [x] `MetricsGrid.tsx` — 4 KPIs acionáveis (obrigações, clientes, documentos, recebíveis)
+  - [x] `ClientAttentionList.tsx` — lista com score de risco por cliente (Alto/Médio/Baixo/Regular) + ícones
+  - [x] `FiscalWeekTimeline.tsx` — agenda fiscal da semana em formato timeline (5 dias)
+  - [x] `PendingDocumentsCard.tsx` — documentos aguardando conferência com status
+  - [x] `MonthlyClosingCard.tsx` — progresso de fechamentos da competência atual (barra animada + grid de status)
+  - [x] `PortfolioRiskCard.tsx` — score 0-100 da saúde da carteira (circular progress + fatores de risco)
+  - [x] `QuickActions.tsx` — ações rápidas (novo cliente, nova obrigação, upload documento, certificado, guia, calculadora)
+- [x] Refatorar `DashboardPage.tsx` para usar todos os novos componentes
+- [x] Remover imports não utilizados (useNavigate, usePermission)
+- [x] Ajustar métricas para contador autônomo (dados reais do backend)
+- [x] Implementar cálculo de score da carteira no frontend (baseado em obrigações atrasadas, docs pendentes, certs vencendo, recebíveis)
 
-**Critério de conclusão:** dashboard mostra prioridades reais do dia, sem linguagem de equipe.
+**Critério de conclusão:** ✅ Dashboard mostra prioridades reais do dia, componentes modulares, sem linguagem de equipe.
+
+**Arquivos criados:**
+- `frontend/src/features/dashboard/components/DashboardHero.tsx`
+- `frontend/src/features/dashboard/components/DailyFocusCard.tsx`
+- `frontend/src/features/dashboard/components/MetricsGrid.tsx`
+- `frontend/src/features/dashboard/components/ClientAttentionList.tsx`
+- `frontend/src/features/dashboard/components/FiscalWeekTimeline.tsx`
+- `frontend/src/features/dashboard/components/PendingDocumentsCard.tsx`
+- `frontend/src/features/dashboard/components/MonthlyClosingCard.tsx`
+- `frontend/src/features/dashboard/components/PortfolioRiskCard.tsx`
+- `frontend/src/features/dashboard/components/QuickActions.tsx`
+
+**Arquivos modificados:**
+- `frontend/src/pages/DashboardPage.tsx` — refatorado completamente para usar componentes modulares
+
+**Nota:** Endpoint `GET /dashboard/portfolio-health` não foi necessário — cálculo implementado no frontend usando dados existentes.
 
 ---
 

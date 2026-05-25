@@ -9,7 +9,7 @@ import {
 const metrics = [
   {
     title: 'Hoje',
-    value: '7 obrigacoes',
+    value: '7 obrigações',
     description: 'vencendo nesta janela',
     icon: AlarmClockCheck,
     accent: 'from-cyan-400/25 to-emerald-400/10',
@@ -26,14 +26,14 @@ const metrics = [
   {
     title: 'Certificados',
     value: '2 vencem',
-    description: 'ainda este mes',
+    description: 'ainda este mês',
     icon: ShieldAlert,
     accent: 'from-amber-300/25 to-orange-400/10',
     border: 'border-amber-200/20',
   },
   {
     title: 'Fechamentos',
-    value: '81% concluidos',
+    value: '81% concluídos',
     description: 'da carteira ativa',
     icon: BadgeCheck,
     accent: 'from-emerald-300/25 to-teal-300/10',

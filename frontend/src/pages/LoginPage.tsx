@@ -151,7 +151,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-50 text-foreground lg:flex">
       <LoginBrandPanel />
 
-      <section className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden px-5 py-8 sm:px-8 lg:px-10">
+      <section className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-8 lg:px-10">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
@@ -163,7 +163,7 @@ export function LoginPage() {
         <div className="pointer-events-none absolute right-10 top-10 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-sky-200/25 blur-3xl" />
 
-        <div className="relative z-10 flex w-full max-w-[480px] flex-col">
+        <div className="relative z-10 flex w-full max-w-[480px] flex-col my-auto py-6">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -191,17 +191,17 @@ export function LoginPage() {
               transition={{ duration: 0.35, ease: 'easeOut' }}
               className="rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_28px_100px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:p-8"
             >
-              <div className="mb-8 space-y-4">
+              <div className="mb-6 space-y-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Seus dados seguem protegidos
                 </div>
 
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950">
+                <div className="space-y-1.5">
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-slate-950">
                     Bem-vindo de volta
                   </h2>
-                  <p className="text-sm leading-6 text-slate-600">
+                  <p className="text-sm leading-normal text-slate-600">
                     Acesse sua central para acompanhar clientes, pendências e tudo o que precisa da sua atenção hoje.
                   </p>
                 </div>
@@ -210,7 +210,7 @@ export function LoginPage() {
               {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
                 <div
                   className={cn(
-                    'mb-5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2',
+                    'mb-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2',
                     isLoading && 'pointer-events-none opacity-60',
                   )}
                 >
@@ -227,7 +227,7 @@ export function LoginPage() {
                 </div>
               )}
 
-              <div className="relative mb-5 flex items-center gap-3">
+              <div className="relative mb-4 flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200" />
                 <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
                   ou continue com e-mail
@@ -250,7 +250,7 @@ export function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-12 rounded-xl border-slate-200 bg-white pl-10 text-slate-900 shadow-sm"
+                      className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-slate-900 shadow-sm"
                     />
                   </div>
                 </div>
@@ -269,7 +269,7 @@ export function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-12 rounded-xl border-slate-200 bg-white pl-10 pr-12 text-slate-900 shadow-sm"
+                      className="h-11 rounded-xl border-slate-200 bg-white pl-10 pr-12 text-slate-900 shadow-sm"
                     />
                     <button
                       type="button"
@@ -285,7 +285,7 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="h-12 w-full rounded-xl bg-[linear-gradient(135deg,#14b8a6_0%,#0f766e_45%,#0f172a_100%)] text-white shadow-[0_18px_40px_rgba(20,184,166,0.28)] hover:shadow-[0_22px_50px_rgba(20,184,166,0.32)]"
+                  className="h-11 w-full rounded-xl bg-[linear-gradient(135deg,#14b8a6_0%,#0f766e_45%,#0f172a_100%)] text-white shadow-[0_18px_40px_rgba(20,184,166,0.28)] hover:shadow-[0_22px_50px_rgba(20,184,166,0.32)]"
                   size="md"
                   disabled={isLoading}
                 >
@@ -300,33 +300,33 @@ export function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 rounded-full bg-cyan-100 p-2 text-cyan-700">
                     <ShieldCheck className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Acesso com verificacao reforcada</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    <p className="text-xs font-semibold text-slate-800">Acesso com verificação reforçada</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
                       Login por Google, senha e fluxos de 2FA permanecem ativos para manter sua conta protegida.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <p className="mt-6 text-center text-sm text-slate-500">
-                Nao tem uma conta?{' '}
+              <p className="mt-4 text-center text-sm text-slate-500">
+                Não tem uma conta?{' '}
                 <Link
                   to="/register"
                   className="font-semibold text-primary transition-colors hover:text-primary/80 hover:underline"
                 >
-                  Criar conta gratis
+                  Criar conta grátis
                 </Link>
               </p>
             </motion.div>
           )}
 
-          <footer className="mt-8 text-center">
+          <footer className="mt-6 text-center">
             <p className="text-xs text-slate-500/80">
               Desenvolvido por{' '}
               <a

@@ -29,6 +29,7 @@ from app.models.obligation import DocumentChecklistItem, ObligationInstance
 from app.models.user import User
 from app.services.ai_fiscal import classify_fiscal_document, generate_client_operational_summary
 from app.services.document_parser import parse_document
+from app.services import webhook_service as _webhook_svc
 from app.schemas.operations import (
     AccountingClientCreate,
     AccountingClientResponse,
@@ -754,6 +755,13 @@ async def create_client(
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
+    # Fire-and-forget webhook dispatch for client.created
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="client.created",
+        data={"id": str(client.id), "name": client.name, "document": client.document},
+    )
     return client
 
 
@@ -906,7 +914,15 @@ async def create_document(
     await _get_client_or_404(db, tenant_id, payload.client_id)
     document = ClientDocument(tenant_id=tenant_id, **payload.model_dump())
     db.add(document)
-    return await _commit_refresh(db, document)
+    doc = await _commit_refresh(db, document)
+    # Fire-and-forget webhook dispatch for document.uploaded
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="document.uploaded",
+        data={"id": str(doc.id), "name": doc.name, "client_id": str(doc.client_id)},
+    )
+    return doc
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentResponse)

@@ -10,6 +10,7 @@ from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.operations import DasPayment, AccountingClient
 from app.schemas.das import DasPaymentCreate, DasPaymentUpdate, DasPaymentResponse
+from app.services import webhook_service as _webhook_svc
 
 router = APIRouter(prefix="/das", tags=["DAS Monthly Payments"])
 
@@ -212,6 +213,21 @@ async def mark_das_as_paid(
     res = DasPaymentResponse.model_validate(das)
     if client:
         res.client_name = client.name
+
+    # Fire-and-forget webhook dispatch for das.paid
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        event="das.paid",
+        data={
+            "id": str(das.id),
+            "client_id": str(das.client_id),
+            "client_name": client.name if client else None,
+            "period": das.period,
+            "tax_amount": str(das.tax_amount),
+            "paid_at": das.paid_at.isoformat() if das.paid_at else None,
+        },
+    )
     return res
 
 

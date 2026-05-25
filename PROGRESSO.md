@@ -290,7 +290,7 @@
 - [x] **5.17 — WhatsApp Business API** (Concluído em 2026-05-25: models, migrations RLS, inbox unificada, whatsapp widget no cockpit)
 - [x] **5.18 — Monitor fiscal via parceiro** (Concluído em 2026-05-25: models `FiscalMonitorSummary` e `FiscalNFe`, sync automatico de status/guias/NF-es e aba de cockpit diário)
 - [x] **5.19 — RAG fiscal** (Concluído em 2026-05-25: vectors/procedures `RagDocument`, indexação de keywords tf-idf, injeção de contexto na IA e aba de Base de Conhecimento em Configurações)
-- [ ] **5.20 — API pública + Webhooks**
+- [x] **5.20 — API pública + Webhooks** (Concluído em 2026-05-25: `TenantApiKey`, `WebhookSubscription`, `WebhookDeliveryLog`, migration RLS `20260525o`, `api_key_service.py`, `webhook_service.py`, endpoints `/developer`, fire-and-forget dispatch em `client.created`/`document.uploaded`/`das.paid`, hook `useDeveloper.ts`, aba Desenvolvedor em Configurações, 17 testes passando)
 
 ---
 

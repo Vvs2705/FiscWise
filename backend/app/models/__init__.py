@@ -29,6 +29,7 @@ from app.models.billing import TenantSubscription, BillingWebhookEvent
 from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
 from app.models.fiscal_monitor import FiscalMonitorSummary, FiscalNFe
 from app.models.rag_fiscal import RagDocument
+from app.models.api_webhooks import TenantApiKey, WebhookSubscription, WebhookDeliveryLog
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -59,4 +60,7 @@ __all__ = [
     "FiscalMonitorSummary",
     "FiscalNFe",
     "RagDocument",
+    "TenantApiKey",
+    "WebhookSubscription",
+    "WebhookDeliveryLog",
 ]

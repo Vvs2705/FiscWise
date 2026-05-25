@@ -35,6 +35,13 @@ import {
   Search,
   HelpCircle,
   BookOpen,
+  Code2,
+  Key,
+  Copy,
+  CheckCheck,
+  RefreshCw,
+  AlertCircle,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -73,6 +80,19 @@ import {
   useDeleteRagDocument,
   type RagDocument,
 } from '@/lib/hooks/useRagFiscal';
+import {
+  useApiKeys,
+  useCreateApiKey,
+  useRevokeApiKey,
+  useWebhooks,
+  useCreateWebhook,
+  useUpdateWebhook,
+  useDeleteWebhook,
+  useWebhookDeliveryLogs,
+  useAvailableWebhookEvents,
+  type ApiKeyCreated,
+  type WebhookSubscriptionCreated,
+} from '@/lib/hooks/useDeveloper';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -134,13 +154,14 @@ const PLANS = [
 // ─── Tab config ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'perfil',         label: 'Perfil',          icon: User },
-  { id: 'escritorio',     label: 'Escritório',       icon: Building2 },
-  { id: 'plano',          label: 'Plano',            icon: Sparkles },
+  { id: 'perfil',            label: 'Perfil',              icon: User },
+  { id: 'escritorio',        label: 'Escritório',           icon: Building2 },
+  { id: 'plano',             label: 'Plano',                icon: Sparkles },
   { id: 'base_conhecimento', label: 'Base de Conhecimento', icon: FileText },
-  { id: 'seguranca',      label: 'Segurança',        icon: ShieldCheck },
-  { id: 'pagamento',      label: 'Pagamento',        icon: CreditCard },
-  { id: 'notificacoes',   label: 'Notificações',     icon: Bell },
+  { id: 'seguranca',         label: 'Segurança',            icon: ShieldCheck },
+  { id: 'pagamento',         label: 'Pagamento',            icon: CreditCard },
+  { id: 'notificacoes',      label: 'Notificações',         icon: Bell },
+  { id: 'desenvolvedor',     label: 'Desenvolvedor',        icon: Code2 },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -220,6 +241,7 @@ export function SettingsPage() {
         )}
         {activeTab === 'pagamento' && <PagamentoTab onNavigateToPlans={() => setActiveTab('plano')} />}
         {activeTab === 'notificacoes' && <NotificacoesTab />}
+        {activeTab === 'desenvolvedor' && <DesenvolvedorTab />}
       </div>
     </div>
   );
@@ -1895,3 +1917,395 @@ function BaseConhecimentoTab({
   );
 }
 
+// ─── Desenvolvedor tab ────────────────────────────────────────────────────────
+
+function DesenvolvedorTab() {
+  const { data: apiKeys = [], isLoading: loadingKeys } = useApiKeys();
+  const { data: webhooks = [], isLoading: loadingWebhooks } = useWebhooks();
+  const { data: logs = [] } = useWebhookDeliveryLogs();
+  const { data: availableEvents = [] } = useAvailableWebhookEvents();
+
+  const createApiKey = useCreateApiKey();
+  const revokeApiKey = useRevokeApiKey();
+  const createWebhook = useCreateWebhook();
+  const updateWebhook = useUpdateWebhook();
+  const deleteWebhook = useDeleteWebhook();
+
+  const [newKeyName, setNewKeyName] = useState('');
+  const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [createdWebhook, setCreatedWebhook] = useState<WebhookSubscriptionCreated | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+
+  async function handleCreateKey() {
+    if (!newKeyName.trim()) return;
+    try {
+      const result = await createApiKey.mutateAsync({ name: newKeyName.trim() });
+      setCreatedKey(result);
+      setNewKeyName('');
+      toast.success('Chave criada com sucesso!');
+    } catch {
+      toast.error('Erro ao criar chave de API');
+    }
+  }
+
+  async function handleRevoke(keyId: string) {
+    try {
+      await revokeApiKey.mutateAsync(keyId);
+      toast.success('Chave revogada');
+    } catch {
+      toast.error('Erro ao revogar chave');
+    }
+  }
+
+  function handleCopyKey(text: string, id: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedKeyId(id);
+    setTimeout(() => setCopiedKeyId(null), 2000);
+  }
+
+  async function handleCreateWebhook() {
+    if (!newWebhookUrl.trim() || selectedEvents.length === 0) {
+      toast.error('Informe a URL e selecione ao menos um evento');
+      return;
+    }
+    try {
+      const result = await createWebhook.mutateAsync({ url: newWebhookUrl.trim(), events: selectedEvents });
+      setCreatedWebhook(result);
+      setNewWebhookUrl('');
+      setSelectedEvents([]);
+      toast.success('Webhook criado!');
+    } catch {
+      toast.error('Erro ao criar webhook');
+    }
+  }
+
+  function toggleEvent(event: string) {
+    setSelectedEvents((prev) =>
+      prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event]
+    );
+  }
+
+  function handleCopySecret() {
+    if (createdWebhook) {
+      navigator.clipboard.writeText(createdWebhook.signing_secret);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 2000);
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header Banner */}
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+        <CardContent className="flex items-center gap-4 pt-6">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Code2 className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">API Pública & Webhooks</p>
+            <p className="text-sm text-muted-foreground">
+              Integre o FiscWise com ERPs, CRMs e sistemas externos usando chaves de API seguras e notificações em tempo real.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── API Keys Section ── */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Key className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Chaves de API</h2>
+        </div>
+
+        {/* New Key Revealed Banner */}
+        {createdKey && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              <p className="text-sm font-semibold">Chave criada! Copie agora — não será exibida novamente.</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-background border px-3 py-2">
+              <code className="flex-1 text-xs font-mono text-foreground break-all">{createdKey.raw_key}</code>
+              <button
+                onClick={() => handleCopyKey(createdKey.raw_key, createdKey.id)}
+                className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Copiar chave"
+              >
+                {copiedKeyId === createdKey.id ? <CheckCheck className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <button
+              onClick={() => setCreatedKey(null)}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Já copiei — fechar
+            </button>
+          </div>
+        )}
+
+        {/* Create new key */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex gap-2">
+              <Input
+                id="new-api-key-name"
+                placeholder="Nome da chave (ex: Integração ERP Totvs)"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateKey()}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleCreateKey}
+                disabled={!newKeyName.trim() || createApiKey.isPending}
+                className="shrink-0"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {createApiKey.isPending ? 'Criando...' : 'Criar chave'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Keys list */}
+        <Card>
+          <CardContent className="pt-6">
+            {loadingKeys ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-lg" />)}
+              </div>
+            ) : apiKeys.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Key className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                <p className="text-sm">Nenhuma chave de API criada ainda.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {apiKeys.map((key) => (
+                  <div key={key.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{key.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{key.prefix}••••••••</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Criado em {new Date(key.created_at).toLocaleDateString('pt-BR')}
+                        {key.last_used_at && ` · Último uso: ${new Date(key.last_used_at).toLocaleDateString('pt-BR')}`}
+                      </p>
+                    </div>
+                    <Badge variant={key.is_active ? 'success' : 'default'}>
+                      {key.is_active ? 'Ativa' : 'Revogada'}
+                    </Badge>
+                    {key.is_active && (
+                      <button
+                        onClick={() => handleRevoke(key.id)}
+                        className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+                        title="Revogar chave"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Webhooks Section ── */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Webhooks</h2>
+        </div>
+
+        {/* Signing secret revealed banner */}
+        {createdWebhook && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4" />
+              <p className="text-sm font-semibold">Segredo de assinatura gerado! Copie agora — não será exibido novamente.</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-background border px-3 py-2">
+              <code className="flex-1 text-xs font-mono text-foreground break-all">{createdWebhook.signing_secret}</code>
+              <button
+                onClick={handleCopySecret}
+                className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Copiar segredo"
+              >
+                {copiedSecret ? <CheckCheck className="h-4 w-4 text-amber-500" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use o header <code className="font-mono bg-muted px-1 rounded">X-FiscWise-Signature</code> para verificar payloads com HMAC-SHA256.
+            </p>
+            <button
+              onClick={() => setCreatedWebhook(null)}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Já copiei — fechar
+            </button>
+          </div>
+        )}
+
+        {/* Create webhook */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Novo webhook</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">URL do endpoint</label>
+              <Input
+                id="webhook-url"
+                placeholder="https://app.example.com/webhooks/fiscwise"
+                value={newWebhookUrl}
+                onChange={(e) => setNewWebhookUrl(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Eventos para assinar</label>
+              <div className="flex flex-wrap gap-2">
+                {availableEvents.map((event) => (
+                  <button
+                    key={event}
+                    type="button"
+                    onClick={() => toggleEvent(event)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-all',
+                      selectedEvents.includes(event)
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50',
+                    )}
+                  >
+                    {selectedEvents.includes(event) && <span className="mr-1">✓</span>}
+                    {event}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button
+              onClick={handleCreateWebhook}
+              disabled={!newWebhookUrl.trim() || selectedEvents.length === 0 || createWebhook.isPending}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {createWebhook.isPending ? 'Criando...' : 'Criar webhook'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Webhooks list */}
+        <Card>
+          <CardContent className="pt-6">
+            {loadingWebhooks ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-lg" />)}
+              </div>
+            ) : webhooks.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Activity className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                <p className="text-sm">Nenhum webhook configurado ainda.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {webhooks.map((wh) => (
+                  <div key={wh.id} className="py-3 first:pt-0 last:pb-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium font-mono truncate flex-1">{wh.url}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={wh.is_active ? 'success' : 'default'}>
+                          {wh.is_active ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                        <button
+                          onClick={() => updateWebhook.mutate({ id: wh.id, payload: { is_active: !wh.is_active } })}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title={wh.is_active ? 'Desativar' : 'Ativar'}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteWebhook.mutate(wh.id)}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+                          title="Excluir webhook"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {wh.events.map((ev) => (
+                        <span key={ev} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary">
+                          {ev}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Criado em {new Date(wh.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Delivery Logs Section ── */}
+      {logs.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Logs de Entrega</h2>
+            <Badge variant="default" className="ml-auto">{logs.length}</Badge>
+          </div>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="divide-y">
+                {logs.slice(0, 20).map((log) => (
+                  <div key={log.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center gap-3">
+                    <div className={cn(
+                      'h-2 w-2 shrink-0 rounded-full',
+                      log.success ? 'bg-emerald-500' : 'bg-red-500'
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono truncate">{log.event}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{log.url}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {log.status_code && (
+                        <Badge variant={log.success ? 'success' : 'error'} className="text-[10px]">
+                          {log.status_code}
+                        </Badge>
+                      )}
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{log.duration_ms}ms</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground shrink-0">
+                      {new Date(log.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Docs Reference */}
+      <Card className="border-dashed">
+        <CardContent className="flex items-center gap-3 pt-6">
+          <HelpCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Consulte a{' '}
+            <a href="/docs" target="_blank" rel="noopener" className="text-primary hover:underline font-medium">
+              documentação da API
+            </a>{' '}
+            para exemplos de integração, verificação de assinatura HMAC, e referência de todos os campos disponíveis.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

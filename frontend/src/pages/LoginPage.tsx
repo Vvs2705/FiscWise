@@ -151,7 +151,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-50 text-foreground lg:flex">
       <LoginBrandPanel />
 
-      <section className="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-y-auto overflow-x-hidden px-5 py-4 sm:px-8 lg:px-10">
+      <section className="relative flex min-h-screen flex-1 flex-col items-center justify-start overflow-y-auto overflow-x-hidden px-5 py-8 sm:px-8 lg:px-10 lg:pt-16 lg:pb-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
@@ -163,7 +163,7 @@ export function LoginPage() {
         <div className="pointer-events-none absolute right-10 top-10 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-sky-200/25 blur-3xl" />
 
-        <div className="relative z-10 flex w-full max-w-[480px] flex-col my-auto py-6">
+        <div className="relative z-10 flex w-full max-w-[480px] flex-col">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

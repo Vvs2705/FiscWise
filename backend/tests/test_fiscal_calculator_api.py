@@ -1,14 +1,13 @@
 """Integration tests for the Fiscal Calculator API endpoints."""
 
-import uuid
 from decimal import Decimal
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.models.calculator import CalculatorSimulation, SimulationType, FiscalAssistantMessage, AssistantRole, TaxRegime, TaxScenario
+from app.models.calculator import CalculatorSimulation, SimulationType, FiscalAssistantMessage, AssistantRole
 from app.core.plan_access import PLAN_FREE, PLAN_INTERMEDIARIO, PLAN_PREMIUM
-from app.schemas.calculator import RegimeSimulationCreate, IcmsSimulationCreate, PisCofinsSimulationCreate, AssistantMessageCreate, PdfExportRequest, FatorRSimulationCreate
+from app.schemas.calculator import RegimeSimulationCreate, IcmsSimulationCreate, PisCofinsSimulationCreate, AssistantMessageCreate, PdfExportRequest
 
 @pytest.fixture
 def mock_ai_services():

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 from app.core.validators import validate_cpf, validate_cnpj, validate_cpf_or_cnpj
-from app.schemas.operations import AccountingClientCreate, AccountingClientUpdate
+from app.schemas.operations import AccountingClientCreate
 
 
 def test_cpf_validation_logic():

@@ -11,11 +11,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, and_, desc
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.models.notification import NotificationMessage, NotificationTemplate
+from app.models.notification import NotificationMessage
 from app.models.user import User
 
 logger = logging.getLogger(__name__)

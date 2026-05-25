@@ -10,8 +10,8 @@ Entry points:
 
 import calendar
 import logging
-from datetime import date, datetime
-from typing import List, Optional
+from datetime import date
+from typing import List
 from uuid import UUID
 
 from sqlalchemy import and_, select

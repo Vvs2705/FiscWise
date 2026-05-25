@@ -28,7 +28,7 @@ from app.core.plan_access import (
     check_chat_quota,
     has_plan,
     require_plan,
-    resolve_plan,
+    resolve_user_plan,
 )
 from app.models.calculator import (
     AssistantRole,
@@ -84,8 +84,7 @@ def _tenant_id(current_user: User) -> uuid.UUID:
 
 
 def _plan(current_user: User) -> Optional[str]:
-    raw = current_user.tenant.plan_slug if current_user.tenant else None
-    return resolve_plan(raw, getattr(current_user, "email", None))
+    return resolve_user_plan(current_user)
 
 
 async def _commit_refresh(db: AsyncSession, instance):
@@ -674,7 +673,6 @@ def _generate_pdf(simulation: CalculatorSimulation, include_ai: bool) -> bytes:
     For production quality, replace with reportlab or WeasyPrint.
     """
     import io
-    from datetime import datetime
 
     sim_type_labels = {
         "regime": "Comparação de Regimes Tributários",
@@ -731,10 +729,6 @@ def _generate_pdf(simulation: CalculatorSimulation, include_ai: bool) -> bytes:
         "Relatório gerado pelo FiscWise (fiscwise.com.br)",
         "Este relatório é informativo. Consulte um contador para decisões definitivas.",
     ]
-
-    # Encode as simple text-based PDF (minimal valid PDF 1.4)
-    content_text = "\n".join(lines)
-    content_bytes = content_text.encode("latin-1", errors="replace")
 
     # Build minimal PDF structure
     objects: list[bytes] = []

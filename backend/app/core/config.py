@@ -5,7 +5,6 @@ Centralized configuration management using Pydantic Settings.
 Loads environment variables and provides type-safe configuration access.
 """
 
-import os
 from typing import List
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 

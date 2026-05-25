@@ -6,7 +6,7 @@ Supports Asaas (primary) with Iugu stub for future.
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status

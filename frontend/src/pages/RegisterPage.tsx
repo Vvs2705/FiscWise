@@ -31,14 +31,14 @@ const PLANS = [
     slug: 'free',
     label: 'Free',
     price: 'Grátis',
-    description: 'Para começar a organizar',
+    description: 'Para organizar sua carteira desde o primeiro cliente',
     features: ['Até 5 clientes', '1 usuário', 'Documentos básicos', 'Calculadora fiscal básica'],
   },
   {
     slug: 'intermediario',
     label: 'Intermediário',
     price: 'R$ 49/mês',
-    description: 'Para escritórios em crescimento',
+    description: 'Para contadores autônomos com carteira em expansão',
     popular: true,
     features: ['Até 50 clientes', '3 usuários', 'Agenda e prazos', 'Certificados digitais', 'Chat IA (20 msgs/mês)', 'Recomendações IA'],
   },
@@ -46,7 +46,7 @@ const PLANS = [
     slug: 'premium',
     label: 'Premium',
     price: 'R$ 149/mês',
-    description: 'Para grandes escritórios',
+    description: 'Para uma operação fiscal mais completa e previsível',
     features: ['Clientes ilimitados', '10 usuários', 'Relatórios avançados', 'Chat IA ilimitado', 'Exportação PDF', 'API access'],
   },
 ];
@@ -127,18 +127,18 @@ function BrandPanel() {
         <div className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold text-white">
-              Comece agora — é rápido
+              Estruture sua rotina desde o início
             </h2>
             <p className="mt-2 text-sm text-white/60">
-              Configure seu escritório contábil digital em menos de 2 minutos.
+              Monte sua central fiscal, organize clientes e comece a trabalhar com mais previsibilidade.
             </p>
           </div>
 
           <div className="space-y-3">
             {[
-              { icon: '📁', text: 'Organize documentos e certificados dos clientes' },
-              { icon: '📅', text: 'Controle prazos fiscais sem deixar nada passar' },
-              { icon: '💰', text: 'Gerencie honorários e cobranças com facilidade' },
+              { icon: '📁', text: 'Organize documentos e certificados por cliente' },
+              { icon: '📅', text: 'Acompanhe vencimentos e obrigações em um só lugar' },
+              { icon: '💰', text: 'Controle honorários, recebíveis e pendências da carteira' },
             ].map(({ icon, text }) => (
               <div key={text} className="flex items-start gap-3 text-sm text-white/70">
                 <span className="mt-0.5 text-base leading-none">{icon}</span>
@@ -231,7 +231,7 @@ export function RegisterPage() {
     [loginWithGoogle],
   );
 
-  const stepLabel = ['Seu escritório', 'Seus dados', 'Escolha o plano'][step - 1];
+  const stepLabel = ['Seu ambiente', 'Seus dados', 'Escolha o plano'][step - 1];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -265,7 +265,7 @@ export function RegisterPage() {
                   <Input
                     id="company_name"
                     className="pl-9"
-                    placeholder="Contabilidade Silva & Associados"
+                    placeholder="Seu nome profissional ou marca contábil"
                     {...form1.register('company_name')}
                   />
                 </div>
@@ -326,7 +326,7 @@ export function RegisterPage() {
                 <FormField label="E-mail" htmlFor="owner_email" error={form2.formState.errors.owner_email?.message} required>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="owner_email" type="email" className="pl-9" placeholder="joao@escritorio.com" {...form2.register('owner_email')} />
+                    <Input id="owner_email" type="email" className="pl-9" placeholder="voce@seudominio.com" {...form2.register('owner_email')} />
                   </div>
                 </FormField>
 

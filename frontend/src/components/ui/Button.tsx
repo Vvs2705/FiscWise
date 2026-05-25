@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive';
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary' | 'premium';
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -25,20 +25,29 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
           // Variantes
           variant === 'default' && [
-            'bg-primary text-primary-foreground shadow-sm',
-            'hover:bg-primary/90 hover:shadow-glow-sm',
-            'active:bg-primary/95',
+            'bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(20,184,166,0.22)]',
+            'hover:bg-primary/95 hover:shadow-[0_16px_38px_rgba(20,184,166,0.28)]',
+            'active:bg-primary/90',
+          ],
+          variant === 'premium' && [
+            'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(198_93%_60%))] text-primary-foreground',
+            'shadow-[0_14px_36px_rgba(20,184,166,0.28)]',
+            'hover:shadow-[0_18px_44px_rgba(20,184,166,0.34)] hover:saturate-110',
           ],
           variant === 'outline' && [
-            'border border-input bg-background shadow-sm',
-            'hover:bg-accent hover:text-accent-foreground hover:border-primary/40',
+            'border border-input bg-background/80 shadow-sm backdrop-blur-sm',
+            'hover:bg-accent/80 hover:text-accent-foreground hover:border-primary/35',
+          ],
+          variant === 'secondary' && [
+            'bg-secondary text-secondary-foreground shadow-sm',
+            'hover:bg-secondary/80',
           ],
           variant === 'ghost' && [
-            'hover:bg-accent hover:text-accent-foreground',
+            'hover:bg-accent/80 hover:text-accent-foreground',
           ],
           variant === 'destructive' && [
-            'bg-destructive text-destructive-foreground shadow-sm',
-            'hover:bg-destructive/90',
+            'bg-destructive text-destructive-foreground shadow-[0_12px_30px_rgba(239,68,68,0.22)]',
+            'hover:bg-destructive/90 hover:shadow-[0_16px_34px_rgba(239,68,68,0.28)]',
           ],
 
           // Tamanhos

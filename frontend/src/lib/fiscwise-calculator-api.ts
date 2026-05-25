@@ -26,9 +26,6 @@ type ApiSimulationItem = {
   };
 };
 
-type ICMSPayload = Record<string, unknown>;
-type PISCOFINSPayload = Record<string, unknown>;
-
 export const calculatorAPI = {
   async simulateRegime(data: SimulationRequest): Promise<SimulationResult> {
     const payload = {
@@ -71,16 +68,6 @@ export const calculatorAPI = {
       recommended_regime,
       annual_savings,
     };
-  },
-
-  async simulateICMS(data: ICMSPayload): Promise<unknown> {
-    const response = await api.post('/api/v1/calculator/simulate-icms', data);
-    return response.data;
-  },
-
-  async simulatePISCOFINS(data: PISCOFINSPayload): Promise<unknown> {
-    const response = await api.post('/api/v1/calculator/simulate-pis-cofins', data);
-    return response.data;
   },
 
   async chat(request: ChatRequest): Promise<ChatResponse> {

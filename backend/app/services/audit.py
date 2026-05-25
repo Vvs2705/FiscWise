@@ -2,7 +2,7 @@
 
 import uuid
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

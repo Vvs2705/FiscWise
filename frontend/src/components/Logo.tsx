@@ -36,8 +36,8 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
     >
       <defs>
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2={iconW} y2={iconW} gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#5B6FEE" />
-          <stop offset="100%" stopColor="#3A52C9" />
+          <stop offset="0%"   stopColor="#2DD4BF" />
+          <stop offset="100%" stopColor="#0EA5E9" />
         </linearGradient>
       </defs>
 
@@ -106,10 +106,10 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
             letterSpacing="1.6"
             fill={subColor}
           >
-            GESTÃO CONTÁBIL
-          </text>
-        </>
-      )}
+            ROTINA FISCAL
+        </text>
+      </>
+    )}
     </svg>
   );
 }

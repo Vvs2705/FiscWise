@@ -59,6 +59,13 @@ def resolve_plan(plan_slug: Optional[str], user_email: Optional[str] = None) -> 
     return plan_slug
 
 
+def resolve_user_plan(current_user: object) -> Optional[str]:
+    """Resolve the effective plan for the current authenticated user."""
+    tenant = getattr(current_user, "tenant", None)
+    raw_plan = getattr(tenant, "plan_slug", None) if tenant else None
+    return resolve_plan(raw_plan, getattr(current_user, "email", None))
+
+
 # ---------------------------------------------------------------------------
 # Plan constants
 # ---------------------------------------------------------------------------

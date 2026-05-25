@@ -163,6 +163,6 @@
 
 ## Decisões Técnicas Pendentes
 
-- [ ] Migrar Fly.io app ID de `contaflow` para `fiscwise` (risco: downtime)
+- [x] Migração do app Fly.io para `fiscwise` concluída em 2026-05-24
 - [ ] Definir plano de preços final (Free/Starter/Pro com limites reais)
 - [ ] Domínio fiscwise.com.br — configurar DNS para Vercel e Fly.io

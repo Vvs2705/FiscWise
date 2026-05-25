@@ -11,13 +11,11 @@ Each user belongs to a single tenant and has a specific role within that organiz
 """
 
 import uuid
-from datetime import datetime
 from typing import Optional
 import enum
 
-from sqlalchemy import String, DateTime, UUID as SQLUUID, ForeignKey, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy import String, UUID as SQLUUID, ForeignKey, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.sql import func
 
 from app.models.base import Base, TenantBase
 from app.models.tenant import Tenant

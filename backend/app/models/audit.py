@@ -1,12 +1,10 @@
 """Model for tracking audit logs and tenant activities."""
 
 import uuid
-from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, UUID as SQLUUID
+from sqlalchemy import ForeignKey, JSON, String, Text, UUID as SQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
 
 from app.models.base import Base, TenantBase
 

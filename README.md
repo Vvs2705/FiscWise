@@ -1,6 +1,6 @@
-# FiscWise — Plataforma de Gestão Contábil SaaS
+# FiscWise — Central de Controle para Contadores Autônomos
 
-> Sistema de gestão para escritórios de contabilidade. Multi-tenant, seguro e pronto para escala.
+> Controle sua carteira contábil com precisão. Clientes, documentos, prazos, certificados e obrigações fiscais em uma central feita para contadores autônomos.
 > Produzido por **[Vstack Solutions](https://vstack-solution.com)**
 
 ## Links de Produção
@@ -72,6 +72,7 @@ FiscWise/
 ### Modelo Multi-Tenant
 
 Toda entidade de dados possui `tenant_id`. O middleware `TenantMiddleware` injeta o tenant automaticamente a partir do JWT. Não há compartilhamento de dados entre tenants.
+Na experiência do produto, esse isolamento aparece como um ambiente exclusivo do contador, sem expor a complexidade técnica ao usuário final.
 
 ---
 
@@ -115,7 +116,7 @@ Toda entidade de dados possui `tenant_id`. O middleware `TenantMiddleware` injet
 
 ### Configurações
 - **Perfil**: nome, telefone (editável)
-- **Escritório**: razão social, CNPJ, endereço, site, telefone
+- **Ambiente**: razão social, CNPJ, endereço, site, telefone
 - **Plano**: Free / Starter / Pro com troca em tempo real
 - **Segurança**: troca de senha
 - **Pagamento**: estrutura preparada (integração futura Stripe)

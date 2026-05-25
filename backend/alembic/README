@@ -1,4 +1,4 @@
-Generic single-database configuration with async support for ContaFlow.
+Generic single-database configuration with async support for FiscWise.
 
 This Alembic environment is configured to work with SQLAlchemy 2.0 Async.
 

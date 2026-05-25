@@ -1,4 +1,4 @@
-# ContaFlow Backend Dockerfile
+# FiscWise Backend Dockerfile
 # Build context: project root (fly.toml is at root, dockerfile at ./backend/Dockerfile)
 # Python 3.12 for compatibility with asyncpg, psycopg, and pydantic-core
 

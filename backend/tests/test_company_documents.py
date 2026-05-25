@@ -1,7 +1,7 @@
 """Integration tests for company official documents CRUD and isolation."""
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 import pytest
 from app.models.operations import CompanyDocument, CompanyDocumentType
 from app.schemas.company_documents import CompanyDocumentCreate, CompanyDocumentUpdate

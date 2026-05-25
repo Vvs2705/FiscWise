@@ -21,7 +21,7 @@ import os
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import NotificationMessage, NotificationTemplate
@@ -131,8 +131,6 @@ async def notify_pending_documents_for_tenant(
         return {"sent": 0, "skipped": 0, "failed": 0, "clients_notified": 0}
 
     # Deduplication: get clients already notified today
-    from sqlalchemy.sql import cast
-    from sqlalchemy import Date as SADate, func
     today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
     already_notified_result = await db.execute(
         select(NotificationMessage.client_id).where(

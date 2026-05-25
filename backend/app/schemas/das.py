@@ -26,7 +26,8 @@ class DasPaymentCreate(BaseModel):
         if len(parts) != 2 or len(parts[0]) != 4 or len(parts[1]) != 2:
             raise ValueError("Period must be formatted as YYYY-MM")
         try:
-            year, month = int(parts[0]), int(parts[1])
+            int(parts[0])
+            month = int(parts[1])
             if month < 1 or month > 12:
                 raise ValueError("Month must be between 01 and 12")
         except ValueError:

@@ -2,89 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════
+   FiscWise Design Tokens — Importação
+   ═══════════════════════════════════════════════════════════════════ */
+@import './styles/tokens.css';
+
 /* ─── Design tokens — Light mode ────────────────────────────────── */
 @layer base {
   :root {
-    /* Backgrounds */
-    --background: 220 20% 96%;
-    --foreground: 222 47% 10%;
-
-    /* Cards */
+    --background: 208 40% 97%;
+    --foreground: 211 49% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 10%;
-
-    /* Popover */
+    --card-foreground: 211 49% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 10%;
-
-    /* Primary — azul-índigo (confiança, controle) */
-    --primary: 228 72% 56%;
+    --popover-foreground: 211 49% 13%;
+    --primary: 173 72% 42%;
     --primary-foreground: 0 0% 100%;
-
-    /* Secondary */
-    --secondary: 220 15% 92%;
-    --secondary-foreground: 222 47% 15%;
-
-    /* Muted */
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 9% 46%;
-
-    /* Accent */
-    --accent: 220 15% 92%;
-    --accent-foreground: 222 47% 15%;
-
-    /* Destructive */
-    --destructive: 0 78% 57%;
+    --secondary: 206 34% 93%;
+    --secondary-foreground: 211 49% 18%;
+    --muted: 206 34% 93%;
+    --muted-foreground: 214 16% 42%;
+    --accent: 198 67% 95%;
+    --accent-foreground: 201 71% 24%;
+    --destructive: 0 75% 56%;
     --destructive-foreground: 0 0% 100%;
+    --border: 205 26% 86%;
+    --input: 205 26% 86%;
+    --ring: 173 72% 42%;
+    --radius: 1rem;
 
-    /* Borders */
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 228 72% 56%;
-
-    /* Radius */
-    --radius: 0.6rem;
-
-    /* Sidebar — sempre escura (não muda com o tema) */
-    --sidebar-bg: 226 35% 13%;
-    --sidebar-fg: 210 30% 92%;
-    --sidebar-muted: 220 15% 52%;
-    --sidebar-active-bg: 228 72% 56%;
+    --sidebar-bg: 211 68% 10%;
+    --sidebar-fg: 205 53% 95%;
+    --sidebar-muted: 212 20% 66%;
+    --sidebar-active-bg: 173 72% 42%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover-bg: 226 28% 19%;
-    --sidebar-border: 226 28% 19%;
-    --sidebar-logo-accent: 228 72% 65%;
+    --sidebar-hover-bg: 210 53% 16%;
+    --sidebar-border: 210 41% 18%;
+    --sidebar-logo-accent: 191 88% 57%;
+
+    --shell-bg: 206 45% 95%;
+    --shell-glow: 173 72% 42%;
+    --surface-elevated: 0 0% 100%;
+    --surface-elevated-foreground: 211 49% 13%;
   }
 
   /* ─── Dark mode tokens ───────────────────────────────────────── */
   .dark {
-    --background: 224 42% 8%;
-    --foreground: 210 35% 93%;
-
-    --card: 224 38% 12%;
-    --card-foreground: 210 35% 93%;
-
-    --popover: 224 38% 12%;
-    --popover-foreground: 210 35% 93%;
-
-    --primary: 228 72% 62%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 224 30% 17%;
-    --secondary-foreground: 210 35% 90%;
-
-    --muted: 224 30% 17%;
-    --muted-foreground: 215 18% 55%;
-
-    --accent: 224 30% 17%;
-    --accent-foreground: 210 35% 90%;
-
-    --destructive: 0 68% 55%;
+    --background: 212 69% 7%;
+    --foreground: 203 54% 94%;
+    --card: 211 58% 13%;
+    --card-foreground: 203 54% 94%;
+    --popover: 211 58% 13%;
+    --popover-foreground: 203 54% 94%;
+    --primary: 173 72% 52%;
+    --primary-foreground: 208 69% 8%;
+    --secondary: 212 38% 17%;
+    --secondary-foreground: 204 44% 92%;
+    --muted: 212 38% 17%;
+    --muted-foreground: 213 19% 65%;
+    --accent: 206 39% 19%;
+    --accent-foreground: 203 54% 94%;
+    --destructive: 0 74% 58%;
     --destructive-foreground: 0 0% 100%;
+    --border: 209 38% 21%;
+    --input: 209 38% 21%;
+    --ring: 173 72% 52%;
 
-    --border: 224 25% 20%;
-    --input: 224 25% 20%;
-    --ring: 228 72% 62%;
+    --shell-bg: 212 69% 7%;
+    --shell-glow: 173 72% 52%;
+    --surface-elevated: 211 58% 13%;
+    --surface-elevated-foreground: 203 54% 94%;
   }
 }
 
@@ -103,6 +90,11 @@
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.12), transparent 28%),
+      radial-gradient(circle at top right, hsl(198 93% 60% / 0.12), transparent 24%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+    background-attachment: fixed;
   }
 
   /* Scrollbar personalizado */
@@ -227,5 +219,29 @@
   /* Glow ring for primary buttons */
   .btn-glow:focus-visible {
     animation: pulse-ring 0.6s ease-out;
+  }
+
+  .fiscwise-shell {
+    background:
+      radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.18), transparent 22%),
+      radial-gradient(circle at top right, hsl(198 93% 60% / 0.12), transparent 20%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+  }
+
+  .fiscwise-surface {
+    background-color: hsl(var(--surface-elevated) / 0.82);
+    color: hsl(var(--surface-elevated-foreground));
+    backdrop-filter: blur(16px);
+    box-shadow:
+      0 18px 42px rgba(4, 14, 26, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .fiscwise-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.15) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center center;
   }
 }

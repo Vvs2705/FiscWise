@@ -7,9 +7,8 @@ for multi-tenant architecture with SQLAlchemy 2.0 typed mappings.
 
 import uuid
 from datetime import datetime
-from typing import Any
 
-from sqlalchemy import DateTime, Index, UUID as SQLUUID
+from sqlalchemy import DateTime, UUID as SQLUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 

@@ -29,14 +29,12 @@ import {
   MailCheck,
   Shield,
   QrCode,
-  X,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { useAuthStore } from '@/stores/authStore';
@@ -55,7 +53,7 @@ import {
   type TwoFAStatus,
   type Setup2FAResponse,
 } from '@/lib/auth';
-import { useSubscriptionUsage, useAvailablePlans } from '@/lib/hooks/useSubscription';
+import { useSubscriptionUsage, useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
 import { useSubscription, useCreateSubscription } from '@/lib/hooks/useBilling';
 import {
   useNotificationMessages,
@@ -200,7 +198,7 @@ export function SettingsPage() {
           }} />
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
-        {activeTab === 'pagamento' && <PagamentoTab />}
+        {activeTab === 'pagamento' && <PagamentoTab onNavigateToPlans={() => setActiveTab('plano')} />}
         {activeTab === 'notificacoes' && <NotificacoesTab />}
       </div>
     </div>
@@ -462,14 +460,15 @@ function PlanoTab({
   onPlanChange: (slug: string) => void;
 }) {
   const [changing, setChanging] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const { user } = useAuthStore();
   const { data: usage } = useSubscriptionUsage();
   const { data: dbPlans, isLoading: loadingPlans } = useAvailablePlans();
   const createSub = useCreateSubscription();
 
-  async function handleChangePlan(plan: any) {
+  async function handleChangePlan(plan: Plan) {
     if (plan.slug === currentPlan.slug) return;
-    
+
     if (user?.role !== 'owner') {
       toast.error('Apenas o proprietário do escritório pode alterar o plano.');
       return;
@@ -482,6 +481,7 @@ function PlanoTab({
       }
       await updateTenant({ plan_slug: plan.slug });
       onPlanChange(plan.slug);
+      setSelectedPlan(null);
       toast.success(`Plano alterado para ${plan.name} com sucesso!`);
     } catch {
       toast.error('Erro ao alterar plano');
@@ -496,6 +496,14 @@ function PlanoTab({
     suspended: 'Suspenso',
     cancelled: 'Cancelado',
     expired: 'Expirado',
+  };
+
+  const statusTone: Record<string, 'warning' | 'success' | 'error' | 'default'> = {
+    trial: 'warning',
+    active: 'success',
+    suspended: 'error',
+    cancelled: 'default',
+    expired: 'default',
   };
 
   const planMeta: Record<string, { color: string; popular?: boolean; features: string[] }> = {
@@ -513,6 +521,53 @@ function PlanoTab({
       features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
     },
   };
+
+  const activeDbPlan = dbPlans?.find((plan) => plan.slug === currentPlan.slug) ?? null;
+
+  function getPlanFeatures(plan: Plan) {
+    const meta = planMeta[plan.slug];
+    if (meta) return meta.features;
+    return [
+      plan.max_clients ? `Até ${plan.max_clients} clientes` : 'Clientes ilimitados',
+      plan.max_users ? `Até ${plan.max_users} usuários` : 'Usuários ilimitados',
+      plan.max_ai_calls_month ? `${plan.max_ai_calls_month} mensagens IA/mês` : 'IA conforme configuração do plano',
+    ];
+  }
+
+  function getPlanPrice(plan: Plan) {
+    return plan.price_monthly === 0 || plan.price_monthly === null
+      ? 'Grátis'
+      : `R$ ${Number(plan.price_monthly).toLocaleString('pt-BR')}/mês`;
+  }
+
+  function getPlanIntent(plan: Plan) {
+    if (plan.slug === currentPlan.slug) return 'current';
+    if (plan.price_monthly === null || activeDbPlan === null || activeDbPlan.price_monthly === null) {
+      return 'change';
+    }
+    return plan.price_monthly > activeDbPlan.price_monthly ? 'upgrade' : 'downgrade';
+  }
+
+  const planCtas: Record<string, string> = {
+    current: 'Plano atual',
+    upgrade: 'Fazer upgrade',
+    downgrade: 'Migrar para este plano',
+    change: 'Selecionar plano',
+  };
+
+  const nearLimitItems = usage
+    ? [
+        usage.clients.limit !== null && usage.clients.percent !== null && usage.clients.percent >= 80
+          ? `Clientes ativos em ${Math.round(usage.clients.percent)}% da capacidade`
+          : null,
+        usage.users.limit !== null && usage.users.percent !== null && usage.users.percent >= 80
+          ? `Usuários em ${Math.round(usage.users.percent)}% da capacidade`
+          : null,
+        usage.ai_calls_this_month.limit !== null && usage.ai_calls_this_month.percent !== null && usage.ai_calls_this_month.percent >= 80
+          ? `Mensagens de IA em ${Math.round(usage.ai_calls_this_month.percent)}% da capacidade`
+          : null,
+      ].filter(Boolean)
+    : [];
 
   if (loadingPlans) {
     return (
@@ -533,7 +588,7 @@ function PlanoTab({
             <p className="text-sm text-muted-foreground">{currentPlan.price}</p>
           </div>
           <div className="text-right">
-            <Badge variant={tenant?.subscription_status === 'trial' ? 'warning' : 'success'}>
+            <Badge variant={statusTone[tenant?.subscription_status ?? 'trial'] ?? 'warning'}>
               {statusLabel[tenant?.subscription_status ?? 'trial'] ?? 'Trial'}
             </Badge>
           </div>
@@ -556,21 +611,46 @@ function PlanoTab({
         </Card>
       )}
 
+      <Card className="border-border/60">
+        <CardContent className="grid gap-4 pt-6 lg:grid-cols-[1.4fr,0.8fr]">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">Próximo passo recomendado</p>
+            <p className="text-sm text-muted-foreground">
+              {currentPlan.slug === 'free'
+                ? 'Ative um plano pago para liberar faturamento recorrente, automações e operação comercial completa.'
+                : 'Compare os planos abaixo para ampliar capacidade, liberar mais IA e ajustar o nível de suporte do escritório.'}
+            </p>
+            {nearLimitItems.length > 0 && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
+                {nearLimitItems.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fluxo do upgrade</p>
+            <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+              <p>1. Escolha o plano com base em capacidade e recursos.</p>
+              <p>2. Revise o impacto comercial antes de confirmar.</p>
+              <p>3. A assinatura é provisionada e o plano do tenant é atualizado.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* All plans */}
       <div className="grid gap-4 md:grid-cols-3">
         {(dbPlans || []).map((plan) => {
           const isActive = plan.slug === currentPlan.slug;
-          const meta = planMeta[plan.slug] || {
-            color: 'text-foreground',
-            features: [
-              plan.max_clients ? `Até ${plan.max_clients} clientes` : 'Clientes ilimitados',
-              plan.max_users ? `Até ${plan.max_users} usuários` : 'Usuários ilimitados',
-              'Calculadora fiscal',
-            ],
-          };
-          const priceDisplay = plan.price_monthly === 0 || plan.price_monthly === null 
-            ? 'Grátis' 
-            : `R$ ${Number(plan.price_monthly).toLocaleString('pt-BR')}/mês`;
+          const meta = planMeta[plan.slug] || { color: 'text-foreground', features: getPlanFeatures(plan) };
+          const priceDisplay = getPlanPrice(plan);
+          const intent = getPlanIntent(plan);
+          const aiLabel = plan.max_ai_calls_month === null
+            ? 'IA sem limite explícito'
+            : plan.max_ai_calls_month === 0
+            ? 'Sem franquia de IA'
+            : `${plan.max_ai_calls_month} mensagens IA/mês`;
 
           return (
             <Card
@@ -591,10 +671,30 @@ function PlanoTab({
               <CardHeader className="pb-3 pt-5">
                 <CardTitle className={cn('text-xl', meta.color)}>{plan.name}</CardTitle>
                 <p className="text-2xl font-bold">{priceDisplay}</p>
+                {plan.description && (
+                  <p className="text-sm text-muted-foreground">{plan.description}</p>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-muted/40 p-2">
+                    <p className="text-muted-foreground">Clientes</p>
+                    <p className="mt-1 font-semibold text-foreground">
+                      {plan.max_clients === null ? 'Ilimitado' : plan.max_clients}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-2">
+                    <p className="text-muted-foreground">Usuários</p>
+                    <p className="mt-1 font-semibold text-foreground">
+                      {plan.max_users === null ? 'Ilimitado' : plan.max_users}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  {aiLabel}
+                </div>
                 <ul className="space-y-2">
-                  {meta.features.map((f) => (
+                  {getPlanFeatures(plan).map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                       {f}
@@ -605,13 +705,13 @@ function PlanoTab({
                   className="w-full"
                   variant={isActive ? 'outline' : 'default'}
                   disabled={isActive || changing !== null}
-                  onClick={() => handleChangePlan(plan)}
+                  onClick={() => setSelectedPlan(plan)}
                 >
                   {changing === plan.slug
                     ? 'Alterando...'
                     : isActive
                     ? 'Plano atual'
-                    : 'Selecionar plano'}
+                    : planCtas[intent]}
                 </Button>
               </CardContent>
             </Card>
@@ -625,6 +725,79 @@ function PlanoTab({
           Entre em contato
         </a>
       </p>
+
+      <Dialog
+        open={selectedPlan !== null}
+        onClose={() => changing === null && setSelectedPlan(null)}
+        title={selectedPlan ? `Confirmar mudança para ${selectedPlan.name}` : 'Confirmar mudança de plano'}
+        footer={
+          selectedPlan ? (
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedPlan(null)}
+                disabled={changing !== null}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void handleChangePlan(selectedPlan)}
+                disabled={changing !== null}
+              >
+                {changing === selectedPlan.slug ? 'Processando...' : `${planCtas[getPlanIntent(selectedPlan)]} agora`}
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        {selectedPlan && (
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resumo da alteração</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Plano atual</p>
+                  <p className="text-base font-semibold text-foreground">{currentPlan.label}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Novo plano</p>
+                  <p className="text-base font-semibold text-foreground">{selectedPlan.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Preço mensal</p>
+                  <p className="text-base font-semibold text-foreground">{getPlanPrice(selectedPlan)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Impacto</p>
+                  <p className="text-base font-semibold text-foreground">
+                    {getPlanIntent(selectedPlan) === 'upgrade'
+                      ? 'Amplia recursos e capacidade'
+                      : getPlanIntent(selectedPlan) === 'downgrade'
+                      ? 'Reduz capacidade disponível'
+                      : 'Atualização de configuração'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Recursos incluídos</p>
+              <ul className="space-y-2">
+                {getPlanFeatures(selectedPlan).map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+              Ao confirmar, o FiscWise provisiona a assinatura quando aplicável e sincroniza o plano do escritório.
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }
@@ -835,7 +1008,7 @@ function TwoFactorCard() {
                   <p className="font-semibold text-sm">App Autenticador</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Google Authenticator, Microsoft Authenticator, Authy</p>
                 </div>
-                <Badge variant="outline" className="w-fit text-xs text-emerald-600 border-emerald-500/40">Recomendado</Badge>
+                <Badge variant="success" className="w-fit text-xs">Recomendado</Badge>
               </button>
 
               <button
@@ -1111,7 +1284,7 @@ function SegurancaTab() {
 
 // ─── Pagamento tab ────────────────────────────────────────────────────────────
 
-function PagamentoTab() {
+function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) {
   const { data: subscription, isLoading } = useSubscription();
   const { user } = useAuthStore();
 
@@ -1235,8 +1408,9 @@ function PagamentoTab() {
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Você pode alterar seu plano a qualquer momento na aba de **Planos** acima.
+              Você pode alterar seu plano a qualquer momento na aba de planos.
             </p>
+            <Button onClick={onNavigateToPlans}>Comparar planos</Button>
           </CardContent>
         </Card>
       )}

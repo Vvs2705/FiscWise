@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.core.plan_access import resolve_plan
-from app.models.operations import AccountingClient, ClientDocument
+from app.models.operations import AccountingClient
 from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User

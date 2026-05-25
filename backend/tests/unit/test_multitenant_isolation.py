@@ -11,11 +11,10 @@ Tests verify:
 
 import uuid
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash, create_access_token
-from app.models.tenant import Tenant, SubscriptionStatus
+from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 
 
@@ -335,8 +334,6 @@ class TestDataLeakagePrevention:
 
         # Test 2: Wrong password
         # First create a user
-        from app.core.security import get_password_hash
-        from app.models.tenant import Tenant
 
         # We need to use the test fixtures, so this test relies on conftest
 

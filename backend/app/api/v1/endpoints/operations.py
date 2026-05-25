@@ -15,7 +15,7 @@ from sqlalchemy import Date as SADate, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_plan
+from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_user_plan
 from app.services.audit import log_audit_event
 from app.models.calculator import AssistantRole, FiscalAssistantMessage
 from app.models.operations import (
@@ -72,8 +72,7 @@ def _tenant_id(current_user: User) -> uuid.UUID:
 
 
 def _plan(current_user: User) -> str | None:
-    raw = current_user.tenant.plan_slug if current_user.tenant else None
-    return resolve_plan(raw, getattr(current_user, "email", None))
+    return resolve_user_plan(current_user)
 
 
 def _apply_updates(instance: Any, payload: Any) -> None:
@@ -1145,7 +1144,6 @@ async def generate_monthly_billing(
 ) -> dict:
     """Gera automaticamente faturas de honorários para clientes com monthly_fee."""
     import calendar
-    from dateutil.parser import parse
 
     tenant_id = _tenant_id(current_user)
 
@@ -1389,12 +1387,11 @@ async def upload_client_document(
 ) -> DocumentResponse:
     """Upload de arquivo para cliente (PDF, Excel, Word)."""
     import tempfile
-    import os
 
     tenant_id = _tenant_id(current_user)
 
     # Validar cliente
-    client = await _get_client_or_404(db, tenant_id, client_id)
+    await _get_client_or_404(db, tenant_id, client_id)
 
     # Simular armazenamento em arquivo temporário
     file_ext = Path(file.filename).suffix if file.filename else ".bin"

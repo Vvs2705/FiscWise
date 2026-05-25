@@ -15,16 +15,16 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
 
 const navigation = [
-  { name: 'Dashboard',      href: '/dashboard',      icon: LayoutDashboard },
-  { name: 'Clientes',       href: '/clientes',        icon: UsersRound },
-  { name: 'Documentos',     href: '/documentos',      icon: FolderKanban },
-  { name: 'Agenda / Prazos',href: '/agenda-prazos',   icon: CalendarClock },
-  { name: 'Certificados',   href: '/certificados',    icon: ShieldCheck },
-  { name: 'Financeiro',     href: '/financeiro',      icon: ReceiptText },
-  { name: 'Calculadora Fiscal', href: '/calculadora', icon: Calculator },
-  { name: 'DAS Mensal',     href: '/das-mensal',      icon: Coins },
-  { name: 'Obrigações',     href: '/obrigacoes',      icon: ListChecks },
-  { name: 'Configurações',  href: '/configuracoes',   icon: Settings },
+  { name: 'Painel',             href: '/dashboard',      icon: LayoutDashboard },
+  { name: 'Clientes',           href: '/clientes',       icon: UsersRound },
+  { name: 'Agenda Fiscal',      href: '/agenda-prazos',  icon: CalendarClock },
+  { name: 'Obrigações',         href: '/obrigacoes',     icon: ListChecks },
+  { name: 'Documentos',         href: '/documentos',     icon: FolderKanban },
+  { name: 'Guias e DAS',        href: '/das-mensal',     icon: Coins },
+  { name: 'Certificados',       href: '/certificados',   icon: ShieldCheck },
+  { name: 'Financeiro',         href: '/financeiro',     icon: ReceiptText },
+  { name: 'Calculadora',        href: '/calculadora',    icon: Calculator },
+  { name: 'Configurações',      href: '/configuracoes',  icon: Settings },
 ];
 
 
@@ -57,6 +57,11 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4">
+        <div className="mb-3 hidden px-3 md:block">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sidebar-muted">
+            Central do contador
+          </p>
+        </div>
         {navigation.map((item, i) => {
           const isActive =
             location.pathname === item.href ||
@@ -106,22 +111,22 @@ export function Sidebar() {
       {/* Rodapé da sidebar */}
       <div className="border-t border-sidebar-border px-2 py-3">
         {/* Desktop: branding + link Vstack */}
-        <div className="hidden flex-col gap-1 px-3 py-1 md:flex">
+        <div className="hidden flex-col gap-2 px-3 py-1 md:flex">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sidebar-accent/20 text-[10px] font-bold text-sidebar-accent">
               FW
             </div>
-            <p className="truncate text-xs font-medium text-sidebar-foreground">FiscWise</p>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-sidebar-foreground">FiscWise</p>
+              <p className="truncate text-[10px] text-sidebar-muted">Fiscal Intelligence OS</p>
+            </div>
           </div>
-          <a
-            href="https://vstack-solutions.com.br"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="truncate text-[10px] text-sidebar-muted transition-colors hover:text-sidebar-foreground"
-            title="Vstack Solutions — empresa desenvolvedora do FiscWise"
-          >
-            by Vstack Solutions
-          </a>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-muted">Posicionamento</p>
+            <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/90">
+              Organize sua carteira, acompanhe prazos e atenda seus clientes com mais precisão.
+            </p>
+          </div>
         </div>
 
         {/* Mobile: só tooltip com crédito */}

@@ -1,33 +1,21 @@
+import { type ReactNode, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from 'recharts';
-import {
-  UsersRound,
-  CalendarClock,
-  ShieldAlert,
-  ReceiptText,
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
+  ArrowRight,
+  CalendarClock,
   CheckCircle2,
   Clock3,
   FileCheck2,
+  ReceiptText,
+  ShieldAlert,
   Users2,
+  UsersRound,
 } from 'lucide-react';
 import { dateBR, moneyBRL, useDashboardOverview, useProductivityOverview } from '@/lib/hooks/useOperations';
 import { usePermission } from '@/lib/hooks/usePermission';
 
-// ─── Variantes de animação ────────────────────────────────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -37,813 +25,647 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
 };
 
-const cardHover = {
-  y: -4,
-  boxShadow: '0 10px 40px rgba(0, 212, 255, 0.12)',
-  borderColor: 'rgba(0, 212, 255, 0.25)',
-  transition: { duration: 0.25 },
-};
+type AttentionLevel = 'alto' | 'medio' | 'regular';
 
-// ─── Custom Tooltip para Recharts ─────────────────────────────────────────────
-function CustomTooltip({
-  active,
-  payload,
-  label,
+interface AttentionItem {
+  id: string;
+  clientName: string;
+  reason: string;
+  level: AttentionLevel;
+  actionLabel: string;
+  actionPath: string;
+}
+
+interface FocusItem {
+  id: string;
+  label: string;
+  value: number;
+  tone: 'danger' | 'warning' | 'info' | 'success';
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function parseDate(value: string) {
+  const parsed = new Date(value);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function daysUntil(value: string) {
+  const diff = parseDate(value).getTime() - startOfToday().getTime();
+  return Math.round(diff / 86_400_000);
+}
+
+function badgeClasses(level: AttentionLevel) {
+  if (level === 'alto') {
+    return 'border-red-400/30 bg-red-500/10 text-red-200';
+  }
+
+  if (level === 'medio') {
+    return 'border-amber-400/30 bg-amber-500/10 text-amber-100';
+  }
+
+  return 'border-slate-400/30 bg-white/5 text-slate-200';
+}
+
+function toneClasses(tone: FocusItem['tone']) {
+  if (tone === 'danger') {
+    return 'border-red-400/30 bg-red-500/10 text-red-100';
+  }
+
+  if (tone === 'warning') {
+    return 'border-amber-400/30 bg-amber-500/10 text-amber-100';
+  }
+
+  if (tone === 'success') {
+    return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100';
+  }
+
+  return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-100';
+}
+
+function formatDueLabel(days: number) {
+  if (days <= 0) return 'Hoje';
+  if (days === 1) return 'Amanhã';
+  return `Em ${days} dias`;
+}
+
+function SectionCard({
+  children,
+  className = '',
 }: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
-  label?: string;
+  children: ReactNode;
+  className?: string;
 }) {
-  if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-[rgba(0,212,255,0.2)] bg-[#1a1f2e] p-3 shadow-xl">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#7a8490]">{label}</p>
-      {payload.map((entry) => (
-        <p key={entry.name} className="text-sm font-semibold" style={{ color: entry.color }}>
-          {entry.name}: {moneyBRL(entry.value)}
-        </p>
-      ))}
+    <motion.section
+      variants={itemVariants}
+      className={`rounded-[28px] border border-white/10 bg-[#111926] shadow-[0_20px_60px_rgba(0,0,0,0.28)] ${className}`}
+    >
+      {children}
+    </motion.section>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7dd3fc]">
+        {eyebrow}
+      </p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">{title}</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{description}</p>
     </div>
   );
 }
 
-// ─── Componente MetricCard ────────────────────────────────────────────────────
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  change: string;
-  positive: boolean;
-  icon: React.ElementType;
-  delay?: number;
-}
-
-function MetricCard({ title, value, change, positive, icon: Icon, delay = 0 }: MetricCardProps) {
-  return (
-    <motion.div
-      variants={itemVariants}
-      whileHover={cardHover}
-      style={{ transitionDelay: `${delay}ms` }}
-      className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6 cursor-default"
-    >
-      {/* top accent line on hover - always rendered, opacity controlled by group */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
-        style={{
-          background: 'linear-gradient(90deg, transparent, #00d4ff, transparent)',
-          opacity: 0.6,
-        }}
-      />
-
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-[#7a8490]">
-          {title}
-        </span>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(0,212,255,0.1)] border border-[rgba(0,212,255,0.15)]">
-          <Icon className="h-4 w-4 text-[#00d4ff]" />
-        </div>
-      </div>
-
-      <div
-        className="text-3xl font-bold tracking-tight"
-        style={{
-          background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}
-      >
-        {value}
-      </div>
-
-      <div className={`mt-2 flex items-center gap-1 text-sm font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-        {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-        {change}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Helpers de status para recebíveis ───────────────────────────────────────
-function statusLabel(s: string) {
-  if (s === 'paid') return 'Recebido';
-  if (s === 'overdue') return 'Atrasado';
-  return 'Pendente';
-}
-
-function statusClass(s: string) {
-  if (s === 'paid') return 'bg-emerald-500/10 text-emerald-400';
-  if (s === 'overdue') return 'bg-red-500/10 text-red-400';
-  return 'bg-amber-500/10 text-amber-400';
-}
-
 export function DashboardPage() {
-  const { data, isLoading, isError } = useDashboardOverview();
   const navigate = useNavigate();
   const { hasRole } = usePermission();
-  const isAdminOrOwner = hasRole('admin');
+  const isAdmin = hasRole('admin');
+  const { data, isLoading, isError } = useDashboardOverview();
   const { data: prod } = useProductivityOverview();
 
-  const weeklyData = data?.weekly_received ?? [];
-  const monthlyTrend = data?.monthly_received ?? [];
+  const upcomingDeadlines = data?.upcoming_deadlines ?? [];
   const recentReceivables = data?.recent_receivables ?? [];
 
-  const metricsCards: MetricCardProps[] = [
+  const todaysDeadlines = useMemo(
+    () => upcomingDeadlines.filter((item) => daysUntil(item.due_date) === 0),
+    [upcomingDeadlines]
+  );
+
+  const weekAgenda = useMemo(
+    () =>
+      [...upcomingDeadlines]
+        .sort((a, b) => parseDate(a.due_date).getTime() - parseDate(b.due_date).getTime())
+        .slice(0, 6),
+    [upcomingDeadlines]
+  );
+
+  const focusItems = useMemo<FocusItem[]>(() => {
+    const items: FocusItem[] = [
+      {
+        id: 'deadlines-today',
+        label: 'obrigações vencem hoje',
+        value: todaysDeadlines.length,
+        tone: todaysDeadlines.length > 0 ? 'danger' : 'success',
+      },
+      {
+        id: 'deadlines-overdue',
+        label: 'obrigações em atraso',
+        value: data?.overdue_deadlines ?? 0,
+        tone: (data?.overdue_deadlines ?? 0) > 0 ? 'danger' : 'success',
+      },
+      {
+        id: 'docs-review',
+        label: 'documentos aguardando conferência',
+        value: prod?.docs_awaiting_approval ?? 0,
+        tone: (prod?.docs_awaiting_approval ?? 0) > 0 ? 'warning' : 'success',
+      },
+      {
+        id: 'certificates',
+        label: 'certificados vencendo em 30 dias',
+        value: data?.certificates_expiring_30d ?? prod?.certificates_expiring_30d ?? 0,
+        tone:
+          (data?.certificates_expiring_30d ?? prod?.certificates_expiring_30d ?? 0) > 0
+            ? 'warning'
+            : 'info',
+      },
+    ];
+
+    return items.filter((item) => item.value > 0).slice(0, 3);
+  }, [data?.certificates_expiring_30d, data?.overdue_deadlines, prod?.certificates_expiring_30d, prod?.docs_awaiting_approval, todaysDeadlines.length]);
+
+  const totalFocusCount = focusItems.reduce((sum, item) => sum + item.value, 0);
+
+  const attentionClients = useMemo<AttentionItem[]>(() => {
+    const fromPending =
+      prod?.clients_with_most_pending.map<AttentionItem>((client) => ({
+        id: `pending-${client.client_id}`,
+        clientName: client.client_name,
+        reason:
+          client.pending_count === 1
+            ? '1 pendência operacional aberta'
+            : `${client.pending_count} pendências operacionais abertas`,
+        level: client.pending_count >= 3 ? 'alto' : 'medio',
+        actionLabel: 'Ver obrigações',
+        actionPath: '/obrigacoes',
+      })) ?? [];
+
+    const fromOverdueReceivables = recentReceivables
+      .filter((item) => item.status === 'overdue')
+      .map((item) => ({
+        id: `receivable-${item.id}`,
+        clientName: item.client_name,
+        reason: `recebível em atraso de ${moneyBRL(item.amount)}`,
+        level: 'medio' as const,
+        actionLabel: 'Abrir financeiro',
+        actionPath: '/financeiro',
+      }));
+
+    const unique = new Map<string, AttentionItem>();
+
+    [...fromPending, ...fromOverdueReceivables].forEach((item) => {
+      if (!unique.has(item.clientName)) {
+        unique.set(item.clientName, item);
+      }
+    });
+
+    return Array.from(unique.values()).slice(0, 5);
+  }, [prod?.clients_with_most_pending, recentReceivables]);
+
+  const quickMetrics = [
     {
-      title: 'Receita total',
-      value: isLoading ? '...' : moneyBRL(data?.total_received_month),
-      change: 'Recebido no mês corrente',
-      positive: true,
-      icon: TrendingUp,
-      delay: 0,
+      label: 'Obrigações em aberto',
+      value: isLoading ? '...' : String(data?.pending_deadlines ?? 0),
+      detail: `${data?.overdue_deadlines ?? 0} atrasadas`,
+      icon: CalendarClock,
     },
     {
-      title: 'A receber (aberto)',
-      value: isLoading ? '...' : moneyBRL(data?.receivables_amount_open),
-      change: `${data?.open_receivables ?? 0} recebíveis em aberto`,
-      positive: true,
-      icon: ReceiptText,
-      delay: 80,
-    },
-    {
-      title: 'Inadimplência',
-      value: isLoading ? '...' : moneyBRL(data?.receivables_amount_overdue),
-      change: `${data?.overdue_receivables ?? 0} em atraso`,
-      positive: (data?.overdue_receivables ?? 0) === 0,
-      icon: TrendingDown,
-      delay: 160,
-    },
-    {
-      title: 'Clientes ativos',
-      value: isLoading ? '...' : String(data?.active_clients ?? 0),
-      change: 'Total na plataforma',
-      positive: true,
+      label: 'Clientes com atenção',
+      value: isLoading ? '...' : String(attentionClients.length),
+      detail: 'priorizar contato e regularização',
       icon: UsersRound,
-      delay: 240,
+    },
+    {
+      label: 'Documentos em fila',
+      value: isLoading ? '...' : String(prod?.docs_awaiting_approval ?? 0),
+      detail: 'aguardando conferência',
+      icon: FileCheck2,
+    },
+    {
+      label: 'Recebíveis em atraso',
+      value: isLoading ? '...' : String(data?.overdue_receivables ?? 0),
+      detail: moneyBRL(data?.receivables_amount_overdue ?? 0),
+      icon: ReceiptText,
+    },
+  ];
+
+  const officeSnapshot = [
+    {
+      label: 'Taxa de cumprimento',
+      value: prod ? `${prod.compliance_rate}%` : '—',
+      detail: prod ? `${prod.total_delivered} entregues no ciclo` : 'Sem dados',
+      tone:
+        (prod?.compliance_rate ?? 0) >= 80
+          ? 'text-emerald-300'
+          : (prod?.compliance_rate ?? 0) >= 50
+            ? 'text-amber-200'
+            : 'text-red-200',
+    },
+    {
+      label: 'Em andamento',
+      value: prod ? String(prod.total_pending + prod.total_in_progress) : '—',
+      detail: prod ? `${prod.total_in_progress} em execução agora` : 'Sem dados',
+      tone: 'text-slate-100',
+    },
+    {
+      label: 'Receita recebida no mês',
+      value: isLoading ? '...' : moneyBRL(data?.total_received_month ?? 0),
+      detail: isLoading ? '...' : `${data?.active_clients ?? 0} clientes ativos`,
+      tone: 'text-slate-100',
     },
   ];
 
   return (
     <div
-      className="min-h-screen"
-      style={{ background: '#0f1419', color: '#ffffff' }}
+      className="min-h-full rounded-[32px] border border-white/5 bg-[#0b111b] text-white"
+      style={{
+        backgroundImage:
+          'radial-gradient(circle at top left, rgba(14,165,233,0.16), transparent 28%), radial-gradient(circle at top right, rgba(251,191,36,0.10), transparent 24%)',
+      }}
     >
-      <div className="mx-auto max-w-[1400px] space-y-8 p-6 md:p-8">
-
-        {/* ── Hero ── */}
-        <motion.section
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          className="mb-2"
-        >
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-            Bem-vindo de volta!{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              FiscWise
-            </span>
-          </h1>
-          <p className="mt-2 text-base text-[#b4bcc4]">
-            Suas operações financeiras em tempo real, com total clareza e controle.
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            {/* Novo cliente → /clientes com dialog aberto */}
-            <motion.button
-              whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/clientes', { state: { openCreate: true } })}
-              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
-              style={{
-                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
-                boxShadow: '0 0 20px rgba(0,212,255,0.3)',
-              }}
-            >
-              + Novo cliente
-            </motion.button>
-
-            {/* Novo recebível → /financeiro com dialog aberto */}
-            <motion.button
-              whileHover={{ y: -2, boxShadow: '0 0 30px rgba(0,212,255,0.45)' }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/financeiro', { state: { openCreate: true } })}
-              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-[#0f1419] transition-all"
-              style={{
-                background: 'linear-gradient(135deg, #00d4ff, #00f0ff)',
-                boxShadow: '0 0 20px rgba(0,212,255,0.3)',
-              }}
-            >
-              + Novo recebível
-            </motion.button>
-
-            {/* Ver relatório → /financeiro */}
-            <motion.button
-              whileHover={{ y: -2, backgroundColor: 'rgba(0,212,255,0.1)' }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate('/financeiro')}
-              className="rounded-lg border border-[rgba(0,212,255,0.25)] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#00d4ff] transition-all"
-            >
-              Ver relatório
-            </motion.button>
-          </div>
-        </motion.section>
-
-        {/* ── Error banner ── */}
-        {isError && (
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
-          >
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            Não foi possível carregar os dados operacionais agora. Exibindo valores demonstrativos.
-          </motion.div>
-        )}
-
-        {/* ── Metric Cards ── */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {metricsCards.map((card) => (
-            <MetricCard key={card.title} {...card} />
-          ))}
-        </motion.div>
-
-        {/* ── KPI operacional (dados reais) ── */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid gap-4 sm:grid-cols-3"
-        >
-          {[
-            {
-              title: 'Prazos pendentes',
-              value: isLoading ? '...' : String(data?.pending_deadlines ?? 0),
-              sub: `${data?.overdue_deadlines ?? 0} atrasados`,
-              icon: CalendarClock,
-              warn: (data?.overdue_deadlines ?? 0) > 0,
-            },
-            {
-              title: 'Certificados 30 dias',
-              value: isLoading ? '...' : String(data?.certificates_expiring_30d ?? 0),
-              sub: 'Renovações próximas',
-              icon: ShieldAlert,
-              warn: (data?.certificates_expiring_30d ?? 0) > 0,
-            },
-            {
-              title: 'A receber (aberto)',
-              value: isLoading ? '...' : moneyBRL(data?.receivables_amount_open),
-              sub: `${data?.overdue_receivables ?? 0} em atraso`,
-              icon: ReceiptText,
-              warn: (data?.overdue_receivables ?? 0) > 0,
-            },
-          ].map((kpi, i) => (
-            <motion.div
-              key={kpi.title}
-              variants={itemVariants}
-              whileHover={cardHover}
-              custom={i}
-              className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-5"
-            >
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-[2px]"
-                style={{
-                  background: kpi.warn
-                    ? 'linear-gradient(90deg, transparent, #f59e0b, transparent)'
-                    : 'linear-gradient(90deg, transparent, #00d4ff, transparent)',
-                  opacity: 0.5,
-                }}
-              />
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-widest text-[#7a8490]">
-                  {kpi.title}
-                </span>
-                <kpi.icon
-                  className={`h-4 w-4 ${kpi.warn ? 'text-amber-400' : 'text-[#00d4ff]'}`}
-                />
-              </div>
-              <div
-                className="text-2xl font-bold"
-                style={{
-                  background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              >
-                {kpi.value}
-              </div>
-              <p className={`mt-1 text-xs font-medium ${kpi.warn ? 'text-amber-400' : 'text-[#7a8490]'}`}>
-                {kpi.sub}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="mx-auto max-w-[1400px] space-y-6 p-5 md:p-8"
+      >
+        <SectionCard className="overflow-hidden bg-[linear-gradient(135deg,#102033_0%,#0f1724_52%,#15283a_100%)]">
+          <div className="grid gap-8 p-6 md:grid-cols-[1.55fr_0.95fr] md:p-8">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-200/90">
+                Painel
               </p>
-            </motion.div>
-          ))}
-        </motion.div>
+              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white md:text-[2.8rem]">
+                Veja o que precisa da sua atenção hoje
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
+                Mantenha seus clientes em dia acompanhando obrigações, documentos pendentes e prazos fiscais em um só lugar.
+              </p>
 
-        {/* ── Charts Row ── */}
-        <div className="grid gap-6 lg:grid-cols-5">
-
-          {/* Bar Chart – Receita semanal */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-3 rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6"
-          >
-            <div className="mb-5 flex items-start justify-between border-b border-white/[0.06] pb-4">
-              <div>
-                <h3 className="text-base font-bold text-white">Receita por dia</h3>
-                <p className="mt-0.5 text-xs text-[#7a8490]">Últimos 7 dias</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/obrigacoes')}
+                  className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-200"
+                >
+                  Resolver agora
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/agenda-prazos')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/10"
+                >
+                  Ver agenda fiscal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/clientes', { state: { openCreate: true } })}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-transparent px-5 py-3 text-sm font-semibold text-slate-200 transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:text-white"
+                >
+                  Novo cliente
+                </button>
               </div>
-              <span
-                className="rounded-full border border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.08)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#00d4ff]"
-              >
-                Em tempo real
-              </span>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis
-                  dataKey="dia"
-                  tick={{ fill: '#7a8490', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#7a8490', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,212,255,0.05)' }} />
-                <Bar
-                  dataKey="receita"
-                  name="Receita"
-                  fill="url(#barGradient)"
-                  radius={[5, 5, 0, 0]}
-                  maxBarSize={42}
-                />
-                {/* Barra de despesa removida — sem modelo de despesas no sistema */}
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00f0ff" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#00d4ff" stopOpacity={0.5} />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
-          </motion.div>
 
-          {/* Area Chart – Tendência mensal */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.35 }}
-            className="lg:col-span-2 rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-6"
-          >
-            <div className="mb-5 border-b border-white/[0.06] pb-4">
-              <h3 className="text-base font-bold text-white">Tendência mensal</h3>
-              <p className="mt-0.5 text-xs text-[#7a8490]">Receita acumulada 2026</p>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={monthlyTrend} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00d4ff" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#00d4ff" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis
-                  dataKey="mes"
-                  tick={{ fill: '#7a8490', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#7a8490', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(0,212,255,0.3)' }} />
-                <Area
-                  type="monotone"
-                  dataKey="valor"
-                  name="Receita"
-                  stroke="#00d4ff"
-                  strokeWidth={2}
-                  fill="url(#areaGradient)"
-                  dot={{ fill: '#00d4ff', r: 3 }}
-                  activeDot={{ r: 5, fill: '#00f0ff' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </motion.div>
-        </div>
-
-        {/* ── Próximos prazos + Risco financeiro ── */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Próximos prazos */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="lg:col-span-2 rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
-          >
-            <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
-              <h3 className="text-base font-bold text-white">Próximos prazos</h3>
-            </div>
-            <div className="divide-y divide-white/[0.04] px-6">
-              {(data?.upcoming_deadlines ?? []).length === 0 ? (
-                <p className="py-6 text-sm text-[#7a8490]">
-                  Nenhum prazo futuro cadastrado. Cadastre o primeiro prazo em Agenda e Prazos.
-                </p>
-              ) : (
-                (data?.upcoming_deadlines ?? []).map((deadline) => (
-                  <div key={deadline.id} className="flex items-start justify-between gap-4 py-4">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-white">{deadline.title}</p>
-                      <p className="mt-0.5 truncate text-sm text-[#7a8490]">{deadline.category}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-medium text-white">{dateBR(deadline.due_date)}</p>
-                      <span
-                        className={`mt-1 inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          deadline.priority === 'high'
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'bg-amber-500/10 text-amber-400'
-                        }`}
-                      >
-                        {deadline.priority === 'high' ? 'Alta' : 'Acompanhar'}
-                      </span>
-                    </div>
-                  </div>
-                ))
+              {isError && (
+                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Não foi possível atualizar todo o painel agora. Os blocos abaixo usam os dados
+                  mais recentes disponíveis.
+                </div>
               )}
             </div>
-          </motion.div>
 
-          {/* Risco financeiro */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
-          >
-            <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
-              <h3 className="text-base font-bold text-white">Risco financeiro</h3>
-            </div>
-            <div className="space-y-4 p-6">
-              <div className="rounded-lg border border-white/[0.06] bg-[#141824] p-4">
-                <p className="text-xs text-[#7a8490]">Valor vencido</p>
-                <p
-                  className="mt-2 text-2xl font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #ef4444, #fca5a5)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {isLoading ? '...' : moneyBRL(data?.receivables_amount_overdue)}
-                </p>
+            <div className="rounded-[26px] border border-white/10 bg-[#0b131f]/90 p-5 backdrop-blur">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/80">
+                    Foco de hoje
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    {isLoading ? 'Carregando...' : `${totalFocusCount} itens pedem ação`}
+                  </h2>
+                </div>
+                <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-3 text-cyan-200">
+                  <Clock3 className="h-5 w-5" />
+                </div>
               </div>
-              <div className="rounded-lg border border-white/[0.06] bg-[#141824] p-4">
-                <p className="text-xs text-[#7a8490]">Recebíveis em aberto</p>
-                <p
-                  className="mt-2 text-2xl font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {isLoading ? '...' : String(data?.open_receivables ?? 0)}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
 
-        {/* ── Tabela de transações recentes ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.55 }}
-          className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden"
-        >
-          <div className="border-b border-white/[0.06] bg-[#141824] px-6 py-4">
-            <h3 className="text-base font-bold text-white">Movimentações recentes</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#141824]">
-                  {['Cliente / Descrição', 'Tipo', 'Valor', 'Data', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      className="border-b border-white/[0.06] px-6 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-[#7a8490]"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentReceivables.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#7a8490]">
-                      Nenhuma movimentação encontrada. Cadastre recebíveis em Financeiro.
-                    </td>
-                  </tr>
+              <div className="mt-5 space-y-3">
+                {focusItems.length === 0 ? (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
+                    Nenhuma urgência crítica agora. O painel segue limpo para acompanhar a semana.
+                  </div>
                 ) : (
-                  recentReceivables.map((item, i) => (
-                    <motion.tr
+                  focusItems.map((item) => (
+                    <div
                       key={item.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.35, delay: 0.6 + i * 0.07 }}
-                      className="group border-b border-white/[0.04] transition-colors last:border-0 hover:bg-[rgba(0,212,255,0.04)]"
+                      className={`rounded-2xl border px-4 py-3 ${toneClasses(item.tone)}`}
                     >
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-white">{item.client_name}</p>
-                        <p className="mt-0.5 text-sm text-[#7a8490]">{item.description}</p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[#b4bcc4]">Recebível</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-emerald-400">
-                        {moneyBRL(item.amount)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[#b4bcc4]">{dateBR(item.due_date)}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-block rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${statusClass(item.status)}`}
-                        >
-                          {statusLabel(item.status)}
-                        </span>
-                      </td>
-                    </motion.tr>
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-sm font-medium text-inherit">{item.label}</p>
+                        <span className="text-lg font-semibold text-white">{item.value}</span>
+                      </div>
+                    </div>
                   ))
                 )}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Próximo passo</p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">
+                  Comece pela agenda fiscal e depois avance para clientes com pendências abertas ou
+                  documentos sem conferência.
+                </p>
+              </div>
+            </div>
           </div>
-        </motion.div>
+        </SectionCard>
 
-        {/* ── Painel de Produtividade (owner/admin apenas) ── */}
-        {isAdminOrOwner && (
-          <motion.section
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-          >
-            {/* Header */}
-            <div className="mb-4 flex items-center gap-3">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg"
-                style={{ background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)' }}
-              >
-                <Users2 className="h-4 w-4 text-[#00d4ff]" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white">Painel de Produtividade</h2>
-                <p className="text-xs text-[#7a8490]">
-                  Competência {prod?.competence_month ?? '—'} · Visível apenas para administradores
-                </p>
-              </div>
-            </div>
-
-            {/* KPI row */}
-            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Compliance rate */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Taxa de cumprimento</span>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        <motion.section
+          variants={containerVariants}
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+        >
+          {quickMetrics.map((metric) => (
+            <motion.div
+              key={metric.label}
+              variants={itemVariants}
+              className="rounded-[24px] border border-white/8 bg-[#101826] px-5 py-5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{metric.label}</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                    {metric.value}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-300">{metric.detail}</p>
                 </div>
-                <p
-                  className="text-2xl font-bold"
-                  style={{
-                    background:
-                      (prod?.compliance_rate ?? 0) >= 80
-                        ? 'linear-gradient(135deg, #34d399, #6ee7b7)'
-                        : (prod?.compliance_rate ?? 0) >= 50
-                        ? 'linear-gradient(135deg, #fbbf24, #fde68a)'
-                        : 'linear-gradient(135deg, #f87171, #fca5a5)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {prod ? `${prod.compliance_rate}%` : '—'}
-                </p>
-                <p className="mt-1 text-xs text-[#7a8490]">
-                  {prod ? `${prod.total_delivered} entregues / ${prod.total_delivered + prod.total_overdue} fechadas` : 'Sem dados'}
-                </p>
-              </div>
-
-              {/* Pending */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Em aberto</span>
-                  <Clock3 className="h-4 w-4 text-amber-400" />
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-cyan-200">
+                  <metric.icon className="h-5 w-5" />
                 </div>
-                <p
-                  className="text-2xl font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {prod ? prod.total_pending + prod.total_in_progress : '—'}
-                </p>
-                <p className="mt-1 text-xs text-[#7a8490]">
-                  {prod ? `${prod.total_pending} pendentes · ${prod.total_in_progress} em andamento` : 'Sem dados'}
-                </p>
               </div>
+            </motion.div>
+          ))}
+        </motion.section>
 
-              {/* Docs awaiting approval */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Docs aguardando aprovação</span>
-                  <FileCheck2 className="h-4 w-4 text-[#00d4ff]" />
-                </div>
-                <p
-                  className="text-2xl font-bold"
-                  style={{
-                    background: 'linear-gradient(135deg, #ffffff, #b4bcc4)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {prod ? prod.docs_awaiting_approval : '—'}
-                </p>
-                <p className="mt-1 text-xs text-[#7a8490]">Recebidos, aguardando conferência</p>
-              </div>
+        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <motion.div variants={containerVariants} className="space-y-6">
+            <SectionCard className="p-6 md:p-7">
+              <SectionHeader
+                eyebrow="Atenção imediata"
+                title="Clientes que precisam de atenção"
+                description="A carteira mais sensível sobe primeiro: pendências operacionais e atrasos que podem virar retrabalho."
+              />
 
-              {/* Overdue obligations */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7a8490]">Obrigações vencidas</span>
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
+              {attentionClients.length === 0 ? (
+                <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 px-5 py-6 text-sm text-emerald-100">
+                  Nenhum cliente crítico no momento. Sua carteira está sob controle.
                 </div>
-                <p
-                  className="text-2xl font-bold"
-                  style={{
-                    background:
-                      (prod?.total_overdue ?? 0) > 0
-                        ? 'linear-gradient(135deg, #f87171, #fca5a5)'
-                        : 'linear-gradient(135deg, #34d399, #6ee7b7)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  {prod ? prod.total_overdue : '—'}
-                </p>
-                <p className="mt-1 text-xs text-[#7a8490]">No mês de competência atual</p>
-              </div>
-            </div>
+              ) : (
+                <div className="space-y-3">
+                  {attentionClients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex flex-col gap-4 rounded-[22px] border border-white/8 bg-[#0c1420] px-5 py-4 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p className="text-base font-semibold text-white">{client.clientName}</p>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${badgeClasses(client.level)}`}
+                          >
+                            {client.level}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">{client.reason}</p>
+                      </div>
 
-            {/* Collaborators + Top pending clients */}
-            <div className="grid gap-4 lg:grid-cols-2">
-              {/* Obligations by collaborator */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden">
-                <div className="border-b border-white/[0.06] bg-[#141824] px-5 py-3">
-                  <h3 className="text-sm font-bold text-white">Obrigações por colaborador</h3>
+                      <button
+                        type="button"
+                        onClick={() => navigate(client.actionPath)}
+                        className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 md:self-center"
+                      >
+                        {client.actionLabel}
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <div className="divide-y divide-white/[0.04]">
-                  {!prod || prod.obligations_by_collaborator.length === 0 ? (
-                    <p className="px-5 py-6 text-sm text-[#7a8490]">
-                      Nenhuma obrigação atribuída neste mês. Atribua responsáveis na página de Obrigações.
-                    </p>
-                  ) : (
-                    prod.obligations_by_collaborator.map((collab) => {
-                      const pct = collab.total > 0
-                        ? Math.round((collab.delivered / collab.total) * 100)
-                        : 0;
-                      return (
-                        <div key={collab.user_id ?? 'unassigned'} className="px-5 py-3">
-                          <div className="mb-1.5 flex items-center justify-between">
-                            <span className="text-sm font-medium text-white">{collab.user_name}</span>
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="text-emerald-400">{collab.delivered} ✓</span>
-                              {collab.overdue > 0 && (
-                                <span className="text-red-400">{collab.overdue} ✗</span>
-                              )}
-                              <span className="text-[#7a8490]">{collab.pending + collab.in_progress} abertos</span>
+              )}
+            </SectionCard>
+
+            <SectionCard className="p-6 md:p-7">
+              <SectionHeader
+                eyebrow="Agenda fiscal"
+                title="Agenda da semana"
+                description="Ordem de execução para não perder vencimentos nem deixar etapas críticas acumularem."
+              />
+
+              {weekAgenda.length === 0 ? (
+                <div className="rounded-[22px] border border-white/8 bg-[#0c1420] px-5 py-6 text-sm text-slate-300">
+                  Nenhum prazo futuro cadastrado. Cadastre as próximas obrigações para transformar o
+                  painel em rotina operacional.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {weekAgenda.map((deadline, index) => {
+                    const distance = daysUntil(deadline.due_date);
+                    const isCritical = deadline.priority === 'high' || distance <= 1;
+
+                    return (
+                      <div key={deadline.id} className="grid grid-cols-[auto_1fr] gap-4">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={`mt-1 h-3 w-3 rounded-full ${isCritical ? 'bg-amber-300' : 'bg-cyan-300'}`}
+                          />
+                          {index < weekAgenda.length - 1 && (
+                            <div className="mt-2 h-full min-h-8 w-px bg-white/10" />
+                          )}
+                        </div>
+
+                        <div className="rounded-[22px] border border-white/8 bg-[#0c1420] px-5 py-4">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-base font-semibold text-white">{deadline.title}</p>
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${
+                                    isCritical
+                                      ? 'bg-amber-500/10 text-amber-100'
+                                      : 'bg-cyan-500/10 text-cyan-100'
+                                  }`}
+                                >
+                                  {formatDueLabel(distance)}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-slate-300">
+                                {deadline.category}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0">
+                              <p className="text-sm font-medium text-white">{dateBR(deadline.due_date)}</p>
+                              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+                                prioridade {deadline.priority === 'high' ? 'alta' : deadline.priority}
+                              </p>
                             </div>
                           </div>
-                          {/* Progress bar */}
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
-                            <div
-                              className="h-full rounded-full transition-all duration-700"
-                              style={{
-                                width: `${pct}%`,
-                                background:
-                                  pct >= 80
-                                    ? 'linear-gradient(90deg, #34d399, #6ee7b7)'
-                                    : pct >= 50
-                                    ? 'linear-gradient(90deg, #fbbf24, #fde68a)'
-                                    : 'linear-gradient(90deg, #00d4ff, #00f0ff)',
-                              }}
-                            />
-                          </div>
                         </div>
-                      );
-                    })
-                  )}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
+            </SectionCard>
+          </motion.div>
 
-              {/* Top pending clients */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#1a1f2e] overflow-hidden">
-                <div className="border-b border-white/[0.06] bg-[#141824] px-5 py-3">
-                  <h3 className="text-sm font-bold text-white">Clientes com mais pendências</h3>
-                </div>
-                <div className="divide-y divide-white/[0.04]">
-                  {!prod || prod.clients_with_most_pending.length === 0 ? (
-                    <p className="px-5 py-6 text-sm text-[#7a8490]">
-                      Nenhuma obrigação pendente no mês. Ótimo desempenho!
-                    </p>
-                  ) : (
-                    prod.clients_with_most_pending.map((client, idx) => (
-                      <div key={client.client_id} className="flex items-center gap-3 px-5 py-3">
-                        <span
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                          style={{
-                            background:
-                              idx === 0
-                                ? 'rgba(251,191,36,0.15)'
-                                : 'rgba(0,212,255,0.08)',
-                            color: idx === 0 ? '#fbbf24' : '#00d4ff',
-                            border: `1px solid ${idx === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(0,212,255,0.2)'}`,
-                          }}
-                        >
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">
-                          {client.client_name}
-                        </span>
-                        <span className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400">
-                          {client.pending_count} pendente{client.pending_count !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
+          <motion.div variants={containerVariants} className="space-y-6">
+            <SectionCard className="p-6">
+              <SectionHeader
+                eyebrow="Pendências"
+                title="Fila operacional"
+                description="Onde o dia costuma travar: documentos, certificados e recebíveis que exigem algum retorno."
+              />
 
-                {/* Alert strip */}
-                {prod && (prod.certificates_expiring_30d > 0 || prod.overdue_receivables_count > 0) && (
-                  <div className="border-t border-white/[0.06] bg-[#141824] px-5 py-3 space-y-2">
-                    {prod.certificates_expiring_30d > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-amber-400">
-                        <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          {prod.certificates_expiring_30d} certificado{prod.certificates_expiring_30d !== 1 ? 's' : ''} vencendo em 30 dias
-                        </span>
-                      </div>
-                    )}
-                    {prod.overdue_receivables_count > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-red-400">
-                        <ReceiptText className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          {prod.overdue_receivables_count} recebível{prod.overdue_receivables_count !== 1 ? 'is' : ''} em atraso
-                          &nbsp;({moneyBRL(prod.overdue_receivables_amount)})
-                        </span>
-                      </div>
-                    )}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/documentos')}
+                  className="flex w-full items-center justify-between rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4 text-left transition hover:bg-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-cyan-200">
+                      <FileCheck2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Documentos aguardando conferência</p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {prod?.docs_awaiting_approval ?? 0} item(ns) na fila
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </motion.section>
-        )}
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                </button>
 
-        {/* ── Footer ── */}
-        <footer className="border-t border-white/[0.06] pt-6 text-center text-xs text-[#7a8490]">
-          FiscWise © 2026 — Sistema de contabilidade inteligente
-        </footer>
-      </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/certificados')}
+                  className="flex w-full items-center justify-between rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4 text-left transition hover:bg-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-amber-200">
+                      <ShieldAlert className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Certificados em janela de renovação</p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {data?.certificates_expiring_30d ?? prod?.certificates_expiring_30d ?? 0} item(ns) próximos do vencimento
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/financeiro')}
+                  className="flex w-full items-center justify-between rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4 text-left transition hover:bg-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-red-200">
+                      <ReceiptText className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Recebíveis em atraso</p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        {data?.overdue_receivables ?? 0} item(ns) somando {moneyBRL(data?.receivables_amount_overdue ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                </button>
+              </div>
+            </SectionCard>
+
+            <SectionCard className="p-6">
+              <SectionHeader
+                eyebrow="Contexto"
+                title="Resumo do escritório"
+                description="Financeiro e produtividade seguem visíveis, mas como suporte à operação do dia."
+              />
+
+              <div className="space-y-3">
+                {officeSnapshot.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                    <p className={`mt-2 text-2xl font-semibold ${item.tone}`}>{item.value}</p>
+                    <p className="mt-2 text-sm text-slate-300">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            {isAdmin && (
+              <SectionCard className="p-6">
+                <SectionHeader
+                  eyebrow="Visão interna"
+                  title="Produtividade do time"
+                  description="Leitura resumida por competência, com menos protagonismo visual do que no painel anterior."
+                />
+
+                <div className="grid gap-3">
+                  <div className="rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Competência</p>
+                        <p className="mt-1 text-sm text-slate-300">
+                          {prod?.competence_month ?? 'Sem dados'}
+                        </p>
+                      </div>
+                      <Users2 className="h-5 w-5 text-cyan-200" />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Obrigações vencidas</p>
+                        <p className="mt-1 text-sm text-slate-300">
+                          {prod?.total_overdue ?? 0} no ciclo atual
+                        </p>
+                      </div>
+                      <AlertTriangle className="h-5 w-5 text-amber-200" />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-white/8 bg-[#0c1420] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Entregues</p>
+                        <p className="mt-1 text-sm text-slate-300">
+                          {prod?.total_delivered ?? 0} concluídas
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-200" />
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+          </motion.div>
+        </div>
+      </motion.div>
     </div>
   );
 }

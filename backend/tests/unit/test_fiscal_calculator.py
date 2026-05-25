@@ -9,7 +9,6 @@ from decimal import Decimal
 import pytest
 
 from app.services.fiscal_calculator import (
-    _get_icms_interstate_rate,
     _get_icms_internal_rate,
     calculate_icms,
     calculate_pis_cofins,

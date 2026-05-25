@@ -7,13 +7,15 @@ import { Button } from './ui/Button';
 import { cn } from '@/lib/utils';
 
 const sectionTitles: Record<string, string> = {
-  '/dashboard':      'Dashboard operacional',
+  '/dashboard':      'Painel',
   '/clientes':       'Clientes',
   '/documentos':     'Documentos',
-  '/agenda-prazos':  'Agenda e prazos',
-  '/certificados':   'Certificados digitais',
+  '/agenda-prazos':  'Agenda Fiscal',
+  '/certificados':   'Certificados',
   '/financeiro':     'Financeiro',
-  '/calculadora':    'Calculadora Fiscal com IA',
+  '/calculadora':    'Calculadora Fiscal',
+  '/das-mensal':     'Guias e DAS',
+  '/obrigacoes':     'Obrigações',
   '/configuracoes':  'Configurações',
 };
 
@@ -78,7 +80,7 @@ export function Header() {
       {/* Esquerda: título da seção */}
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">
-          Bem-vindo, {user?.full_name?.split(' ')[0] || 'Usuário'}
+          Sua rotina fiscal começa aqui, {user?.full_name?.split(' ')[0] || 'contador'}
         </p>
         <h2 className="truncate text-base font-semibold md:text-lg">{sectionTitle}</h2>
       </div>
@@ -104,7 +106,7 @@ export function Header() {
 
         {/* Botão sair */}
         <Button
-          variant="ghost"
+          variant="secondary"
           size="sm"
           onClick={logout}
           aria-label="Sair da conta"

@@ -35,8 +35,14 @@ export function DashboardPage() {
   const { data, isLoading, isError } = useDashboardOverview();
   const { data: prod } = useProductivityOverview();
 
-  const upcomingDeadlines = data?.upcoming_deadlines ?? [];
-  const recentReceivables = data?.recent_receivables ?? [];
+  const upcomingDeadlines = useMemo(
+    () => data?.upcoming_deadlines ?? [],
+    [data?.upcoming_deadlines]
+  );
+  const recentReceivables = useMemo(
+    () => data?.recent_receivables ?? [],
+    [data?.recent_receivables]
+  );
 
   const todaysDeadlines = useMemo(
     () => upcomingDeadlines.filter((item) => daysUntil(item.due_date) === 0),

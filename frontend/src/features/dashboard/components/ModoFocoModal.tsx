@@ -23,6 +23,9 @@ import {
   useUpdateReceivable,
   moneyBRL,
   dateBR,
+  type AccountReceivable,
+  type DeadlineItem,
+  type DigitalCertificate,
 } from '@/lib/hooks/useOperations';
 import { Button } from '@/components/ui/Button';
 
@@ -39,7 +42,7 @@ interface FocusTask {
   clientName: string;
   dueDate: string;
   description: string;
-  originalItem: any;
+  originalItem: DeadlineItem | DigitalCertificate | AccountReceivable;
 }
 
 export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalProps) {

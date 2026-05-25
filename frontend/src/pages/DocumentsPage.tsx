@@ -380,7 +380,7 @@ interface DocumentAiCellProps {
 }
 
 function DocumentAiCell({ document }: DocumentAiCellProps) {
-  const aiView = buildDocumentAiView(document as any);
+  const aiView = buildDocumentAiView(document);
 
   return (
     <div className="max-w-[280px] space-y-1.5">

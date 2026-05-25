@@ -51,6 +51,7 @@ import {
   type AccountingClient,
   type AccountingClientCreate,
   type ClientStatus,
+  type DeadlineItem,
 } from '@/lib/hooks/useOperations';
 
 // ---------------------------------------------------------------------------
@@ -321,7 +322,7 @@ type RegimeFilter = '' | 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' |
 
 interface ClientItemProps {
   client: AccountingClient;
-  deadlines: any[];
+  deadlines: DeadlineItem[];
   onManage: () => void;
   onNotes: () => void;
   onDeactivate: () => void;

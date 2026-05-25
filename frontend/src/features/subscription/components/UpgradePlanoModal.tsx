@@ -19,6 +19,7 @@ import { useCreateSubscription } from '@/lib/hooks/useBilling';
 import { useSubscriptionUsage, type Plan } from '@/lib/hooks/useSubscription';
 import { updateTenant } from '@/lib/auth';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
 
 interface UpgradePlanoModalProps {
   open: boolean;
@@ -135,9 +136,11 @@ export function UpgradePlanoModal({
       setStep('success');
       onUpgradeSuccess(selectedPlan.slug);
       toast.success('Assinatura processada com sucesso!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStep('checkout');
-      toast.error(err?.response?.data?.detail || 'Erro ao processar assinatura no Asaas. Tente novamente.');
+      toast.error(
+        getApiErrorMessage(err, 'Erro ao processar assinatura no Asaas. Tente novamente.')
+      );
     }
   };
 

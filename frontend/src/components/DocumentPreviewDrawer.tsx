@@ -22,10 +22,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
     document.file_url?.toLowerCase().endsWith('.gif') ||
     document.file_url?.toLowerCase().endsWith('.webp');
 
-  // Parse AI extraction data
-  // ClientDocument has properties that buildDocumentAiView uses
-  // Let's type-cast document as ClientDocument for AI analysis
-  const aiView = buildDocumentAiView(document as any);
+  const aiView = buildDocumentAiView(document);
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()} direction="right">

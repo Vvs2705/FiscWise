@@ -112,11 +112,11 @@ export function LearningPage() {
       {/* Header section with premium design */}
       <div className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card/45 p-6 md:p-8 backdrop-blur-sm shadow-md">
         <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-teal-400 uppercase tracking-widest">
+          <div className="flex items-center gap-2 text-xs font-semibold text-teal-500 uppercase tracking-widest dark:text-teal-400">
             <Sparkles className="h-4 w-4" />
             <span>Academia Contábil</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight bg-clip-text bg-gradient-to-r from-teal-400 via-emerald-400 to-sky-400">
+          <h1 className="bg-gradient-to-r from-teal-500 via-emerald-500 to-sky-500 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-teal-400 dark:via-emerald-400 dark:to-sky-400">
             Central de Aprendizado FiscWise
           </h1>
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
@@ -246,7 +246,7 @@ export function LearningPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Quick Tutorials Grid */}
           <div className="space-y-6">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
               <BookOpen className="h-5 w-5 text-teal-400" />
               Guias Rápidos de Gestão
             </h3>
@@ -292,7 +292,7 @@ export function LearningPage() {
 
           {/* FAQs Accordion */}
           <div className="space-y-6">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
               <HelpCircle className="h-5 w-5 text-teal-400" />
               Perguntas Frequentes (FAQ)
             </h3>
@@ -333,7 +333,7 @@ export function LearningPage() {
       {activeTab === 'tours' && (
         <div className="space-y-6">
           <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
               <Play className="h-5 w-5 text-teal-400" />
               Tours Guiados e Interativos
             </h3>
@@ -346,7 +346,7 @@ export function LearningPage() {
             <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 1</span>
-                <h4 className="font-bold text-lg text-white mt-1 leading-snug">Tour do Painel Cockpit</h4>
+                <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour do Painel Cockpit</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda o Foco de Hoje, o indicador de Saúde da Carteira e a lista de prioridades diárias.
                 </p>
@@ -364,7 +364,7 @@ export function LearningPage() {
             <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 2</span>
-                <h4 className="font-bold text-lg text-white mt-1 leading-snug">Tour de Carteira de Clientes</h4>
+                <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Carteira de Clientes</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Aprenda a buscar, filtrar regimes tributários e abrir a cockpit de detalhe de um cliente.
                 </p>
@@ -382,7 +382,7 @@ export function LearningPage() {
             <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 3</span>
-                <h4 className="font-bold text-lg text-white mt-1 leading-snug">Tour de Esteira Documental</h4>
+                <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Esteira Documental</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda onde enviar arquivos, onde ver a classificação da IA e o preview lateral.
                 </p>

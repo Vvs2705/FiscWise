@@ -352,12 +352,19 @@ export function createTransition(duration = 0.35, ease: 'easeIn' | 'easeOut' | '
  * Delay para animações
  */
 export function withDelay(variants: Variants, delay: number): Variants {
+  const showVariant =
+    variants.show && typeof variants.show === 'object' ? variants.show : {};
+  const existingTransition =
+    'transition' in showVariant && showVariant.transition
+      ? (showVariant.transition as Transition)
+      : undefined;
+
   return {
     ...variants,
     show: {
-      ...variants.show,
+      ...showVariant,
       transition: {
-        ...(variants.show as any).transition,
+        ...existingTransition,
         delay,
       },
     },

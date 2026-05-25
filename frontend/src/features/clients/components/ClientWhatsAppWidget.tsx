@@ -21,6 +21,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { getApiErrorMessage } from '@/lib/api';
 
 interface ClientWhatsAppWidgetProps {
   clientId: string;
@@ -93,8 +94,8 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
         message_type: 'text',
       });
       setReplyText('');
-    } catch (err: any) {
-      toast.error('Erro ao responder: ' + (err.response?.data?.detail || err.message));
+    } catch (err: unknown) {
+      toast.error(`Erro ao responder: ${getApiErrorMessage(err, 'Falha ao enviar resposta.')}`);
     }
   };
 
@@ -109,8 +110,8 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
       });
       toast.success('Mensagem convertida em tarefa com sucesso!');
       setShowTaskModal(false);
-    } catch (err: any) {
-      toast.error('Erro ao criar tarefa: ' + (err.response?.data?.detail || err.message));
+    } catch (err: unknown) {
+      toast.error(`Erro ao criar tarefa: ${getApiErrorMessage(err, 'Falha ao criar tarefa.')}`);
     }
   };
 

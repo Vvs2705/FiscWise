@@ -29,6 +29,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { getApiErrorMessage } from '@/lib/api';
 
 export function WhatsAppInboxPage() {
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
@@ -78,8 +79,10 @@ export function WhatsAppInboxPage() {
         message_type: 'text',
       });
       setMessageText('');
-    } catch (err: any) {
-      toast.error('Erro ao enviar mensagem: ' + (err.response?.data?.detail || err.message));
+    } catch (err: unknown) {
+      toast.error(
+        `Erro ao enviar mensagem: ${getApiErrorMessage(err, 'Falha ao enviar mensagem.')}`
+      );
     }
   };
 
@@ -89,8 +92,10 @@ export function WhatsAppInboxPage() {
       await linkMutation.mutateAsync(targetClientId || null);
       toast.success(targetClientId ? 'Conversa vinculada com sucesso!' : 'Conversa desvinculada com sucesso!');
       setShowLinkModal(false);
-    } catch (err: any) {
-      toast.error('Erro ao vincular cliente: ' + (err.response?.data?.detail || err.message));
+    } catch (err: unknown) {
+      toast.error(
+        `Erro ao vincular cliente: ${getApiErrorMessage(err, 'Falha ao vincular cliente.')}`
+      );
     }
   };
 
@@ -105,8 +110,10 @@ export function WhatsAppInboxPage() {
       });
       toast.success('Mensagem convertida em tarefa contábil com sucesso!');
       setShowTaskModal(false);
-    } catch (err: any) {
-      toast.error('Erro ao criar tarefa: ' + (err.response?.data?.detail || err.message));
+    } catch (err: unknown) {
+      toast.error(
+        `Erro ao criar tarefa: ${getApiErrorMessage(err, 'Falha ao criar tarefa.')}`
+      );
     }
   };
 

@@ -409,7 +409,12 @@ function CreateObligationDrawer({ isOpen, onClose, clients, rules, defaultCompet
           </div>
 
           <FormField label="Prioridade" required>
-            <Select value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+            <Select
+              value={priority}
+              onChange={(e) =>
+                setPriority(e.target.value as 'low' | 'medium' | 'high' | 'critical')
+              }
+            >
               <option value="low">Baixa</option>
               <option value="medium">Média</option>
               <option value="high">Alta</option>

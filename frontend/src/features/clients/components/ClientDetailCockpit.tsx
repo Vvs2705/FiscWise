@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -67,7 +67,12 @@ import {
   useUpdateReceivable,
   moneyBRL,
   dateBR,
+  type ClientBillingHistoryItem,
   type CompanyPartner,
+  type CompanyDocument,
+  type DasPayment,
+  type DeadlineItem,
+  type DigitalCertificate,
   type ClientStatus
 } from '@/lib/hooks/useOperations';
 import {
@@ -127,6 +132,8 @@ const partnerSchema = z.object({
 });
 
 type PartnerFormValues = z.infer<typeof partnerSchema>;
+type MessageTemplate = 'das' | 'documentos' | 'certificado' | 'personalizado';
+type NfeTypeFilter = 'ALL' | 'ENTRADA' | 'SAIDA';
 
 const statusLabel: Record<ClientStatus, string> = {
   active: 'Ativo',
@@ -158,7 +165,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
 
   // Communication & Report states
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<'das' | 'documentos' | 'certificado' | 'personalizado'>('das');
+  const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate>('das');
   const [composedMessage, setComposedMessage] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -190,7 +197,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   const syncMonitorMutation = useSyncFiscalMonitor(clientId);
 
   const [nfeSearchQuery, setNfeSearchQuery] = useState('');
-  const [nfeTypeFilter, setNfeTypeFilter] = useState<'ALL' | 'ENTRADA' | 'SAIDA'>('ALL');
+  const [nfeTypeFilter, setNfeTypeFilter] = useState<NfeTypeFilter>('ALL');
 
   const { data: billingConfig } = useClientBillingConfig(clientId);
   const updateBillingConfigMutation = useUpdateClientBillingConfig();
@@ -288,14 +295,6 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
       });
     }
   }, [partnerToEdit, setPartnerValue, resetPartner]);
-
-  if (!client) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground text-sm">Carregando dados da empresa...</p>
-      </div>
-    );
-  }
 
   // Submit client form
   async function onClientSubmit(values: ClientFormValues) {
@@ -403,7 +402,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   }
 
   // Pay DAS guide
-  async function handlePayDas(id: string) {
+  const handlePayDas = useCallback(async (id: string) => {
     try {
       await payDasMutation.mutateAsync(id);
       toast.success('Guia marcada como paga!');
@@ -411,7 +410,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     } catch {
       toast.error('Erro ao marcar guia como paga.');
     }
-  }
+  }, [payDasMutation, refetchDas]);
 
   // Delete deadline
   async function handleDeleteDeadline(id: string) {
@@ -465,7 +464,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     const list: TimelineItem[] = [];
 
     // Docs
-    companyDocs.forEach((doc) => {
+    companyDocs.forEach((doc: CompanyDocument) => {
       list.push({
         id: `company-doc-${doc.id}`,
         title: `Upload: ${docTypeLabel(doc.document_type)}`,
@@ -477,7 +476,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     });
 
     // DAS Payments
-    dasPayments.forEach((das) => {
+    dasPayments.forEach((das: DasPayment) => {
       list.push({
         id: `das-${das.id}`,
         title: `DAS Competência ${das.period}`,
@@ -499,7 +498,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     });
 
     // Deadlines
-    clientDeadlines.forEach((dl) => {
+    clientDeadlines.forEach((dl: DeadlineItem) => {
       list.push({
         id: `deadline-${dl.id}`,
         title: `Prazo: ${dl.title}`,
@@ -511,7 +510,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     });
 
     // Digital Certificates
-    clientCertificates.forEach((cert) => {
+    clientCertificates.forEach((cert: DigitalCertificate) => {
       const daysRemaining = Math.max(
         0,
         Math.ceil((new Date(cert.valid_until).getTime() - new Date().getTime()) / 86_400_000)
@@ -527,7 +526,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     });
 
     // Billing / Honorarios
-    billingHistory.forEach((invoice) => {
+    billingHistory.forEach((invoice: ClientBillingHistoryItem) => {
       list.push({
         id: `invoice-${invoice.id}`,
         title: `Honorário: ${invoice.description}`,
@@ -566,7 +565,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
       };
       return parseDate(b.date) - parseDate(a.date);
     });
-  }, [companyDocs, dasPayments, clientDeadlines, clientCertificates, billingHistory, updateReceivableMutation]);
+  }, [billingHistory, clientCertificates, clientDeadlines, companyDocs, dasPayments, handlePayDas, updateReceivableMutation]);
 
   // Score Health calculation (client-specific)
   const healthScore = useMemo(() => {
@@ -638,6 +637,10 @@ FiscWise`,
   }), []);
 
   useEffect(() => {
+    if (!client) {
+      setComposedMessage('');
+      return;
+    }
     let msg = templates[selectedTemplate];
     msg = msg.replace(/{cliente}/g, client.name);
     msg = msg.replace(/{documentos_pendentes}/g, missingDocsList.length > 0 ? missingDocsList.map((d) => `- ${d}`).join('\n') : 'Nenhum documento pendente.');
@@ -647,6 +650,7 @@ FiscWise`,
   }, [selectedTemplate, client, missingDocsList, dasPendingDetail, certPendingDetail, templates]);
 
   const handleCopyWhatsApp = () => {
+    if (!client) return;
     navigator.clipboard.writeText(composedMessage);
     toast.success('Mensagem copiada para a área de transferência!');
     
@@ -656,6 +660,7 @@ FiscWise`,
   };
 
   const handleSendEmail = () => {
+    if (!client) return;
     if (!client.email) {
       toast.error('Cliente não possui e-mail cadastrado!');
       return;
@@ -666,6 +671,14 @@ FiscWise`,
       toast.success(`E-mail com lembrete enviado para ${client.email}!`);
     }, 1200);
   };
+
+  if (!client) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-muted-foreground text-sm">Carregando dados da empresa...</p>
+      </div>
+    );
+  }
 
   const tabs = [
     { id: 'resumo', label: 'Resumo', icon: User },
@@ -1382,7 +1395,7 @@ FiscWise`,
                   <Select
                     id="message_template"
                     value={selectedTemplate}
-                    onChange={(e) => setSelectedTemplate(e.target.value as any)}
+                    onChange={(e) => setSelectedTemplate(e.target.value as MessageTemplate)}
                   >
                     <option value="das">Lembrete de Guia DAS</option>
                     <option value="documentos">Cobrança de Documentos Pendentes</option>
@@ -1656,7 +1669,7 @@ FiscWise`,
                   />
                   <Select
                     value={nfeTypeFilter}
-                    onChange={(e) => setNfeTypeFilter(e.target.value as any)}
+                    onChange={(e) => setNfeTypeFilter(e.target.value as NfeTypeFilter)}
                     className="h-8 text-xs w-28"
                   >
                     <option value="ALL">Todas</option>

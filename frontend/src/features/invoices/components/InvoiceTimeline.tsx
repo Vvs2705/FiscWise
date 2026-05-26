@@ -73,12 +73,15 @@ export function InvoiceTimeline({ events, isLoading }: InvoiceTimelineProps) {
     if (event.payload) {
       if (typeof event.payload === 'string') {
         description = event.payload;
-      } else if (event.payload.reason) {
-        description = `Motivo: ${event.payload.reason}`;
-      } else if (event.payload.error) {
-        description = `Erro: ${event.payload.error}`;
-      } else if (event.payload.message) {
-        description = event.payload.message;
+      } else {
+        const payloadObj = event.payload as Record<string, any>;
+        if (payloadObj.reason) {
+          description = `Motivo: ${payloadObj.reason}`;
+        } else if (payloadObj.error) {
+          description = `Erro: ${payloadObj.error}`;
+        } else if (payloadObj.message) {
+          description = payloadObj.message;
+        }
       }
     }
 

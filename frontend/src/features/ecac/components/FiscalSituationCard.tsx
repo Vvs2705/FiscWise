@@ -59,6 +59,8 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
   }
 
   const isRegular = situation.status_geral?.toLowerCase() === 'regular';
+  const pendencias = situation.pendencias as string[] | undefined;
+  const debitos = situation.debitos as string[] | undefined;
 
   return (
     <Card className="border-border/60 bg-card">
@@ -123,31 +125,31 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
         {/* Debts / Pendencies list */}
         {!isRegular && (
           <div className="space-y-3 border-t border-border/40 pt-3">
-            {situation.pendencias && (
+            {pendencias && (
               <div>
                 <span className="text-xs font-semibold text-red-500 block uppercase tracking-wider">
                   Declarações Pendentes / Atrasadas
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">
-                  {Array.isArray(situation.pendencias) ? (
-                    situation.pendencias.map((p, idx) => <li key={idx}>{p}</li>)
+                  {Array.isArray(pendencias) ? (
+                    pendencias.map((p, idx) => <li key={idx}>{String(p)}</li>)
                   ) : (
-                    <li>{String(situation.pendencias)}</li>
+                    <li>{String(pendencias)}</li>
                   )}
                 </ul>
               </div>
             )}
 
-            {situation.debitos && (
+            {debitos && (
               <div className="border-t border-border/30 pt-2">
                 <span className="text-xs font-semibold text-red-500 block uppercase tracking-wider">
                   Débitos Fiscais Ativos
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">
-                  {Array.isArray(situation.debitos) ? (
-                    situation.debitos.map((d, idx) => <li key={idx}>{d}</li>)
+                  {Array.isArray(debitos) ? (
+                    debitos.map((d, idx) => <li key={idx}>{String(d)}</li>)
                   ) : (
-                    <li>{String(situation.debitos)}</li>
+                    <li>{String(debitos)}</li>
                   )}
                 </ul>
               </div>

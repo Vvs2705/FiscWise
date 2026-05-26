@@ -1,225 +1,144 @@
-# FiscWise — Central de Controle para Contadores Autônomos
+# FiscWise — A Central Fiscal do Contador Moderno
 
-> Controle sua carteira contábil com precisão. Clientes, documentos, prazos, certificados e obrigações fiscais em uma central feita para contadores autônomos.
-> Produzido por **[Vstack Solutions](https://vstack-solution.com)**
-
-## Links de Produção
-
-| Serviço | URL |
-|---------|-----|
-| Frontend | https://frontend-orcin-one-22.vercel.app |
-| Backend API | https://fiscwise.fly.dev |
-| API Docs | https://fiscwise.fly.dev/docs |
-| Monitoramento Fly.io | https://fly.io/apps/fiscwise/monitoring |
+> Clientes, documentos, obrigações, e-CAC, notas fiscais, cobranças, guias, certificados e inteligência operacional integrados em um único sistema contábil de alta performance.
 
 ---
 
-## Stack
+## 1. O que é o FiscWise
+
+O FiscWise é um sistema operacional completo para contadores, focado em automatizar a rotina fiscal e financeira, eliminar controles paralelos e reduzir riscos fiscais. O sistema atua de forma nativa e integrada na emissão de documentos fiscais, monitoramento de pendências na Receita Federal, cobrança de honorários e envio de guias e obrigações.
+
+## 2. Para quem é
+
+- **Contadores Autônomos**: Para gerenciar carteiras de clientes com total controle, organizando prazos e notas sem planilhas paralelas.
+- **Pequenos e Médios Escritórios**: Preparado para operações com controle granular de carteiras por responsáveis e isolamento total de dados.
+- **BPO Financeiro/Contábil**: Escalável para alto volume de notas, guias e fechamento de obrigações mensais.
+
+## 3. Módulos Principais
+
+- **Notas Fiscais (NFS-e)**: Emissão direta, automação de honorários mensais e conciliação contábil-financeira automática.
+- **Central e-CAC / Receita Federal**: Consulta automática de Situação Fiscal, Caixa Postal, certidões e controle de procurações eletrônicas via integração oficial.
+- **Certificados Digitais (A1/A3)**: Cofre criptografado de chaves operacionais e monitoramento de validades com alertas automáticos.
+- **Obrigações Fiscais**: Motor inteligente de calendarização fiscal orientado pelo regime tributário, CNAE, município e UF de cada cliente.
+- **Guias, Impostos e Comprovantes**: Controle e conciliação de pagamentos de DAS, DARF, GPS e ISS, com verificação de pendências.
+- **Portal do Cliente**: Área exclusiva para o cliente final enviar documentos, pagar guias e baixar notas fiscais.
+- **WhatsApp e Comunicação**: Régua de cobrança e envio automático de lembretes e guias direto no canal mais utilizado pelos clientes.
+- **IA Operacional**: Processamento de documentos, extração de metadados de guias e assistência contábil baseada em dados reais.
+
+---
+
+## 4. Stack Tecnológica
 
 ### Backend
-- **Python 3.12** + **FastAPI** — API REST assíncrona
-- **SQLAlchemy 2.x async** + **asyncpg** — ORM com driver async para PostgreSQL
-- **Alembic** — Migrações versionadas
-- **Supabase** — PostgreSQL gerenciado + Storage para arquivos
-- **JWT (python-jose)** + **bcrypt** — Autenticação e senhas
-- **Pydantic v2** — Validação e DTOs
-- **Docker** — Containerização
-- **Fly.io** — Plataforma de deploy (app ID: `fiscwise`)
+- **Python 3.14+**
+- **FastAPI** — Framework web assíncrono de alta performance
+- **SQLAlchemy 2.x (async)** & **asyncpg** — ORM assíncrono para PostgreSQL
+- **Alembic** — Gerenciamento e versionamento de migrações do banco
+- **Supabase** — PostgreSQL gerenciado + Storage para arquivos privados
+- **Redis** — Cache, filas e rate limiting estrito
+- **Pydantic v2** — Validação estrita de contratos e schemas de dados
 
 ### Frontend
-- **React 18** + **TypeScript 5.5** — UI
-- **Vite 6.4** — Build tool (zero vulnerabilidades CVE)
-- **Tailwind CSS 3** — Estilização
-- **React Router v6** — Roteamento SPA
-- **TanStack Query v5** — Data fetching e cache
-- **Zustand** — Estado global
-- **React Hook Form + Zod** — Formulários com validação
-- **Recharts** — Gráficos e dashboards
-- **Framer Motion** — Animações
-- **Vercel** — Hospedagem do frontend
+- **React 18** & **TypeScript 5.5+** (Strict mode)
+- **Vite 6.4+** — Build tool rápido e otimizado
+- **Tailwind CSS 3** — Estilização moderna e responsiva
+- **React Router v6** — Roteamento de Single Page Application (SPA)
+- **TanStack Query v5** — Gerenciamento de estado de servidor e cache
+- **Zustand** — Gerenciamento de estado global leve e reativo
+- **React Hook Form** & **Zod** — Validação e processamento de formulários
 
 ---
 
-## Arquitetura
+## 5. Desenvolvimento Local
 
-```
-FiscWise/
-├── backend/                    # API FastAPI
-│   ├── app/
-│   │   ├── api/v1/endpoints/  # Rotas HTTP
-│   │   ├── core/              # Config, segurança, JWT
-│   │   ├── models/            # ORM SQLAlchemy (User, Tenant, Client, etc.)
-│   │   ├── schemas/           # Pydantic DTOs
-│   │   ├── services/          # Lógica de negócio
-│   │   └── main.py            # App + lifespan handler
-│   ├── alembic/               # Migrações de banco
-│   ├── tests/                 # pytest
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── run_migrations.py      # Script de migração para release_command
-├── frontend/                   # SPA React
-│   ├── src/
-│   │   ├── pages/             # 10 páginas
-│   │   ├── components/        # UI reutilizável
-│   │   ├── lib/               # auth.ts, api.ts, hooks/
-│   │   └── stores/            # Zustand stores
-│   ├── vite.config.ts
-│   └── package.json
-├── fly.toml                    # Config Fly.io (com release_command)
-└── README.md
-```
+### Backend (FastAPI)
 
-### Modelo Multi-Tenant
+1. Entre no diretório do backend:
+   ```bash
+   cd backend
+   ```
+2. Crie e ative o ambiente virtual Python:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+3. Instale as dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Configure as variáveis de ambiente baseando-se no arquivo `.env.example`.
+5. Execute o servidor de desenvolvimento:
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   ```
 
-Toda entidade de dados possui `tenant_id`. O middleware `TenantMiddleware` injeta o tenant automaticamente a partir do JWT. Não há compartilhamento de dados entre tenants.
-Na experiência do produto, esse isolamento aparece como um ambiente exclusivo do contador, sem expor a complexidade técnica ao usuário final.
+### Frontend (React + Vite)
 
----
-
-## Funcionalidades Implementadas
-
-### Autenticação & Perfil
-- Registro em 3 passos (empresa → usuário → plano)
-- Login email/senha + Google OAuth
-- JWT com expiração + refresh implícito
-- Perfil editável (nome, telefone)
-- Troca de senha com validação da senha atual
-
-### Gestão de Clientes
-- CRUD completo com paginação
-- Importação via XLSX (read-excel-file, sem vulnerabilidades CVE)
-- Campos: nome, CNPJ, email, telefone, endereço, tipo de empresa
-- Código de cliente automático (`CLI-XXXX`)
-
-### Documentos
-- Upload para Supabase Storage
-- Categorização por tipo (Contrato, Declaração, Relatório, etc.)
-- Associação a clientes
-- Visualização e download
-
-### Financeiro
-- Registro de receitas e despesas
-- Categorias personalizadas
-- Filtros por período
-- Gráficos de fluxo de caixa
-
-### Prazos / Obrigações Fiscais
-- Cadastro de prazos por tipo de obrigação
-- Associação a clientes
-- Status: Pendente / Em andamento / Concluído / Atrasado
-- Visualização em lista com alertas visuais
-
-### Certificados Digitais
-- Cadastro de certificados A1/A3
-- Controle de validade com alertas de vencimento
-- Associação a CPF/CNPJ
-
-### Configurações
-- **Perfil**: nome, telefone (editável)
-- **Ambiente**: razão social, CNPJ, endereço, site, telefone
-- **Plano**: Free / Starter / Pro com troca em tempo real
-- **Segurança**: troca de senha
-- **Pagamento**: estrutura preparada (integração futura Stripe)
+1. Entre no diretório do frontend:
+   ```bash
+   cd frontend
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Execute o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
 
 ---
 
-## Deploy
+## 6. Variáveis de Ambiente
 
-### Backend — Fly.io
+As configurações do sistema são controladas pelas seguintes variáveis no arquivo `.env` (consulte `.env.example` para obter detalhes):
 
-```bash
-# Deploy completo (migrations + app)
-fly deploy
+### Backend (`backend/.env.example`)
+- `DATABASE_URL`: URI de conexão assíncrona com o PostgreSQL (ex: `postgresql+asyncpg://...`).
+- `JWT_SECRET_KEY`: Chave para geração e validação de tokens JWT.
+- `SUPABASE_URL`: Endpoint da API do projeto Supabase.
+- `SUPABASE_SECRET_KEY`: Chave de serviço (Service Role Key) para operações com arquivos.
+- `GOOGLE_CLIENT_ID`: ID de cliente do Google OAuth para autenticação social.
+- `ALLOWED_ORIGINS`: Domínios autorizados a consumir a API (CORS).
 
-# Migrações rodam automaticamente via release_command antes dos containers
-# Ver fly.toml → [deploy] release_command
-```
-
-### Frontend — Vercel
-
-```bash
-# Deploy via CLI Vercel (configurado no projeto)
-vercel --prod
-```
-
-### Variáveis de Ambiente (Backend)
-
-| Variável | Descrição |
-|----------|-----------|
-| `DATABASE_URL` | PostgreSQL connection string (asyncpg) |
-| `JWT_SECRET_KEY` | Chave secreta JWT |
-| `SUPABASE_URL` | URL do projeto Supabase |
-| `SUPABASE_KEY` | Anon key Supabase |
-| `SUPABASE_SECRET_KEY` | Service role key Supabase (uploads) |
-| `GOOGLE_CLIENT_ID` | OAuth Google |
-| `ALLOWED_ORIGINS` | CORS origins separados por vírgula |
-
-### Variáveis de Ambiente (Frontend)
-
-| Variável | Descrição |
-|----------|-----------|
-| `VITE_API_URL` | URL da API backend |
-| `VITE_GOOGLE_CLIENT_ID` | OAuth Google Client ID |
+### Frontend (`frontend/.env.example`)
+- `VITE_API_URL`: URL base do backend (ex: `http://localhost:8000`).
+- `VITE_GOOGLE_CLIENT_ID`: Chave correspondente para autenticação Google OAuth.
 
 ---
 
-## Desenvolvimento Local
+## 7. Como Executar Testes
 
-```bash
-# Backend
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm install
-npm run dev   # http://localhost:3000
-```
-
----
-
-## Migrações
-
-```bash
-# Criar nova migração
-cd backend
-alembic revision --autogenerate -m "descricao"
-
-# Aplicar migrações
-alembic upgrade head
-
-# Ver status
-alembic current
-```
-
----
-
-## Testes
-
+### Backend (pytest)
 ```bash
 cd backend
 pytest tests/ -v
 ```
 
----
-
-## Histórico de Commits Recentes
-
-| Commit | Descrição |
-|--------|-----------|
-| `ae39fab` | fix: elimina todos os erros e avisos de build, segurança e qualidade |
-| `0c4c1a3` | feat: perfil completo, configurações e cadastro redesenhado |
-| `4603696` | feat(sidebar): logo clicável retorna ao dashboard |
-| `5df15ab` | feat(seo): crédito Vstack Solutions + SEO estruturado |
-| `179fdd4` | feat(brand): identidade de marca FiscWise — logo, favicon e meta tags |
-| `22af9b1` | feat(ui): redesign visual completo — dark mode, animações, nova sidebar |
+### Frontend (Build & Tipagem)
+```bash
+cd frontend
+npm run build
+```
 
 ---
 
-## Empresa
+## 8. Deploy
 
-**Vstack Solutions** — https://vstack-solution.com
-Todos os direitos reservados © 2026
+### Backend (Fly.io)
+O deploy é realizado via CLI do Fly.io, utilizando o arquivo de configuração `fly.toml`. As migrações do Alembic são aplicadas de forma totalmente automatizada antes do startup das máquinas através do comando de release configurado.
+```bash
+fly deploy
+```
+
+### Frontend (Vercel)
+O frontend está integrado à Vercel para deploys contínuos. Para subir builds manuais:
+```bash
+vercel --prod
+```
+
+---
+
+## 9. Segurança e Isolamento Multi-Tenant
+
+O FiscWise foi arquitetado com isolamento rígido multi-tenant, garantindo que usuários de diferentes empresas contábeis nunca compartilhem ou acessem dados de terceiros. Para detalhes das políticas de segurança, histórico de auditoria e configurações de segurança de produção, acesse [docs/SECURITY_CORRECTIONS.md](file:///c:/Users/VINICIUS/Videos/MEUS%20PROJETOS/FiscWise/docs/SECURITY_CORRECTIONS.md).

@@ -154,3 +154,14 @@ test_local_startup.sh
 backend/.pytest_cache/
 
 .vercel
+
+# Memória local de execução — nunca versionar
+.local/
+FISCWISE_MEMORIA_LOCAL.md
+MEMORIA_LOCAL.md
+*_MEMORIA_LOCAL.md
+
+# Rascunhos locais
+rascunhos-locais/
+.local-notes/
+

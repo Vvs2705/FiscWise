@@ -189,87 +189,87 @@
 
 ---
 
-## 📋 FASE R5 — Tabelas e drawers nas telas principais
+## ✅ FASE R5 — Tabelas e drawers nas telas principais (Concluído em 2026-05-25)
 
 > Elevar a qualidade visual das telas mais usadas.
 
-- [ ] **Clientes** — refatorar com TanStack Table:
-  - [ ] Colunas: nome, CPF/CNPJ, regime, status, pendências, última interação, ação
-  - [ ] Badge de risco por cliente (Alto/Médio/Baixo/Regular)
-  - [ ] Busca rápida com debounce
-  - [ ] Filtros por regime tributário e status
-  - [ ] Visualização em lista e cards (toggle)
-  - [ ] `ClientDetailsDrawer` — drawer lateral com: Resumo / Documentos / Obrigações / Guias / Certificados / Financeiro / Histórico / Notas internas
-  - [ ] Rota `/clientes/:id` com página dedicada de detalhe
-- [ ] **Documentos** — refatorar:
-  - [ ] Drag & drop premium para upload
-  - [ ] `DocumentPreviewDrawer` com preview inline
-  - [ ] Status: Recebido / Aguardando conferência / Aprovado / Rejeitado / Pendente do cliente
-  - [ ] Filtros por tipo, cliente, competência
-- [ ] **Agenda Fiscal** — refatorar:
-  - [ ] Visualização calendário + lista + semana
-  - [ ] Filtros por cliente e tipo de obrigação
-  - [ ] Marcar como concluído com animação
-  - [ ] Transformar prazo em tarefa com 1 clique
-- [ ] **Obrigações** — refatorar:
-  - [ ] Status visual: Pendente / Em andamento / Aguardando cliente / Concluída / Atrasada
-  - [ ] `CreateObligationDrawer` (criação rápida sem sair da tela)
-- [ ] **Certificados** — cards com barra de vencimento + botão "avisar cliente"
-- [ ] **Financeiro** — métricas: Recebido no mês / A receber / Em atraso / Clientes inadimplentes / Ticket médio
+- [x] **Clientes** — refatorar com TanStack Table:
+  - [x] Colunas: nome, CPF/CNPJ, regime, status, pendências, última interação, ação
+  - [x] Badge de risco por cliente (Alto/Médio/Baixo/Regular)
+  - [x] Busca rápida com debounce
+  - [x] Filtros por regime tributário e status
+  - [x] Visualização em lista e cards (toggle)
+  - [x] `ClientDetailsDrawer` — drawer lateral com: Resumo / Documentos / Obrigações / Guias / Certificados / Financeiro / Histórico / Notas internas
+  - [x] Rota `/clientes/:id` com página dedicada de detalhe
+- [x] **Documentos** — refatorar:
+  - [x] Drag & drop premium para upload
+  - [x] `DocumentPreviewDrawer` com preview inline
+  - [x] Status: Recebido / Aguardando conferência / Aprovado / Rejeitado / Pendente do cliente
+  - [x] Filtros por tipo, cliente, competência
+- [x] **Agenda Fiscal** — refatorar:
+  - [x] Visualização calendário + lista + semana
+  - [x] Filtros por cliente e tipo de obrigação
+  - [x] Marcar como concluído com animação
+  - [x] Transformar prazo em tarefa com 1 clique
+- [x] **Obrigações** — refatorar:
+  - [x] Status visual: Pendente / Em andamento / Aguardando cliente / Concluída / Atrasada
+  - [x] `CreateObligationDrawer` (criação rápida sem sair da tela)
+- [x] **Certificados** — cards com barra de vencimento + botão "avisar cliente"
+- [x] **Financeiro** — métricas: Recebido no mês / A receber / Em atraso / Clientes inadimplentes / Ticket médio
 
 **Critério de conclusão:** tabelas das 5 telas principais usam TanStack Table, drawers funcionam, busca e filtros operam.
 
 ---
 
-## 📋 FASE R6 — Aba "Aprender" + Onboarding
+## ✅ FASE R6 — Aba "Aprender" + Onboarding (Concluído em 2026-05-25)
 
 > Reduzir abandono, acelerar ativação e aumentar percepção de valor.
 
-- [ ] Criar rota `/aprender` com `LearningPage.tsx`
-- [ ] Criar `GettingStartedChecklist` — checklist de ativação no dashboard (some quando completo)
-- [ ] Criar cards de tutorial estáticos para os primeiros conteúdos:
+- [x] Criar rota `/aprender` com `LearningPage.tsx`
+- [x] Criar `GettingStartedChecklist` — checklist de ativação no dashboard (some quando completo)
+- [x] Criar cards de tutorial estáticos para os primeiros conteúdos:
   - Como cadastrar seu primeiro cliente
   - Como criar uma obrigação fiscal
   - Como organizar documentos por cliente
   - Como controlar certificados digitais
   - Como usar a calculadora fiscal
-- [ ] Adicionar botão "Aprender sobre esta tela" em cada página (abre overlay contextual)
-- [ ] Instalar e configurar `Driver.js` para tours guiados:
-  - [ ] Tour do Painel (5 passos)
-  - [ ] Tour de Clientes (4 passos)
-  - [ ] Tour da Agenda Fiscal (4 passos)
-  - [ ] Tour de Documentos (3 passos)
-- [ ] Criar fluxo de onboarding no primeiro login:
+- [x] Adicionar botão "Aprender sobre esta tela" em cada página (abre overlay contextual)
+- [x] Instalar e configurar `Driver.js` para tours guiados:
+  - [x] Tour do Painel (5 passos)
+  - [x] Tour de Clientes (4 passos)
+  - [x] Tour da Agenda Fiscal (4 passos)
+  - [x] Tour de Documentos (3 passos)
+- [x] Criar fluxo de onboarding no primeiro login:
   - Tela "Bem-vindo" com escolha de perfil (MEI / Simples / Lucro Presumido / etc.)
   - Cadastrar primeiro cliente
   - Criar primeira obrigação
   - Tour do painel
-- [ ] Backend: `user_onboarding_state` — campo JSON em `users` para rastrear tours concluídos
+- [x] Backend: `user_onboarding_state` — campo JSON em `users` para rastrear tours concluídos
 
 **Critério de conclusão:** usuário novo sabe o que fazer ao entrar, tour funciona, aba Aprender tem conteúdo útil.
 
 ---
 
-## 📋 FASE R7 — Diferenciais únicos
+## ✅ FASE R7 — Diferenciais únicos (Concluído em 2026-05-25)
 
 > Recursos que nenhum concorrente genérico tem. Fazem o produto ser lembrado.
 
-- [ ] **Modo Foco** — resolver pendências uma por vez:
+- [x] **Modo Foco** — resolver pendências uma por vez:
   - Card "Iniciar Modo Foco" no dashboard
   - Interface 1 tarefa por vez com contexto do cliente
   - Ações: Resolver / Adiar / Aguardando cliente / Pular
-- [ ] **Score da Carteira** — saúde 0-100:
+- [x] **Score da Carteira** — saúde 0-100:
   - Endpoint `GET /dashboard/portfolio-health`
   - Card visual com `ProgressRing` e 3 pontos de atenção
   - Cálculo: obrigações atrasadas, docs pendentes, certs vencendo, guias em aberto, recebíveis em atraso
-- [ ] **Timeline do Cliente** — histórico cronológico em `/clientes/:id`:
+- [x] **Timeline do Cliente** — histórico cronológico em `/clientes/:id`:
   - Documentos recebidos, obrigações concluídas, guias enviadas, certificados cadastrados
   - Visual tipo feed com ícone + data + descrição
-- [ ] **Templates de mensagem** — textos prontos para WhatsApp/e-mail:
+- [x] **Templates de mensagem** — textos prontos para WhatsApp/e-mail:
   - "Seus documentos do mês ainda não chegaram"
   - "Sua guia DAS vence em X dias"
   - "Seu certificado digital vence em X dias"
-- [ ] **Relatório simples por cliente** — exportar PDF com situação do cliente:
+- [x] **Relatório simples por cliente** — exportar PDF com situação do cliente:
   - Obrigações do período, documentos, guias, situação financeira
 
 **Critério de conclusão:** Modo Foco funciona, Score da Carteira exibe no painel, Timeline aparece no detalhe do cliente.
@@ -281,7 +281,7 @@
 
 ## 📋 Pendências técnicas
 
-- [ ] **RLS — próxima fatia**: policies para auth, portal magic link, subscriptions, webhooks, notification templates globais
+- [x] **RLS — próxima fatia**: policies para auth, portal magic link, subscriptions, webhooks, notification templates globais, e convites de portal (Concluído em 2026-05-25 via migrations `20260525j`, `20260525o`, e `20260525p`)
 - [x] **5.13 complemento** — tela de upgrade de plano (frontend Asaas)
 - [x] **Limpeza de docs** — referências `contaflow.fly.dev` limpas
 

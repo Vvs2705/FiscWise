@@ -136,7 +136,7 @@
 - [x] **5.17 — WhatsApp Business API** (Concluído em 2026-05-25: models, migrations RLS, inbox unificada, whatsapp widget no cockpit)
 - [x] **5.18 — Monitor fiscal via parceiro** (Concluído em 2026-05-25: models `FiscalMonitorSummary` e `FiscalNFe`, sync automatico de status/guias/NF-es e aba de cockpit diário)
 - [x] **5.19 — RAG fiscal** (Concluído em 2026-05-25: vectors/procedures `RagDocument`, indexação de keywords tf-idf, injeção de contexto na IA e aba de Base de Conhecimento em Configurações)
-- [ ] **5.20 — API pública + Webhooks**
+- [x] **5.20 — API pública + Webhooks** (Concluído em 2026-05-25: TenantApiKey, WebhookSubscription, WebhookDeliveryLog, migration RLS 20260525o, api_key_service.py, webhook_service.py, endpoints /developer, fire-and-forget dispatch, 17 testes passando)
 
 ---
 
@@ -151,7 +151,7 @@
 - [x] Base segura para RLS: `app.current_tenant_id` passa a ser setado na sessão PostgreSQL durante autenticação e migration cria helper `current_app_tenant_id()`.
 - [x] Primeira fatia RLS: policies em tabelas operacionais estritamente tenant-scoped, sem `FORCE ROW LEVEL SECURITY`.
 - [x] **Correções críticas de estabilidade (produção):**
-  - Resolvido bug de GroupingError no PostgreSQL em `/api/v1/dashboard/overview` usando literal de texto cru em `date_trunc`.
+  - Resolvido bug de GroupingError no PostgreSQL em `/api/v1/dashboard/overview` usando literal de text cru em `date_trunc`.
   - Corrigido CORS adicionando `www.fiscwise.com.br` e domínios Vercel no `ALLOWED_ORIGINS` do backend.
   - Resolvido crash de boot do frontend adicionando fallback seguro para `VITE_GOOGLE_CLIENT_ID`.
   - Corrigido erro de parsing de query parameter nos endpoints do backend removendo valor padrão inválido de `request: Request`.
@@ -164,7 +164,7 @@
   - Frontend: `auth.ts` com API 2FA completa; `useAuth.ts` com estado `mfaChallenge`
   - `LoginPage.tsx`: tela OTP animada com 6 caixas, countdown reenvio email
   - `SettingsPage.tsx` aba Segurança: card 2FA com escolha de método, QR Code, ativação TOTP/Email, desativação
-- [ ] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações e templates globais.
+- [x] Próxima fatia RLS: desenhar policies específicas para auth, portal magic link, subscriptions/webhooks, notificações, templates globais, e convites de portal (Concluído em 2026-05-25 via migrations `20260525j`, `20260525o`, e `20260525p`).
 
 ---
 

@@ -21,7 +21,6 @@ from app.models.operations import (
     AccountReceivable,
     DasPayment,
 )
-from app.models.billing import AccountingBillingCharge
 from app.models.obligation import ObligationRule, ObligationInstance
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
@@ -145,9 +144,21 @@ class TestDeadlineCrossTenant:
         tenant_a, user_a = await _create_tenant_and_owner(test_db, "A_dead")
         tenant_b, user_b = await _create_tenant_and_owner(test_db, "B_dead")
 
+        client_a = AccountingClient(
+            id=uuid.uuid4(),
+            tenant_id=tenant_a.id,
+            name="Client A Deadline",
+            document="76069336914473",
+            entity_type="pj",
+            status="active",
+        )
+        test_db.add(client_a)
+        await test_db.flush()
+
         deadline = DeadlineItem(
             id=uuid.uuid4(),
             tenant_id=tenant_a.id,
+            client_id=client_a.id,
             title="DCTF vencendo",
             due_date=datetime.date.today(),
             status="pending",
@@ -192,10 +203,10 @@ class TestCertificateCrossTenant:
             id=uuid.uuid4(),
             tenant_id=tenant_a.id,
             client_id=client_a.id,
+            label="Certificado A1 Owner A",
             certificate_type="A1",
-            owner_name="Owner A",
-            owner_document="76069336914470",
-            expiry_date=datetime.date.today(),
+            valid_from=datetime.date.today(),
+            valid_until=datetime.date.today(),
             status="active",
         )
         test_db.add(cert)
@@ -238,7 +249,8 @@ class TestDasPaymentCrossTenant:
             tenant_id=tenant_a.id,
             client_id=client_a.id,
             period="2026-01",
-            amount=1500.00,
+            revenue=10000.00,
+            tax_amount=150.00,
             due_date=datetime.date(2026, 2, 20),
             status="pending",
         )

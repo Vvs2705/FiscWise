@@ -24,8 +24,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Emergency static token — kept for break-glass scenarios only
-_EMERGENCY_TOKEN = os.getenv("ADMIN_EMERGENCY_TOKEN")
-_EMERGENCY_ALLOWED = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
+ADMIN_TOKEN: str | None = os.getenv("ADMIN_EMERGENCY_TOKEN")
+ADMIN_OPERATIONS_ALLOWED: bool = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
 
 security = HTTPBearer(auto_error=False)
 
@@ -62,7 +62,7 @@ async def verify_admin_access(
             pass  # Fall through to emergency token check
 
     # Emergency static token fallback
-    if not _EMERGENCY_ALLOWED:
+    if not ADMIN_OPERATIONS_ALLOWED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso admin requer usuário com is_superuser=True ou token de emergência habilitado.",
@@ -75,13 +75,13 @@ async def verify_admin_access(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not _EMERGENCY_TOKEN:
+    if not ADMIN_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Emergency admin token not configured.",
         )
 
-    if not hmac.compare_digest(credentials.credentials, _EMERGENCY_TOKEN):
+    if not hmac.compare_digest(credentials.credentials, ADMIN_TOKEN):
         logger.warning("Invalid emergency admin token from %s", _get_client_ip(request))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,6 +94,37 @@ async def verify_admin_access(
     )
     # Return a synthetic "admin user" sentinel when using emergency token
     return None
+
+
+async def verify_admin_token(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    request: Request,
+) -> None:
+    """Legacy emergency-token-only check (no DB). Used by tests and backwards-compat callers."""
+    if not ADMIN_OPERATIONS_ALLOWED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin operations are disabled",
+        )
+
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not ADMIN_TOKEN or not hmac.compare_digest(credentials.credentials, ADMIN_TOKEN):
+        logger.warning("Invalid emergency admin token from %s", _get_client_ip(request))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin token",
+        )
+
+    logger.warning(
+        "Admin access via EMERGENCY TOKEN from %s — migrate to JWT superuser ASAP.",
+        _get_client_ip(request),
+    )
 
 
 # ---------------------------------------------------------------------------

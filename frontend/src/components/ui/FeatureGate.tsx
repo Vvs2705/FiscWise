@@ -1,30 +1,12 @@
 import { ReactNode } from 'react';
 import { Lock } from 'lucide-react';
-
-// Feature flags — em produção viriam do contexto de tenant/plano.
-// Por ora, todas as features estão habilitadas (mock/demo).
-const ENABLED_FEATURES: Record<string, boolean> = {
-  feature_nfse: true,
-  feature_ecac: true,
-  feature_certificates: true,
-  feature_powers_of_attorney: true,
-  feature_fiscal_guides: true,
-  feature_fiscal_mailbox: true,
-  feature_monthly_closing: true,
-  feature_fiscal_dossier: true,
-  feature_whatsapp: true,
-  feature_public_api: false,
-  feature_portal_client: true,
-  feature_reports: true,
-  feature_teams: false,
-  feature_advanced_audit: false,
-};
+import { ENABLED_FEATURES } from '@/lib/featureFlags';
 
 interface FeatureGateProps {
   feature: string;
   children: ReactNode;
   fallback?: ReactNode;
-  silent?: boolean; // se true, não renderiza nada ao invés do locked state
+  silent?: boolean;
 }
 
 function LockedFeature({ feature }: { feature: string }) {
@@ -59,8 +41,4 @@ export function FeatureGate({ feature, children, fallback, silent }: FeatureGate
   if (silent) return null;
   if (fallback) return <>{fallback}</>;
   return <LockedFeature feature={feature} />;
-}
-
-export function useFeatureEnabled(feature: string): boolean {
-  return ENABLED_FEATURES[feature] ?? false;
 }

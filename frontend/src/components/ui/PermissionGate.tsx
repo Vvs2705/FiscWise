@@ -1,28 +1,9 @@
 import { ReactNode } from 'react';
 import { ShieldOff } from 'lucide-react';
-
-// Roles do sistema
-export type UserRole = 'owner' | 'admin' | 'contador' | 'assistente' | 'financeiro' | 'viewer';
-
-// Em produção, viria do contexto de autenticação.
-// Por ora, simulamos o usuário como owner para fins de demo.
-const CURRENT_ROLE: UserRole = 'owner';
-
-const ROLE_HIERARCHY: Record<UserRole, number> = {
-  owner: 100,
-  admin: 80,
-  financeiro: 60,
-  contador: 50,
-  assistente: 30,
-  viewer: 10,
-};
-
-export function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
-  return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
-}
+import { hasPermission, CURRENT_ROLE } from '@/lib/permissions';
 
 interface PermissionGateProps {
-  requiredRole: UserRole;
+  requiredRole: import('@/lib/permissions').UserRole;
   children: ReactNode;
   fallback?: ReactNode;
   silent?: boolean;
@@ -50,12 +31,4 @@ export function PermissionGate({ requiredRole, children, fallback, silent }: Per
   if (silent) return null;
   if (fallback) return <>{fallback}</>;
   return <AccessDenied />;
-}
-
-export function useCurrentRole(): UserRole {
-  return CURRENT_ROLE;
-}
-
-export function useHasPermission(requiredRole: UserRole): boolean {
-  return hasPermission(CURRENT_ROLE, requiredRole);
 }

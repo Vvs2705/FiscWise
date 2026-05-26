@@ -57,6 +57,68 @@ Para garantir que a operação do FiscWise esteja blindada contra vulnerabilidad
 
 ---
 
+## 2. Correções Onda 0 — Blindagem de Infraestrutura (2026-05-26)
+
+As seguintes correções foram implementadas como parte da Onda 0 de segurança:
+
+### [SEC-01] Documentação pública desabilitada em produção
+- **Problema**: `/docs`, `/redoc` e `/openapi.json` expostos em produção.
+- **Correção**: `main.py` — `docs_url/redoc_url/openapi_url` definidos como `None` quando `ENVIRONMENT=production` ou `staging`.
+- **Arquivo**: `backend/app/main.py`
+- **Teste**: `tests/test_security.py::TestDocsDisabledInProduction`
+
+### [SEC-02] localhost removido do CORS de produção
+- **Problema**: `http://localhost:3000` presente em `ALLOWED_ORIGINS` no `fly.toml`.
+- **Correção**: Removido do `fly.toml`. `config.py` agora rejeita automaticamente origens localhost em produção via `@model_validator`.
+- **Arquivo**: `fly.toml`, `backend/app/core/config.py`
+- **Teste**: `tests/test_security.py::TestCorsLocalhostRejectedInProduction`
+
+### [SEC-03] Secrets fail-closed em produção
+- **Problema**: Startup com secrets ausentes apenas logava CRITICAL mas não falhava.
+- **Correção**: `lifespan` em `main.py` agora levanta `RuntimeError` se `ENVIRONMENT=production/staging` e `DATABASE_URL` ou `JWT_SECRET_KEY` ausentes — derruba o processo, impedindo deploy sem secrets.
+- **Arquivo**: `backend/app/main.py`
+
+### [SEC-04] DATABASE_URL não exposta em logs
+- **Problema**: `main.py` logava os primeiros 40 caracteres de `DATABASE_URL` (poderia incluir senha).
+- **Correção**: Log agora exibe apenas `hostname + path` (sem credenciais), via `urlparse`.
+- **Arquivo**: `backend/app/main.py`
+- **Teste**: `tests/test_security.py::TestDatabaseUrlNotInLogs`
+
+### [SEC-05] Health probes /live e /ready configurados no Fly.io
+- **Problema**: Fly.io usava apenas `/health` sem separação liveness/readiness.
+- **Correção**: Adicionado endpoint `/api/v1/live` (sem deps). `fly.toml` atualizado com checks `liveness` e `readiness` separados.
+- **Arquivo**: `backend/app/api/v1/endpoints/health.py`, `fly.toml`
+- **Teste**: `tests/test_security.py::TestLivenessEndpoint`
+
+### [SEC-06] Rate limit expandido para endpoints críticos
+- **Problema**: Rate limiting cobria apenas `/api/v1/admin`.
+- **Correção**: `RateLimitMiddleware` agora cobre login (5/60s), register (3/300s), auth (10/60s), onboarding (3/300s), upload (20/60s), billing (100/60s), portal (30/60s), admin (10/60s).
+- **Arquivo**: `backend/app/core/rate_limit.py`
+- **Teste**: `tests/test_security.py::TestRateLimitConfig`
+
+### [SEC-07] MIME sniffing real no upload
+- **Problema**: Sistema confiava no `Content-Type` declarado pelo cliente.
+- **Correção**: Novo `backend/app/core/file_validator.py` com `validate_upload()` que inspeciona magic bytes via `python-magic` (com fallback manual). Rejeita com HTTP 415 se MIME real não for permitido.
+- **Arquivo**: `backend/app/core/file_validator.py`
+- **Teste**: `tests/test_security.py::TestMimeSniffing`
+
+### [SEC-08] Limite de tamanho por categoria de arquivo
+- **Correção**: `file_validator.py` aplica limites: document=25MB, certificate=5MB, xml=10MB, image=5MB. Rejeita com HTTP 413.
+- **Arquivo**: `backend/app/core/file_validator.py`
+- **Teste**: `tests/test_security.py::TestFileSizeEnforcement`
+
+### [SEC-09] Docker rodando como usuário não-root
+- **Problema**: Container executava como `root`.
+- **Correção**: `Dockerfile` cria `appuser:appgroup` (UID 1001) e define `USER appuser` antes do CMD.
+- **Arquivo**: `backend/Dockerfile`
+- **Teste**: `tests/test_security.py::TestDockerNonRoot`
+
+### [SEC-10] CI: Secret scanning, dependency scan, SAST
+- **Correção**: Novo pipeline `.github/workflows/security.yml` com TruffleHog (secrets), Safety (CVEs em deps Python), Bandit (SAST).
+- **Arquivo**: `.github/workflows/security.yml`
+
+---
+
 ## 3. Ambiente Staging e Observabilidade
 
 ### Alvos de Staging

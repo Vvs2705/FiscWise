@@ -69,7 +69,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         missing_secrets.append("DATABASE_URL")
     else:
-        logger.info("DATABASE_URL: %s...", settings.DATABASE_URL[:40])
+        # Log only host/db portion — never log credentials
+        try:
+            from urllib.parse import urlparse as _urlparse
+            _parsed = _urlparse(settings.DATABASE_URL)
+            _safe_db = f"{_parsed.hostname}{_parsed.path}"
+        except Exception:
+            _safe_db = "[parse error]"
+        logger.info("DATABASE_URL: connected to %s", _safe_db)
 
     if not settings.JWT_SECRET_KEY:
         logger.critical(
@@ -82,6 +89,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("JWT_SECRET_KEY: configured (length=%d)", len(settings.JWT_SECRET_KEY))
 
     if missing_secrets:
+        if settings.ENVIRONMENT in {"production", "staging"}:
+            # Hard fail in production — operator must set secrets before deploying
+            raise RuntimeError(
+                f"FATAL: {len(missing_secrets)} required secret(s) missing in {settings.ENVIRONMENT}: "
+                f"{', '.join(missing_secrets)}. "
+                "Set them via: flyctl secrets set KEY=value"
+            )
         logger.critical(
             "STARTUP WARNING: %d required secret(s) are missing: %s. "
             "The /api/v1/health endpoint is still healthy but DB/auth endpoints will return 500.",
@@ -104,14 +118,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Cleanup completed successfully")
 
 
-# Initialize FastAPI application
+# Disable API docs in production — never expose schema publicly
+_is_production = settings.ENVIRONMENT in {"production", "staging"}
+
 app = FastAPI(
     title="FiscWise API",
     description="Production-grade B2B SaaS platform for Brazilian accounting and financial services",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
     lifespan=lifespan,
 )
 
@@ -150,18 +166,16 @@ async def health_check():
 
 @app.get("/", tags=["Root"])
 async def root():
-    """
-    Root endpoint.
-
-    Returns basic API information.
-    """
-    return {
+    """Root endpoint — returns basic API information."""
+    payload = {
         "name": "FiscWise API",
         "version": "1.0.0",
         "status": "operational",
-        "docs": "/docs",
-        "redoc": "/redoc"
     }
+    if not _is_production:
+        payload["docs"] = "/docs"
+        payload["redoc"] = "/redoc"
+    return payload
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ Loads environment variables and provides type-safe configuration access.
 from typing import List
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from pydantic import field_validator, ConfigDict
+from pydantic import field_validator, model_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -218,7 +218,26 @@ class Settings(BaseSettings):
     def allowed_origins_list(self) -> List[str]:
         """Parse ALLOWED_ORIGINS into a list."""
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
-    
+
+    @model_validator(mode="after")
+    def validate_production_cors(self) -> "Settings":
+        """Reject localhost in CORS allowed origins when running in production."""
+        if self.ENVIRONMENT not in {"production", "staging"}:
+            return self
+        origins = self.allowed_origins_list
+        insecure = [o for o in origins if "localhost" in o or "127.0.0.1" in o]
+        if insecure:
+            import logging as _logging
+            _logging.getLogger(__name__).critical(
+                "SECURITY: ALLOWED_ORIGINS contains insecure origins in %s: %s. "
+                "Remove localhost/127.0.0.1 from ALLOWED_ORIGINS env var.",
+                self.ENVIRONMENT,
+                insecure,
+            )
+            # Remove insecure origins silently so the app starts — operator is alerted via CRITICAL log
+            self.ALLOWED_ORIGINS = ",".join(o for o in origins if o not in insecure)
+        return self
+
     model_config = ConfigDict(
         env_file=".env",
         case_sensitive=True,

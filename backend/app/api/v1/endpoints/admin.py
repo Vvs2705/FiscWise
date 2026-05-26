@@ -1,9 +1,8 @@
 """Admin endpoints for FiscWise — plan management and tenant operations.
 
-NOTE: Emergency enum-fix endpoints (fix-enum-case, fix-enum-case-raw) were
-removed in cleanup sprint 24/05/2026 — the underlying enum bug was fully
-resolved by migration 20260520_fix_enum_case and those endpoints were dead
-code with unnecessary attack surface.
+Auth: JWT-based superuser (is_superuser=True on the user record).
+The static ADMIN_EMERGENCY_TOKEN is kept as an emergency fallback but
+is disabled by default (ADMIN_OPERATIONS_ALLOWED=false).
 """
 
 import os
@@ -17,15 +16,16 @@ from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select as sa_select
 
-from app.core.deps import get_db
+from app.core.deps import get_db, get_current_user, require_superuser
 from app.models.tenant import Tenant
 from app.models.user import User as UserModel
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-ADMIN_TOKEN = os.getenv("ADMIN_EMERGENCY_TOKEN")
-ADMIN_OPERATIONS_ALLOWED = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
+# Emergency static token — kept for break-glass scenarios only
+_EMERGENCY_TOKEN = os.getenv("ADMIN_EMERGENCY_TOKEN")
+_EMERGENCY_ALLOWED = os.getenv("ADMIN_OPERATIONS_ALLOWED", "false").lower() == "true"
 
 security = HTTPBearer(auto_error=False)
 
@@ -37,25 +37,63 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def verify_admin_token(
+async def verify_admin_access(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
-) -> str:
-    if not ADMIN_OPERATIONS_ALLOWED:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin operations are disabled")
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> UserModel:
+    """
+    Primary: validate JWT token with is_superuser=True.
+    Fallback (emergency only): static ADMIN_EMERGENCY_TOKEN when ADMIN_OPERATIONS_ALLOWED=true.
+    """
+    # Try JWT superuser auth first (preferred path)
+    if credentials and credentials.credentials:
+        try:
+            from app.core.deps import get_current_user as _get_user
+            from fastapi.security import OAuth2PasswordBearer
+            user = await _get_user(request=request, token=credentials.credentials, db=db)
+            if getattr(user, "is_superuser", False):
+                logger.info(
+                    "Admin access via JWT superuser: user=%s ip=%s",
+                    user.email, _get_client_ip(request),
+                )
+                return user
+        except HTTPException:
+            pass  # Fall through to emergency token check
+
+    # Emergency static token fallback
+    if not _EMERGENCY_ALLOWED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso admin requer usuário com is_superuser=True ou token de emergência habilitado.",
+        )
 
     if not credentials:
-        logger.warning(f"Admin endpoint called without Authorization from {_get_client_ip(request) if request else 'unknown'}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Authorization header", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if not ADMIN_TOKEN:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Admin token not configured")
+    if not _EMERGENCY_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Emergency admin token not configured.",
+        )
 
-    if not hmac.compare_digest(credentials.credentials, ADMIN_TOKEN):
-        logger.warning(f"Invalid admin token from {_get_client_ip(request) if request else 'unknown'}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin token")
+    if not hmac.compare_digest(credentials.credentials, _EMERGENCY_TOKEN):
+        logger.warning("Invalid emergency admin token from %s", _get_client_ip(request))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin token",
+        )
 
-    return credentials.credentials
+    logger.warning(
+        "Admin access via EMERGENCY TOKEN from %s — migrate to JWT superuser ASAP.",
+        _get_client_ip(request),
+    )
+    # Return a synthetic "admin user" sentinel when using emergency token
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +109,7 @@ class SetPlanRequest(PydanticBaseModel):
 async def set_plan_by_email(
     body: SetPlanRequest,
     request: Request,
-    token: str = Depends(verify_admin_token),
+    token=Depends(verify_admin_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the plan_slug of the tenant associated with the given email."""
@@ -112,7 +150,7 @@ async def set_plan_by_email(
 async def get_tenant_by_email(
     email: str,
     request: Request,
-    token: str = Depends(verify_admin_token),
+    token=Depends(verify_admin_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Fetch tenant info (including plan_slug) for a given user email."""

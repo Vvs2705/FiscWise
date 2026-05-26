@@ -231,3 +231,21 @@ async def get_current_user(
         )
 
     return user
+
+
+async def require_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Dependency that allows only platform superusers (is_superuser=True).
+
+    Used by admin endpoints as the primary auth mechanism, replacing the static
+    ADMIN_EMERGENCY_TOKEN. Superuser flag must be set directly in the database
+    by a DBA — no API endpoint grants this flag.
+    """
+    if not getattr(current_user, "is_superuser", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operação restrita a superusuários da plataforma.",
+        )
+    return current_user

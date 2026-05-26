@@ -110,6 +110,14 @@ class User(Base, TenantBase):
         comment="Whether the user account is active"
     )
 
+    # Superuser flag — cross-tenant admin access (replaces static ADMIN_EMERGENCY_TOKEN)
+    is_superuser: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Cross-tenant superuser access for platform administration"
+    )
+
     # ── Two-Factor Authentication (2FA) ──────────────────────────────────────
     two_factor_enabled: Mapped[bool] = mapped_column(
         nullable=False,

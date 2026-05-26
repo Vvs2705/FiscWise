@@ -26,6 +26,7 @@ from app.models.obligation import (
 from app.models.operations import AccountingClient
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.core.deps import _set_current_tenant_context
+from app.domain.obligations.rules import das, pgdas, dctfweb, efd_reinf, iss_municipal
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +143,7 @@ async def generate_obligations_for_month(
     all_rules: List[ObligationRule] = rules_result.scalars().all()
 
     if not all_rules:
-        logger.warning("No active obligation rules found — skipping generation")
-        return {"created": 0, "skipped": 0, "tenants_processed": 0, "errors": 0}
+        logger.warning("No active obligation rules found in database — proceeding with dynamic rules only")
 
     # Load all active tenants (trial or active subscriptions)
     tenants_result = await db.execute(
@@ -172,6 +172,9 @@ async def generate_obligations_for_month(
             )
             clients = clients_result.scalars().all()
 
+            # Create a lookup map for rules by uppercase code
+            rules_by_code = {r.code.upper(): r for r in all_rules}
+
             for client in clients:
                 # Fetch fiscal profile (may not exist yet)
                 profile_result = await db.execute(
@@ -184,20 +187,72 @@ async def generate_obligations_for_month(
                 )
                 profile = profile_result.scalar_one_or_none()
 
-                if not profile:
-                    # No profile configured — skip this client
-                    continue
+                client_profile = {
+                    "cnae": client.cnae or (profile.cnae_main if profile else None),
+                    "regime_tributario": client.regime_tributario or (profile.tax_regime if profile else None),
+                    "municipio_ibge": client.municipio_ibge,
+                    "uf": client.uf or (profile.state if profile else None),
+                    "tem_funcionarios": client.tem_funcionarios or (profile.has_employees if profile else False),
+                    "inscricao_estadual": client.inscricao_estadual or (profile.has_state_registration if profile else False),
+                    "inscricao_municipal": client.inscricao_municipal or (profile.has_municipal_registration if profile else False),
+                }
 
-                applicable_rules = get_applicable_rules(profile, all_rules, year, month)
+                applicable_rules = []
+                if profile:
+                    applicable_rules.extend(get_applicable_rules(profile, all_rules, year, month))
+
+                # Evaluate new dynamic Python rules
+                dynamic_rules = []
+                for rule_module in (das, pgdas, dctfweb, efd_reinf, iss_municipal):
+                    try:
+                        evaluated = rule_module.evaluate(client_profile)
+                        for r in evaluated:
+                            if r.recurrence == "monthly":
+                                dynamic_rules.append(r)
+                            elif r.recurrence == "quarterly" and month in (3, 6, 9, 12):
+                                dynamic_rules.append(r)
+                            elif r.recurrence == "yearly" and month == 1:
+                                dynamic_rules.append(r)
+                    except Exception as rule_exc:
+                        logger.error("Error evaluating rule in %s: %s", rule_module.__name__, rule_exc)
+
+                # Merge dynamic rules avoiding duplicates by code
+                seen_codes = {r.code.upper() for r in applicable_rules}
+                for r in dynamic_rules:
+                    if r.code.upper() not in seen_codes:
+                        applicable_rules.append(r)
+                        seen_codes.add(r.code.upper())
 
                 for rule in applicable_rules:
+                    # Resolve ID from db or create it globally if not present
+                    db_rule = rules_by_code.get(rule.code.upper())
+                    if not db_rule:
+                        # SQLite doesn't support list bindings for ARRAY columns, so strip them if dialect is SQLite
+                        is_sqlite = False
+                        try:
+                            if db.bind and db.bind.dialect.name == "sqlite":
+                                is_sqlite = True
+                        except Exception:
+                            pass
+                        if is_sqlite:
+                            rule.applies_to_regimes = None
+                            rule.applies_to_entity_types = None
+                            rule.applies_to_cnaes = None
+
+                        db.add(rule)
+                        await db.flush()
+                        rules_by_code[rule.code.upper()] = rule
+                        rule_id = rule.id
+                    else:
+                        rule_id = db_rule.id
+
                     # Idempotency check
                     existing_result = await db.execute(
                         select(ObligationInstance).where(
                             and_(
                                 ObligationInstance.tenant_id == tenant.id,
                                 ObligationInstance.client_id == client.id,
-                                ObligationInstance.rule_id == rule.id,
+                                ObligationInstance.rule_id == rule_id,
                                 ObligationInstance.competence_month == competence_month,
                             )
                         )
@@ -211,7 +266,7 @@ async def generate_obligations_for_month(
                     instance = ObligationInstance(
                         tenant_id=tenant.id,
                         client_id=client.id,
-                        rule_id=rule.id,
+                        rule_id=rule_id,
                         competence_month=competence_month,
                         due_date=due_date,
                         status="pending",

@@ -12,6 +12,7 @@ import {
   ListChecks,
   BookOpen,
   MessageSquare,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -23,7 +24,9 @@ const navigation = [
   { name: 'Agenda Fiscal',      href: '/agenda-prazos',  icon: CalendarClock },
   { name: 'Obrigações',         href: '/obrigacoes',     icon: ListChecks },
   { name: 'Documentos',         href: '/documentos',     icon: FolderKanban },
-  { name: 'Guias e DAS',        href: '/das-mensal',     icon: Coins },
+  { name: 'Notas Fiscais',      href: '/notas-fiscais',  icon: FileText },
+  { name: 'Central e-CAC',      href: '/ecac',           icon: ShieldCheck },
+  { name: 'Guias e Impostos',   href: '/guias',          icon: Coins },
   { name: 'Certificados',       href: '/certificados',   icon: ShieldCheck },
   { name: 'Financeiro',         href: '/financeiro',     icon: ReceiptText },
   { name: 'Calculadora',        href: '/calculadora',    icon: Calculator },

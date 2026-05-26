@@ -160,6 +160,8 @@ backend/.pytest_cache/
 FISCWISE_MEMORIA_LOCAL.md
 MEMORIA_LOCAL.md
 *_MEMORIA_LOCAL.md
+PROGRESSO_*.md
+.claire/
 
 # Rascunhos locais
 rascunhos-locais/

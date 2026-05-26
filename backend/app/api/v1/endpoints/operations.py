@@ -1096,6 +1096,25 @@ async def list_certificates(
     return list(result.scalars().all())
 
 
+@router.get("/certificates/expiring", response_model=list[CertificateResponse])
+async def list_expiring_certificates(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List certificates expiring in the next 60 days."""
+    tenant_id = _tenant_id(current_user)
+    today = date.today()
+    limit_date = today + timedelta(days=60)
+    stmt = select(DigitalCertificate).where(
+        DigitalCertificate.tenant_id == tenant_id,
+        DigitalCertificate.valid_until >= today,
+        DigitalCertificate.valid_until <= limit_date,
+        DigitalCertificate.bloqueado == False
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 @router.get("/certificates/{certificate_id}", response_model=CertificateResponse)
 async def get_certificate(
     certificate_id: uuid.UUID,
@@ -1143,6 +1162,78 @@ async def update_certificate(
     )
     _apply_updates(certificate, payload)
     return await _commit_refresh(db, certificate)
+
+
+@router.post("/certificates/{certificate_id}/block", response_model=CertificateResponse)
+async def block_certificate(
+    certificate_id: uuid.UUID,
+    reason: str = Query(..., description="Reason for blocking"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Block a digital certificate from further use."""
+    tenant_id = _tenant_id(current_user)
+    certificate = await _get_item_or_404(
+        db,
+        DigitalCertificate,
+        tenant_id,
+        certificate_id,
+        "Certificate not found",
+    )
+    certificate.bloqueado = True
+    certificate.motivo_bloqueio = reason
+    certificate.status = "revoked"
+    
+    # Audit log
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="certificate.blocked",
+        entity_type="certificate",
+        entity_id=certificate.id,
+        after_data={"bloqueado": True, "motivo_bloqueio": reason},
+    )
+    
+    return await _commit_refresh(db, certificate)
+
+
+@router.get("/certificates/{certificate_id}/usage-trail")
+async def get_certificate_usage_trail(
+    certificate_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List audit trail log for digital certificate usage."""
+    tenant_id = _tenant_id(current_user)
+    await _get_item_or_404(
+        db,
+        DigitalCertificate,
+        tenant_id,
+        certificate_id,
+        "Certificate not found",
+    )
+    
+    from app.models.audit import AuditEvent
+    stmt = select(AuditEvent).where(
+        AuditEvent.tenant_id == tenant_id,
+        AuditEvent.entity_type == "certificate",
+        AuditEvent.entity_id == certificate_id
+    ).order_by(AuditEvent.created_at.desc())
+    
+    result = await db.execute(stmt)
+    events = result.scalars().all()
+    return [
+        {
+            "id": e.id,
+            "action": e.action,
+            "actor_user_id": e.actor_user_id,
+            "created_at": e.created_at.isoformat(),
+            "details": e.after_data
+        }
+        for e in events
+    ]
 
 
 @router.get("/receivables", response_model=list[ReceivableResponse])

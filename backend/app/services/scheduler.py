@@ -62,6 +62,15 @@ async def start_scheduler():
         replace_existing=True,
     )
 
+    # Schedule payment reminders daily at 8:00 AM UTC
+    scheduler.add_job(
+        send_payment_reminders_scheduled,
+        CronTrigger(hour=8, minute=0),
+        id="send_payment_reminders",
+        name="Send Payment Reminders",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started successfully")
@@ -216,3 +225,60 @@ async def generate_monthly_billing_scheduled():
 
     except Exception as e:
         logger.error(f"Error in scheduled monthly billing generation: {str(e)}")
+
+
+async def send_payment_reminders_scheduled():
+    """
+    Check receivables matching offsets (D-7, D-3, D0, D+1, D+3, D+7)
+    and emit a 'payment.reminder' event for each.
+    """
+    from datetime import date, timedelta
+    from sqlalchemy import select, and_
+    from app.core.deps import get_sessionmaker
+    from app.models.operations import AccountReceivable
+    from app.core.audit import audit_log
+
+    try:
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            today = date.today()
+            target_dates = [
+                today + timedelta(days=7),   # D-7
+                today + timedelta(days=3),   # D-3
+                today,                       # D0
+                today - timedelta(days=1),   # D+1
+                today - timedelta(days=3),   # D+3
+                today - timedelta(days=7),   # D+7
+            ]
+
+            stmt = select(AccountReceivable).where(
+                and_(
+                    AccountReceivable.status != "paid",
+                    AccountReceivable.status != "cancelled",
+                    AccountReceivable.due_date.in_(target_dates)
+                )
+            )
+            result = await db.execute(stmt)
+            receivables = result.scalars().all()
+
+            reminders_sent = 0
+            for receivable in receivables:
+                await audit_log(
+                    action="payment.reminder",
+                    tenant_id=str(receivable.tenant_id),
+                    details={
+                        "receivable_id": str(receivable.id),
+                        "client_id": str(receivable.client_id),
+                        "amount": str(receivable.amount),
+                        "due_date": receivable.due_date.isoformat(),
+                        "status": receivable.status,
+                    }
+                )
+                reminders_sent += 1
+
+            logger.info(
+                f"Payment reminders scheduled task completed: "
+                f"emitted {reminders_sent} reminders."
+            )
+    except Exception as e:
+        logger.error(f"Error in scheduled payment reminders: {str(e)}")

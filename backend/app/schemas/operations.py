@@ -26,6 +26,13 @@ class AccountingClientCreate(BaseModel):
     phone: Optional[str] = Field(None, max_length=40)
     municipal_registration: Optional[str] = Field(None, max_length=80)
     state_registration: Optional[str] = Field(None, max_length=80)
+    cnae: Optional[str] = Field(None, max_length=7)
+    regime_tributario: Optional[str] = Field(None, max_length=20)
+    municipio_ibge: Optional[str] = Field(None, max_length=7)
+    uf: Optional[str] = Field(None, max_length=2)
+    tem_funcionarios: bool = False
+    inscricao_estadual: Optional[str] = Field(None, max_length=30)
+    inscricao_municipal: Optional[str] = Field(None, max_length=30)
     status: ClientStatus = "active"
     notes: Optional[str] = None
     # Honorários / billing
@@ -65,6 +72,13 @@ class AccountingClientUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=40)
     municipal_registration: Optional[str] = Field(None, max_length=80)
     state_registration: Optional[str] = Field(None, max_length=80)
+    cnae: Optional[str] = Field(None, max_length=7)
+    regime_tributario: Optional[str] = Field(None, max_length=20)
+    municipio_ibge: Optional[str] = Field(None, max_length=7)
+    uf: Optional[str] = Field(None, max_length=2)
+    tem_funcionarios: Optional[bool] = None
+    inscricao_estadual: Optional[str] = Field(None, max_length=30)
+    inscricao_municipal: Optional[str] = Field(None, max_length=30)
     status: Optional[ClientStatus] = None
     notes: Optional[str] = None
     # Honorários / billing
@@ -201,6 +215,7 @@ class CertificateCreate(BaseModel):
     valid_until: date
     status: CertificateStatus = "valid"
     notes: Optional[str] = None
+    uso_autorizado: Optional[list[Any]] = None
 
 
 class CertificateUpdate(BaseModel):
@@ -210,6 +225,9 @@ class CertificateUpdate(BaseModel):
     valid_until: Optional[date] = None
     status: Optional[CertificateStatus] = None
     notes: Optional[str] = None
+    bloqueado: Optional[bool] = None
+    motivo_bloqueio: Optional[str] = None
+    uso_autorizado: Optional[list[Any]] = None
 
 
 class CertificateResponse(CertificateCreate):
@@ -217,6 +235,9 @@ class CertificateResponse(CertificateCreate):
 
     id: UUID
     tenant_id: UUID
+    ultimo_uso: Optional[datetime] = None
+    bloqueado: bool = False
+    motivo_bloqueio: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -229,6 +250,7 @@ class ReceivableCreate(BaseModel):
     status: ReceivableStatus = "pending"
     paid_at: Optional[datetime] = None
     notes: Optional[str] = None
+    invoice_id: Optional[UUID] = None
 
 
 class ReceivableUpdate(BaseModel):
@@ -238,6 +260,7 @@ class ReceivableUpdate(BaseModel):
     status: Optional[ReceivableStatus] = None
     paid_at: Optional[datetime] = None
     notes: Optional[str] = None
+    invoice_id: Optional[UUID] = None
 
 
 class ReceivableResponse(ReceivableCreate):
@@ -245,6 +268,7 @@ class ReceivableResponse(ReceivableCreate):
 
     id: UUID
     tenant_id: UUID
+    nfse_emitida: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -276,6 +300,8 @@ class ReceivableWithClient(BaseModel):
     due_date: date
     status: ReceivableStatus
     paid_at: Optional[datetime] = None
+    invoice_id: Optional[UUID] = None
+    nfse_emitida: bool = False
     created_at: datetime
     updated_at: datetime
 

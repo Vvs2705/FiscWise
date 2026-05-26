@@ -32,6 +32,15 @@ const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
 const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
 const WhatsAppInboxPage = lazy(() => import('@/pages/WhatsAppInboxPage').then(m => ({ default: m.WhatsAppInboxPage })));
 
+// NFS-e, e-CAC & Guias pages
+const InvoicesListPage = lazy(() => import('@/features/invoices/pages/InvoicesListPage').then(m => ({ default: m.InvoicesListPage })));
+const InvoiceDetailPage = lazy(() => import('@/features/invoices/pages/InvoiceDetailPage').then(m => ({ default: m.InvoiceDetailPage })));
+const InvoiceNewPage = lazy(() => import('@/features/invoices/pages/InvoiceNewPage').then(m => ({ default: m.InvoiceNewPage })));
+const InvoiceEmitPage = lazy(() => import('@/features/invoices/pages/InvoiceEmitPage').then(m => ({ default: m.InvoiceEmitPage })));
+const EcacCentralPage = lazy(() => import('@/features/ecac/pages/EcacCentralPage').then(m => ({ default: m.EcacCentralPage })));
+const GuiasListPage = lazy(() => import('@/features/guias/pages/GuiasListPage').then(m => ({ default: m.GuiasListPage })));
+const GuiaDetailPage = lazy(() => import('@/features/guias/pages/GuiaDetailPage').then(m => ({ default: m.GuiaDetailPage })));
+
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
   return (
@@ -121,6 +130,20 @@ function App() {
                 <Route path="das-mensal"    element={<DasMensalPage />} />
                 <Route path="obrigacoes"   element={<ObrigacoesPage />} />
                 <Route path="configuracoes" element={<SettingsPage />} />
+                
+                {/* NFS-e Routes */}
+                <Route path="notas-fiscais" element={<InvoicesListPage />} />
+                <Route path="notas-fiscais/nova" element={<InvoiceNewPage />} />
+                <Route path="notas-fiscais/:id" element={<InvoiceDetailPage />} />
+                <Route path="notas-fiscais/:id/emitir" element={<InvoiceEmitPage />} />
+                
+                {/* e-CAC Routes */}
+                <Route path="ecac" element={<EcacCentralPage />} />
+                
+                {/* Guias Routes */}
+                <Route path="guias" element={<GuiasListPage />} />
+                <Route path="guias/:id" element={<GuiaDetailPage />} />
+                
                 <Route path="billing"   element={<Navigate to="/financeiro" replace />} />
                 <Route path="settings"  element={<Navigate to="/configuracoes" replace />} />
               </Route>

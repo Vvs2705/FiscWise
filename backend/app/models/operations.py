@@ -59,6 +59,13 @@ class AccountingClient(Base, TenantBase):
     phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     municipal_registration: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     state_registration: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    cnae: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    regime_tributario: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    municipio_ibge: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    uf: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    tem_funcionarios: Mapped[bool] = mapped_column(default=False, server_default="false")
+    inscricao_estadual: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    inscricao_municipal: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     client_code: Mapped[str] = mapped_column(String(4), nullable=False, default="", index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -175,6 +182,12 @@ class DigitalCertificate(Base, TenantBase):
     valid_until: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="valid", index=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Evolved tracking fields
+    uso_autorizado: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=[])
+    ultimo_uso: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    bloqueado: Mapped[bool] = mapped_column(default=False, server_default="false")
+    motivo_bloqueio: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class AccountReceivable(Base, TenantBase):
@@ -205,6 +218,8 @@ class AccountReceivable(Base, TenantBase):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    invoice_id: Mapped[Optional[uuid.UUID]] = mapped_column(SQLUUID(as_uuid=True), nullable=True)
+    nfse_emitida: Mapped[bool] = mapped_column(default=False, server_default="false")
 
 
 class ClientPortalInvite(Base, TenantBase):

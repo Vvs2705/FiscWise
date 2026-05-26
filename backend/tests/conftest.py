@@ -66,10 +66,18 @@ async def test_db():
         autoflush=False,
     )
 
+    import app.core.deps
+    old_engine = app.core.deps._engine
+    old_sessionmaker = app.core.deps._AsyncSessionLocal
+    app.core.deps._engine = engine
+    app.core.deps._AsyncSessionLocal = async_session
+
     async with async_session() as session:
         yield session
         await session.rollback()
 
+    app.core.deps._engine = old_engine
+    app.core.deps._AsyncSessionLocal = old_sessionmaker
     await engine.dispose()
 
 

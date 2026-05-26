@@ -38,7 +38,7 @@ export function InvoiceDetailPage() {
     try {
       await emitInvoice.mutateAsync(id);
       toast.success('Transmissão da NFS-e iniciada!');
-    } catch (err) {
+    } catch {
       toast.error('Falha ao iniciar transmissão da nota.');
     }
   };
@@ -54,7 +54,7 @@ export function InvoiceDetailPage() {
       await cancelInvoice.mutateAsync({ id, reason: cancelReason });
       toast.success('Nota fiscal cancelada com sucesso!');
       setOpenCancelModal(false);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao solicitar cancelamento da nota.');
     }
   };
@@ -63,7 +63,7 @@ export function InvoiceDetailPage() {
     try {
       const res = await invoicesService.getPdfUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao obter PDF');
     }
   };
@@ -72,7 +72,7 @@ export function InvoiceDetailPage() {
     try {
       const res = await invoicesService.getXmlUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao obter XML');
     }
   };

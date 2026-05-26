@@ -40,7 +40,7 @@ export function InvoicesListPage() {
     try {
       const res = await invoicesService.getPdfUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao gerar URL do PDF');
     }
   };
@@ -49,7 +49,7 @@ export function InvoicesListPage() {
     try {
       const res = await invoicesService.getXmlUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao gerar URL do XML');
     }
   };

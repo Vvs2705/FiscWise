@@ -92,7 +92,7 @@ export function ProxiesListPage() {
     try {
       await updateProxy.mutateAsync({ id, data: { status: 'revogada' } });
       toast.success('Procuração marcada como revogada.');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao atualizar status da procuração.');
     }
   };

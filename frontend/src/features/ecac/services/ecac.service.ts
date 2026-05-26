@@ -19,17 +19,23 @@ export interface EcacProxyResponse extends EcacProxyCreate {
   created_at: string;
 }
 
+export interface ClientWithoutProxy {
+  id: string;
+  name: string;
+  document?: string;
+}
+
 export interface EcacFiscalSituationResponse {
   id: string;
   tenant_id: string;
   client_id?: string;
   cpf_cnpj: string;
   status_geral?: string;
-  pendencias?: any;
-  debitos?: any;
+  pendencias?: unknown;
+  debitos?: unknown;
   certidao_status?: string;
   certidao_validade?: string;
-  raw_response?: any;
+  raw_response?: unknown;
   consultado_em: string;
 }
 
@@ -69,8 +75,8 @@ export const ecacService = {
     return res.data;
   },
 
-  listClientsWithoutProxy: async (): Promise<any[]> => {
-    const res = await api.get<any[]>('/api/v1/ecac/clients-without-proxy');
+  listClientsWithoutProxy: async (): Promise<ClientWithoutProxy[]> => {
+    const res = await api.get<ClientWithoutProxy[]>('/api/v1/ecac/clients-without-proxy');
     return res.data;
   },
 };

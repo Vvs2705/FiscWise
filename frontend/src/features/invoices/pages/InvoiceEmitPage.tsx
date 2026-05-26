@@ -18,7 +18,7 @@ export function InvoiceEmitPage() {
       await emitInvoice.mutateAsync(id);
       toast.success('Nota enviada para a fila de processamento!');
       navigate(`/notas-fiscais/${id}`);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao solicitar emissão da NFS-e.');
     }
   };

@@ -67,7 +67,7 @@ export function InvoiceNewPage() {
         setValue('tomador_cpf_cnpj', client.document || '');
         setValue('tomador_email', client.email || '');
         // Autofill IBGE code if available in backend-evolved fields
-        const extendedClient = client as any;
+        const extendedClient = client as unknown as { municipio_ibge?: string };
         if (extendedClient.municipio_ibge) {
           setValue('tomador_municipio_ibge', extendedClient.municipio_ibge);
         } else {

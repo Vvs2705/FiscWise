@@ -50,7 +50,7 @@ export interface InvoiceEventResponse {
   id: string;
   invoice_id: string;
   event_type: string;
-  payload?: any;
+  payload?: unknown;
   created_at: string;
 }
 

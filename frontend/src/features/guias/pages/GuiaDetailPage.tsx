@@ -24,7 +24,7 @@ export function GuiaDetailPage() {
         await uploadPdf.mutateAsync({ id, file: e.target.files[0] });
         toast.success('Guia PDF anexada com sucesso!');
         refetch();
-      } catch (err) {
+      } catch {
         toast.error('Erro ao enviar arquivo PDF.');
       }
     }
@@ -34,7 +34,7 @@ export function GuiaDetailPage() {
     try {
       const res = await guiasService.getPdfUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao buscar link do PDF.');
     }
   };
@@ -43,7 +43,7 @@ export function GuiaDetailPage() {
     try {
       const res = await guiasService.getComprovanteUrl(id);
       window.open(res.url, '_blank');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao buscar link do comprovante.');
     }
   };
@@ -53,7 +53,7 @@ export function GuiaDetailPage() {
       await markPaid.mutateAsync(id);
       toast.success('Guia marcada como paga com sucesso!');
       refetch();
-    } catch (err) {
+    } catch {
       toast.error('Erro ao atualizar status da guia.');
     }
   };

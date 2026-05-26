@@ -18,7 +18,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
       await refresh.mutateAsync(clientId);
       toast.success('Consulta fiscal solicitada no e-CAC!');
       refetch();
-    } catch (err) {
+    } catch {
       toast.error('Erro ao consultar e-CAC.');
     }
   };

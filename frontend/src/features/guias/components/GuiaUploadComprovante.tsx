@@ -26,7 +26,7 @@ export function GuiaUploadComprovante({ guideId, onSuccess }: GuiaUploadComprova
       toast.success('Comprovante enviado com sucesso!');
       setSelectedFile(null);
       onSuccess?.();
-    } catch (err) {
+    } catch {
       toast.error('Falha ao enviar comprovante.');
     }
   };

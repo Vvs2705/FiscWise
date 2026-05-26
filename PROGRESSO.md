@@ -283,7 +283,18 @@
 
 - [x] **RLS — próxima fatia**: policies para auth, portal magic link, subscriptions, webhooks, notification templates globais, e convites de portal (Concluído em 2026-05-25 via migrations `20260525j`, `20260525o`, e `20260525p`)
 - [x] **5.13 complemento** — tela de upgrade de plano (frontend Asaas)
-- [x] **Limpeza de docs** — referências `contaflow.fly.dev` limpas
+- [x] Confirmar e certificar limpeza completa de referências a `contaflow.fly.dev` em todos os documentos
+
+---
+
+## ✅ REDESIGN — FASE 9: Recorrência de Prazos & Ações Rápidas (Concluído em 2026-05-26)
+
+- [x] **Recorrência de Prazos Customizados**: Modelos SQLAlchemy, migração Alembic, schemas e lógica de cálculo de datas e criação automática da próxima ocorrência no backend. Adicionado switch de recorrência e dropdown de frequência no modal de "Novo Prazo" no frontend.
+- [x] **Redesenho de Ações Rápidas no Painel**: Reposicionamento do componente `QuickActions` na coluna direita do banner de boas-vindas do painel, eliminando o vácuo de layout. Remoção do renderizador antigo no rodapé e do botão duplicado no banner.
+- [x] **Conexão de Ações Rápidas e Roteamento**: Botões conectados a rotas reais e páginas receptoras configuradas para interceptar o estado (`state.openCreate`) e abrir automaticamente os modais corretos.
+- [x] **Validação e Testes**: 219 testes backend passando e build de produção do frontend concluída com sucesso.
+
+---
 
 ## 📋 Backlog — Fase 6 do plano original
 

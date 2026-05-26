@@ -31,6 +31,25 @@ from app.models.fiscal_monitor import FiscalMonitorSummary, FiscalNFe
 from app.models.rag_fiscal import RagDocument
 from app.models.api_webhooks import TenantApiKey, WebhookSubscription, WebhookDeliveryLog
 
+# ── Fiscal Core Domain Models ─────────────────────────────────────────────────
+from app.domain.invoices.models import (
+    InvoiceIssuer,
+    InvoiceServiceProfile,
+    Invoice,
+    InvoiceEvent,
+)
+from app.domain.ecac.models import (
+    FiscalSubject,
+    EcacCredential,
+    EcacRequest,
+    TaxStatusSnapshot,
+)
+from app.domain.certificates.models import CertificateUsageEvent  # DigitalCertificate is in operations.py
+from app.domain.powers_of_attorney.models import PowerOfAttorney
+from app.domain.fiscal_guides.models import FiscalGuide, FiscalGuideEvent
+from app.domain.fiscal_mailbox.models import FiscalMailboxMessage
+from app.domain.monthly_closing.models import MonthlyClosing, MonthlyClosingItem, FiscalDossier
+
 # Export all models and enums for easy importing
 __all__ = [
     "Base",

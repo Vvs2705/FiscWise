@@ -23,11 +23,42 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Configure logging — JSON in production, plain text in development
+def _configure_logging() -> None:
+    if settings.ENVIRONMENT in {"production", "staging"}:
+        try:
+            from pythonjsonlogger import jsonlogger
+
+            _SENSITIVE = {"password", "token", "jwt", "cpf", "cnpj", "api_key", "secret", "database_url"}
+
+            class _RedactingJsonFormatter(jsonlogger.JsonFormatter):
+                def process_log_record(self, record: dict) -> dict:
+                    for key in list(record.keys()):
+                        if any(s in key.lower() for s in _SENSITIVE):
+                            record[key] = "[REDACTED]"
+                    return record
+
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                _RedactingJsonFormatter(
+                    fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
+                    datefmt="%Y-%m-%dT%H:%M:%S",
+                )
+            )
+            logging.root.handlers = []
+            logging.root.addHandler(handler)
+            logging.root.setLevel(logging.INFO)
+            return
+        except ImportError:
+            pass  # python-json-logger not installed — fall back to plain text
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+_configure_logging()
 logger = logging.getLogger(__name__)
 
 if settings.SENTRY_DSN:

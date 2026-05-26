@@ -48,6 +48,15 @@ python-docx==0.8.11
 apscheduler==3.10.4
 pytz==2024.1
 
+# Storage (Supabase)
+supabase==2.10.0
+
+# MIME sniffing
+python-magic==0.4.27
+
+# Structured logging
+python-json-logger==2.0.7
+
 # Testing (Development)
 pytest==8.3.3
 pytest-asyncio==0.24.0

@@ -17,7 +17,7 @@ DEBUG = "False"
 APP_NAME = "FiscWise"
 APP_VERSION = "1.0.0"
 PUBLIC_URL = "https://fiscwise.fly.dev"
-ALLOWED_ORIGINS = "https://fiscwise.com.br,https://www.fiscwise.com.br,https://frontend-v-stack-solution.vercel.app,https://fiscwise.vercel.app,http://localhost:3000"
+ALLOWED_ORIGINS = "https://fiscwise.com.br,https://www.fiscwise.com.br,https://frontend-v-stack-solution.vercel.app,https://fiscwise.vercel.app"
 SUPABASE_URL = "https://lkgmgbieottygodrdubi.supabase.co"
 
 [http_service]
@@ -28,14 +28,23 @@ auto_start_machines = true
 min_machines_running = 1
 
 [checks]
-[checks.http]
-grace_period = "120s"
-interval = "15s"
-method = "GET"
-path = "/api/v1/health"
-protocol = "http"
-timeout = "10s"
-type = "http"
+  [checks.liveness]
+  grace_period = "120s"
+  interval = "15s"
+  method = "GET"
+  path = "/api/v1/live"
+  protocol = "http"
+  timeout = "5s"
+  type = "http"
+
+  [checks.readiness]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  path = "/api/v1/ready"
+  protocol = "http"
+  timeout = "10s"
+  type = "http"
 
 # Secrets — set via: flyctl secrets set KEY=value
 # JWT_SECRET_KEY       (required)

@@ -17,6 +17,18 @@ router = APIRouter()
 
 
 @router.get(
+    "/live",
+    status_code=status.HTTP_200_OK,
+    summary="Liveness check",
+    description="Returns 200 if the process is alive. No dependency checks.",
+    tags=["Health"]
+)
+async def liveness_check():
+    """Liveness probe — process is alive, no dependency verification."""
+    return {"status": "alive", "service": "fiscwise-api"}
+
+
+@router.get(
     "/health",
     status_code=status.HTTP_200_OK,
     summary="Health check",

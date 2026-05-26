@@ -2,7 +2,7 @@
 Rate limiting middleware for protecting sensitive endpoints.
 
 Implements Redis-backed rate limiting with sliding window algorithm.
-Protection for /api/v1/admin/* endpoints (10 attempts per minute per IP).
+Each protected path prefix has its own (limit, window_seconds) tuple.
 """
 
 import logging
@@ -25,15 +25,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """
     Rate limiting middleware using Redis for sliding window tracking.
 
-    Configuration:
-    - Admin endpoints (/api/v1/admin/*): 10 requests per minute per IP
-    - Stores key: rate_limit:{endpoint}:{client_ip}
-    - TTL: 60 seconds
+    Path prefix → (max_requests, window_seconds).
+    First matching prefix wins; order matters (most specific first).
     """
 
-    ADMIN_LIMIT = 10  # requests per minute
-    ADMIN_WINDOW = 60  # seconds
-    PROTECTED_PATHS = {"/api/v1/admin"}
+    # (limit, window_seconds) per path prefix — most specific first
+    RATE_LIMITS: list[tuple[str, int, int]] = [
+        ("/api/v1/auth/login",        5,   60),   # 5 req / 60s per IP
+        ("/api/v1/auth/register",     3,  300),   # 3 req / 5min per IP
+        ("/api/v1/auth",              10,  60),   # other auth (google, 2fa) 10/min
+        ("/api/v1/onboarding",        3,  300),   # signup 3 / 5min per IP
+        ("/api/v1/company-documents", 20,  60),   # upload 20 / min per tenant-ip
+        ("/api/v1/billing",          100,  60),   # webhook 100 / min per IP
+        ("/api/v1/portal",            30,  60),   # portal 30 / min per IP
+        ("/api/v1/admin",             10,  60),   # admin 10 / min per IP
+    ]
+
+    # Kept for backward compat — not used internally anymore
+    ADMIN_LIMIT = 10
+    ADMIN_WINDOW = 60
 
     def __init__(self, app, redis_url: Optional[str] = None, strict: Optional[bool] = None):
         super().__init__(app)
@@ -65,7 +75,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             await self.redis_client.ping()
             self._initialized = True
-            logger.info("Rate limit Redis connection established: %s", self.redis_url[:30])
+            # Log only the host portion — never log credentials from the URL
+            try:
+                from urllib.parse import urlparse as _up
+                _h = _up(self.redis_url).hostname or "unknown"
+            except Exception:
+                _h = "unknown"
+            logger.info("Rate limit Redis connection established: %s", _h)
         except Exception as e:
             logger.warning("Rate limit Redis unavailable: %s. Rate limiting disabled.", str(e))
             self.redis_client = None
@@ -84,9 +100,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             },
         )
 
-    def _is_protected_path(self, path: str) -> bool:
-        """Check if path matches protected prefixes."""
-        return any(path.startswith(prefix) for prefix in self.PROTECTED_PATHS)
+    def _match_rate_limit(self, path: str) -> tuple[int, int] | None:
+        """Return (limit, window_seconds) for the first matching path prefix, or None."""
+        for prefix, limit, window in self.RATE_LIMITS:
+            if path.startswith(prefix):
+                return limit, window
+        return None
 
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request, considering X-Forwarded-For header."""
@@ -102,14 +121,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """Process request with rate limiting."""
         path = request.url.path
 
-        # Only apply rate limiting to protected endpoints
-        if not self._is_protected_path(path):
+        matched = self._match_rate_limit(path)
+        if matched is None:
             return await call_next(request)
+
+        limit, window = matched
 
         # Initialize Redis if needed
         client = await self._init_redis()
 
-        # If Redis is unavailable, either fail closed or allow request.
         if client is None:
             if self.strict:
                 logger.error("Rate limiting unavailable while RATE_LIMIT_STRICT=true")
@@ -120,43 +140,41 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         current_count = 0
         try:
             client_ip = self._get_client_ip(request)
-            rate_limit_key = f"rate_limit:{path}:{client_ip}"
+            # Normalize path to prefix for stable key (avoids per-UUID key explosion)
+            key_path = path[:60]
+            rate_limit_key = f"rl:{key_path}:{client_ip}"
 
-            # Get current request count for this client
             current_count = await client.incr(rate_limit_key)
 
-            # Set expiration on first request
             if current_count == 1:
-                await client.expire(rate_limit_key, self.ADMIN_WINDOW)
+                await client.expire(rate_limit_key, window)
 
-            # Check if limit exceeded
-            if current_count > self.ADMIN_LIMIT:
+            if current_count > limit:
                 logger.warning(
-                    f"Rate limit exceeded for {client_ip} on {path} "
-                    f"({current_count}/{self.ADMIN_LIMIT} requests in {self.ADMIN_WINDOW}s)"
+                    "Rate limit exceeded: ip=%s path=%s count=%d limit=%d window=%ds",
+                    client_ip, path, current_count, limit, window,
                 )
                 return JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={
                         "detail": "Rate limit exceeded",
                         "error_code": "RATE_LIMIT_EXCEEDED",
-                        "message": f"Too many requests. Maximum {self.ADMIN_LIMIT} requests per {self.ADMIN_WINDOW} seconds allowed.",
-                        "retry_after": self.ADMIN_WINDOW
-                    }
+                        "message": f"Too many requests. Maximum {limit} per {window}s.",
+                        "retry_after": window,
+                    },
+                    headers={"Retry-After": str(window)},
                 )
         except Exception as e:
-            logger.error(f"Rate limit middleware error: {str(e)}", exc_info=True)
+            logger.error("Rate limit middleware error: %s", str(e), exc_info=True)
             if self.strict:
                 return self._rate_limit_unavailable_response()
             current_count = 0
 
-        # Execute downstream handlers. Any exception raised here will propagate naturally.
         response = await call_next(request)
 
-        # Add rate limit headers to response only if rate limiting logic was successfully executed
         if current_count > 0:
-            response.headers["X-RateLimit-Limit"] = str(self.ADMIN_LIMIT)
-            response.headers["X-RateLimit-Remaining"] = str(max(0, self.ADMIN_LIMIT - current_count))
-            response.headers["X-RateLimit-Reset"] = str(datetime.utcnow().timestamp() + self.ADMIN_WINDOW)
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            response.headers["X-RateLimit-Remaining"] = str(max(0, limit - current_count))
+            response.headers["X-RateLimit-Reset"] = str(int(datetime.utcnow().timestamp()) + window)
 
         return response

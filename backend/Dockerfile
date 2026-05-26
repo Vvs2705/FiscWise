@@ -31,6 +31,12 @@ RUN pip install --upgrade pip && \
 # Copy application code from backend/ subdirectory into WORKDIR
 COPY backend/ .
 
+# Run as non-root user for security hardening
+RUN addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser && \
+    chown -R appuser:appgroup /app
+USER appuser
+
 # Expose port
 EXPOSE 8000
 

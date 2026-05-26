@@ -36,7 +36,8 @@ _EXCLUDED_EXACT_PATHS: Set[str] = {
     "/api/v1/auth/login",
     "/api/v1/auth/google",
     "/api/v1/auth/logout",
-    "/api/v1/ready",         # Public database readiness check
+    "/api/v1/live",           # Liveness probe — no auth required
+    "/api/v1/ready",          # Readiness probe — no auth required
 }
 
 

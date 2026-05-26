@@ -11,35 +11,41 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { CommandMenu } from '@/components/ui/CommandMenu';
 
-// Lazy-loaded pages — each page is its own JS chunk, loaded only when visited.
-// This reduces the initial bundle from ~1.36 MB to the layout + current page only.
-const LoginPage       = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
-const RegisterPage    = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
-const DashboardPage   = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const ClientsPage     = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
-const DocumentsPage   = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
-const DeadlinesPage   = lazy(() => import('@/pages/DeadlinesPage').then(m => ({ default: m.DeadlinesPage })));
+// ─── Existing pages (lazy) ──────────────────────────────────────────────────
+const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const DashboardPage    = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const ClientsPage      = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
+const DocumentsPage    = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 const CertificatesPage = lazy(() => import('@/pages/CertificatesPage').then(m => ({ default: m.CertificatesPage })));
-const FinancePage     = lazy(() => import('@/pages/FinancePage').then(m => ({ default: m.FinancePage })));
-const SettingsPage    = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const CalculatorPage  = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
-const DasMensalPage   = lazy(() => import('@/pages/DasMensalPage').then(m => ({ default: m.DasMensalPage })));
-const ObrigacoesPage  = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
-const PortalLoginPage = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
-const TermsPage       = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
-const PrivacyPage     = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const FinancePage      = lazy(() => import('@/pages/FinancePage').then(m => ({ default: m.FinancePage })));
+const SettingsPage     = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const CalculatorPage   = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
+const ObrigacoesPage   = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
+const PortalLoginPage  = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
 const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
 const WhatsAppInboxPage = lazy(() => import('@/pages/WhatsAppInboxPage').then(m => ({ default: m.WhatsAppInboxPage })));
 
-// NFS-e, e-CAC & Guias pages
-const InvoicesListPage = lazy(() => import('@/features/invoices/pages/InvoicesListPage').then(m => ({ default: m.InvoicesListPage })));
+// ─── Feature pages (new) ────────────────────────────────────────────────────
+const FocoPage                  = lazy(() => import('@/pages/FocoPage').then(m => ({ default: m.FocoPage })));
+const FiscalMailboxPage         = lazy(() => import('@/pages/FiscalMailboxPage').then(m => ({ default: m.FiscalMailboxPage })));
+const MonthlyClosingsPage       = lazy(() => import('@/pages/MonthlyClosingsPage').then(m => ({ default: m.MonthlyClosingsPage })));
+const MonthlyClosingDetailPage  = lazy(() => import('@/pages/MonthlyClosingDetailPage').then(m => ({ default: m.MonthlyClosingDetailPage })));
+const PowersOfAttorneyPage      = lazy(() => import('@/pages/PowersOfAttorneyPage').then(m => ({ default: m.PowersOfAttorneyPage })));
+const ReportsPage               = lazy(() => import('@/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const PortalClientePage         = lazy(() => import('@/pages/PortalClientePage').then(m => ({ default: m.PortalClientePage })));
+
+// ─── Feature module pages ───────────────────────────────────────────────────
+const InvoicesListPage  = lazy(() => import('@/features/invoices/pages/InvoicesListPage').then(m => ({ default: m.InvoicesListPage })));
 const InvoiceDetailPage = lazy(() => import('@/features/invoices/pages/InvoiceDetailPage').then(m => ({ default: m.InvoiceDetailPage })));
-const InvoiceNewPage = lazy(() => import('@/features/invoices/pages/InvoiceNewPage').then(m => ({ default: m.InvoiceNewPage })));
-const InvoiceEmitPage = lazy(() => import('@/features/invoices/pages/InvoiceEmitPage').then(m => ({ default: m.InvoiceEmitPage })));
-const EcacCentralPage = lazy(() => import('@/features/ecac/pages/EcacCentralPage').then(m => ({ default: m.EcacCentralPage })));
-const GuiasListPage = lazy(() => import('@/features/guias/pages/GuiasListPage').then(m => ({ default: m.GuiasListPage })));
-const GuiaDetailPage = lazy(() => import('@/features/guias/pages/GuiaDetailPage').then(m => ({ default: m.GuiaDetailPage })));
+const InvoiceNewPage    = lazy(() => import('@/features/invoices/pages/InvoiceNewPage').then(m => ({ default: m.InvoiceNewPage })));
+const InvoiceEmitPage   = lazy(() => import('@/features/invoices/pages/InvoiceEmitPage').then(m => ({ default: m.InvoiceEmitPage })));
+const EcacCentralPage   = lazy(() => import('@/features/ecac/pages/EcacCentralPage').then(m => ({ default: m.EcacCentralPage })));
+const GuiasListPage     = lazy(() => import('@/features/guias/pages/GuiasListPage').then(m => ({ default: m.GuiasListPage })));
+const GuiaDetailPage    = lazy(() => import('@/features/guias/pages/GuiaDetailPage').then(m => ({ default: m.GuiaDetailPage })));
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -102,12 +108,14 @@ function App() {
           <CommandMenu />
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login"    element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+              {/* Public routes */}
+              <Route path="/login"       element={<LoginPage />} />
+              <Route path="/register"    element={<RegisterPage />} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
 
+              {/* Protected app routes */}
               <Route
                 path="/"
                 element={
@@ -116,36 +124,51 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard"    element={<DashboardPage />} />
+                {/* Root redirect */}
+                <Route index element={<Navigate to="/painel" replace />} />
+
+                {/* ── Operação diária ──────────────────────────────────── */}
+                <Route path="painel"  element={<DashboardPage />} />
+                <Route path="foco"    element={<FocoPage />} />
+
+                {/* ── Gestão ───────────────────────────────────────────── */}
                 <Route path="clientes"     element={<ClientsPage />} />
                 <Route path="clientes/:id" element={<ClientDetailPage />} />
-                <Route path="aprender"     element={<LearningPage />} />
-                <Route path="mensagens"    element={<WhatsAppInboxPage />} />
-                <Route path="documentos"   element={<DocumentsPage />} />
-                <Route path="agenda-prazos" element={<DeadlinesPage />} />
-                <Route path="certificados" element={<CertificatesPage />} />
-                <Route path="financeiro"   element={<FinancePage />} />
-                <Route path="calculadora"  element={<CalculatorPage />} />
-                <Route path="das-mensal"    element={<DasMensalPage />} />
+                <Route path="fechamento"   element={<MonthlyClosingsPage />} />
+                <Route path="fechamento/:id" element={<MonthlyClosingDetailPage />} />
                 <Route path="obrigacoes"   element={<ObrigacoesPage />} />
-                <Route path="configuracoes" element={<SettingsPage />} />
-                
-                {/* NFS-e Routes */}
-                <Route path="notas-fiscais" element={<InvoicesListPage />} />
-                <Route path="notas-fiscais/nova" element={<InvoiceNewPage />} />
-                <Route path="notas-fiscais/:id" element={<InvoiceDetailPage />} />
+                <Route path="documentos"   element={<DocumentsPage />} />
+
+                {/* ── Fiscal ───────────────────────────────────────────── */}
+                <Route path="notas-fiscais"           element={<InvoicesListPage />} />
+                <Route path="notas-fiscais/nova"      element={<InvoiceNewPage />} />
+                <Route path="notas-fiscais/:id"       element={<InvoiceDetailPage />} />
                 <Route path="notas-fiscais/:id/emitir" element={<InvoiceEmitPage />} />
-                
-                {/* e-CAC Routes */}
-                <Route path="ecac" element={<EcacCentralPage />} />
-                
-                {/* Guias Routes */}
-                <Route path="guias" element={<GuiasListPage />} />
-                <Route path="guias/:id" element={<GuiaDetailPage />} />
-                
-                <Route path="billing"   element={<Navigate to="/financeiro" replace />} />
-                <Route path="settings"  element={<Navigate to="/configuracoes" replace />} />
+                <Route path="ecac"                    element={<EcacCentralPage />} />
+                <Route path="guias"                   element={<GuiasListPage />} />
+                <Route path="guias/:id"               element={<GuiaDetailPage />} />
+                <Route path="caixa-postal-fiscal"     element={<FiscalMailboxPage />} />
+                <Route path="procuracoes"             element={<PowersOfAttorneyPage />} />
+                <Route path="certificados"            element={<CertificatesPage />} />
+
+                {/* ── Financeiro & Canais ──────────────────────────────── */}
+                <Route path="financeiro"   element={<FinancePage />} />
+                <Route path="whatsapp"     element={<WhatsAppInboxPage />} />
+                <Route path="portal"       element={<PortalClientePage />} />
+                <Route path="relatorios"   element={<ReportsPage />} />
+
+                {/* ── Sistema ──────────────────────────────────────────── */}
+                <Route path="aprender"     element={<LearningPage />} />
+                <Route path="configuracoes" element={<SettingsPage />} />
+                <Route path="calculadora"  element={<CalculatorPage />} />
+
+                {/* ── Legacy redirects ─────────────────────────────────── */}
+                <Route path="dashboard"    element={<Navigate to="/painel" replace />} />
+                <Route path="mensagens"    element={<Navigate to="/whatsapp" replace />} />
+                <Route path="agenda-prazos" element={<Navigate to="/obrigacoes" replace />} />
+                <Route path="das-mensal"   element={<Navigate to="/guias" replace />} />
+                <Route path="billing"      element={<Navigate to="/financeiro" replace />} />
+                <Route path="settings"     element={<Navigate to="/configuracoes" replace />} />
               </Route>
             </Routes>
           </Suspense>

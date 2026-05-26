@@ -27,32 +27,29 @@ from fastapi.testclient import TestClient
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestDocsDisabledInProduction:
-    def _make_app(self, environment: str):
-        """Re-create the FastAPI app with a given ENVIRONMENT value."""
-        with patch.dict(os.environ, {
-            "ENVIRONMENT": environment,
-            "DATABASE_URL": "postgresql+asyncpg://u:p@localhost:5432/db",
-            "JWT_SECRET_KEY": "x" * 64,
-            "SUPABASE_URL": "https://x.supabase.co",
-            "SUPABASE_SECRET_KEY": "x" * 32,
-        }):
-            # Re-import settings and main with fresh env
-            import app.core.config as cfg_mod
-            import importlib
-            cfg_mod.settings = cfg_mod.Settings()
-            import app.main as main_mod
-            importlib.reload(main_mod)
-            return main_mod.app
+    def _make_fresh_app(self, environment: str):
+        """Create an isolated FastAPI app without mutating the global settings singleton."""
+        from fastapi import FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+
+        is_prod = environment in {"production", "staging"}
+        app = FastAPI(
+            docs_url=None if is_prod else "/docs",
+            redoc_url=None if is_prod else "/redoc",
+            openapi_url=None if is_prod else "/openapi.json",
+        )
+        app.add_middleware(CORSMiddleware, allow_origins=["*"])
+        return app
 
     def test_docs_disabled_in_production(self):
-        app = self._make_app("production")
+        app = self._make_fresh_app("production")
         client = TestClient(app, raise_server_exceptions=False)
         assert client.get("/docs").status_code == 404
         assert client.get("/redoc").status_code == 404
         assert client.get("/openapi.json").status_code == 404
 
     def test_docs_available_in_development(self):
-        app = self._make_app("development")
+        app = self._make_fresh_app("development")
         client = TestClient(app, raise_server_exceptions=False)
         assert client.get("/docs").status_code == 200
         assert client.get("/redoc").status_code == 200

@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   UserPlus,
   FileText,
@@ -30,47 +31,51 @@ const iconMap = {
   calculator: Calculator,
 };
 
-const defaultActions: QuickAction[] = [
-  {
-    id: 'new-client',
-    label: 'Novo cliente',
-    icon: 'client',
-    onClick: () => console.log('Novo cliente'),
-    variant: 'primary',
-  },
-  {
-    id: 'new-obligation',
-    label: 'Nova obrigação',
-    icon: 'obligation',
-    onClick: () => console.log('Nova obrigação'),
-  },
-  {
-    id: 'upload-document',
-    label: 'Enviar documento',
-    icon: 'document',
-    onClick: () => console.log('Enviar documento'),
-  },
-  {
-    id: 'new-certificate',
-    label: 'Cadastrar certificado',
-    icon: 'certificate',
-    onClick: () => console.log('Cadastrar certificado'),
-  },
-  {
-    id: 'new-guide',
-    label: 'Registrar guia',
-    icon: 'guide',
-    onClick: () => console.log('Registrar guia'),
-  },
-  {
-    id: 'calculator',
-    label: 'Calculadora',
-    icon: 'calculator',
-    onClick: () => console.log('Calculadora'),
-  },
-];
+export function QuickActions({ actions }: QuickActionsProps) {
+  const navigate = useNavigate();
 
-export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
+  const defaultActions: QuickAction[] = [
+    {
+      id: 'new-client',
+      label: 'Novo cliente',
+      icon: 'client',
+      onClick: () => navigate('/clientes', { state: { openCreate: true } }),
+      variant: 'primary',
+    },
+    {
+      id: 'new-obligation',
+      label: 'Nova obrigação',
+      icon: 'obligation',
+      onClick: () => navigate('/obrigacoes', { state: { openCreate: true } }),
+    },
+    {
+      id: 'upload-document',
+      label: 'Enviar documento',
+      icon: 'document',
+      onClick: () => navigate('/documentos', { state: { openCreate: true } }),
+    },
+    {
+      id: 'new-certificate',
+      label: 'Cadastrar certificado',
+      icon: 'certificate',
+      onClick: () => navigate('/certificados', { state: { openCreate: true } }),
+    },
+    {
+      id: 'new-guide',
+      label: 'Registrar guia',
+      icon: 'guide',
+      onClick: () => navigate('/das-mensal'),
+    },
+    {
+      id: 'calculator',
+      label: 'Calculadora',
+      icon: 'calculator',
+      onClick: () => navigate('/calculadora'),
+    },
+  ];
+
+  const currentActions = actions || defaultActions;
+
   return (
     <motion.div
       variants={staggerContainer}
@@ -80,8 +85,8 @@ export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
     >
       <h2 className="text-lg font-semibold text-fw-text mb-4">Ações rápidas</h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {actions.map((action) => {
+      <div className="grid grid-cols-2 gap-3">
+        {currentActions.map((action) => {
           const Icon = iconMap[action.icon];
           const isPrimary = action.variant === 'primary';
 
@@ -143,3 +148,4 @@ export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
     </motion.div>
   );
 }
+

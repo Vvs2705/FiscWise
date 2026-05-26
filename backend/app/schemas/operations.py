@@ -113,6 +113,8 @@ class DeadlineCreate(BaseModel):
     status: DeadlineStatus = "pending"
     priority: DeadlinePriority = "medium"
     description: Optional[str] = None
+    is_recurring: bool = False
+    recurrence_interval: Optional[Literal["weekly", "monthly", "quarterly", "yearly"]] = None
 
 
 class DeadlineUpdate(BaseModel):
@@ -123,6 +125,9 @@ class DeadlineUpdate(BaseModel):
     priority: Optional[DeadlinePriority] = None
     description: Optional[str] = None
     completed_at: Optional[datetime] = None
+    is_recurring: Optional[bool] = None
+    recurrence_interval: Optional[Literal["weekly", "monthly", "quarterly", "yearly"]] = None
+    recurrence_parent_id: Optional[UUID] = None
 
 
 class DeadlineResponse(DeadlineCreate):
@@ -131,8 +136,10 @@ class DeadlineResponse(DeadlineCreate):
     id: UUID
     tenant_id: UUID
     completed_at: Optional[datetime] = None
+    recurrence_parent_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
+
 
 
 class DocumentCreate(BaseModel):

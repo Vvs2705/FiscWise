@@ -74,6 +74,9 @@ export interface DeadlineItem {
   completed_at?: string | null;
   created_at: string;
   updated_at: string;
+  is_recurring: boolean;
+  recurrence_interval?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  recurrence_parent_id?: string | null;
 }
 
 export interface DeadlineCreate {
@@ -84,7 +87,10 @@ export interface DeadlineCreate {
   status: DeadlineStatus;
   priority: DeadlinePriority;
   description?: string;
+  is_recurring?: boolean;
+  recurrence_interval?: 'weekly' | 'monthly' | 'quarterly' | 'yearly' | null;
 }
+
 
 export interface ClientDocument extends Omit<AiClientDocument, 'status'> {
   id: string;

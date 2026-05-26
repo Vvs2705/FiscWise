@@ -9,9 +9,8 @@ import { FiscalWeekTimeline } from '@/features/dashboard/components/FiscalWeekTi
 import { PendingDocumentsCard } from '@/features/dashboard/components/PendingDocumentsCard';
 import { MonthlyClosingCard } from '@/features/dashboard/components/MonthlyClosingCard';
 import { PortfolioRiskCard } from '@/features/dashboard/components/PortfolioRiskCard';
-import { QuickActions } from '@/features/dashboard/components/QuickActions';
-import { staggerContainer, fadeIn } from '@/lib/motion';
 import { ModoFocoModal } from '@/features/dashboard/components/ModoFocoModal';
+import { staggerContainer, fadeIn } from '@/lib/motion';
 
 function startOfToday() {
   const today = new Date();
@@ -308,10 +307,6 @@ export function DashboardPage() {
 
             <motion.div variants={fadeIn} id="tour-deadlines">
               <FiscalWeekTimeline timeline={weekTimeline} isLoading={isLoading} />
-            </motion.div>
-
-            <motion.div variants={fadeIn}>
-              <QuickActions />
             </motion.div>
           </motion.div>
 

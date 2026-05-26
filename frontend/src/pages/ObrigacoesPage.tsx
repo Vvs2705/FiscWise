@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   CheckCircle2,
@@ -449,6 +450,7 @@ function CreateObligationDrawer({ isOpen, onClose, clients, rules, defaultCompet
 // ---------------------------------------------------------------------------
 
 export function ObrigacoesPage() {
+  const location = useLocation();
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthIso);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
 
@@ -472,6 +474,13 @@ export function ObrigacoesPage() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
+      setCreateOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   // Search Debouncing
   useEffect(() => {

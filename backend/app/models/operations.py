@@ -106,6 +106,14 @@ class DeadlineItem(Base, TenantBase):
     priority: Mapped[str] = mapped_column(String(16), nullable=False, default="medium")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_recurring: Mapped[bool] = mapped_column(default=False, nullable=False)
+    recurrence_interval: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    recurrence_parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("deadline_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
 
 
 class ClientDocument(Base, TenantBase):

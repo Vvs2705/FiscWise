@@ -851,6 +851,43 @@ async def get_deadline(
     return await _get_item_or_404(db, DeadlineItem, tenant_id, deadline_id, "Deadline not found")
 
 
+def get_next_due_date(current_date: date, interval: str) -> date:
+    if interval == "weekly":
+        return current_date + timedelta(days=7)
+    elif interval == "monthly":
+        year = current_date.year
+        month = current_date.month + 1
+        if month > 12:
+            month = 1
+            year += 1
+        day = current_date.day
+        import calendar
+        _, last_day = calendar.monthrange(year, month)
+        day = min(day, last_day)
+        return date(year, month, day)
+    elif interval == "quarterly":
+        year = current_date.year
+        month = current_date.month + 3
+        while month > 12:
+            month -= 12
+            year += 1
+        day = current_date.day
+        import calendar
+        _, last_day = calendar.monthrange(year, month)
+        day = min(day, last_day)
+        return date(year, month, day)
+    elif interval == "yearly":
+        year = current_date.year + 1
+        month = current_date.month
+        day = current_date.day
+        if month == 2 and day == 29:
+            import calendar
+            if not calendar.isleap(year):
+                day = 28
+        return date(year, month, day)
+    return current_date
+
+
 @router.post("/deadlines", response_model=DeadlineResponse, status_code=status.HTTP_201_CREATED)
 async def create_deadline(
     payload: DeadlineCreate,
@@ -873,10 +910,34 @@ async def update_deadline(
 ):
     tenant_id = _tenant_id(current_user)
     item = await _get_item_or_404(db, DeadlineItem, tenant_id, deadline_id, "Deadline not found")
+    
+    # Check if we are marking it completed now
+    marking_completed = payload.status == "completed" and item.status != "completed"
+    
     _apply_updates(item, payload)
+    
     if payload.status == "completed" and item.completed_at is None:
         item.completed_at = datetime.now(timezone.utc)
+        
+    if marking_completed and item.is_recurring and item.recurrence_interval:
+        next_due = get_next_due_date(item.due_date, item.recurrence_interval)
+        new_item = DeadlineItem(
+            tenant_id=item.tenant_id,
+            client_id=item.client_id,
+            title=item.title,
+            category=item.category,
+            due_date=next_due,
+            status="pending",
+            priority=item.priority,
+            description=item.description,
+            is_recurring=True,
+            recurrence_interval=item.recurrence_interval,
+            recurrence_parent_id=item.id,
+        )
+        db.add(new_item)
+        
     return await _commit_refresh(db, item)
+
 
 
 @router.get("/documents", response_model=list[DocumentResponse])

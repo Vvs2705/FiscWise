@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, AlertTriangle, BookOpen } from 'lucide-react';
 import { startTour } from '@/lib/tours';
+import { QuickActions } from './QuickActions';
 
 interface DashboardHeroProps {
   isError?: boolean;
@@ -51,13 +52,6 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           >
             Ver agenda fiscal
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/clientes', { state: { openCreate: true } })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-transparent px-5 py-3 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-cyan-500/30 hover:text-slate-900 dark:border-white/15 dark:text-slate-200 dark:hover:border-cyan-300/30 dark:hover:text-white"
-          >
-            Novo cliente
-          </button>
         </div>
 
         {isError && (
@@ -71,6 +65,10 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
             mais recentes disponíveis.
           </motion.div>
         )}
+      </div>
+
+      <div>
+        <QuickActions />
       </div>
     </div>
   );

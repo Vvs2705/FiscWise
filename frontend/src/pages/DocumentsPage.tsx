@@ -27,7 +27,7 @@ import {
   Eye,
   BookOpen,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { startTour } from '@/lib/tours';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -422,7 +422,15 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
 
 export function DocumentsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
+      setOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
   const [file, setFile] = useState<File | null>(null);
 
   // Filter and preview states

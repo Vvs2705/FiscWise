@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,6 +14,7 @@ import {
   X,
   LayoutList,
   LayoutGrid,
+  Repeat,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -51,7 +53,20 @@ const schema = z.object({
   priority: z.enum(['low', 'medium', 'high']),
   status: z.enum(['pending', 'completed', 'overdue', 'cancelled']),
   description: z.string().optional(),
-});
+  is_recurring: z.boolean().default(false),
+  recurrence_interval: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).nullable().optional(),
+}).refine(
+  (data) => {
+    if (data.is_recurring) {
+      return !!data.recurrence_interval;
+    }
+    return true;
+  },
+  {
+    message: 'Selecione uma frequência para a recorrência',
+    path: ['recurrence_interval'],
+  }
+);
 
 type FormValues = z.infer<typeof schema>;
 
@@ -82,7 +97,16 @@ const priorityVariant: Record<DeadlinePriority, 'default' | 'warning' | 'error'>
 };
 
 export function DeadlinesPage() {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if ((location.state as { openCreate?: boolean } | null)?.openCreate) {
+      setOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
+
   const { data: deadlines, isLoading, isError, refetch } = useDeadlines();
   const { data: clients } = useClients();
   const createMutation = useCreateDeadline();
@@ -111,13 +135,19 @@ export function DeadlinesPage() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
+    watch,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'medium', status: 'pending' },
+    defaultValues: { priority: 'medium', status: 'pending', is_recurring: false, recurrence_interval: null },
   });
 
+  const isRecurringWatched = watch('is_recurring');
+
   async function onSubmit(values: FormValues) {
-    const payload: DeadlineCreate = { ...values };
+    const payload: DeadlineCreate = {
+      ...values,
+      recurrence_interval: values.is_recurring ? values.recurrence_interval : null,
+    };
     try {
       await createMutation.mutateAsync(payload);
       toast.success('Prazo cadastrado');
@@ -426,7 +456,14 @@ export function DeadlinesPage() {
                   return (
                     <TableRow key={deadline.id}>
                       <TableCell>
-                        <div className="font-bold text-foreground">{deadline.title}</div>
+                        <div className="flex items-center gap-1.5 font-bold text-foreground">
+                          {deadline.title}
+                          {deadline.is_recurring && (
+                            <span title={`Recorrência: ${deadline.recurrence_interval}`}>
+                              <Repeat className="h-3.5 w-3.5 text-primary" />
+                            </span>
+                          )}
+                        </div>
                         {deadline.description && (
                           <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={deadline.description}>
                             {deadline.description}
@@ -492,8 +529,13 @@ export function DeadlinesPage() {
                   <Card key={deadline.id} className="flex flex-col justify-between hover:border-primary/45 group">
                     <CardHeader className="pb-2 flex flex-row justify-between items-start gap-3">
                       <div className="min-w-0">
-                        <h4 className="font-bold text-foreground text-sm leading-snug group-hover:text-primary transition-colors truncate" title={deadline.title}>
+                        <h4 className="flex items-center gap-1.5 font-bold text-foreground text-sm leading-snug group-hover:text-primary transition-colors truncate" title={deadline.title}>
                           {deadline.title}
+                          {deadline.is_recurring && (
+                            <span title={`Recorrência: ${deadline.recurrence_interval}`} className="shrink-0 flex items-center">
+                              <Repeat className="h-3.5 w-3.5 text-primary" />
+                            </span>
+                          )}
                         </h4>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{deadline.category}</p>
                       </div>
@@ -608,6 +650,33 @@ export function DeadlinesPage() {
           <FormField label="Descricao" htmlFor="description" error={errors.description?.message}>
             <Input id="description" placeholder="Detalhe adicional (opcional)" {...register('description')} />
           </FormField>
+
+          {/* Recorrência */}
+          <div className="space-y-4 border-t border-border/40 pt-4">
+            <div className="flex items-center gap-2">
+              <input
+                id="is_recurring"
+                type="checkbox"
+                {...register('is_recurring')}
+                className="h-4 w-4 rounded border-border/80 bg-background text-primary focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="is_recurring" className="text-sm font-medium text-foreground cursor-pointer">
+                Prazo recorrente?
+              </label>
+            </div>
+
+            {isRecurringWatched && (
+              <FormField label="Frequência da Recorrência" htmlFor="recurrence_interval" error={errors.recurrence_interval?.message} required>
+                <Select id="recurrence_interval" {...register('recurrence_interval')}>
+                  <option value="">Selecione a frequência</option>
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensal</option>
+                  <option value="quarterly">Trimestral</option>
+                  <option value="yearly">Anual</option>
+                </Select>
+              </FormField>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

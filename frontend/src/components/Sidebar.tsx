@@ -111,24 +111,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Rodapé da sidebar — branding */}
-      <div className="border-t border-sidebar-border px-4 py-4">
-        {/* Desktop */}
-        <div className="hidden md:block">
-          <Logo variant="full" theme="dark" size={28} />
-          <p className="mt-1.5 text-[10px] leading-tight text-sidebar-muted">
-            Fiscal Intelligence OS
-            <br />
-            <span className="opacity-60">by Vstack-Solutions</span>
-          </p>
-        </div>
-
-        {/* Mobile: ícone centrado */}
-        <div className="flex items-center justify-center md:hidden">
-          <Logo variant="icon" size={24} />
-        </div>
-      </div>
     </aside>
   );
 }

@@ -117,6 +117,25 @@ As seguintes correções foram implementadas como parte da Onda 0 de segurança:
 - **Correção**: Novo pipeline `.github/workflows/security.yml` com TruffleHog (secrets), Safety (CVEs em deps Python), Bandit (SAST).
 - **Arquivo**: `.github/workflows/security.yml`
 
+### [SEC-11] Admin token estático substituído por RBAC is_superuser
+- **Problema**: `ADMIN_TOKEN` estático no env permitia acesso cross-tenant irrestrito sem rastreabilidade.
+- **Correção**: Campo `is_superuser` no modelo `User`; `require_superuser` dependency em `deps.py`; `verify_admin_access` usa JWT is_superuser como caminho principal; token de emergência mantido mas desabilitado por padrão (`ADMIN_OPERATIONS_ALLOWED=false`).
+- **Arquivos**: `backend/app/models/user.py`, `backend/app/core/deps.py`, `backend/app/api/v1/endpoints/admin.py`, `backend/alembic/versions/20260526b_add_is_superuser_to_users.py`
+
+### [SEC-12] Storage privado com URLs assinadas e TTL curto
+- **Problema**: URLs de storage podiam ser geradas sem expiração e sem validação de tenant.
+- **Correção**: `storage.py` centralizado com TTL máximo 3600s (padrão 300s), prefixo obrigatório `{tenant_id}/` em todos os paths, PermissionError em acesso cross-tenant.
+- **Arquivo**: `backend/app/core/storage.py`
+
+### [SEC-13] Logs JSON estruturados com redação de PII
+- **Problema**: Em produção, logs em texto plano podiam conter campos sensíveis.
+- **Correção**: `_configure_logging()` em `main.py` usa `python-json-logger` em production/staging com `_RedactingJsonFormatter` que redige `password`, `token`, `jwt`, `cpf`, `cnpj`, `api_key`, `secret`, `database_url`.
+- **Arquivo**: `backend/app/main.py`
+
+### [SEC-14] Audit log helper para operações fiscais sensíveis
+- **Correção**: `core/audit.py` expõe `audit_request()` — wrapper request-aware sobre `services/audit.log_audit_event()` que extrai IP e User-Agent automaticamente. Ações obrigatórias: `document.uploaded`, `document.downloaded`, `certificate.accessed`, `user.login`, `user.login_failed`, `admin.action`.
+- **Arquivos**: `backend/app/core/audit.py` (wrapper), `backend/app/services/audit.py` (persistência), `backend/app/models/audit.py` (modelo), migration `20260524c`
+
 ---
 
 ## 3. Ambiente Staging e Observabilidade

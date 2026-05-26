@@ -66,33 +66,33 @@ class TestDatabaseUrlNotInLogs:
         import app.main  # already imported; just reference to trigger startup logs
 
         password = "super_secret_password_123"
+        import app.core.config as cfg_mod
+
+        # Use a local Settings instance — never replace the global singleton.
+        # Replacing cfg_mod.settings would poison the JWT key used by other tests.
         with patch.dict(os.environ, {
             "DATABASE_URL": f"postgresql+asyncpg://user:{password}@db.host:5432/mydb",
             "JWT_SECRET_KEY": "x" * 64,
             "ENVIRONMENT": "development",
         }):
-            import app.core.config as cfg_mod
-            cfg_mod.settings = cfg_mod.Settings()
+            local_settings = cfg_mod.Settings()
 
-            import importlib
-            import app.main as main_mod
             with caplog.at_level(logging.INFO, logger="app.main"):
-                # Simulate the startup log call
                 import logging as _log
                 logger = _log.getLogger("app.main")
                 try:
                     _parsed = __import__("urllib.parse", fromlist=["urlparse"]).urlparse(
-                        cfg_mod.settings.DATABASE_URL
+                        local_settings.DATABASE_URL
                     )
                     safe_db = f"{_parsed.hostname}{_parsed.path}"
                 except Exception:
                     safe_db = "[parse error]"
                 logger.info("DATABASE_URL: connected to %s", safe_db)
 
-            for record in caplog.records:
-                assert password not in record.getMessage(), (
-                    f"Password found in log: {record.getMessage()}"
-                )
+        for record in caplog.records:
+            assert password not in record.getMessage(), (
+                f"Password found in log: {record.getMessage()}"
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

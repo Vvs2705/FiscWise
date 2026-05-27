@@ -105,7 +105,10 @@ export function CertificatesPage() {
   });
 
   async function onSubmit(values: FormValues) {
-    const payload: CertificateCreate = { ...values };
+    const payload: CertificateCreate = {
+      ...values,
+      valid_from: values.valid_from === '' ? undefined : values.valid_from,
+    };
     try {
       await createMutation.mutateAsync(payload);
       toast.success('Certificado registrado');

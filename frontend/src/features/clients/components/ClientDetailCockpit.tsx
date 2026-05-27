@@ -316,14 +316,18 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   // Submit partner form
   async function onPartnerSubmit(values: PartnerFormValues) {
     try {
+      const sanitizedPayload = {
+        ...values,
+        entry_date: values.entry_date === '' ? undefined : values.entry_date,
+      };
       if (partnerToEdit) {
         await updatePartnerMutation.mutateAsync({
           id: partnerToEdit.id,
-          payload: values,
+          payload: sanitizedPayload,
         });
         toast.success('Sócio atualizado com sucesso');
       } else {
-        await createPartnerMutation.mutateAsync(values);
+        await createPartnerMutation.mutateAsync(sanitizedPayload);
         toast.success('Sócio cadastrado com sucesso');
       }
       setShowPartnerForm(false);

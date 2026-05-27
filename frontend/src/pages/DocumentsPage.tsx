@@ -511,6 +511,8 @@ export function DocumentsPage() {
 
     const payload: DocumentCreate = {
       ...values,
+      issued_at: values.issued_at === '' ? undefined : values.issued_at,
+      expires_at: values.expires_at === '' ? undefined : values.expires_at,
       file_url: fileUrl,
     };
 

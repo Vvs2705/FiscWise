@@ -15,7 +15,10 @@ export const issuerSchema = z.object({
 
 export const invoiceSchema = z.object({
   issuer_id: z.string().uuid('Selecione um emissor válido'),
-  client_id: z.string().uuid('Selecione um cliente válido').optional(),
+  client_id: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().uuid('Selecione um cliente válido').optional()
+  ),
   valor_servico: z.preprocess(
     (val) => (typeof val === 'string' ? parseFloat(val.replace(/[^\d,.-]/g, '').replace(',', '.')) : val),
     z.number().positive('O valor do serviço deve ser maior que zero')

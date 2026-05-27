@@ -34,7 +34,7 @@ const FocoPage                  = lazy(() => import('@/pages/FocoPage').then(m =
 const FiscalMailboxPage         = lazy(() => import('@/pages/FiscalMailboxPage').then(m => ({ default: m.FiscalMailboxPage })));
 const MonthlyClosingsPage       = lazy(() => import('@/pages/MonthlyClosingsPage').then(m => ({ default: m.MonthlyClosingsPage })));
 const MonthlyClosingDetailPage  = lazy(() => import('@/pages/MonthlyClosingDetailPage').then(m => ({ default: m.MonthlyClosingDetailPage })));
-const PowersOfAttorneyPage      = lazy(() => import('@/pages/PowersOfAttorneyPage').then(m => ({ default: m.PowersOfAttorneyPage })));
+const PowersOfAttorneyPage      = lazy(() => import('@/features/ecac/pages/ProxiesListPage').then(m => ({ default: m.ProxiesListPage })));
 const ReportsPage               = lazy(() => import('@/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const PortalClientePage         = lazy(() => import('@/pages/PortalClientePage').then(m => ({ default: m.PortalClientePage })));
 

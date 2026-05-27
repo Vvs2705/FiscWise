@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import toast from 'react-hot-toast';
+import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 type FormValues = {
   issuer_id: string;
@@ -86,9 +87,9 @@ export function InvoiceNewPage() {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      const valServico = parseFloat(data.valor_servico.replace(/[^\d,.-]/g, '').replace(',', '.'));
-      const valDeducoes = parseFloat(data.valor_deducoes.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-      const valIss = data.valor_iss ? parseFloat(data.valor_iss.replace(/[^\d,.-]/g, '').replace(',', '.')) : undefined;
+      const valServico = parseCurrencyBRL(data.valor_servico);
+      const valDeducoes = parseCurrencyBRL(data.valor_deducoes) || 0;
+      const valIss = data.valor_iss ? parseCurrencyBRL(data.valor_iss) : undefined;
 
       const response = await createInvoice.mutateAsync({
         issuer_id: data.issuer_id,
@@ -190,11 +191,29 @@ export function InvoiceNewPage() {
                 </FormField>
 
                 <FormField label="Valor do Serviço (R$)" htmlFor="valor_servico" error={errors.valor_servico?.message}>
-                  <Input type="text" id="valor_servico" placeholder="1.500,00" {...register('valor_servico')} />
+                  <Input
+                    type="text"
+                    id="valor_servico"
+                    placeholder="1.500,00"
+                    {...register('valor_servico', {
+                      onChange: (e) => {
+                        e.target.value = formatCurrencyBRL(e.target.value);
+                      },
+                    })}
+                  />
                 </FormField>
 
                 <FormField label="Deduções (R$)" htmlFor="valor_deducoes" error={errors.valor_deducoes?.message}>
-                  <Input type="text" id="valor_deducoes" placeholder="0,00" {...register('valor_deducoes')} />
+                  <Input
+                    type="text"
+                    id="valor_deducoes"
+                    placeholder="0,00"
+                    {...register('valor_deducoes', {
+                      onChange: (e) => {
+                        e.target.value = formatCurrencyBRL(e.target.value);
+                      },
+                    })}
+                  />
                 </FormField>
               </div>
 

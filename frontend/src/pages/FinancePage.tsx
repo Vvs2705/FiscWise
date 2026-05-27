@@ -50,11 +50,15 @@ import {
   type ReceivableStatus,
 } from '@/lib/hooks/useOperations';
 import { usePermission } from '@/lib/hooks/usePermission';
+import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
   description: z.string().min(2, 'Descricao deve ter ao menos 2 caracteres'),
-  amount: z.coerce.number().positive('Valor deve ser maior que zero'),
+  amount: z.preprocess(
+    (val) => (typeof val === 'string' ? parseCurrencyBRL(val) : val),
+    z.number().positive('Valor deve ser maior que zero')
+  ),
   due_date: z.string().min(1, 'Data e obrigatoria'),
   status: z.enum(['pending', 'paid', 'overdue', 'cancelled']),
   paid_at: z.string().optional(),
@@ -487,11 +491,13 @@ export function FinancePage() {
             <FormField label="Valor (R$)" htmlFor="amount" error={errors.amount?.message} required>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
                 placeholder="0,00"
-                {...register('amount')}
+                {...register('amount', {
+                  onChange: (e) => {
+                    e.target.value = formatCurrencyBRL(e.target.value);
+                  },
+                })}
               />
             </FormField>
 

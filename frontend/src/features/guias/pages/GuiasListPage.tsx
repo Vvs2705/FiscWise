@@ -14,6 +14,7 @@ import { Plus, Eye } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 type FormValues = {
   client_id: string;
@@ -53,7 +54,7 @@ export function GuiasListPage() {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      const parsedVal = parseFloat(data.valor.replace(/[^\d,.-]/g, '').replace(',', '.'));
+      const parsedVal = parseCurrencyBRL(data.valor);
       await createGuide.mutateAsync({
         client_id: data.client_id,
         tipo: data.tipo,
@@ -227,7 +228,17 @@ export function GuiasListPage() {
           </div>
 
           <FormField label="Valor da Guia (R$)" htmlFor="valor">
-            <Input type="text" id="valor" placeholder="0,00" {...register('valor')} required />
+            <Input
+              type="text"
+              id="valor"
+              placeholder="0,00"
+              {...register('valor', {
+                onChange: (e) => {
+                  e.target.value = formatCurrencyBRL(e.target.value);
+                },
+              })}
+              required
+            />
           </FormField>
 
           <div className="flex justify-end gap-3 pt-2">

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingDown, Star, AlertCircle, ChevronDown } from 'lucide-react';
 import { SimulationResult, SimulationRequest } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 const ESTADOS_BR = [
   'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA',
@@ -96,13 +97,11 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
             <input
               id="monthly_revenue"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               placeholder="0,00"
-              value={formData.monthly_revenue === ('' as unknown as number) ? '' : formData.monthly_revenue}
+              value={formData.monthly_revenue === ('' as unknown as number) ? '' : formatCurrencyBRL(formData.monthly_revenue)}
               onChange={(e) =>
-                setFormData({ ...formData, monthly_revenue: e.target.value as unknown as number })
+                setFormData({ ...formData, monthly_revenue: parseCurrencyBRL(e.target.value) })
               }
               {...field('monthly_revenue')}
               className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition ${
@@ -128,13 +127,11 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
             <input
               id="annual_cogs"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               placeholder="0,00"
-              value={formData.annual_cogs === ('' as unknown as number) ? '' : formData.annual_cogs}
+              value={formData.annual_cogs === ('' as unknown as number) ? '' : formatCurrencyBRL(formData.annual_cogs)}
               onChange={(e) =>
-                setFormData({ ...formData, annual_cogs: e.target.value as unknown as number })
+                setFormData({ ...formData, annual_cogs: parseCurrencyBRL(e.target.value) })
               }
               {...field('annual_cogs')}
               className={`w-full rounded-lg border pl-9 pr-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition ${

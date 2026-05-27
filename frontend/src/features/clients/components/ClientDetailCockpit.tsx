@@ -27,7 +27,7 @@ import {
   Activity,
   RefreshCw,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -234,12 +234,12 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   });
 
   const [editBilling, setEditBilling] = useState(false);
-  const [billingFee, setBillingFee] = useState<number>(0);
+  const [billingFee, setBillingFee] = useState<string>('');
   const [billingDay, setBillingDay] = useState<number>(5);
 
   useEffect(() => {
     if (billingConfig) {
-      setBillingFee(Number(billingConfig.monthly_fee ?? 0));
+      setBillingFee(formatCurrencyBRL(billingConfig.monthly_fee ?? 0));
       setBillingDay(billingConfig.billing_day ?? 5);
     }
   }, [billingConfig]);
@@ -434,7 +434,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
       await updateBillingConfigMutation.mutateAsync({
         clientId,
         payload: {
-          monthly_fee: billingFee,
+          monthly_fee: parseCurrencyBRL(billingFee),
           billing_day: billingDay,
         },
       });
@@ -1340,7 +1340,7 @@ FiscWise`,
                   {!editBilling ? (
                     <p className="text-2xl font-bold text-foreground">{moneyBRL(billingConfig.monthly_fee)}</p>
                   ) : (
-                    <Input type="number" value={billingFee} onChange={(e) => setBillingFee(Number(e.target.value))} />
+                    <Input type="text" value={billingFee} onChange={(e) => setBillingFee(formatCurrencyBRL(e.target.value))} />
                   )}
                 </Card>
                 <Card className="p-4">

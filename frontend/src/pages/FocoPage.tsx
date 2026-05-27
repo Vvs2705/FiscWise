@@ -10,6 +10,7 @@ import { RiskBadge, StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 // Mock focus items
 type FocusGroup = 'critical' | 'today' | 'week' | 'waiting_client' | 'waiting_organ';
@@ -54,7 +55,7 @@ const MOCK_FOCUS: FocusItem[] = [
     client: 'Construtora Horizonte SA', competence: '2023',
     deadline: '20/06/2026', risk: 'critical', status: 'unread',
     responsible: 'Você',
-    primaryAction: { label: 'Ver intimação', href: '/caixa-postal-fiscal/msg-001' },
+    primaryAction: { label: 'Ver intimação', href: '/caixa-postal-fiscal' },
     secondaryAction: { label: 'Criar tarefa', href: '/caixa-postal-fiscal' },
   },
   {
@@ -125,6 +126,7 @@ import { ListChecks, Coins, ShieldCheck, FolderKanban, CalendarCheck2, Fingerpri
 export function FocoPage() {
   const [search, setSearch] = useState('');
   const [activeGroup, setActiveGroup] = useState<FocusGroup | 'all'>('all');
+  const handleRefresh = () => toast.info('Lista de foco atualizada.');
 
   const groups = Object.entries(GROUP_CONFIG) as [FocusGroup, typeof GROUP_CONFIG[FocusGroup]][];
 
@@ -147,7 +149,10 @@ export function FocoPage() {
           subtitle="O que precisa de ação imediata agora."
           icon={<Target className="h-5 w-5" />}
           actions={
-            <button className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               <RefreshCw className="h-4 w-4" />
               <span className="hidden sm:inline">Atualizar</span>
             </button>

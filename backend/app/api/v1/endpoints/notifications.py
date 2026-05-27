@@ -209,3 +209,59 @@ async def notification_stats(
         "pending": stats.get("pending", 0),
         "total": sum(stats.values()),
     }
+
+
+# ─── Certificate Expiry Warning ───────────────────────────────────────────────
+
+class CertExpiryWarningRequest(BaseModel):
+    client_id: uuid.UUID
+    client_name: str
+    cert_label: str
+    days_until_expiry: int
+
+
+class CertExpiryWarningResponse(BaseModel):
+    queued: bool
+    message: str
+
+
+@router.post("/cert-expiry-warning", response_model=CertExpiryWarningResponse, status_code=202)
+async def send_cert_expiry_warning(
+    body: CertExpiryWarningRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Queue a certificate expiry warning notification for a specific client.
+    Records the notification in the audit log; actual delivery is handled
+    by the notification worker (WhatsApp / email based on client preference).
+    """
+    from datetime import datetime, timezone
+    from app.models.notification import NotificationMessage
+
+    _require_admin_or_owner(current_user)
+
+    # Record the notification attempt
+    notif = NotificationMessage(
+        id=uuid.uuid4(),
+        tenant_id=current_user.tenant_id,
+        client_id=body.client_id,
+        channel="system",
+        recipient=str(current_user.tenant_id),
+        subject=f"Certificado '{body.cert_label}' vence em {body.days_until_expiry} dias",
+        status="pending",
+        provider="internal",
+        sent_at=None,
+    )
+    db.add(notif)
+    await db.commit()
+
+    logger.info(
+        "cert_expiry_warning_queued tenant=%s client=%s cert=%s days=%s",
+        current_user.tenant_id, body.client_id, body.cert_label, body.days_until_expiry,
+    )
+
+    return CertExpiryWarningResponse(
+        queued=True,
+        message=f"Aviso de vencimento para '{body.client_name}' enviado com sucesso.",
+    )

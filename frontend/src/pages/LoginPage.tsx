@@ -17,6 +17,7 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api, getApiErrorMessage } from '@/lib/api';
 import { Logo } from '@/components/Logo';
 import { LoginBrandPanel } from '@/features/auth/components/LoginBrandPanel';
 import { OtpInput } from '@/features/auth/components/OtpInput';
@@ -25,18 +26,34 @@ import { OtpInput } from '@/features/auth/components/OtpInput';
 function TwoFAScreen({
   method,
   message,
+  mfaToken,
   onVerify,
   onBack,
   isLoading,
 }: {
   method: 'totp' | 'email';
   message: string;
+  mfaToken: string;
   onVerify: (code: string) => void;
   onBack: () => void;
   isLoading: boolean;
 }) {
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(method === 'email' ? 60 : 0);
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await api.post('/api/v1/auth/login/resend-2fa', { mfa_token: mfaToken });
+      setCountdown(60);
+      // toast is imported at page level via useAuth — show inline feedback
+    } catch (err) {
+      console.error(getApiErrorMessage(err, 'Erro ao reenviar código.'));
+    } finally {
+      setResending(false);
+    }
+  };
 
   // Countdown timer for email resend
   useEffect(() => {
@@ -112,11 +129,12 @@ function TwoFAScreen({
           ) : (
             <button
               type="button"
-              onClick={() => setCountdown(60)}
-              className="flex items-center gap-1.5 mx-auto text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              onClick={handleResend}
+              disabled={resending}
+              className="flex items-center gap-1.5 mx-auto text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
             >
-              <RefreshCcw className="h-3.5 w-3.5" />
-              Reenviar código
+              <RefreshCcw className={cn("h-3.5 w-3.5", resending && "animate-spin")} />
+              {resending ? 'Enviando...' : 'Reenviar código'}
             </button>
           )}
         </div>
@@ -186,6 +204,7 @@ export function LoginPage() {
             <TwoFAScreen
               method={mfaChallenge.two_factor_method}
               message={mfaChallenge.message}
+              mfaToken={mfaChallenge.mfa_token}
               onVerify={verify2FA}
               onBack={cancelMfa}
               isLoading={isLoading}

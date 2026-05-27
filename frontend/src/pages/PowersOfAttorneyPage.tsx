@@ -1,123 +1,110 @@
 import { useState } from 'react';
 import {
   FileText, Plus, Search, AlertTriangle, CheckCircle2,
-  Clock, ChevronRight,
+  Clock, ChevronRight, RefreshCw,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { MetricCard, EmptyState, WarningPanel } from '@/components/ui/OperationalStates';
+import { Button } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
+import { FormField } from '@/components/ui/FormField';
+import { Input } from '@/components/ui/Input';
+import { PageSpinner } from '@/components/ui/StateViews';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { cn } from '@/lib/utils';
-
-interface PowerOfAttorney {
-  id: string;
-  clientId: string;
-  clientName: string;
-  cnpjGrantor: string;
-  cnpjAttorney: string;
-  services: string[];
-  validUntil: string;
-  status: 'pending' | 'active' | 'expired' | 'revoked' | 'invalid' | 'unknown';
-  provider: string;
-  lastVerified: string;
-  notes?: string;
-}
-
-const MOCK_POWERS: PowerOfAttorney[] = [
-  {
-    id: 'pow-001',
-    clientId: 'cli-001',
-    clientName: 'Tech Solutions Ltda',
-    cnpjGrantor: '12.345.678/0001-90',
-    cnpjAttorney: '00.111.222/0001-33',
-    services: ['Consulta de pendências', 'Emissão de certidões', 'DAS/DARF'],
-    validUntil: '2026-06-10',
-    status: 'active',
-    provider: 'e-CAC Receita Federal',
-    lastVerified: '2026-05-20T09:00:00Z',
-  },
-  {
-    id: 'pow-002',
-    clientId: 'cli-002',
-    clientName: 'Comércio São Paulo ME',
-    cnpjGrantor: '98.765.432/0001-11',
-    cnpjAttorney: '00.111.222/0001-33',
-    services: ['Simples Nacional', 'Consulta de pendências'],
-    validUntil: '2026-12-31',
-    status: 'active',
-    provider: 'e-CAC Receita Federal',
-    lastVerified: '2026-05-25T10:00:00Z',
-  },
-  {
-    id: 'pow-003',
-    clientId: 'cli-003',
-    clientName: 'Construtora Horizonte SA',
-    cnpjGrantor: '11.222.333/0001-44',
-    cnpjAttorney: '00.111.222/0001-33',
-    services: ['REFIS', 'Parcelamentos', 'Consulta de pendências'],
-    validUntil: '2026-03-01',
-    status: 'expired',
-    provider: 'PGFN',
-    lastVerified: '2026-04-01T08:00:00Z',
-    notes: 'Vencida — cliente precisa renovar',
-  },
-  {
-    id: 'pow-004',
-    clientId: 'cli-004',
-    clientName: 'Clínica Saúde Total Ltda',
-    cnpjGrantor: '55.666.777/0001-22',
-    cnpjAttorney: '00.111.222/0001-33',
-    services: ['Consulta de pendências', 'Caixa postal'],
-    validUntil: '2026-11-15',
-    status: 'active',
-    provider: 'e-CAC Receita Federal',
-    lastVerified: '2026-05-26T08:00:00Z',
-  },
-  {
-    id: 'pow-005',
-    clientId: 'cli-005',
-    clientName: 'Agência Digital Express ME',
-    cnpjGrantor: '33.444.555/0001-66',
-    cnpjAttorney: '—',
-    services: [],
-    validUntil: '—',
-    status: 'pending',
-    provider: '—',
-    lastVerified: '—',
-    notes: 'Cliente ainda não assinou a procuração digital',
-  },
-];
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
+import { useForm } from 'react-hook-form';
+import { useClients } from '@/lib/hooks/useOperations';
+import {
+  usePowersOfAttorney,
+  useCreatePowerOfAttorney,
+  useRevokePowerOfAttorney,
+} from '@/features/powers-of-attorney/api';
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Todos' },
+  { value: 'all', label: 'Todos os status' },
   { value: 'active', label: 'Ativas' },
   { value: 'pending', label: 'Pendentes' },
   { value: 'expired', label: 'Vencidas' },
   { value: 'revoked', label: 'Revogadas' },
 ];
 
-function daysUntil(dateStr: string): number {
-  if (dateStr === '—') return 9999;
+function daysUntil(dateStr: string | null): number {
+  if (!dateStr) return 9999;
   const diff = new Date(dateStr).getTime() - new Date().getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+type NewPoaForm = {
+  client_id: string;
+  cnpj_grantor: string;
+  cnpj_attorney: string;
+  valid_until: string;
+  provider: string;
+  notes: string;
+};
+
 export function PowersOfAttorneyPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [openModal, setOpenModal] = useState(false);
 
-  const filtered = MOCK_POWERS.filter(p => {
+  const { data: powers, isLoading, error } = usePowersOfAttorney();
+  const { data: clients } = useClients();
+  const createPoa = useCreatePowerOfAttorney();
+  const revokePoa = useRevokePowerOfAttorney();
+
+  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<NewPoaForm>({
+    defaultValues: { client_id: '', cnpj_grantor: '', cnpj_attorney: '', valid_until: '', provider: 'e-CAC Receita Federal', notes: '' },
+  });
+
+  const list = powers ?? [];
+
+  const filtered = list.filter(p => {
     if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-    if (search && !p.clientName.toLowerCase().includes(search.toLowerCase()) &&
-        !p.cnpjGrantor.includes(search)) return false;
+    const client = clients?.find(c => c.id === p.client_id);
+    const name = client?.name ?? '';
+    if (search && !name.toLowerCase().includes(search.toLowerCase()) &&
+        !p.cnpj_grantor.includes(search)) return false;
     return true;
   });
 
-  const activeCount = MOCK_POWERS.filter(p => p.status === 'active').length;
-  const expiredCount = MOCK_POWERS.filter(p => p.status === 'expired').length;
-  const expiringSoon = MOCK_POWERS.filter(p => p.status === 'active' && daysUntil(p.validUntil) <= 30).length;
-  const pendingCount = MOCK_POWERS.filter(p => p.status === 'pending').length;
+  const activeCount   = list.filter(p => p.status === 'active').length;
+  const expiredCount  = list.filter(p => p.status === 'expired').length;
+  const expiringSoon  = list.filter(p => p.status === 'active' && daysUntil(p.valid_until) <= 30).length;
+  const pendingCount  = list.filter(p => p.status === 'pending').length;
+
+  const onSubmit = async (data: NewPoaForm) => {
+    try {
+      await createPoa.mutateAsync({
+        client_id: data.client_id || undefined,
+        cnpj_grantor: data.cnpj_grantor,
+        cnpj_attorney: data.cnpj_attorney,
+        valid_until: data.valid_until || undefined,
+        provider: data.provider,
+        notes: data.notes || undefined,
+      });
+      toast.success('Procuração cadastrada com sucesso!');
+      setOpenModal(false);
+      reset();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao cadastrar procuração.'));
+    }
+  };
+
+  const handleRevoke = async (id: string) => {
+    if (!window.confirm('Confirma a revogação desta procuração?')) return;
+    try {
+      await revokePoa.mutateAsync({ id, reason: 'Revogação manual pelo operador.' });
+      toast.success('Procuração revogada.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao revogar procuração.'));
+    }
+  };
+
+  if (isLoading) return <PageSpinner />;
 
   return (
     <FeatureGate feature="feature_powers_of_attorney">
@@ -127,25 +114,29 @@ export function PowersOfAttorneyPage() {
           subtitle="Gerencie as procurações digitais de todos os clientes."
           icon={<FileText className="h-5 w-5" />}
           actions={
-            <Link
-              to="/procuracoes/nova"
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-            >
+            <Button onClick={() => setOpenModal(true)} className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Nova procuração
-            </Link>
+            </Button>
           }
         />
 
-        {/* Alert vencidas */}
-        {expiredCount > 0 && (
+        {error && (
+          <WarningPanel
+            title="Módulo em implantação"
+            description="O módulo de procurações está sendo ativado. Estará disponível em breve."
+            variant="warning"
+          />
+        )}
+
+        {!error && expiredCount > 0 && (
           <WarningPanel
             title={`${expiredCount} procuração${expiredCount > 1 ? 'ões' : ''} vencida${expiredCount > 1 ? 's' : ''}`}
             description="Procurações vencidas bloqueiam consultas e-CAC, emissão de guias e caixa postal fiscal."
             variant="danger"
           />
         )}
-        {expiringSoon > 0 && (
+        {!error && expiringSoon > 0 && (
           <WarningPanel
             title={`${expiringSoon} procuração${expiringSoon > 1 ? 'ões' : ''} vencendo em 30 dias`}
             description="Renove antes do vencimento para evitar interrupção dos serviços."
@@ -155,10 +146,10 @@ export function PowersOfAttorneyPage() {
 
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MetricCard title="Ativas" value={activeCount} icon={<CheckCircle2 className="h-4 w-4" />} variant="success" />
-          <MetricCard title="Vencendo em 30d" value={expiringSoon} icon={<Clock className="h-4 w-4" />} variant="warning" />
-          <MetricCard title="Vencidas" value={expiredCount} icon={<AlertTriangle className="h-4 w-4" />} variant="danger" />
-          <MetricCard title="Pendentes" value={pendingCount} icon={<Clock className="h-4 w-4" />} variant="default" />
+          <MetricCard title="Ativas"          value={activeCount}   icon={<CheckCircle2 className="h-4 w-4" />} variant="success"  />
+          <MetricCard title="Vencendo em 30d" value={expiringSoon}  icon={<Clock         className="h-4 w-4" />} variant="warning"  />
+          <MetricCard title="Vencidas"        value={expiredCount}  icon={<AlertTriangle className="h-4 w-4" />} variant="danger"   />
+          <MetricCard title="Pendentes"       value={pendingCount}  icon={<Clock         className="h-4 w-4" />} variant="default"  />
         </div>
 
         {/* Filters */}
@@ -188,12 +179,9 @@ export function PowersOfAttorneyPage() {
             title="Nenhuma procuração encontrada"
             description="Cadastre procurações para habilitar consultas e-CAC e emissão de guias."
             action={
-              <Link
-                to="/procuracoes/nova"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-              >
+              <Button onClick={() => setOpenModal(true)}>
                 Cadastrar procuração
-              </Link>
+              </Button>
             }
           />
         ) : (
@@ -201,8 +189,7 @@ export function PowersOfAttorneyPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Cliente</th>
-                  <th className="hidden px-4 py-3 text-left text-xs font-semibold text-muted-foreground md:table-cell">Serviços</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Cliente / CNPJ</th>
                   <th className="hidden px-4 py-3 text-left text-xs font-semibold text-muted-foreground lg:table-cell">Provider</th>
                   <th className="hidden px-4 py-3 text-left text-xs font-semibold text-muted-foreground sm:table-cell">Validade</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
@@ -211,32 +198,23 @@ export function PowersOfAttorneyPage() {
               </thead>
               <tbody>
                 {filtered.map(pow => {
-                  const days = daysUntil(pow.validUntil);
+                  const days = daysUntil(pow.valid_until);
                   const expiring = pow.status === 'active' && days <= 30;
+                  const client = clients?.find(c => c.id === pow.client_id);
                   return (
                     <tr key={pow.id} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20">
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium text-foreground">{pow.clientName}</p>
-                          <p className="text-xs text-muted-foreground">{pow.cnpjGrantor}</p>
+                          <p className="font-medium text-foreground">{client?.name ?? pow.cnpj_grantor}</p>
+                          <p className="text-xs text-muted-foreground">{pow.cnpj_grantor}</p>
                           {pow.notes && <p className="text-xs text-orange-400 mt-0.5">{pow.notes}</p>}
-                        </div>
-                      </td>
-                      <td className="hidden px-4 py-3 md:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {pow.services.slice(0, 2).map(s => (
-                            <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{s}</span>
-                          ))}
-                          {pow.services.length > 2 && (
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">+{pow.services.length - 2}</span>
-                          )}
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-xs text-muted-foreground lg:table-cell">{pow.provider}</td>
                       <td className="hidden px-4 py-3 sm:table-cell">
                         <div>
                           <p className={cn('text-xs', expiring ? 'text-orange-400 font-semibold' : 'text-muted-foreground')}>
-                            {pow.validUntil === '—' ? '—' : new Date(pow.validUntil).toLocaleDateString('pt-BR')}
+                            {pow.valid_until ? new Date(pow.valid_until).toLocaleDateString('pt-BR') : '—'}
                           </p>
                           {expiring && <p className="text-[10px] text-orange-400/80">em {days} dias</p>}
                         </div>
@@ -244,17 +222,24 @@ export function PowersOfAttorneyPage() {
                       <td className="px-4 py-3"><StatusBadge status={pow.status} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
+                          {pow.status === 'active' && (
+                            <button
+                              onClick={() => handleRevoke(pow.id)}
+                              className="rounded-lg border border-red-500/30 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              Revogar
+                            </button>
+                          )}
                           {(pow.status === 'expired' || expiring) && (
-                            <button className="rounded-lg border border-orange-500/30 px-2.5 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/10 transition-colors">
+                            <button
+                              className="rounded-lg border border-orange-500/30 px-2.5 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/10 transition-colors"
+                              onClick={() => toast.info('Fluxo de renovação em breve.')}
+                            >
+                              <RefreshCw className="h-3 w-3 inline mr-1" />
                               Renovar
                             </button>
                           )}
-                          <Link
-                            to={`/procuracoes/${pow.id}`}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                       </td>
                     </tr>
@@ -265,6 +250,57 @@ export function PowersOfAttorneyPage() {
           </div>
         )}
       </div>
+
+      {/* New PoA Modal */}
+      <Dialog open={openModal} onClose={() => { setOpenModal(false); reset(); }} title="Nova Procuração">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <FormField label="Cliente" htmlFor="client_id">
+            <select
+              id="client_id"
+              {...register('client_id')}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Selecione o cliente...</option>
+              {clients?.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="CNPJ Outorgante" htmlFor="cnpj_grantor">
+              <Input id="cnpj_grantor" placeholder="00.000.000/0001-00" {...register('cnpj_grantor', { required: true })} />
+            </FormField>
+            <FormField label="CNPJ Outorgado" htmlFor="cnpj_attorney">
+              <Input id="cnpj_attorney" placeholder="00.000.000/0001-00" {...register('cnpj_attorney', { required: true })} />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Válida até" htmlFor="valid_until">
+              <Input type="date" id="valid_until" {...register('valid_until')} />
+            </FormField>
+            <FormField label="Provider" htmlFor="provider">
+              <Input id="provider" {...register('provider')} />
+            </FormField>
+          </div>
+
+          <FormField label="Observações" htmlFor="notes">
+            <Input id="notes" placeholder="Opcional..." {...register('notes')} />
+          </FormField>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => { setOpenModal(false); reset(); }}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : 'Cadastrar'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </FeatureGate>
   );
 }
+
+export default PowersOfAttorneyPage;

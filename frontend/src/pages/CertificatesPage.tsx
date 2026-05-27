@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { api, getApiErrorMessage } from '@/lib/api';
 import { Plus, Trash2, LayoutGrid, List, Search, Bell, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CertificateCard } from '@/components/ui/Card';
@@ -129,14 +130,24 @@ export function CertificatesPage() {
     }
   }
 
-  const handleWarnClient = (clientName: string, certLabel: string) => (e: React.MouseEvent) => {
+  const handleWarnClient = (
+    clientId: string,
+    clientName: string,
+    certLabel: string,
+    daysLeft: number,
+  ) => (e: React.MouseEvent) => {
     e.stopPropagation();
     toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1200)),
+      api.post('/api/v1/notifications/cert-expiry-warning', {
+        client_id: clientId,
+        client_name: clientName,
+        cert_label: certLabel,
+        days_until_expiry: daysLeft,
+      }),
       {
         loading: `Enviando aviso de vencimento para ${clientName}...`,
         success: `Aviso do certificado "${certLabel}" enviado com sucesso!`,
-        error: 'Erro ao enviar aviso.'
+        error: (err) => getApiErrorMessage(err, 'Erro ao enviar aviso.'),
       }
     );
   };
@@ -341,7 +352,7 @@ export function CertificatesPage() {
                   type={cert.certificate_type}
                   expiryDate={dateBR(cert.valid_until)}
                   daysRemaining={days}
-                  onWarnClient={handleWarnClient(clientName, cert.label)}
+                  onWarnClient={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                 />
                 <button
                   type="button"
@@ -407,7 +418,7 @@ export function CertificatesPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={handleWarnClient(clientName, cert.label)}
+                          onClick={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                           className="h-8 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 gap-1.5"
                           title="Avisar cliente por e-mail"
                         >

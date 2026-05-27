@@ -13,7 +13,8 @@ import { PageSpinner, EmptyState } from '@/components/ui/StateViews';
 import { Plus, Eye } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { useForm } from 'react-hook-form';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 type FormValues = {
@@ -41,6 +42,7 @@ export function GuiasListPage() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -55,19 +57,22 @@ export function GuiasListPage() {
   const onSubmit = async (data: FormValues) => {
     try {
       const parsedVal = parseCurrencyBRL(data.valor);
+      if (!parsedVal || parsedVal <= 0) {
+        toast.error('Informe um valor válido para a guia.');
+        return;
+      }
       await createGuide.mutateAsync({
         client_id: data.client_id,
         tipo: data.tipo,
         competencia: data.competencia,
         valor: parsedVal,
         vencimento: data.vencimento,
-        status: 'pendente',
       });
       toast.success('Guia cadastrada com sucesso!');
       setOpenModal(false);
+      reset();
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao cadastrar guia de imposto.');
+      toast.error(getApiErrorMessage(err, 'Erro ao cadastrar guia de imposto.'));
     }
   };
 

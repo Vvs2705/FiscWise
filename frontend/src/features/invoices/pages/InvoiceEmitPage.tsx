@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner, EmptyState } from '@/components/ui/StateViews';
 import { ArrowLeft, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export function InvoiceEmitPage() {
   const { id = '' } = useParams();

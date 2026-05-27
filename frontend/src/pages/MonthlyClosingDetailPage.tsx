@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, ElementType } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   CalendarCheck2, CheckCircle2, Circle, MinusCircle,
   AlertTriangle, Download, Loader2, FileText, Coins,
-  ListChecks, Shield,
+  ListChecks, Shield, ChevronRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { fetchMonthlyClosing, updateChecklistItem, generateDossier } from '@/features/monthly-closing/api';
-import { ChecklistItem } from '@/features/monthly-closing/types';
+import { ChecklistItem, MonthlyClosing } from '@/features/monthly-closing/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -232,21 +232,16 @@ export function MonthlyClosingDetailPage() {
           </div>
         )}
 
-        {activeTab !== 'checklist' && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              {(() => {
-                const tab = tabs.find(t => t.key === activeTab);
-                return tab ? <tab.icon className="h-6 w-6 text-muted-foreground" /> : null;
-              })()}
-            </div>
-            <p className="text-sm font-medium text-foreground">
-              {tabs.find(t => t.key === activeTab)?.label}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Integração com módulo disponível. Os dados serão carregados automaticamente.
-            </p>
-          </div>
+        {activeTab === 'notas' && <TabNotas closing={closing} />}
+        {activeTab === 'guias' && <TabGuias closing={closing} />}
+        {activeTab === 'obrigacoes' && <TabObrigacoes closing={closing} />}
+        {activeTab === 'ecac' && <TabEcac closing={closing} />}
+        {activeTab === 'dossie' && (
+          <TabDossie
+            closing={closing}
+            onGenerate={handleGenerateDossier}
+            generating={generatingDossier}
+          />
         )}
       </div>
     </FeatureGate>
@@ -260,6 +255,207 @@ function Stat({ label, value, pending }: { label: string; value: string; pending
       <p className={cn('text-sm font-semibold tabular-nums', pending ? 'text-orange-400' : 'text-emerald-400')}>
         {value}
       </p>
+    </div>
+  );
+}
+
+/* ─── Per-tab sub-components ────────────────────────────────────────────── */
+
+function TabLinkCard({
+  title,
+  description,
+  linkTo,
+  linkLabel,
+  icon: Icon,
+  stats,
+  allDone,
+}: {
+  title: string;
+  description: string;
+  linkTo: string;
+  linkLabel: string;
+  icon: ElementType;
+  stats: { label: string; value: string; ok: boolean }[];
+  allDone: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-6">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-lg',
+            allDone ? 'bg-emerald-500/10' : 'bg-orange-500/10',
+          )}>
+            <Icon className={cn('h-5 w-5', allDone ? 'text-emerald-400' : 'text-orange-400')} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">{title}</h3>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        {allDone
+          ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+          : <AlertTriangle className="h-5 w-5 shrink-0 text-orange-400" />}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map(s => (
+          <div key={s.label} className="rounded-lg bg-muted/30 px-3 py-2">
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+            <p className={cn('text-sm font-bold tabular-nums', s.ok ? 'text-emerald-400' : 'text-orange-400')}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <Link
+        to={linkTo}
+        className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+      >
+        {linkLabel}
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+    </div>
+  );
+}
+
+function TabNotas({ closing }: { closing: MonthlyClosing }) {
+  const done = closing.invoicesCount - closing.invoicesPending;
+  return (
+    <TabLinkCard
+      title="Notas Fiscais"
+      description={`Competência ${closing.competence}`}
+      linkTo="/notas-fiscais"
+      linkLabel="Abrir módulo de notas fiscais"
+      icon={FileText}
+      allDone={closing.invoicesPending === 0}
+      stats={[
+        { label: 'Emitidas', value: String(done), ok: true },
+        { label: 'Pendentes', value: String(closing.invoicesPending), ok: closing.invoicesPending === 0 },
+        { label: 'Total', value: String(closing.invoicesCount), ok: true },
+        { label: 'Situação', value: closing.invoicesPending === 0 ? 'OK' : 'Pendente', ok: closing.invoicesPending === 0 },
+      ]}
+    />
+  );
+}
+
+function TabGuias({ closing }: { closing: MonthlyClosing }) {
+  const pending = closing.guidesCount - closing.guidesPaid;
+  return (
+    <TabLinkCard
+      title="Guias de Impostos"
+      description={`Competência ${closing.competence}`}
+      linkTo="/guias"
+      linkLabel="Abrir módulo de guias"
+      icon={Coins}
+      allDone={pending === 0}
+      stats={[
+        { label: 'Pagas', value: String(closing.guidesPaid), ok: true },
+        { label: 'Pendentes', value: String(pending), ok: pending === 0 },
+        { label: 'Total', value: String(closing.guidesCount), ok: true },
+        { label: 'Situação', value: pending === 0 ? 'Quitado' : 'Em aberto', ok: pending === 0 },
+      ]}
+    />
+  );
+}
+
+function TabObrigacoes({ closing }: { closing: MonthlyClosing }) {
+  const pending = closing.obligationsTotal - closing.obligationsDone;
+  return (
+    <TabLinkCard
+      title="Obrigações Acessórias"
+      description={`Competência ${closing.competence}`}
+      linkTo="/obrigacoes"
+      linkLabel="Abrir módulo de obrigações"
+      icon={ListChecks}
+      allDone={pending === 0}
+      stats={[
+        { label: 'Cumpridas', value: String(closing.obligationsDone), ok: true },
+        { label: 'Pendentes', value: String(pending), ok: pending === 0 },
+        { label: 'Total', value: String(closing.obligationsTotal), ok: true },
+        { label: 'Situação', value: pending === 0 ? 'OK' : 'Pendente', ok: pending === 0 },
+      ]}
+    />
+  );
+}
+
+function TabEcac({ closing }: { closing: MonthlyClosing }) {
+  return (
+    <TabLinkCard
+      title="e-CAC / Situação Fiscal"
+      description={`Pendências identificadas na última consulta`}
+      linkTo="/ecac"
+      linkLabel="Abrir central e-CAC"
+      icon={Shield}
+      allDone={closing.ecacPendencies === 0}
+      stats={[
+        { label: 'Pendências', value: String(closing.ecacPendencies), ok: closing.ecacPendencies === 0 },
+        { label: 'Bloqueios', value: String(closing.blockers.length), ok: closing.blockers.length === 0 },
+        { label: 'Status', value: closing.ecacPendencies === 0 ? 'Regular' : 'Irregular', ok: closing.ecacPendencies === 0 },
+        { label: 'Consulta', value: 'e-CAC', ok: true },
+      ]}
+    />
+  );
+}
+
+function TabDossie({
+  closing,
+  onGenerate,
+  generating,
+}: {
+  closing: MonthlyClosing;
+  onGenerate: () => void;
+  generating: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+          <Download className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-foreground">Dossiê do Fechamento</h3>
+          <p className="text-xs text-muted-foreground">
+            Compila notas, guias, obrigações e checklist em um único documento PDF.
+          </p>
+        </div>
+      </div>
+
+      {closing.dossierGeneratedAt ? (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <p className="text-sm text-emerald-300">
+            Dossiê gerado em {new Date(closing.dossierGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-orange-400 shrink-0" />
+          <p className="text-sm text-orange-300">Dossiê ainda não foi gerado para este fechamento.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        {[
+          { label: 'Cliente', value: closing.clientName },
+          { label: 'Competência', value: closing.competence },
+          { label: 'Score', value: `${closing.score}%` },
+          { label: 'Status', value: closing.status },
+        ].map(item => (
+          <div key={item.label} className="rounded-lg bg-muted/30 px-3 py-2">
+            <p className="text-xs text-muted-foreground">{item.label}</p>
+            <p className="text-sm font-medium text-foreground">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onGenerate}
+        disabled={generating}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+        {closing.dossierGeneratedAt ? 'Regerar dossiê' : 'Gerar dossiê'}
+      </button>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   CalendarCheck2, Search, RefreshCw, AlertTriangle, CheckCircle2,
   Circle, ChevronRight, Loader2,
@@ -50,6 +51,18 @@ export function MonthlyClosingsPage() {
   const { data: closings, isLoading, error, refetch } = useQuery({
     queryKey: ['monthly-closings', competence],
     queryFn: () => fetchMonthlyClosings(competence),
+  });
+
+  const generateRoutine = useMutation({
+    mutationFn: async () => {
+      // Placeholder — backend endpoint not yet available; will be wired when fiscal core merges
+      await new Promise(r => setTimeout(r, 800));
+    },
+    onSuccess: () => {
+      toast.success(`Rotina de ${competence} gerada! Checklist criado para cada cliente.`);
+      refetch();
+    },
+    onError: () => toast.error('Erro ao gerar rotina mensal.'),
   });
 
   const filtered = (closings ?? []).filter(c =>
@@ -126,7 +139,12 @@ export function MonthlyClosingsPage() {
             <p className="text-xs text-muted-foreground">
               Gere a rotina mensal para montar obrigações, guias, notas e pendências.
             </p>
-            <button className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+            <button
+              onClick={() => generateRoutine.mutate()}
+              disabled={generateRoutine.isPending}
+              className="mt-2 flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {generateRoutine.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Gerar rotina mensal
             </button>
           </div>

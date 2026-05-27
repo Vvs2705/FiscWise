@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Save } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface IssuerProfileFormProps {
   onSuccess?: () => void;
@@ -57,8 +57,7 @@ export function IssuerProfileForm({ onSuccess }: IssuerProfileFormProps) {
       toast.success('Perfil emissor configurado com sucesso!');
       onSuccess?.();
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao salvar perfil emissor.');
+      toast.error(getApiErrorMessage(err, 'Erro ao salvar perfil emissor.'));
     }
   };
 

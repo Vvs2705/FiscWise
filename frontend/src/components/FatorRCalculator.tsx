@@ -12,7 +12,7 @@ import {
   Upload,
 } from 'lucide-react';
 import readXlsxFile from 'read-excel-file';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
 // ---------------------------------------------------------------------------

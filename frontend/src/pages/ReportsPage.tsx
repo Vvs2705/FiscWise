@@ -9,6 +9,7 @@ import { MetricCard } from '@/components/ui/OperationalStates';
 import { PermissionGate } from '@/components/ui/PermissionGate';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Mock BI data
 const REPORTS = [
@@ -116,7 +117,10 @@ export function ReportsPage() {
                 <option value="2026-04">Abril/2026</option>
                 <option value="2026-03">Março/2026</option>
               </select>
-              <button className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
+              <button
+                onClick={() => toast.info('Exportação XLSX disponível em breve.')}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+              >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Exportar XLSX</span>
               </button>
@@ -162,6 +166,7 @@ function ReportCard({ report }: { report: typeof REPORTS[number] }) {
           <p className="text-xs text-muted-foreground">{report.description}</p>
         </div>
         <button
+          onClick={() => toast.info(`Exportando "${report.title}" em CSV...`)}
           className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           title="Exportar CSV"
         >
@@ -192,7 +197,12 @@ function ReportCard({ report }: { report: typeof REPORTS[number] }) {
 
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
         <span className="text-xs text-muted-foreground">Total: <strong className="text-foreground">{report.total}</strong></span>
-        <button className="text-xs text-primary hover:underline">Ver detalhes →</button>
+        <button
+          onClick={() => toast.info(`Detalhamento de "${report.title}" em breve.`)}
+          className="text-xs text-primary hover:underline"
+        >
+          Ver detalhes →
+        </button>
       </div>
     </div>
   );

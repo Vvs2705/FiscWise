@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   User,
   Building2,
@@ -44,6 +44,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -177,7 +178,7 @@ export function SettingsPage() {
   useEffect(() => {
     fetchTenant()
       .then(setTenant)
-      .catch(() => {/* tenant fetch fails silently if backend not yet updated */})
+      .catch((err) => toast.error(getApiErrorMessage(err, 'Erro ao carregar dados da empresa.')))
       .finally(() => setLoadingTenant(false));
   }, []);
 
@@ -819,13 +820,16 @@ function TwoFactorCard() {
   useEffect(() => {
     get2FAStatus()
       .then(setStatus)
-      .catch(() => {})
+      .catch((err) => toast.error(getApiErrorMessage(err, 'Erro ao carregar status 2FA.')))
       .finally(() => setLoadingStatus(false));
   }, []);
 
   const refresh = () => {
     setLoadingStatus(true);
-    get2FAStatus().then(setStatus).catch(() => {}).finally(() => setLoadingStatus(false));
+    get2FAStatus()
+      .then(setStatus)
+      .catch((err) => toast.error(getApiErrorMessage(err, 'Erro ao carregar status 2FA.')))
+      .finally(() => setLoadingStatus(false));
   };
 
   const startSetupTotp = async () => {

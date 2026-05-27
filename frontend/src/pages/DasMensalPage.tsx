@@ -4,7 +4,8 @@ import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
 import {
   Trash2,
   CheckCircle2,
@@ -210,13 +211,9 @@ export function DasMensalPage() {
 
       toast.success('DAS cadastrado com sucesso!');
       setOpenModal(false);
-    } catch (err: unknown) {
-      console.error(err);
-      const detail =
-        typeof err === 'object' && err !== null && 'response' in err
-          ? (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
-          : undefined;
-      toast.error(typeof detail === 'string' ? detail : 'Erro ao salvar DAS.');
+      reset();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao salvar DAS.'));
     }
   };
 
@@ -225,8 +222,7 @@ export function DasMensalPage() {
       await payDas.mutateAsync(dasId);
       toast.success('DAS marcado como pago!');
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao atualizar DAS.');
+      toast.error(getApiErrorMessage(err, 'Erro ao atualizar DAS.'));
     }
   };
 
@@ -236,8 +232,7 @@ export function DasMensalPage() {
       await deleteDas.mutateAsync(dasId);
       toast.success('Lançamento de DAS removido.');
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao remover DAS.');
+      toast.error(getApiErrorMessage(err, 'Erro ao remover DAS.'));
     }
   };
 

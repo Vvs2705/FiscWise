@@ -19,7 +19,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { invoicesService } from '../services/invoices.service';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export function InvoiceDetailPage() {
   const { id = '' } = useParams();

@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '@/lib/api';
 import { useState } from 'react';
 import { useProxies, useCreateProxy, useExpiringProxies, useUpdateProxy } from '../hooks/useEcac';
 import { ProxyStatusBadge } from '../components/ProxyStatusBadge';
@@ -13,7 +14,7 @@ import { PageSpinner } from '@/components/ui/StateViews';
 import { Plus } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { useForm } from 'react-hook-form';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 type FormValues = {
   client_id: string;
@@ -82,8 +83,7 @@ export function ProxiesListPage() {
       toast.success('Procuração cadastrada com sucesso!');
       setOpenModal(false);
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao cadastrar procuração.');
+      toast.error(getApiErrorMessage(err, 'Erro ao cadastrar procuração.'));
     }
   };
 

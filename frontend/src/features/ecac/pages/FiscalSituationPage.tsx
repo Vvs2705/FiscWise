@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiscalSituationCard } from '../components/FiscalSituationCard';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
@@ -8,10 +8,12 @@ export function FiscalSituationPage() {
   const { data: clients } = useClients();
   const [selectedClientId, setSelectedClientId] = useState('');
 
-  // Auto-select first client
-  if (!selectedClientId && clients && clients.length > 0) {
-    setSelectedClientId(clients[0].id);
-  }
+  // Auto-select first client when data loads
+  useEffect(() => {
+    if (!selectedClientId && clients && clients.length > 0) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
 
   return (
     <div className="space-y-6">

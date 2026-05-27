@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
 type FormValues = {
@@ -108,8 +108,7 @@ export function InvoiceNewPage() {
       toast.success('Rascunho de nota fiscal criado com sucesso!');
       navigate(`/notas-fiscais/${response.id}`);
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao gerar nota fiscal.');
+      toast.error(getApiErrorMessage(err, 'Erro ao gerar nota fiscal.'));
     }
   };
 

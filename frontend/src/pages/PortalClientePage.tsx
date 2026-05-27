@@ -75,7 +75,10 @@ export function PortalClientePage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary">Modo preview</span>
-            <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => toast.info('Link do portal do cliente disponível em breve.')}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Eye className="h-3.5 w-3.5" />
               Ver link do portal
             </button>
@@ -189,9 +192,19 @@ export function PortalClientePage() {
                     {guide.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </p>
                   <div className="mt-1 flex gap-2 justify-end">
-                    <button className="text-xs text-primary hover:underline">Baixar guia</button>
+                    <button
+                      onClick={() => toast.info('Download da guia disponível em breve.')}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Baixar guia
+                    </button>
                     {guide.status !== 'paid' && (
-                      <button className="text-xs text-primary hover:underline">Anexar comprovante</button>
+                      <button
+                        onClick={() => toast.info('Envio de comprovante disponível em breve.')}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Anexar comprovante
+                      </button>
                     )}
                   </div>
                 </div>
@@ -213,7 +226,10 @@ export function PortalClientePage() {
                     Prazo: {new Date(p.deadline).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
-                <button className="rounded-lg bg-orange-600/20 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-600/30 transition-colors">
+                <button
+                  onClick={() => toast.info(`Resolução de "${p.title}" disponível em breve.`)}
+                  className="rounded-lg bg-orange-600/20 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-600/30 transition-colors"
+                >
                   Resolver
                 </button>
               </div>

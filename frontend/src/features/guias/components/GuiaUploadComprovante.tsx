@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useUploadComprovante } from '../hooks/useGuias';
 import { Button } from '@/components/ui/Button';
 import { Upload } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface GuiaUploadComprovanteProps {
   guideId: string;

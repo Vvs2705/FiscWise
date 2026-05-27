@@ -8,7 +8,7 @@ import { PageSpinner, EmptyState } from '@/components/ui/StateViews';
 import { ArrowLeft, FileText, Download, CheckCircle, Upload } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { guiasService } from '../services/guias.service';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export function GuiaDetailPage() {
   const { id = '' } = useParams();

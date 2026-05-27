@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { invoicesService } from '../services/invoices.service';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export function InvoicesListPage() {
   const navigate = useNavigate();

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useFiscalSituation, useRefreshFiscalSituation } from '../hooks/useEcac';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface FiscalSituationCardProps {
   clientId: string;

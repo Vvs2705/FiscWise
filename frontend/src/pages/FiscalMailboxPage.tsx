@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Search, RefreshCw, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge, RiskBadge } from '@/components/ui/StatusBadge';
 import { EmptyState, ErrorState, SkeletonTable } from '@/components/ui/OperationalStates';
@@ -181,14 +180,13 @@ export function FiscalMailboxPage() {
                     <td className="px-4 py-3"><StatusBadge status={msg.status} /></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to={`/caixa-postal-fiscal/${msg.id}`}
-                          onClick={e => e.stopPropagation()}
+                        <button
+                          onClick={e => { e.stopPropagation(); setSelected(msg); }}
                           className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title="Ver detalhes"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
-                        </Link>
+                        </button>
                         {msg.status !== 'resolved' && (
                           <button
                             onClick={e => { e.stopPropagation(); resolveMutation.mutate(msg.id); }}
@@ -252,13 +250,16 @@ export function FiscalMailboxPage() {
                     Marcar resolvida
                   </button>
                 )}
-                <Link
-                  to={`/caixa-postal-fiscal/${selected.id}`}
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(selected.id);
+                    toast.info('ID da mensagem copiado.');
+                  }}
                   className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Ver página completa
-                </Link>
+                  Copiar ID
+                </button>
                 <button
                   onClick={() => setSelected(null)}
                   className="ml-auto rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"

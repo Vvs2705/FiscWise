@@ -213,11 +213,14 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 200
     TOP_K_RESULTS: int = 5
     EMBEDDING_DIMENSIONS: int = 1024
-    
+
     @property
     def allowed_origins_list(self) -> List[str]:
-        """Parse ALLOWED_ORIGINS into a list."""
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+        """Parse ALLOWED_ORIGINS into a list, stripping localhost/127.0.0.1 in staging/production."""
+        origins = [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+        if self.ENVIRONMENT in {"production", "staging"}:
+            origins = [o for o in origins if "localhost" not in o and "127.0.0.1" not in o]
+        return origins
     
     model_config = ConfigDict(
         env_file=".env",

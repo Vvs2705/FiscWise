@@ -88,10 +88,10 @@ def get_url():
         "DATABASE_URL",
         "postgresql+asyncpg://fiscwise:fiscwise_dev_2026@localhost:5432/fiscwise_db"
     )
-    logger.info(f"DATABASE_URL loaded from environment: {database_url[:50]}...")
+    logger.info("DATABASE_URL loaded from environment")
     try:
         sanitized = _sanitize_database_url(database_url)
-        logger.info(f"Sanitized URL: {sanitized[:50]}...")
+        logger.info("Sanitized database URL successfully")
         return sanitized
     except Exception as e:
         logger.error(f"Error sanitizing DATABASE_URL: {e}", exc_info=True)

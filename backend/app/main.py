@@ -23,6 +23,8 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 
+from sqlalchemy import text
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -69,7 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         missing_secrets.append("DATABASE_URL")
     else:
-        logger.info("DATABASE_URL: %s...", settings.DATABASE_URL[:40])
+        logger.info("DATABASE_URL: configured")
 
     if not settings.JWT_SECRET_KEY:
         logger.critical(
@@ -79,15 +81,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         missing_secrets.append("JWT_SECRET_KEY")
     else:
-        logger.info("JWT_SECRET_KEY: configured (length=%d)", len(settings.JWT_SECRET_KEY))
+        logger.info("JWT_SECRET_KEY: configured")
 
     if missing_secrets:
-        logger.critical(
-            "STARTUP WARNING: %d required secret(s) are missing: %s. "
-            "The /api/v1/health endpoint is still healthy but DB/auth endpoints will return 500.",
-            len(missing_secrets),
-            ", ".join(missing_secrets),
-        )
+        message = f"STARTUP CRITICAL: Required secrets are missing: {', '.join(missing_secrets)}"
+        logger.critical(message)
+        if settings.ENVIRONMENT in {"production", "staging"}:
+            logger.critical("Failing closed: startup aborted.")
+            raise RuntimeError(message)
     else:
         logger.info("All required secrets are present.")
 
@@ -105,13 +106,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 # Initialize FastAPI application
+show_docs = settings.ENVIRONMENT not in {"production", "staging"}
+
 app = FastAPI(
     title="FiscWise API",
     description="Production-grade B2B SaaS platform for Brazilian accounting and financial services",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if show_docs else None,
+    redoc_url="/redoc" if show_docs else None,
+    openapi_url="/openapi.json" if show_docs else None,
     lifespan=lifespan,
 )
 
@@ -148,6 +151,42 @@ async def health_check():
     )
 
 
+@app.get("/live", tags=["Health"])
+async def live_check():
+    """
+    Liveness probe.
+    
+    Returns basic status to indicate the container is running.
+    """
+    return JSONResponse(
+        status_code=200,
+        content={"status": "alive"}
+    )
+
+
+@app.get("/ready", tags=["Health"])
+async def ready_check():
+    """
+    Readiness probe.
+    
+    Verifies that the service is ready to accept requests by querying database.
+    """
+    try:
+        session_factory = get_sessionmaker()
+        async with session_factory() as db:
+            await db.execute(text("SELECT 1"))
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ready"}
+        )
+    except Exception as e:
+        logger.error("Readiness probe failed: %s", str(e))
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "error": "Database disconnected"}
+        )
+
+
 @app.get("/", tags=["Root"])
 async def root():
     """
@@ -155,13 +194,16 @@ async def root():
 
     Returns basic API information.
     """
-    return {
+    show_docs = settings.ENVIRONMENT not in {"production", "staging"}
+    info = {
         "name": "FiscWise API",
         "version": "1.0.0",
         "status": "operational",
-        "docs": "/docs",
-        "redoc": "/redoc"
     }
+    if show_docs:
+        info["docs"] = "/docs"
+        info["redoc"] = "/redoc"
+    return info
 
 
 if __name__ == "__main__":

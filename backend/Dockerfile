@@ -31,12 +31,19 @@ RUN pip install --upgrade pip && \
 # Copy application code from backend/ subdirectory into WORKDIR
 COPY backend/ .
 
+# Create a non-privileged user and group, set ownership
+RUN groupadd -r fiscwise && useradd -r -g fiscwise fiscwise && \
+    chown -R fiscwise:fiscwise /app
+
+# Switch to non-root user
+USER fiscwise
+
 # Expose port
 EXPOSE 8000
 
 # Health check — start-period gives time for migrations + uvicorn boot
 HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
-    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+    CMD curl -f http://localhost:8000/live || exit 1
 
 # Startup: uvicorn starts immediately.
 # Database migrations are run via Fly.io release_command (fly.toml [deploy])

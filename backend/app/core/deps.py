@@ -83,7 +83,7 @@ def _get_engine():
         if db_url != settings.DATABASE_URL:
             logger.info("Converted DATABASE_URL from postgres to postgresql+asyncpg with SSL params")
 
-        logger.info("Creating database engine for %s...", db_url[:40])
+        logger.info("Creating database engine")
         _engine = create_async_engine(
             db_url,
             echo=False,

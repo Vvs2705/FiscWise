@@ -13,6 +13,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
 import { toast } from 'sonner';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api';
 
 type FormValues = {
   issuer_id: string;

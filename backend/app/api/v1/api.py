@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias, fiscal_mailbox
 
 
 # Create main API router for v1
@@ -155,6 +155,12 @@ api_router.include_router(
 api_router.include_router(
     guias.router,
     tags=["Guias de Impostos"]
+)
+
+# Include Fiscal Mailbox (e-CAC / DTE) endpoints
+api_router.include_router(
+    fiscal_mailbox.router,
+    tags=["Fiscal Mailbox"]
 )
 
 

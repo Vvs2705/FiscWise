@@ -10,6 +10,7 @@ import { Toaster } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { CommandMenu } from '@/components/ui/CommandMenu';
+import { RouteTitle } from '@/lib/RouteTitle';
 
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -105,6 +106,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <RouteTitle />
           <CommandMenu />
           <Suspense fallback={<PageLoader />}>
             <Routes>

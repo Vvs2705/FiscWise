@@ -33,6 +33,7 @@ from app.models.api_webhooks import TenantApiKey, WebhookSubscription, WebhookDe
 from app.domain.invoices.models import InvoiceIssuer, Invoice, InvoiceEvent, InvoiceRejection
 from app.domain.ecac.models import EcacProxy, EcacFiscalSituation
 from app.domain.guias.models import TaxGuide
+from app.domain.fiscal_mailbox.models import FiscalMailboxMessage
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -73,4 +74,5 @@ __all__ = [
     "EcacProxy",
     "EcacFiscalSituation",
     "TaxGuide",
+    "FiscalMailboxMessage",
 ]

@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge, RiskBadge } from '@/components/ui/StatusBadge';
 import { EmptyState, ErrorState, SkeletonTable } from '@/components/ui/OperationalStates';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMailboxMessages, markMessageResolved } from '@/features/fiscal-mailbox/api';
+import { fetchMailboxMessages, markMessageResolved, syncMailboxMessages } from '@/features/fiscal-mailbox/api';
 import { MailboxMessage } from '@/features/fiscal-mailbox/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -49,6 +49,19 @@ export function FiscalMailboxPage() {
     onError: () => toast.error('Erro ao marcar como resolvida'),
   });
 
+  const syncMutation = useMutation({
+    mutationFn: syncMailboxMessages,
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['fiscal-mailbox'] });
+      toast.success(
+        r.created > 0
+          ? `${r.created} nova${r.created > 1 ? 's' : ''} mensagem${r.created > 1 ? 'ns' : ''} sincronizada${r.created > 1 ? 's' : ''}`
+          : 'Caixa postal já está atualizada',
+      );
+    },
+    onError: () => toast.error('Erro ao sincronizar a caixa postal'),
+  });
+
   const filtered = (messages ?? []).filter(m =>
     !search ||
     m.subject.toLowerCase().includes(search.toLowerCase()) ||
@@ -68,11 +81,14 @@ export function FiscalMailboxPage() {
           breadcrumb={[{ label: 'Caixa Postal Fiscal' }]}
           actions={
             <button
-              onClick={() => refetch()}
-              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              type="button"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              aria-label="Sincronizar caixa postal fiscal"
+              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
             >
-              <RefreshCw className="h-4 w-4" />
-              <span className="hidden sm:inline">Sincronizar</span>
+              <RefreshCw className={cn('h-4 w-4', syncMutation.isPending && 'animate-spin')} />
+              <span className="hidden sm:inline">{syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}</span>
             </button>
           }
         />

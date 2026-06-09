@@ -20,6 +20,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from app.core.config import settings
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.deps import get_sessionmaker
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -118,7 +119,36 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration
+# ── Middleware stack ───────────────────────────────────────────────────────
+# Starlette executes the LAST-added middleware as the OUTERMOST layer.
+# Therefore the order of `add_middleware` calls below is intentional:
+#   request flow  →  CORS → RateLimit → Tenant → route
+#   response flow →  route → Tenant → RateLimit → CORS
+#
+# CORSMiddleware MUST be the outermost layer (added LAST) so that EVERY
+# response — including error responses produced by the inner Tenant (400)
+# and RateLimit (429/503) middlewares — carries the Access-Control-Allow-Origin
+# header. If CORS were inner, those error responses would reach the browser
+# without CORS headers and surface as a misleading "CORS policy / ERR_FAILED"
+# network error instead of the real status. That class of failure is exactly
+# what made login appear broken in production (see CORRECOES.md C1).
+
+# Tenant Isolation Middleware (innermost custom layer)
+app.add_middleware(TenantMiddleware)
+
+# Rate limiting middleware. In strict mode, protected routes fail closed without Redis.
+app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
+
+# CORS Configuration — added LAST on purpose so it is the OUTERMOST middleware.
+if settings.ENVIRONMENT in {"production", "staging"} and not settings.allowed_origins_list:
+    logger.critical(
+        "ALLOWED_ORIGINS resolves to an EMPTY list in environment=%s. Every "
+        "browser request from the frontend will be blocked by CORS (no "
+        "Access-Control-Allow-Origin header). Set ALLOWED_ORIGINS to the "
+        "frontend domain(s), e.g. https://www.fiscwise.com.br",
+        settings.ENVIRONMENT,
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
@@ -126,12 +156,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Tenant Isolation Middleware
-app.add_middleware(TenantMiddleware)
-
-# Rate limiting middleware. In strict mode, protected routes fail closed without Redis.
-app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL or None)
 
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")

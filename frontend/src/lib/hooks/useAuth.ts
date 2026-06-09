@@ -12,12 +12,45 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { getApiErrorMessage } from '@/lib/api';
 
-function getErrorMessage(error: unknown, fallback: string) {
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
-    return typeof detail === 'string' ? detail : fallback;
+/**
+ * Resolve a user-friendly auth error message while distinguishing failure
+ * classes so the user gets actionable feedback instead of a silent dead-end
+ * (see CORRECOES.md C2):
+ *   - network / CORS failure (no HTTP response reached the browser)
+ *   - 5xx server error
+ *   - 401 invalid credentials
+ *   - other API errors (uses the `detail` returned by the backend)
+ *
+ * The real error is always logged so it shows up in the browser console and
+ * any monitoring (Sentry) for diagnosis.
+ */
+function getAuthErrorMessage(error: unknown, fallback: string): string {
+  // Always log the underlying error for diagnostics.
+  console.error('[auth] login failed:', error);
+
+  if (axios.isAxiosError(error)) {
+    // No response → request never completed (network down, CORS, DNS, timeout).
+    if (!error.response) {
+      return 'Não foi possível entrar. Verifique sua conexão e tente novamente.';
+    }
+
+    const status = error.response.status;
+
+    if (status === 401) {
+      // Prefer the backend message when present, fall back to a clear default.
+      return getApiErrorMessage(error, 'E-mail ou senha incorretos.');
+    }
+
+    if (status >= 500) {
+      return 'Nossos servidores estão instáveis no momento. Tente novamente em instantes.';
+    }
+
+    return getApiErrorMessage(error, fallback);
   }
+
   return fallback;
 }
 
@@ -46,7 +79,7 @@ export function useAuth() {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao fazer login');
+      const message = getAuthErrorMessage(error, 'Erro ao fazer login');
       toast.error(message);
       throw error;
     } finally {
@@ -62,7 +95,7 @@ export function useAuth() {
       toast.success('Conta criada com sucesso!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao criar conta');
+      const message = getAuthErrorMessage(error, 'Erro ao criar conta');
       toast.error(message);
       throw error;
     } finally {
@@ -84,7 +117,7 @@ export function useAuth() {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao entrar com Google');
+      const message = getAuthErrorMessage(error, 'Erro ao entrar com Google');
       toast.error(message);
       throw error;
     } finally {
@@ -103,7 +136,7 @@ export function useAuth() {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Código inválido. Tente novamente.');
+      const message = getAuthErrorMessage(error, 'Código inválido. Tente novamente.');
       toast.error(message);
       throw error;
     } finally {

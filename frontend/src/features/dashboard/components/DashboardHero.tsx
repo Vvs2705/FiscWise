@@ -40,7 +40,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => startTour('dashboard', navigate, '/dashboard')}
+            onClick={() => startTour('dashboard', navigate, '/painel')}
             className="inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/10 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:-translate-y-0.5 hover:bg-teal-500/20 dark:text-teal-300"
           >
             <BookOpen className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
 
           <button
             type="button"
-            onClick={() => navigate('/agenda-prazos')}
+            onClick={() => navigate('/obrigacoes')}
             className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
           >
             <Calendar className="h-4 w-4" />
@@ -103,7 +103,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
 
           <button
             type="button"
-            onClick={() => navigate('/das-mensal')}
+            onClick={() => navigate('/guias')}
             className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
           >
             <Receipt className="h-4 w-4" />

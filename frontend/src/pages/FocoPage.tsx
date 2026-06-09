@@ -150,7 +150,9 @@ export function FocoPage() {
           icon={<Target className="h-5 w-5" />}
           actions={
             <button
+              type="button"
               onClick={handleRefresh}
+              aria-label="Atualizar lista de foco"
               className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
@@ -197,9 +199,11 @@ export function FocoPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
+            type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por título ou cliente..."
+            aria-label="Buscar itens de foco por título ou cliente"
             className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>

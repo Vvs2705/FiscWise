@@ -20,8 +20,10 @@ def test_root_probes_are_public_without_tenant_header(client):
     ready_response = client.get("/ready")
 
     assert live_response.status_code == 200
-    assert ready_response.status_code != 400
-    assert ready_response.json().get("error_code") != "TENANT_ID_REQUIRED"
+    # Must pass the tenant middleware (not 400) AND the endpoint itself must not
+    # blow up (guards the get_sessionmaker NameError regression that returned 503).
+    assert ready_response.status_code == 200
+    assert ready_response.json().get("status") == "ready"
 
 
 def test_protected_route_requires_tenant_header(client):

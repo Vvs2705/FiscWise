@@ -20,6 +20,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from app.core.config import settings
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.deps import get_sessionmaker
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 

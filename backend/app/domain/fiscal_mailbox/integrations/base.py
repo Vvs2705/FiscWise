@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
 
+class ProviderNotConfiguredError(RuntimeError):
+    """Raised when the configured fiscal mailbox provider is missing credentials."""
+
+
 class FiscalMailboxProvider(ABC):
     """Provider that fetches fiscal mailbox (e-CAC / DTE) messages for a tenant.
 

@@ -102,6 +102,22 @@ export async function generateDossier(closingId: string): Promise<{ url: string 
   return { url: data.url ?? '' };
 }
 
+/** Download the dossier PDF through the authenticated client (the endpoint
+ * requires the Authorization/X-Tenant-ID headers, so a plain <a href> won't work). */
+export async function downloadDossierPdf(closingId: string, fileName?: string): Promise<void> {
+  const { data } = await api.get<Blob>(`/api/v1/monthly-closing/${closingId}/dossier.pdf`, {
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName ?? `dossie-${closingId}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 /** Create the closing pipeline for every active client in a competence. */
 export async function generateMonthlyClosings(
   competence: string,

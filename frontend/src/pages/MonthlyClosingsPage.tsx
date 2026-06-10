@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { MetricCard } from '@/components/ui/OperationalStates';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMonthlyClosings } from '@/features/monthly-closing/api';
+import { fetchMonthlyClosings, generateMonthlyClosings } from '@/features/monthly-closing/api';
 import { MonthlyClosing } from '@/features/monthly-closing/types';
 import { cn } from '@/lib/utils';
 
@@ -54,12 +54,13 @@ export function MonthlyClosingsPage() {
   });
 
   const generateRoutine = useMutation({
-    mutationFn: async () => {
-      // Placeholder — backend endpoint not yet available; will be wired when fiscal core merges
-      await new Promise(r => setTimeout(r, 800));
-    },
-    onSuccess: () => {
-      toast.success(`Rotina de ${competence} gerada! Checklist criado para cada cliente.`);
+    mutationFn: () => generateMonthlyClosings(competence),
+    onSuccess: (r) => {
+      toast.success(
+        r.created > 0
+          ? `Rotina de ${competence} gerada: ${r.created} cliente${r.created > 1 ? 's' : ''} com checklist criado.`
+          : 'Todos os clientes já têm fechamento nesta competência.',
+      );
       refetch();
     },
     onError: () => toast.error('Erro ao gerar rotina mensal.'),

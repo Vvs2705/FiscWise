@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Target, AlertTriangle, Clock, Calendar, Users, Building2,
-  FileText, Search, RefreshCw, Zap,
-  ChevronRight,
+  FileText, Search, RefreshCw, Zap, ChevronRight, Loader2,
+  ListChecks, Coins, ShieldCheck, FolderKanban, CalendarCheck2, Fingerprint,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { MetricCard } from '@/components/ui/OperationalStates';
@@ -11,95 +12,7 @@ import { FeatureGate } from '@/components/ui/FeatureGate';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-
-// Mock focus items
-type FocusGroup = 'critical' | 'today' | 'week' | 'waiting_client' | 'waiting_organ';
-type FocusItemType = 'obligation' | 'invoice' | 'guide' | 'ecac' | 'document' | 'closing' | 'certificate' | 'power';
-
-interface FocusItem {
-  id: string;
-  group: FocusGroup;
-  type: FocusItemType;
-  title: string;
-  client: string;
-  competence: string;
-  deadline: string;
-  risk: 'critical' | 'high' | 'medium' | 'low';
-  status: string;
-  responsible: string;
-  primaryAction: { label: string; href?: string; onClick?: () => void };
-  secondaryAction?: { label: string; href?: string };
-}
-
-const MOCK_FOCUS: FocusItem[] = [
-  {
-    id: 'f1', group: 'critical', type: 'obligation',
-    title: 'DCTFWeb — vence hoje',
-    client: 'Tech Solutions Ltda', competence: 'Mai/2026',
-    deadline: 'Hoje 23:59', risk: 'critical', status: 'pending',
-    responsible: 'Você',
-    primaryAction: { label: 'Transmitir agora', href: '/obrigacoes' },
-    secondaryAction: { label: 'Ver detalhes', href: '/obrigacoes' },
-  },
-  {
-    id: 'f2', group: 'critical', type: 'invoice',
-    title: 'NFS-e rejeitada — corrigir e reemitir',
-    client: 'Comércio São Paulo ME', competence: 'Mai/2026',
-    deadline: 'Hoje', risk: 'critical', status: 'rejected',
-    responsible: 'Você',
-    primaryAction: { label: 'Corrigir nota', href: '/notas-fiscais' },
-  },
-  {
-    id: 'f3', group: 'critical', type: 'ecac',
-    title: 'Intimação malha fina IRPJ',
-    client: 'Construtora Horizonte SA', competence: '2023',
-    deadline: '20/06/2026', risk: 'critical', status: 'unread',
-    responsible: 'Você',
-    primaryAction: { label: 'Ver intimação', href: '/caixa-postal-fiscal' },
-    secondaryAction: { label: 'Criar tarefa', href: '/caixa-postal-fiscal' },
-  },
-  {
-    id: 'f4', group: 'today', type: 'guide',
-    title: 'DAS Simples — enviar ao cliente',
-    client: 'Comércio São Paulo ME', competence: 'Mai/2026',
-    deadline: 'Hoje', risk: 'high', status: 'generated',
-    responsible: 'Você',
-    primaryAction: { label: 'Enviar ao cliente', href: '/guias' },
-  },
-  {
-    id: 'f5', group: 'today', type: 'closing',
-    title: 'Iniciar fechamento mensal',
-    client: 'Agência Digital Express ME', competence: 'Mai/2026',
-    deadline: '31/05/2026', risk: 'medium', status: 'not_started',
-    responsible: 'Você',
-    primaryAction: { label: 'Abrir fechamento', href: '/fechamento' },
-  },
-  {
-    id: 'f6', group: 'week', type: 'certificate',
-    title: 'Certificado vencendo em 15 dias',
-    client: 'Tech Solutions Ltda', competence: '—',
-    deadline: '10/06/2026', risk: 'medium', status: 'expiring',
-    responsible: 'Você',
-    primaryAction: { label: 'Renovar certificado', href: '/certificados' },
-  },
-  {
-    id: 'f7', group: 'waiting_client', type: 'document',
-    title: 'Extratos bancários pendentes',
-    client: 'Construtora Horizonte SA', competence: 'Mai/2026',
-    deadline: '28/05/2026', risk: 'medium', status: 'pending',
-    responsible: 'Cliente',
-    primaryAction: { label: 'Enviar WhatsApp', href: '/whatsapp' },
-    secondaryAction: { label: 'Ver documentos', href: '/documentos' },
-  },
-  {
-    id: 'f8', group: 'waiting_organ', type: 'power',
-    title: 'Procuração e-CAC — aguardando validação',
-    client: 'Clínica Saúde Total Ltda', competence: '—',
-    deadline: '—', risk: 'low', status: 'pending',
-    responsible: 'Receita Federal',
-    primaryAction: { label: 'Ver procuração', href: '/procuracoes' },
-  },
-];
+import { fetchFocusItems, type FocusGroup, type FocusItem, type FocusItemType } from '@/features/focus/api';
 
 const GROUP_CONFIG: Record<FocusGroup, { label: string; icon: typeof AlertTriangle; color: string; bg: string }> = {
   critical: { label: 'Crítico', icon: AlertTriangle, color: 'text-red-400', bg: 'border-red-500/30 bg-red-500/5' },
@@ -120,26 +33,34 @@ const TYPE_ICONS: Record<FocusItemType, typeof FileText> = {
   power: FileText,
 };
 
-// Import remaining icons
-import { ListChecks, Coins, ShieldCheck, FolderKanban, CalendarCheck2, Fingerprint } from 'lucide-react';
-
 export function FocoPage() {
   const [search, setSearch] = useState('');
   const [activeGroup, setActiveGroup] = useState<FocusGroup | 'all'>('all');
-  const handleRefresh = () => toast.info('Lista de foco atualizada.');
+
+  const { data: items, isLoading, error, refetch, isRefetching } = useQuery({
+    queryKey: ['focus-items'],
+    queryFn: fetchFocusItems,
+  });
+
+  const allItems = items ?? [];
+
+  const handleRefresh = async () => {
+    await refetch();
+    toast.success('Lista de foco atualizada.');
+  };
 
   const groups = Object.entries(GROUP_CONFIG) as [FocusGroup, typeof GROUP_CONFIG[FocusGroup]][];
 
-  const filtered = MOCK_FOCUS.filter(item => {
+  const filtered = allItems.filter(item => {
     if (activeGroup !== 'all' && item.group !== activeGroup) return false;
     if (search && !item.title.toLowerCase().includes(search.toLowerCase()) &&
         !item.client.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const criticalCount = MOCK_FOCUS.filter(i => i.group === 'critical').length;
-  const todayCount = MOCK_FOCUS.filter(i => i.group === 'today').length;
-  const waitingCount = MOCK_FOCUS.filter(i => ['waiting_client', 'waiting_organ'].includes(i.group)).length;
+  const criticalCount = allItems.filter(i => i.group === 'critical').length;
+  const todayCount = allItems.filter(i => i.group === 'today').length;
+  const waitingCount = allItems.filter(i => ['waiting_client', 'waiting_organ'].includes(i.group)).length;
 
   return (
     <FeatureGate feature="feature_monthly_closing">
@@ -152,10 +73,11 @@ export function FocoPage() {
             <button
               type="button"
               onClick={handleRefresh}
+              disabled={isRefetching}
               aria-label="Atualizar lista de foco"
-              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={cn('h-4 w-4', isRefetching && 'animate-spin')} />
               <span className="hidden sm:inline">Atualizar</span>
             </button>
           }
@@ -176,10 +98,10 @@ export function FocoPage() {
             className={cn('rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
               activeGroup === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}
           >
-            Todos ({MOCK_FOCUS.length})
+            Todos ({allItems.length})
           </button>
           {groups.map(([key, cfg]) => {
-            const count = MOCK_FOCUS.filter(i => i.group === key).length;
+            const count = allItems.filter(i => i.group === key).length;
             if (count === 0) return null;
             return (
               <button
@@ -208,41 +130,52 @@ export function FocoPage() {
           />
         </div>
 
-        {/* Groups */}
-        {activeGroup === 'all'
-          ? groups.map(([key, cfg]) => {
-              const items = filtered.filter(i => i.group === key);
-              if (items.length === 0) return null;
-              return (
-                <FocusGroup key={key} group={key} config={cfg} items={items} />
-              );
-            })
-          : <FocusGroup
-              group={activeGroup as FocusGroup}
-              config={GROUP_CONFIG[activeGroup as FocusGroup]}
-              items={filtered}
-            />
-        }
-
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10">
-              <Target className="h-6 w-6 text-emerald-400" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Nenhum item pendente</p>
-            <p className="text-xs text-muted-foreground">Você está em dia. Bom trabalho!</p>
+        {/* Content */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
+        ) : error ? (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+            Erro ao carregar a lista de foco. Tente novamente.
+          </div>
+        ) : (
+          <>
+            {/* Groups */}
+            {activeGroup === 'all'
+              ? groups.map(([key, cfg]) => {
+                  const groupItems = filtered.filter(i => i.group === key);
+                  if (groupItems.length === 0) return null;
+                  return (
+                    <FocusGroupSection key={key} config={cfg} items={groupItems} />
+                  );
+                })
+              : <FocusGroupSection
+                  config={GROUP_CONFIG[activeGroup as FocusGroup]}
+                  items={filtered}
+                />
+            }
+
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10">
+                  <Target className="h-6 w-6 text-emerald-400" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Nenhum item pendente</p>
+                <p className="text-xs text-muted-foreground">Você está em dia. Bom trabalho!</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </FeatureGate>
   );
 }
 
-function FocusGroup({
+function FocusGroupSection({
   config,
   items,
 }: {
-  group: FocusGroup;
   config: typeof GROUP_CONFIG[FocusGroup];
   items: FocusItem[];
 }) {
@@ -280,7 +213,7 @@ function FocusItemCard({ item }: { item: FocusItem }) {
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {item.primaryAction.href ? (
+        {item.primaryAction.href && (
           <Link
             to={item.primaryAction.href}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
@@ -288,14 +221,6 @@ function FocusItemCard({ item }: { item: FocusItem }) {
             <Zap className="h-3 w-3" />
             {item.primaryAction.label}
           </Link>
-        ) : (
-          <button
-            onClick={item.primaryAction.onClick}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            <Zap className="h-3 w-3" />
-            {item.primaryAction.label}
-          </button>
         )}
         {item.secondaryAction?.href && (
           <Link

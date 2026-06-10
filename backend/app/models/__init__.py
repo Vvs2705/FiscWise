@@ -34,6 +34,7 @@ from app.domain.invoices.models import InvoiceIssuer, Invoice, InvoiceEvent, Inv
 from app.domain.ecac.models import EcacProxy, EcacFiscalSituation
 from app.domain.guias.models import TaxGuide
 from app.domain.fiscal_mailbox.models import FiscalMailboxMessage
+from app.domain.monthly_closing.models import MonthlyClosing
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -75,4 +76,5 @@ __all__ = [
     "EcacFiscalSituation",
     "TaxGuide",
     "FiscalMailboxMessage",
+    "MonthlyClosing",
 ]

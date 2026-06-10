@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -5,6 +6,10 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    // e2e/ holds Playwright specs (run separately) — vitest must not collect them.
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

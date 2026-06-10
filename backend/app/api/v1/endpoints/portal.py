@@ -310,6 +310,146 @@ async def get_my_data(
 
 
 # ---------------------------------------------------------------------------
+# Portal preview (staff view of one client's portal)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/preview/{client_id}")
+async def get_portal_preview(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated portal view for one client, as office staff sees it.
+
+    Powers the internal /portal page ("Modo preview"): client identity, latest
+    monthly closing, requested documents, tax guides and open pendencies.
+    CLIENT-role users must use /portal/my-data instead.
+    """
+    from app.models.operations import ClientDocument, DeadlineItem
+    from app.domain.guias.models import TaxGuide
+    from app.domain.monthly_closing.models import MonthlyClosing
+
+    if current_user.role == UserRole.CLIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Use /portal/my-data for client accounts",
+        )
+
+    result = await db.execute(
+        select(AccountingClient).where(
+            and_(
+                AccountingClient.id == client_id,
+                AccountingClient.tenant_id == current_user.tenant_id,
+            )
+        )
+    )
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+    closing_result = await db.execute(
+        select(MonthlyClosing)
+        .where(
+            and_(
+                MonthlyClosing.client_id == client_id,
+                MonthlyClosing.tenant_id == current_user.tenant_id,
+            )
+        )
+        .order_by(MonthlyClosing.competence.desc())
+        .limit(1)
+    )
+    closing = closing_result.scalar_one_or_none()
+
+    docs_result = await db.execute(
+        select(ClientDocument)
+        .where(
+            and_(
+                ClientDocument.client_id == client_id,
+                ClientDocument.tenant_id == current_user.tenant_id,
+            )
+        )
+        .order_by(ClientDocument.created_at.desc())
+        .limit(20)
+    )
+    documents = list(docs_result.scalars().all())
+
+    guides_result = await db.execute(
+        select(TaxGuide)
+        .where(
+            and_(
+                TaxGuide.client_id == client_id,
+                TaxGuide.tenant_id == current_user.tenant_id,
+            )
+        )
+        .order_by(TaxGuide.vencimento.desc())
+        .limit(20)
+    )
+    guides = list(guides_result.scalars().all())
+
+    pendencies_result = await db.execute(
+        select(DeadlineItem)
+        .where(
+            and_(
+                DeadlineItem.client_id == client_id,
+                DeadlineItem.tenant_id == current_user.tenant_id,
+                DeadlineItem.status == "pending",
+            )
+        )
+        .order_by(DeadlineItem.due_date.asc())
+        .limit(20)
+    )
+    pendencies = list(pendencies_result.scalars().all())
+
+    return {
+        "client": {
+            "id": str(client.id),
+            "name": client.name,
+            "document": client.document,
+        },
+        "closing": (
+            {
+                "id": str(closing.id),
+                "competence": closing.competence,
+                "status": closing.status,
+                "score": closing.score,
+            }
+            if closing
+            else None
+        ),
+        "documents": [
+            {
+                "id": str(d.id),
+                "name": d.name,
+                "status": d.status,
+                "requested_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in documents
+        ],
+        "guides": [
+            {
+                "id": str(g.id),
+                "type": g.tipo,
+                "competence": g.competencia.isoformat() if g.competencia else None,
+                "value": float(g.valor) if g.valor is not None else 0.0,
+                "due": g.vencimento.isoformat() if g.vencimento else None,
+                "status": g.status,
+            }
+            for g in guides
+        ],
+        "pendencies": [
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "deadline": p.due_date.isoformat() if p.due_date else None,
+                "status": p.status,
+            }
+            for p in pendencies
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Magic Link Authentication
 # ---------------------------------------------------------------------------
 

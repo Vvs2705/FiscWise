@@ -1,14 +1,59 @@
+from datetime import date
+from decimal import Decimal
+
 import pytest
 from fastapi import status
+
+from app.domain.invoices.models import Invoice, InvoiceIssuer
+from app.domain.guias.models import TaxGuide
 
 pytestmark = pytest.mark.integration
 
 COMPETENCE = "2026-06"
 
 
+async def _seed_invoices_and_guides(db, tenant_id, client_id):
+    """Two live invoices (one issued, one draft), one cancelled, two guides (one paid)."""
+    issuer = InvoiceIssuer(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        cnpj="12345678000190",
+        regime_tributario="simples",
+        municipio_ibge="3550308",
+    )
+    db.add(issuer)
+    await db.flush()
+
+    common = dict(
+        tenant_id=tenant_id,
+        issuer_id=issuer.id,
+        client_id=client_id,
+        competencia=date(2026, 6, 15),
+        valor_servico=Decimal("1000.00"),
+        descricao_servico="Servicos contabeis",
+    )
+    db.add(Invoice(status="issued", **common))
+    db.add(Invoice(status="draft", **common))
+    db.add(Invoice(status="cancelled", **common))
+
+    guide_common = dict(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        tipo="DAS",
+        competencia=date(2026, 6, 1),
+        valor=Decimal("350.00"),
+        vencimento=date(2026, 6, 20),
+    )
+    db.add(TaxGuide(status="paga", **guide_common))
+    db.add(TaxGuide(status="pendente", **guide_common))
+    await db.commit()
+
+
 @pytest.mark.asyncio
 async def test_monthly_closing_workflow(client_with_auth_a, test_db):
     http_client, user, client, db = client_with_auth_a
+
+    await _seed_invoices_and_guides(db, user.tenant_id, client.id)
 
     # 1. Empty before generation
     response = http_client.get("/api/v1/monthly-closing", params={"competence": COMPETENCE})
@@ -38,6 +83,13 @@ async def test_monthly_closing_workflow(client_with_auth_a, test_db):
     assert closing["client_name"] == client.name
     assert len(closing["checklist"]) == 8
     closing_id = closing["id"]
+
+    # 4b. Counters reflect the real invoices/guides seeded for the competence
+    # (cancelled invoice excluded; draft counts as pending; one of two guides paid).
+    assert closing["invoices_count"] == 2
+    assert closing["invoices_pending"] == 1
+    assert closing["guides_count"] == 2
+    assert closing["guides_paid"] == 1
 
     # 5. Completing a checklist item moves the closing to in_progress
     response = http_client.patch(
@@ -71,7 +123,15 @@ async def test_monthly_closing_workflow(client_with_auth_a, test_db):
 
     response = http_client.post(f"/api/v1/monthly-closing/{closing_id}/dossier")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()["generated_at"] is not None
+    dossier = response.json()
+    assert dossier["generated_at"] is not None
+    assert dossier["url"] == f"/api/v1/monthly-closing/{closing_id}/dossier.pdf"
+
+    # 7b. The dossier downloads as a real PDF
+    response = http_client.get(f"/api/v1/monthly-closing/{closing_id}/dossier.pdf")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
 
     response = http_client.get(f"/api/v1/monthly-closing/{closing_id}")
     assert response.status_code == status.HTTP_200_OK

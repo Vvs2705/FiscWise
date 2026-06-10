@@ -12,7 +12,8 @@ from app.domain.fiscal_mailbox.schemas import (
     FiscalMailboxMessageResponse,
     FiscalMailboxSyncResult,
 )
-from app.domain.fiscal_mailbox.integrations.mock import MockFiscalMailboxProvider
+from app.domain.fiscal_mailbox.integrations.base import ProviderNotConfiguredError
+from app.domain.fiscal_mailbox.integrations.factory import build_fiscal_mailbox_provider
 
 router = APIRouter(prefix="/fiscal-mailbox", tags=["Fiscal Mailbox"])
 
@@ -80,7 +81,13 @@ async def sync_messages(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pull new fiscal mailbox messages from the provider (mock until a real
-    e-CAC/DTE integration is wired) and ingest them idempotently."""
-    result = await _service(db).sync_messages(current_user.tenant_id, MockFiscalMailboxProvider())
-    return result
+    """Pull new fiscal mailbox messages from the configured provider
+    (FISCAL_MAILBOX_PROVIDER: mock | serpro) and ingest them idempotently."""
+    try:
+        provider = await build_fiscal_mailbox_provider(db, current_user.tenant_id)
+    except ProviderNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Fiscal mailbox provider misconfigured: {exc}",
+        )
+    return await _service(db).sync_messages(current_user.tenant_id, provider)

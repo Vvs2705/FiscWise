@@ -9,7 +9,7 @@ import {
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMonthlyClosing, updateChecklistItem, generateDossier } from '@/features/monthly-closing/api';
+import { fetchMonthlyClosing, updateChecklistItem, generateDossier, downloadDossierPdf } from '@/features/monthly-closing/api';
 import { ChecklistItem, MonthlyClosing } from '@/features/monthly-closing/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -74,6 +74,11 @@ export function MonthlyClosingDetailPage() {
     setGeneratingDossier(true);
     try {
       await generateDossier(id);
+      const fileName = closing
+        ? `dossie-${closing.clientName.replace(/\s+/g, '-').toLowerCase()}-${closing.competence}.pdf`
+        : undefined;
+      await downloadDossierPdf(id, fileName);
+      qc.invalidateQueries({ queryKey: ['monthly-closing', id] });
       toast.success('Dossiê gerado! Download iniciado.');
     } catch {
       toast.error('Erro ao gerar dossiê');

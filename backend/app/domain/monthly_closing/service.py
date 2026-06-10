@@ -4,10 +4,12 @@ import logging
 from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 
 from app.domain.monthly_closing.models import MonthlyClosing
 from app.domain.monthly_closing.repository import MonthlyClosingRepository
+from app.domain.invoices.models import Invoice
+from app.domain.guias.models import TaxGuide
 from app.models.operations import AccountingClient, DeadlineItem
 from app.core.audit import audit_log
 
@@ -60,9 +62,82 @@ def _recompute(closing: MonthlyClosing) -> None:
         closing.status = "not_started"
 
 
+# Invoices in these statuses no longer count toward the competence totals.
+_INVOICE_DEAD_STATUSES = ("cancelled", "replaced", "failed")
+
+
 class MonthlyClosingService:
     def __init__(self, repo: MonthlyClosingRepository):
         self.repo = repo
+
+    async def _collect_counters(
+        self,
+        tenant_id: uuid.UUID,
+        client_id: uuid.UUID,
+        first_day: date,
+        last_day: date,
+    ) -> dict:
+        """Count real invoices, tax guides and deadline items for the competence."""
+        invoice_counts = await self.repo.db.execute(
+            select(
+                func.count(Invoice.id).filter(Invoice.status.notin_(_INVOICE_DEAD_STATUSES)),
+                func.count(Invoice.id).filter(
+                    and_(
+                        Invoice.status.notin_(_INVOICE_DEAD_STATUSES),
+                        Invoice.status != "issued",
+                    )
+                ),
+            ).where(
+                and_(
+                    Invoice.tenant_id == tenant_id,
+                    Invoice.client_id == client_id,
+                    Invoice.competencia >= first_day,
+                    Invoice.competencia <= last_day,
+                )
+            )
+        )
+        invoices_count, invoices_pending = invoice_counts.one()
+
+        guide_counts = await self.repo.db.execute(
+            select(
+                func.count(TaxGuide.id),
+                func.count(TaxGuide.id).filter(
+                    or_(TaxGuide.status == "paga", TaxGuide.paga_em.is_not(None))
+                ),
+            ).where(
+                and_(
+                    TaxGuide.tenant_id == tenant_id,
+                    TaxGuide.client_id == client_id,
+                    TaxGuide.competencia >= first_day,
+                    TaxGuide.competencia <= last_day,
+                )
+            )
+        )
+        guides_count, guides_paid = guide_counts.one()
+
+        deadline_counts = await self.repo.db.execute(
+            select(
+                func.count(DeadlineItem.id),
+                func.count(DeadlineItem.id).filter(DeadlineItem.status == "completed"),
+            ).where(
+                and_(
+                    DeadlineItem.tenant_id == tenant_id,
+                    DeadlineItem.client_id == client_id,
+                    DeadlineItem.due_date >= first_day,
+                    DeadlineItem.due_date <= last_day,
+                )
+            )
+        )
+        obligations_total, obligations_done = deadline_counts.one()
+
+        return {
+            "invoices_count": invoices_count or 0,
+            "invoices_pending": invoices_pending or 0,
+            "guides_count": guides_count or 0,
+            "guides_paid": guides_paid or 0,
+            "obligations_total": obligations_total or 0,
+            "obligations_done": obligations_done or 0,
+        }
 
     async def list_closings(self, tenant_id: uuid.UUID, competence: Optional[str] = None) -> List[MonthlyClosing]:
         return await self.repo.list_closings(tenant_id, competence)
@@ -94,21 +169,8 @@ class MonthlyClosingService:
                 skipped += 1
                 continue
 
-            # Seed obligation counters from real deadline items in the competence month.
-            counts = await self.repo.db.execute(
-                select(
-                    func.count(DeadlineItem.id),
-                    func.count(DeadlineItem.id).filter(DeadlineItem.status == "completed"),
-                ).where(
-                    and_(
-                        DeadlineItem.tenant_id == tenant_id,
-                        DeadlineItem.client_id == client.id,
-                        DeadlineItem.due_date >= first_day,
-                        DeadlineItem.due_date <= last_day,
-                    )
-                )
-            )
-            obligations_total, obligations_done = counts.one()
+            # Seed counters from real invoices, guides and deadline items.
+            counters = await self._collect_counters(tenant_id, client.id, first_day, last_day)
 
             new_closings.append(
                 MonthlyClosing(
@@ -119,8 +181,7 @@ class MonthlyClosingService:
                     score=0,
                     blockers=[],
                     checklist=_fresh_checklist(),
-                    obligations_total=obligations_total or 0,
-                    obligations_done=obligations_done or 0,
+                    **counters,
                 )
             )
             created += 1
@@ -175,10 +236,26 @@ class MonthlyClosingService:
         )
         return saved
 
+    async def refresh_counters(self, closing: MonthlyClosing) -> MonthlyClosing:
+        """Re-count invoices/guides/obligations so the closing reflects reality."""
+        first_day, last_day = _competence_bounds(closing.competence)
+        counters = await self._collect_counters(
+            closing.tenant_id, closing.client_id, first_day, last_day
+        )
+        for field, value in counters.items():
+            setattr(closing, field, value)
+        return await self.repo.save(closing)
+
     async def generate_dossier(self, closing_id: uuid.UUID, tenant_id: uuid.UUID) -> Optional[MonthlyClosing]:
         closing = await self.repo.get_by_id(closing_id, tenant_id)
         if not closing:
             return None
+
+        # Counters must be fresh: the dossier snapshot is built from them.
+        first_day, last_day = _competence_bounds(closing.competence)
+        counters = await self._collect_counters(tenant_id, closing.client_id, first_day, last_day)
+        for field, value in counters.items():
+            setattr(closing, field, value)
 
         closing.dossier_generated_at = datetime.now(timezone.utc)
 

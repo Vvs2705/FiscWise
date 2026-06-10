@@ -166,6 +166,23 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SECRET_KEY: str = ""
 
+    # Fiscal mailbox (e-CAC / DTE) provider: "mock" | "serpro"
+    # "serpro" uses the Integra Contador gateway (Caixa Postal) and requires
+    # the SERPRO_* credentials below; "mock" keeps the deterministic provider.
+    FISCAL_MAILBOX_PROVIDER: str = "mock"
+    SERPRO_CONSUMER_KEY: str = ""
+    SERPRO_CONSUMER_SECRET: str = ""
+    SERPRO_AUTH_URL: str = "https://autenticacao.sapi.serpro.gov.br/authenticate"
+    SERPRO_INTEGRA_BASE_URL: str = "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1"
+    # CNPJ of the contracting accounting office and of the request author
+    # (usually the same e-CNPJ that signed the Integra Contador contract).
+    SERPRO_CONTRATANTE_CNPJ: str = ""
+    SERPRO_AUTOR_PEDIDO_CNPJ: str = ""
+    # Optional mTLS client certificate (PEM paths) when the contract requires it.
+    SERPRO_CERT_PATH: str = ""
+    SERPRO_CERT_KEY_PATH: str = ""
+    SERPRO_TIMEOUT_SECONDS: float = 30.0
+
     # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""

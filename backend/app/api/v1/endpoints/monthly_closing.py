@@ -2,7 +2,7 @@ import re
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.domain.monthly_closing.models import MonthlyClosing
 from app.domain.monthly_closing.repository import MonthlyClosingRepository
 from app.domain.monthly_closing.service import MonthlyClosingService
+from app.domain.monthly_closing.dossier_pdf import render_dossier_pdf
 from app.domain.monthly_closing.schemas import (
     ChecklistItemUpdate,
     MonthlyClosingResponse,
@@ -110,4 +111,30 @@ async def generate_dossier(
     closing = await _service(db).generate_dossier(closing_id, current_user.tenant_id)
     if not closing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Closing not found")
-    return DossierResult(url=None, generated_at=closing.dossier_generated_at)
+    return DossierResult(
+        url=f"/api/v1/monthly-closing/{closing.id}/dossier.pdf",
+        generated_at=closing.dossier_generated_at,
+    )
+
+
+@router.get("/{closing_id}/dossier.pdf")
+async def download_dossier_pdf(
+    closing_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream the dossier PDF rendered from the current closing state."""
+    closing = await _service(db).get_closing(closing_id, current_user.tenant_id)
+    if not closing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Closing not found")
+
+    client_name = closing.client.name if closing.client else None
+    client_cnpj = closing.client.document if closing.client else None
+    pdf_bytes = render_dossier_pdf(closing, client_name=client_name, client_cnpj=client_cnpj)
+
+    filename = f"dossie-{(client_name or 'cliente').replace(' ', '-').lower()}-{closing.competence}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -28,7 +28,7 @@ const trustPoints = [
 export function LoginBrandPanel() {
   return (
     <section
-      className="relative border-white/10 text-white lg:flex lg:h-screen lg:max-h-screen lg:overflow-hidden lg:border-r flex flex-col"
+      className="relative border-white/10 text-white hidden lg:flex lg:h-screen lg:max-h-screen lg:overflow-hidden lg:border-r lg:flex-col"
       style={{
         padding: 'clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px)',
         background:

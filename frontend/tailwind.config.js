@@ -56,14 +56,21 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        card: 'var(--radius-card)',
+        panel: 'var(--radius-panel)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Syne', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
         'glow-sm': '0 0 12px -2px hsl(var(--primary) / 0.25)',
         'glow': '0 0 20px -4px hsl(var(--primary) / 0.35)',
         'card-hover': '0 4px 24px -4px rgb(0 0 0 / 0.12)',
+        'token-sm': 'var(--shadow-sm)',
+        'token': 'var(--shadow)',
+        'token-glow': 'var(--shadow-glow)',
       },
       transitionTimingFunction: {
         'spring': 'cubic-bezier(0.16, 1, 0.3, 1)',

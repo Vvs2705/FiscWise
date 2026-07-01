@@ -36,8 +36,8 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
     >
       <defs>
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2={iconW} y2={iconW} gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#2DD4BF" />
-          <stop offset="100%" stopColor="#0EA5E9" />
+          <stop offset="0%"   stopColor="#e05e18" />
+          <stop offset="100%" stopColor="#f07028" />
         </linearGradient>
       </defs>
 
@@ -89,7 +89,7 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
           <text
             x={iconW + iconW * 0.28}
             y={totalH * 0.58}
-            fontFamily="Inter, system-ui, sans-serif"
+            fontFamily="Syne, system-ui, sans-serif"
             fontSize={totalH * 0.42}
             fontWeight="700"
             letterSpacing="-0.4"
@@ -100,7 +100,7 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
           <text
             x={iconW + iconW * 0.29}
             y={totalH * 0.88}
-            fontFamily="Inter, system-ui, sans-serif"
+            fontFamily="Geist, system-ui, sans-serif"
             fontSize={totalH * 0.18}
             fontWeight="500"
             letterSpacing="1.6"

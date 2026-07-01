@@ -193,3 +193,6 @@ COMO_FAZER*.md
 COMO-FAZER*.md
 # Exceção: se um doc legítimo casar por engano, libere com:  !caminho/para/arquivo.md
 
+# Memória de agentes (local, não é código) — nunca versionar
+.claude/agent-memory/
+

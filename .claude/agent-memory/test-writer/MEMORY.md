@@ -1,2 +1,0 @@
-- [CRUD Tests Status](crud_tests_status.md) — Operations CRUD tests completed with 34 test methods
-- [Enum Fix Tests](enum_fix_tests.md) — PostgreSQL enum normalization suite, 35+ tests, all fixtures mocked

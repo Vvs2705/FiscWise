@@ -1,9 +1,14 @@
 import { ReactNode } from 'react';
 import { ShieldOff } from 'lucide-react';
-import { hasPermission, CURRENT_ROLE } from '@/lib/permissions';
+import { usePermission, type UserRole } from '@/lib/hooks/usePermission';
 
 interface PermissionGateProps {
-  requiredRole: import('@/lib/permissions').UserRole;
+  /**
+   * Minimum role required to view the gated content. The check is inclusive
+   * (hierarchy-based): a user whose role ranks at or above `requiredRole`
+   * passes. Roles come from the authenticated user in the auth store.
+   */
+  requiredRole: UserRole;
   children: ReactNode;
   fallback?: ReactNode;
   silent?: boolean;
@@ -26,7 +31,10 @@ function AccessDenied() {
 }
 
 export function PermissionGate({ requiredRole, children, fallback, silent }: PermissionGateProps) {
-  const allowed = hasPermission(CURRENT_ROLE, requiredRole);
+  const { hasRole } = usePermission();
+  // Fail-closed: hasRole returns false when the user is unauthenticated or has
+  // no recognized role, so unknown/absent roles are denied by default.
+  const allowed = hasRole(requiredRole);
   if (allowed) return <>{children}</>;
   if (silent) return null;
   if (fallback) return <>{fallback}</>;

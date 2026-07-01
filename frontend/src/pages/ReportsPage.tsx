@@ -129,7 +129,7 @@ export function ReportsPage() {
         />
 
         {/* Financial summary — owner/admin only */}
-        <PermissionGate requiredRole="financeiro">
+        <PermissionGate requiredRole="admin">
           <div>
             <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Resumo financeiro</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

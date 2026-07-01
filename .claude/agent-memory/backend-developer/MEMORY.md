@@ -1,4 +1,0 @@
-- [asyncpg enum type-cache crash](feedback_asyncpg_enum_type_cache.md) — use psycopg3 sync for enum DDL preflight; asyncpg OID cache causes str/int error even with statement_cache_size=0
-- [Fly.io builder field conflict](feedback_flyio_builder.md) — never use `builder = "docker"` alongside `dockerfile` in fly.toml; triggers buildpack conflict
-- [Fly.io build context paths](feedback_flyio_build_context.md) — build context is project root; Dockerfile COPY paths must use `backend/` prefix
-- [Pydantic v2 startup crash / 502](feedback_pydantic_v2_startup_crash.md) — never raise ValueError in BaseSettings validators; use log+return instead to avoid 502 on Fly.io

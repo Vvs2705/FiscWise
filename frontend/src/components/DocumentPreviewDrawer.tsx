@@ -26,7 +26,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()} direction="right">
-      <DrawerContent className="fixed inset-y-0 right-0 bottom-0 top-0 mt-0 h-full w-full max-w-4xl rounded-t-none border-l border-border bg-card shadow-2xl flex flex-col">
+      <DrawerContent className="fixed inset-y-0 right-0 bottom-0 top-0 mt-0 h-full w-full max-w-4xl rounded-t-none border-l border-border bg-card shadow-token flex flex-col">
         <DrawerHeader className="border-b border-border/80 px-6 py-5 flex items-center justify-between shrink-0">
           <div>
             <DrawerTitle className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -80,7 +80,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
                   />
                 </div>
               ) : (
-                <div className="text-center py-16 px-6 max-w-md border border-dashed rounded-2xl bg-card">
+                <div className="text-center py-16 px-6 max-w-md border border-dashed rounded-card bg-card">
                   <FileText className="h-16 w-16 text-muted-foreground/60 mx-auto mb-4" />
                   <h4 className="font-bold text-foreground mb-1">Pré-visualização não disponível</h4>
                   <p className="text-sm text-muted-foreground mb-6">
@@ -95,7 +95,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
                 </div>
               )
             ) : (
-              <div className="text-center py-16 px-6 max-w-md border border-dashed rounded-2xl bg-card">
+              <div className="text-center py-16 px-6 max-w-md border border-dashed rounded-card bg-card">
                 <FileText className="h-16 w-16 text-muted-foreground/60 mx-auto mb-4" />
                 <h4 className="font-bold text-foreground mb-1">Nenhum arquivo anexado</h4>
                 <p className="text-sm text-muted-foreground">

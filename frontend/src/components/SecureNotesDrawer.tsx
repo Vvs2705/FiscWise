@@ -193,7 +193,7 @@ function FieldRow({ field, onChange, onDelete }: FieldRowProps) {
           title="Copiar"
         >
           {copied ? (
-            <Check className="h-4 w-4 text-green-600" />
+            <Check className="h-4 w-4 text-success" />
           ) : (
             <Copy className="h-4 w-4" />
           )}
@@ -362,12 +362,12 @@ export function SecureNotesDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="secure-notes-title"
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l bg-background shadow-xl"
+        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l bg-background shadow-token"
       >
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between border-b px-5 py-4">
           <div className="flex items-center gap-2">
-            <Lock className="h-4 w-4 text-amber-500" />
+            <Lock className="h-4 w-4 text-warning" />
             <div>
               <h2 id="secure-notes-title" className="text-sm font-semibold">
                 Notas Seguras
@@ -388,9 +388,9 @@ export function SecureNotesDrawer({
         </div>
 
         {/* Warning banner */}
-        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex gap-2 items-start">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-800 leading-relaxed">
+        <div className="shrink-0 bg-warning/10 border-b border-warning/20 px-5 py-2.5 flex gap-2 items-start">
+          <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" />
+          <p className="text-xs text-warning leading-relaxed">
             Dados salvos <strong>apenas neste navegador</strong>. Nunca enviados ao servidor.
             Use o botão exportar para fazer backup.
           </p>
@@ -424,7 +424,7 @@ export function SecureNotesDrawer({
         <div className="shrink-0 border-t px-5 py-3 flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">
             {saved ? (
-              <span className="text-green-600 flex items-center gap-1">
+              <span className="text-success flex items-center gap-1">
                 <Check className="h-3 w-3" /> Salvo
               </span>
             ) : (

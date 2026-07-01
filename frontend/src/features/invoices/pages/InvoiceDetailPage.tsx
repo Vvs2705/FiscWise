@@ -140,7 +140,7 @@ export function InvoiceDetailPage() {
               <Button
                 onClick={() => setOpenCancelModal(true)}
                 variant="ghost"
-                className="text-red-500 hover:bg-red-500/10 hover:text-red-600 flex items-center gap-2"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center gap-2"
               >
                 <XOctagon className="h-4 w-4" />
                 Solicitar Cancelamento
@@ -246,7 +246,7 @@ export function InvoiceDetailPage() {
         title="Cancelar Nota Fiscal de Serviço"
       >
         <form onSubmit={handleCancelSubmit} className="space-y-4">
-          <div className="bg-yellow-500/5 text-yellow-600 border border-yellow-500/20 p-3 rounded-lg flex gap-3 text-xs">
+          <div className="bg-warning/5 text-warning border border-warning/20 p-3 rounded-lg flex gap-3 text-xs">
             <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
             <div>
               <span className="font-semibold block">Atenção: Ação Irreversível</span>

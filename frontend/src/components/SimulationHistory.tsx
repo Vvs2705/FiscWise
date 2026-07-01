@@ -155,7 +155,7 @@ export function SimulationHistory() {
               {sim.annual_savings > 0 && (
                 <div className="shrink-0 hidden sm:block text-right">
                   <p className="text-xs text-muted-foreground">Economia</p>
-                  <p className="font-semibold text-emerald-500 text-sm">{moneyBRL(sim.annual_savings)}/ano</p>
+                  <p className="font-semibold text-success text-sm">{moneyBRL(sim.annual_savings)}/ano</p>
                 </div>
               )}
               <div className="flex items-center gap-1 shrink-0">
@@ -213,11 +213,11 @@ export function SimulationHistory() {
                             key={scenario.regime}
                             className={`rounded-lg border p-3 ${
                               isRec
-                                ? 'border-emerald-500/30 bg-emerald-500/5'
+                                ? 'border-success/30 bg-success/5'
                                 : 'border-border bg-card'
                             }`}
                           >
-                            <p className={`text-xs font-semibold uppercase ${isRec ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                            <p className={`text-xs font-semibold uppercase ${isRec ? 'text-success' : 'text-muted-foreground'}`}>
                               {scenario.regime} {isRec && '✓'}
                             </p>
                             <p className="mt-1 text-sm font-bold text-foreground">

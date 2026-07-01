@@ -174,7 +174,7 @@ export function CertificatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-emerald-400 to-sky-400">
+          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
             Certificados Digitais
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -186,13 +186,13 @@ export function CertificatesPage() {
             variant="outline"
             size="sm"
             onClick={() => navigate('/aprender')}
-            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-md">
+          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo certificado
           </Button>
@@ -215,12 +215,12 @@ export function CertificatesPage() {
         </Card>
         <Card className="bg-card/45 backdrop-blur-sm border-border/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-amber-500 uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-warning uppercase tracking-wider">
               Vencendo em 30 dias
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-extrabold text-amber-500">
+            <div className="text-3xl font-extrabold text-warning">
               {isLoading ? '...' : expiring30}
             </div>
           </CardContent>
@@ -247,7 +247,7 @@ export function CertificatesPage() {
                 placeholder="Buscar por cliente ou rótulo..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-muted/20 border-border/50 focus:border-teal-500/50"
+                className="pl-9 bg-muted/20 border-border/50 focus:border-primary/50"
               />
             </div>
 
@@ -419,7 +419,7 @@ export function CertificatesPage() {
                           size="sm"
                           variant="ghost"
                           onClick={handleWarnClient(cert.client_id, clientName, cert.label, days)}
-                          className="h-8 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 gap-1.5"
+                          className="h-8 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
                           title="Avisar cliente por e-mail"
                         >
                           <Bell className="h-3.5 w-3.5" />
@@ -501,7 +501,7 @@ export function CertificatesPage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white">
+            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
               {isSubmitting ? 'Salvando...' : 'Salvar certificado'}
             </Button>
           </div>

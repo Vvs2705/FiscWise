@@ -156,19 +156,19 @@ export function WhatsAppInboxPage() {
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
       {/* LEFT COLUMN: INBOX THREADS */}
-      <Card className="flex w-80 shrink-0 flex-col overflow-hidden border border-white/5 bg-slate-900/40 backdrop-blur-xl">
+      <Card className="flex w-80 shrink-0 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
         <div className="border-b border-white/5 p-4 space-y-3">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
             WhatsApp Central
           </h2>
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Buscar contatos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-white/5 bg-slate-950/60 py-2 pl-9 pr-4 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+              className="w-full rounded-xl border border-white/5 bg-card py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
             />
           </div>
         </div>
@@ -180,7 +180,7 @@ export function WhatsAppInboxPage() {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : filteredInboxes.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center text-slate-500 p-4 text-center">
+            <div className="flex h-32 flex-col items-center justify-center text-muted-foreground p-4 text-center">
               <p className="text-xs">Nenhuma conversa encontrada.</p>
             </div>
           ) : (
@@ -197,16 +197,16 @@ export function WhatsAppInboxPage() {
                     isSelected ? 'bg-white/5 border-l-2 border-primary' : ''
                   }`}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-300">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                     {getInitials(inbox.customer_name || '')}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="truncate text-xs font-semibold text-slate-200">
+                      <p className="truncate text-xs font-semibold text-foreground">
                         {inbox.customer_name}
                       </p>
                       {inbox.last_message_at && (
-                        <span className="text-[9px] text-slate-500">
+                        <span className="text-[9px] text-muted-foreground">
                           {new Date(inbox.last_message_at).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -214,11 +214,11 @@ export function WhatsAppInboxPage() {
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-[11px] text-slate-400 mt-0.5">
+                    <p className="truncate text-[11px] text-muted-foreground mt-0.5">
                       {inbox.last_message_preview || 'Nenhuma mensagem'}
                     </p>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[9px] text-slate-500 font-mono">
+                      <span className="text-[9px] text-muted-foreground font-mono">
                         +{inbox.phone_number}
                       </span>
                       <div className="flex items-center gap-1.5">
@@ -232,7 +232,7 @@ export function WhatsAppInboxPage() {
                           </Badge>
                         )}
                         {inbox.unread_count > 0 && (
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-slate-950">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-[9px] font-bold text-success-foreground">
                             {inbox.unread_count}
                           </span>
                         )}
@@ -247,32 +247,32 @@ export function WhatsAppInboxPage() {
       </Card>
 
       {/* RIGHT COLUMN: ACTIVE CONVERSATION */}
-      <Card className="flex flex-1 flex-col overflow-hidden border border-white/5 bg-slate-900/40 backdrop-blur-xl">
+      <Card className="flex flex-1 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
         {selectedInbox ? (
           <>
             {/* CONVERSATION HEADER */}
             <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-300">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                   {getInitials(selectedInbox.customer_name || '')}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wide">
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
                       {selectedInbox.customer_name}
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-muted-foreground font-mono">
                       (+{selectedInbox.phone_number})
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {selectedInbox.client_id ? (
-                      <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                      <span className="text-[10px] text-success flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Cliente vinculado
                       </span>
                     ) : (
-                      <span className="text-[10px] text-amber-500 flex items-center gap-1">
+                      <span className="text-[10px] text-warning flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
                         Sem cliente vinculado
                       </span>
@@ -286,7 +286,7 @@ export function WhatsAppInboxPage() {
                 <Button
                   onClick={() => setShowLinkModal(true)}
                   variant="ghost"
-                  className="h-8 gap-1.5 text-xs text-slate-300 hover:bg-white/5 border border-white/10"
+                  className="h-8 gap-1.5 text-xs text-muted-foreground hover:bg-white/5 border border-white/10"
                 >
                   <Link2 className="h-3.5 w-3.5" />
                   Vincular Cliente
@@ -297,7 +297,7 @@ export function WhatsAppInboxPage() {
                       window.open(`/clientes/${selectedInbox.client_id}`, '_blank');
                     }}
                     variant="ghost"
-                    className="h-8 gap-1.5 text-xs text-slate-300 hover:bg-white/5 border border-white/10"
+                    className="h-8 gap-1.5 text-xs text-muted-foreground hover:bg-white/5 border border-white/10"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Ver Cadastro
@@ -307,16 +307,16 @@ export function WhatsAppInboxPage() {
             </div>
 
             {/* MESSAGES THREAD SCROLLABLE BODY */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-950/20 scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-background scrollbar">
               {loadingMessages ? (
                 <div className="flex h-full items-center justify-center">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-slate-500">
-                  <Bot className="h-8 w-8 text-slate-600 mb-2" />
+                <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+                  <Bot className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-xs">Nenhuma mensagem neste chat.</p>
-                  <p className="text-[10px] text-slate-600 mt-1">
+                  <p className="text-[10px] text-muted-foreground mt-1">
                     Envie uma mensagem abaixo para iniciar.
                   </p>
                 </div>
@@ -330,15 +330,15 @@ export function WhatsAppInboxPage() {
                     >
                       <div className="flex max-w-[70%] flex-col gap-1 relative">
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-xs shadow-sm border ${
+                          className={`rounded-card px-4 py-2.5 text-xs shadow-sm border ${
                             isOutbound
-                              ? 'bg-gradient-to-r from-teal-500/20 to-teal-400/10 border-teal-500/20 text-slate-100'
-                              : 'bg-slate-900 border-white/5 text-slate-100'
+                              ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-primary/20 text-foreground'
+                              : 'bg-card border-white/5 text-foreground'
                           }`}
                         >
                           {/* SENDER LABEL (IF INBOUND AND NAME EXISTS) */}
                           {!isOutbound && msg.sender_name && (
-                            <p className="font-bold text-[10px] text-teal-400 mb-1">
+                            <p className="font-bold text-[10px] text-primary mb-1">
                               {msg.sender_name}
                             </p>
                           )}
@@ -348,14 +348,14 @@ export function WhatsAppInboxPage() {
 
                           {/* MEDIA ANEXO IF DOCUMENT/IMAGE */}
                           {msg.media_url && (
-                            <div className="mt-2 rounded-xl bg-slate-950/40 p-3 border border-white/5 space-y-2">
+                            <div className="mt-2 rounded-xl bg-background p-3 border border-white/5 space-y-2">
                               <div className="flex items-center gap-2">
                                 {msg.message_type === 'image' ? (
-                                  <Image className="h-4 w-4 text-emerald-400" />
+                                  <Image className="h-4 w-4 text-success" />
                                 ) : (
-                                  <FileText className="h-4 w-4 text-emerald-400" />
+                                  <FileText className="h-4 w-4 text-success" />
                                 )}
-                                <span className="text-[10px] truncate text-slate-300 font-medium">
+                                <span className="text-[10px] truncate text-muted-foreground font-medium">
                                   {msg.body || 'Arquivo recebido'}
                                 </span>
                               </div>
@@ -364,7 +364,7 @@ export function WhatsAppInboxPage() {
                                   href={msg.media_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[9px] font-bold text-teal-400 hover:underline flex items-center gap-1"
+                                  className="text-[9px] font-bold text-primary hover:underline flex items-center gap-1"
                                 >
                                   <Paperclip className="h-3 w-3" />
                                   Baixar Arquivo
@@ -378,7 +378,7 @@ export function WhatsAppInboxPage() {
                           )}
 
                           {/* FOOTER BUBBLE INFO */}
-                          <div className="flex items-center justify-end gap-1.5 mt-1 text-[8px] text-slate-500">
+                          <div className="flex items-center justify-end gap-1.5 mt-1 text-[8px] text-muted-foreground">
                             <span>
                               {new Date(msg.created_at).toLocaleTimeString([], {
                                 hour: '2-digit',
@@ -394,7 +394,7 @@ export function WhatsAppInboxPage() {
                             <button
                               onClick={() => openTaskModal(msg)}
                               title="Converter em Tarefa da Agenda"
-                              className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-teal-400 border border-white/10 hover:border-primary/40 transition-colors shadow"
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted hover:bg-accent text-primary border border-white/10 hover:border-primary/40 transition-colors shadow"
                             >
                               <CalendarPlus className="h-3.5 w-3.5" />
                             </button>
@@ -409,44 +409,44 @@ export function WhatsAppInboxPage() {
             </div>
 
             {/* QUICK TEMPLATE SHORTCUT BAR */}
-            <div className="border-t border-white/5 px-6 py-2 bg-slate-900/60 flex items-center gap-2">
-              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+            <div className="border-t border-white/5 px-6 py-2 bg-card flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
                 Respostas rápidas:
               </span>
               <button
                 onClick={() => insertTemplate('das')}
-                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-white/5 transition-colors"
+                className="text-[10px] bg-muted hover:bg-accent text-muted-foreground px-2 py-1 rounded-lg border border-white/5 transition-colors"
               >
                 Guia DAS
               </button>
               <button
                 onClick={() => insertTemplate('docs')}
-                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-white/5 transition-colors"
+                className="text-[10px] bg-muted hover:bg-accent text-muted-foreground px-2 py-1 rounded-lg border border-white/5 transition-colors"
               >
                 Cobrar Documentos
               </button>
               <button
                 onClick={() => insertTemplate('certificado')}
-                className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-white/5 transition-colors"
+                className="text-[10px] bg-muted hover:bg-accent text-muted-foreground px-2 py-1 rounded-lg border border-white/5 transition-colors"
               >
                 Certificado Digital
               </button>
             </div>
 
             {/* COMPOSE TEXT INPUT FOOTER */}
-            <div className="border-t border-white/5 p-4 bg-slate-900/40">
+            <div className="border-t border-white/5 p-4 bg-card">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Escreva uma mensagem..."
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
-                  className="flex-1 rounded-xl border border-white/5 bg-slate-950/60 px-4 py-3 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                  className="flex-1 rounded-xl border border-white/5 bg-card px-4 py-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
                 />
                 <Button
                   type="submit"
                   disabled={!messageText.trim() || sendMutation.isPending}
-                  className="rounded-xl px-4 bg-emerald-500 text-slate-950 hover:bg-emerald-400 shrink-0"
+                  className="rounded-xl px-4 bg-success text-success-foreground hover:bg-success/90 shrink-0"
                 >
                   <SendHorizontal className="h-4 w-4" />
                 </Button>
@@ -454,12 +454,12 @@ export function WhatsAppInboxPage() {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center text-slate-500">
-            <Bot className="h-10 w-10 text-slate-600 mb-2" />
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
+            <Bot className="h-10 w-10 text-muted-foreground mb-2" />
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Nenhuma conversa selecionada
             </h3>
-            <p className="text-[10px] text-slate-500 mt-1 max-w-xs text-center">
+            <p className="text-[10px] text-muted-foreground mt-1 max-w-xs text-center">
               Selecione um contato na barra lateral esquerda para visualizar o histórico de mensagens e iniciar o atendimento contábil via WhatsApp.
             </p>
           </div>
@@ -477,7 +477,7 @@ export function WhatsAppInboxPage() {
               Cancelar
             </Button>
             <Button
-              className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={handleLinkClient}
               disabled={linkMutation.isPending}
             >
@@ -487,7 +487,7 @@ export function WhatsAppInboxPage() {
         }
       >
         <div className="space-y-4">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Vincular esta conversa a um cliente contábil permite arquivar automaticamente os documentos enviados por ele e associar prazos de entrega e relatórios.
           </p>
           <FormField label="Selecione o Cliente" htmlFor="link_client_id">
@@ -518,7 +518,7 @@ export function WhatsAppInboxPage() {
               Cancelar
             </Button>
             <Button
-              className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+              className="bg-success text-success-foreground hover:bg-success/90"
               onClick={handleConvertTask}
               disabled={convertTaskMutation.isPending}
             >
@@ -528,10 +528,10 @@ export function WhatsAppInboxPage() {
         }
       >
         <div className="space-y-4">
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Isto criará um prazo operacional na agenda de prazos do cliente. O corpo da mensagem será copiado como descrição detalhada da tarefa.
           </p>
-          <div className="rounded-xl border border-white/5 bg-slate-950/60 p-3 text-[11px] text-slate-300 font-mono italic">
+          <div className="rounded-xl border border-white/5 bg-card p-3 text-[11px] text-muted-foreground font-mono italic">
             "{selectedMessage?.body}"
           </div>
           <FormField label="Título da Tarefa" htmlFor="task_title">

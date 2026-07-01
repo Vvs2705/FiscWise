@@ -228,19 +228,19 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
     deadline: {
       label: 'Obrigação Fiscal',
       icon: Calendar,
-      color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+      color: 'text-warning bg-warning/10 border-warning/30',
       actionLabel: 'Concluir Obrigação',
     },
     certificate: {
       label: 'Certificado Digital',
       icon: Key,
-      color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+      color: 'text-primary bg-primary/10 border-primary/30',
       actionLabel: 'Notificar Cliente',
     },
     receivable: {
       label: 'Cobrança / Honorário',
       icon: DollarSign,
-      color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+      color: 'text-success bg-success/10 border-success/30',
       actionLabel: 'Confirmar Pagamento',
     },
   };
@@ -264,21 +264,21 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
   const afterScore = Math.min(100, beforeScore + resolvedCount * 4 + snoozedCount * 2);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/10 bg-[#090f19] shadow-2xl">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-panel border border-border bg-card shadow-token">
+
         {/* Header decoration */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-300 animate-pulse" />
-            <h2 className="text-lg font-bold text-white tracking-wide uppercase">Modo Foco</h2>
+            <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+            <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">Modo Foco</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-400 hover:text-white transition"
+            className="rounded-full border border-border bg-muted p-1.5 text-muted-foreground hover:text-foreground transition"
           >
             <X className="h-4 w-4" />
           </button>
@@ -286,9 +286,9 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
 
         {/* Progress bar */}
         {totalTasks > 0 && !isCompleted && (
-          <div className="h-1 w-full bg-white/5">
+          <div className="h-1 w-full bg-muted">
             <div
-              className="h-full bg-gradient-to-r from-cyan-400 to-teal-400 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
               style={{ width: `${((currentIndex + 1) / totalTasks) * 100}%` }}
             />
           </div>
@@ -297,9 +297,9 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
         <div className="p-6 md:p-8">
           {totalTasks === 0 ? (
             <div className="text-center py-10 space-y-4">
-              <CheckCircle className="h-16 w-16 text-emerald-400 mx-auto" />
-              <h3 className="text-xl font-bold text-white">Nenhuma pendência crítica</h3>
-              <p className="text-sm text-slate-400 max-w-md mx-auto">
+              <CheckCircle className="h-16 w-16 text-success mx-auto" />
+              <h3 className="text-xl font-bold text-foreground">Nenhuma pendência crítica</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Sua carteira está 100% atualizada para hoje! Não há obrigações atrasadas, certificados vencendo ou mensalidades pendentes.
               </p>
               <Button onClick={onClose} className="mt-4">
@@ -310,46 +310,46 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
             /* SUCCESS COMPLETION SCREEN */
             <div className="text-center py-6 space-y-6">
               <div className="relative inline-block">
-                <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full" />
-                <div className="relative border border-cyan-400/30 bg-cyan-500/10 p-5 rounded-full text-cyan-300">
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                <div className="relative border border-primary/30 bg-primary/10 p-5 rounded-full text-primary">
                   <CheckCircle className="h-12 w-12" />
                 </div>
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-white">Modo Foco Concluído!</h3>
-                <p className="text-sm text-slate-400 max-w-md mx-auto">
+                <h3 className="text-2xl font-bold text-foreground">Modo Foco Concluído!</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
                   Excelente trabalho! Você resolveu e organizou suas pendências mais críticas de hoje de forma eficiente.
                 </p>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-3 max-w-md mx-auto bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-semibold">
+              <div className="grid grid-cols-3 gap-3 max-w-md mx-auto bg-muted border border-border rounded-card p-4 text-xs font-semibold">
                 <div>
-                  <span className="text-emerald-400 block text-lg font-bold">{resolvedCount}</span>
-                  <span className="text-slate-400">Resolvidos</span>
+                  <span className="text-success block text-lg font-bold">{resolvedCount}</span>
+                  <span className="text-muted-foreground">Resolvidos</span>
                 </div>
                 <div>
-                  <span className="text-amber-400 block text-lg font-bold">{snoozedCount}</span>
-                  <span className="text-slate-400">Adiados</span>
+                  <span className="text-warning block text-lg font-bold">{snoozedCount}</span>
+                  <span className="text-muted-foreground">Adiados</span>
                 </div>
                 <div>
-                  <span className="text-slate-300 block text-lg font-bold">{skippedCount}</span>
-                  <span className="text-slate-400">Pulados</span>
+                  <span className="text-foreground block text-lg font-bold">{skippedCount}</span>
+                  <span className="text-muted-foreground">Pulados</span>
                 </div>
               </div>
 
               {/* Score impact display */}
-              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-cyan-950/40 to-teal-950/40 border border-cyan-500/20 rounded-2xl p-4 max-w-md mx-auto">
+              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-card p-4 max-w-md mx-auto">
                 <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Score Anterior</p>
-                  <p className="text-xl font-bold text-slate-300">{beforeScore}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Score Anterior</p>
+                  <p className="text-xl font-bold text-foreground">{beforeScore}</p>
                 </div>
-                <ArrowRight className="text-cyan-400 h-5 w-5 shrink-0" />
+                <ArrowRight className="text-primary h-5 w-5 shrink-0" />
                 <div className="text-left">
-                  <p className="text-[10px] uppercase font-bold text-cyan-300">Novo Score Estimado</p>
-                  <p className="text-2xl font-extrabold text-emerald-400 flex items-center gap-1.5">
+                  <p className="text-[10px] uppercase font-bold text-primary">Novo Score Estimado</p>
+                  <p className="text-2xl font-extrabold text-success flex items-center gap-1.5">
                     {afterScore}
-                    <Sparkles className="h-4 w-4 animate-bounce text-cyan-300" />
+                    <Sparkles className="h-4 w-4 animate-bounce text-primary" />
                   </p>
                 </div>
               </div>
@@ -364,9 +364,9 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
             /* ACTIVE FOCUS STACK CARD */
             <div className="space-y-6">
               {/* Stepper info */}
-              <div className="flex justify-between items-center text-xs font-semibold text-slate-400">
+              <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
                 <span>TAREFA {currentIndex + 1} DE {totalTasks}</span>
-                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 uppercase tracking-wider text-cyan-300">
+                <span className="px-2 py-0.5 rounded bg-muted border border-border uppercase tracking-wider text-primary">
                   {taskTypeConfig[currentTask.type].label}
                 </span>
               </div>
@@ -386,28 +386,28 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
                   >
                     {/* Task type badge & Client name */}
                     <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-2xl border shrink-0 ${taskTypeConfig[currentTask.type].color}`}>
+                      <div className={`p-3 rounded-card border shrink-0 ${taskTypeConfig[currentTask.type].color}`}>
                         {(() => {
                           const IconComponent = taskTypeConfig[currentTask.type].icon;
                           return <IconComponent className="h-6 w-6" />;
                         })()}
                       </div>
                       <div className="space-y-1">
-                        <span className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
                           <User className="h-3.5 w-3.5" />
                           {currentTask.clientName}
                         </span>
-                        <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
+                        <h3 className="text-xl font-bold text-foreground tracking-tight leading-snug">
                           {currentTask.title}
                         </h3>
                       </div>
                     </div>
 
-                    <div className="border border-white/5 bg-white/5 rounded-2xl p-4 text-sm text-slate-300 leading-relaxed">
+                    <div className="border border-border bg-muted rounded-card p-4 text-sm text-foreground leading-relaxed">
                       {currentTask.description}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold font-mono">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold font-mono">
                       <Clock className="h-3.5 w-3.5" />
                       Prazo original: {dateBR(currentTask.dueDate)}
                     </div>
@@ -416,31 +416,31 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               </div>
 
               {/* Action Buttons Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-6 border-t border-white/5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-6 border-t border-border">
                 <button
                   onClick={handleResolve}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-500 text-slate-950 py-3 text-xs font-bold hover:bg-emerald-400 active:scale-98 transition shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-card bg-success text-success-foreground py-3 text-xs font-bold hover:bg-success/90 active:scale-98 transition shadow-token-sm"
                 >
                   <CheckCircle className="h-4 w-4" />
                   {taskTypeConfig[currentTask.type].actionLabel}
                 </button>
                 <button
                   onClick={handleSnooze}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-300 py-3 text-xs font-bold hover:bg-amber-500/20 active:scale-98 transition"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-card border border-warning/20 bg-warning/10 text-warning py-3 text-xs font-bold hover:bg-warning/20 active:scale-98 transition"
                 >
                   <Clock className="h-4 w-4" />
                   Adiar 7 dias
                 </button>
                 <button
                   onClick={handleWaitingClient}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 py-3 text-xs font-bold hover:bg-cyan-500/20 active:scale-98 transition"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-card border border-primary/20 bg-primary/10 text-primary py-3 text-xs font-bold hover:bg-primary/20 active:scale-98 transition"
                 >
                   <Send className="h-4 w-4" />
                   Aguardar Cliente
                 </button>
                 <button
                   onClick={handleSkip}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 text-slate-300 py-3 text-xs font-bold hover:bg-white/10 active:scale-98 transition"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-card border border-border bg-muted text-foreground py-3 text-xs font-bold hover:bg-muted/80 active:scale-98 transition"
                 >
                   Pular
                   <ChevronRight className="h-4 w-4" />

@@ -123,21 +123,21 @@ interface MetricCardProps {
 
 const METRIC_VARIANTS = {
   default: 'border-border',
-  success: 'border-emerald-500/20 bg-emerald-500/5',
-  warning: 'border-orange-500/20 bg-orange-500/5',
-  danger: 'border-red-500/20 bg-red-500/5',
+  success: 'border-success/20 bg-success/5',
+  warning: 'border-warning/20 bg-warning/5',
+  danger: 'border-destructive/20 bg-destructive/5',
 };
 
 export function MetricCard({ title, value, subtitle, icon, trend, variant = 'default', className }: MetricCardProps) {
   return (
-    <div className={cn('rounded-xl border bg-card p-4 transition-shadow hover:shadow-md', METRIC_VARIANTS[variant], className)}>
+    <div className={cn('rounded-xl border bg-card p-4 transition-shadow hover:shadow-token-sm', METRIC_VARIANTS[variant], className)}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-xs font-medium text-muted-foreground">{title}</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
           {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
           {trend && (
-            <p className={cn('mt-1 text-xs font-medium', trend.value >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+            <p className={cn('mt-1 text-xs font-medium', trend.value >= 0 ? 'text-success' : 'text-destructive')}>
               {trend.value >= 0 ? '+' : ''}{trend.value}% {trend.label}
             </p>
           )}
@@ -207,9 +207,9 @@ interface WarningPanelProps {
 }
 
 const WARNING_VARIANTS = {
-  warning: 'border-orange-500/30 bg-orange-500/5 text-orange-300',
-  danger: 'border-red-500/30 bg-red-500/5 text-red-300',
-  info: 'border-blue-500/30 bg-blue-500/5 text-blue-300',
+  warning: 'border-warning/30 bg-warning/5 text-warning',
+  danger: 'border-destructive/30 bg-destructive/5 text-destructive',
+  info: 'border-info/30 bg-info/5 text-info',
 };
 
 export function WarningPanel({ title, description, children, variant = 'warning', className }: WarningPanelProps) {

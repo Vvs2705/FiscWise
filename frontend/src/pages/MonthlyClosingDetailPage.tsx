@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function ScoreRing({ score }: { score: number }) {
-  const color = score >= 100 ? '#10b981' : score >= 80 ? '#3b82f6' : score >= 50 ? '#eab308' : '#ef4444';
+  const color = score >= 100 ? 'hsl(var(--success))' : score >= 80 ? 'hsl(var(--info))' : score >= 50 ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
   const circumference = 2 * Math.PI * 40;
   const strokeDash = (score / 100) * circumference;
 
@@ -40,9 +40,9 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 const CHECKLIST_STATUS_ICONS = {
-  done: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
+  done: <CheckCircle2 className="h-4 w-4 text-success" />,
   pending: <Circle className="h-4 w-4 text-muted-foreground" />,
-  blocked: <AlertTriangle className="h-4 w-4 text-red-400" />,
+  blocked: <AlertTriangle className="h-4 w-4 text-destructive" />,
   na: <MinusCircle className="h-4 w-4 text-muted-foreground/50" />,
 };
 
@@ -98,7 +98,7 @@ export function MonthlyClosingDetailPage() {
   if (error || !closing) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
           Fechamento não encontrado.
         </div>
       </div>
@@ -142,15 +142,15 @@ export function MonthlyClosingDetailPage() {
 
         {/* Blockers */}
         {closing.blockers.length > 0 && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-red-400" />
-              <span className="text-sm font-semibold text-red-300">Bloqueios ativos</span>
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <span className="text-sm font-semibold text-destructive">Bloqueios ativos</span>
             </div>
             <ul className="space-y-1">
               {closing.blockers.map((b, i) => (
-                <li key={i} className="text-xs text-red-300/80 flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-red-400" />
+                <li key={i} className="text-xs text-destructive/80 flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full bg-destructive" />
                   {b}
                 </li>
               ))}
@@ -197,7 +197,7 @@ export function MonthlyClosingDetailPage() {
                 className={cn(
                   'flex items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors',
                   item.status === 'done' && 'opacity-60',
-                  item.status === 'blocked' && 'border-red-500/20 bg-red-500/5',
+                  item.status === 'blocked' && 'border-destructive/20 bg-destructive/5',
                 )}
               >
                 <span className="mt-0.5 shrink-0">{CHECKLIST_STATUS_ICONS[item.status]}</span>
@@ -207,7 +207,7 @@ export function MonthlyClosingDetailPage() {
                   </p>
                   {item.notes && <p className="mt-0.5 text-xs text-muted-foreground">{item.notes}</p>}
                   {item.completedAt && (
-                    <p className="mt-0.5 text-xs text-emerald-400/80">
+                    <p className="mt-0.5 text-xs text-success/80">
                       Concluído em {new Date(item.completedAt).toLocaleDateString('pt-BR')}
                     </p>
                   )}
@@ -217,7 +217,7 @@ export function MonthlyClosingDetailPage() {
                     <button
                       onClick={() => checklistMutation.mutate({ itemId: item.id, status: 'done' })}
                       disabled={checklistMutation.isPending}
-                      className="rounded px-2.5 py-1 text-xs font-medium bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 transition-colors"
+                      className="rounded px-2.5 py-1 text-xs font-medium bg-success/20 text-success hover:bg-success/40 transition-colors"
                     >
                       Marcar como feito
                     </button>
@@ -257,7 +257,7 @@ function Stat({ label, value, pending }: { label: string; value: string; pending
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('text-sm font-semibold tabular-nums', pending ? 'text-orange-400' : 'text-emerald-400')}>
+      <p className={cn('text-sm font-semibold tabular-nums', pending ? 'text-warning' : 'text-success')}>
         {value}
       </p>
     </div>
@@ -289,9 +289,9 @@ function TabLinkCard({
         <div className="flex items-center gap-3">
           <div className={cn(
             'flex h-10 w-10 items-center justify-center rounded-lg',
-            allDone ? 'bg-emerald-500/10' : 'bg-orange-500/10',
+            allDone ? 'bg-success/10' : 'bg-warning/10',
           )}>
-            <Icon className={cn('h-5 w-5', allDone ? 'text-emerald-400' : 'text-orange-400')} />
+            <Icon className={cn('h-5 w-5', allDone ? 'text-success' : 'text-warning')} />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">{title}</h3>
@@ -299,15 +299,15 @@ function TabLinkCard({
           </div>
         </div>
         {allDone
-          ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-          : <AlertTriangle className="h-5 w-5 shrink-0 text-orange-400" />}
+          ? <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+          : <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />}
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map(s => (
           <div key={s.label} className="rounded-lg bg-muted/30 px-3 py-2">
             <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className={cn('text-sm font-bold tabular-nums', s.ok ? 'text-emerald-400' : 'text-orange-400')}>{s.value}</p>
+            <p className={cn('text-sm font-bold tabular-nums', s.ok ? 'text-success' : 'text-warning')}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -426,16 +426,16 @@ function TabDossie({
       </div>
 
       {closing.dossierGeneratedAt ? (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-          <p className="text-sm text-emerald-300">
+        <div className="flex items-center gap-2 rounded-lg border border-success/20 bg-success/5 px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+          <p className="text-sm text-success">
             Dossiê gerado em {new Date(closing.dossierGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-orange-400 shrink-0" />
-          <p className="text-sm text-orange-300">Dossiê ainda não foi gerado para este fechamento.</p>
+        <div className="flex items-center gap-2 rounded-lg border border-warning/20 bg-warning/5 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+          <p className="text-sm text-warning">Dossiê ainda não foi gerado para este fechamento.</p>
         </div>
       )}
 

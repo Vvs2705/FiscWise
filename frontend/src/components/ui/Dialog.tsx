@@ -41,7 +41,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
       {/* Panel */}
       <div
         className={cn(
-          'relative z-10 flex w-full max-w-lg flex-col rounded-lg border bg-background shadow-lg',
+          'relative z-10 flex w-full max-w-lg flex-col rounded-lg border bg-background shadow-token',
           'max-h-[90vh]',
           className
         )}

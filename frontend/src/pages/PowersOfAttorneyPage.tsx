@@ -207,16 +207,16 @@ export function PowersOfAttorneyPage() {
                         <div>
                           <p className="font-medium text-foreground">{client?.name ?? pow.cnpj_grantor}</p>
                           <p className="text-xs text-muted-foreground">{pow.cnpj_grantor}</p>
-                          {pow.notes && <p className="text-xs text-orange-400 mt-0.5">{pow.notes}</p>}
+                          {pow.notes && <p className="text-xs text-warning mt-0.5">{pow.notes}</p>}
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-xs text-muted-foreground lg:table-cell">{pow.provider}</td>
                       <td className="hidden px-4 py-3 sm:table-cell">
                         <div>
-                          <p className={cn('text-xs', expiring ? 'text-orange-400 font-semibold' : 'text-muted-foreground')}>
+                          <p className={cn('text-xs', expiring ? 'text-warning font-semibold' : 'text-muted-foreground')}>
                             {pow.valid_until ? new Date(pow.valid_until).toLocaleDateString('pt-BR') : '—'}
                           </p>
-                          {expiring && <p className="text-[10px] text-orange-400/80">em {days} dias</p>}
+                          {expiring && <p className="text-[10px] text-warning/80">em {days} dias</p>}
                         </div>
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={pow.status} /></td>
@@ -225,14 +225,14 @@ export function PowersOfAttorneyPage() {
                           {pow.status === 'active' && (
                             <button
                               onClick={() => handleRevoke(pow.id)}
-                              className="rounded-lg border border-red-500/30 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                              className="rounded-lg border border-destructive/30 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
                             >
                               Revogar
                             </button>
                           )}
                           {(pow.status === 'expired' || expiring) && (
                             <button
-                              className="rounded-lg border border-orange-500/30 px-2.5 py-1 text-xs font-medium text-orange-400 hover:bg-orange-500/10 transition-colors"
+                              className="rounded-lg border border-warning/30 px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning/10 transition-colors"
                               onClick={() => toast.info('Fluxo de renovação em breve.')}
                             >
                               <RefreshCw className="h-3 w-3 inline mr-1" />

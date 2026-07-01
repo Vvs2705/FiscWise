@@ -433,7 +433,7 @@ export function RegisterPage() {
                         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
                           {plan.features.map((f) => (
                             <span key={f} className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Check className="h-3 w-3 text-emerald-500" />
+                              <Check className="h-3 w-3 text-success" />
                               {f}
                             </span>
                           ))}

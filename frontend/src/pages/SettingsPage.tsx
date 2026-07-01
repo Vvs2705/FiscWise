@@ -147,7 +147,7 @@ const PLANS = [
     slug: 'premium',
     label: 'Premium',
     price: 'R$ 299/mês',
-    color: 'text-amber-500',
+    color: 'text-warning',
     features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
   },
 ];
@@ -477,14 +477,14 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className={isNearLimit ? 'font-semibold text-amber-500' : 'text-muted-foreground'}>
+        <span className={isNearLimit ? 'font-semibold text-warning' : 'text-muted-foreground'}>
           {used} / {limit === null ? '∞' : limit}
         </span>
       </div>
       {limit !== null && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-primary'}`}
+            className={`h-full rounded-full transition-all duration-500 ${pct >= 90 ? 'bg-destructive' : pct >= 70 ? 'bg-warning' : 'bg-primary'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -533,7 +533,7 @@ function PlanoTab({
       features: ['Até 80 clientes', '5 usuários', 'IA Fiscal (20 msgs/mês)', 'Motor de obrigações', 'Portal do cliente', 'Suporte prioritário'],
     },
     premium: {
-      color: 'text-amber-500',
+      color: 'text-warning',
       features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
     },
   };
@@ -637,7 +637,7 @@ function PlanoTab({
                 : 'Compare os planos abaixo para ampliar capacidade, liberar mais IA e ajustar o nível de suporte do escritório.'}
             </p>
             {nearLimitItems.length > 0 && (
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">
+              <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-sm text-warning">
                 {nearLimitItems.map((item) => (
                   <p key={item}>{item}</p>
                 ))}
@@ -673,7 +673,7 @@ function PlanoTab({
               key={plan.slug}
               className={cn(
                 'relative transition-all duration-200',
-                isActive ? 'border-primary shadow-md' : 'hover:border-primary/50',
+                isActive ? 'border-primary shadow-token-sm' : 'hover:border-primary/50',
               )}
             >
               {meta.popular && (
@@ -712,7 +712,7 @@ function PlanoTab({
                 <ul className="space-y-2">
                   {getPlanFeatures(plan).map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                       {f}
                     </li>
                   ))}
@@ -902,15 +902,15 @@ function TwoFactorCard() {
   const method = status?.two_factor_method ?? 'none';
 
   return (
-    <Card className={cn(enabled && 'ring-1 ring-emerald-500/30')}>
+    <Card className={cn(enabled && 'ring-1 ring-success/30')}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className={cn('h-5 w-5', enabled ? 'text-emerald-500' : 'text-muted-foreground')} />
+            <Shield className={cn('h-5 w-5', enabled ? 'text-success' : 'text-muted-foreground')} />
             <CardTitle className="text-base">Autenticação de Dois Fatores (2FA)</CardTitle>
           </div>
           {enabled && (
-            <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30">
+            <Badge className="bg-success/15 text-success border-success/30">
               ✓ Ativo · {method === 'totp' ? 'App Autenticador' : 'E-mail'}
             </Badge>
           )}
@@ -969,8 +969,8 @@ function TwoFactorCard() {
                 disabled={busy}
                 className="group flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left transition-all hover:border-primary hover:bg-primary/5 disabled:opacity-60"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20">
-                  <MailCheck className="h-5 w-5 text-blue-500" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info/10 group-hover:bg-info/20">
+                  <MailCheck className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <p className="font-semibold text-sm">E-mail</p>
@@ -1021,8 +1021,8 @@ function TwoFactorCard() {
         {/* Email confirm */}
         {mode === 'confirm-email' && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-4">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
+            <div className="rounded-xl bg-info/10 border border-info/20 p-4">
+              <p className="text-sm text-info">
                 📧 Código enviado para seu e-mail. Verifique a caixa de entrada e insira o código abaixo.
               </p>
             </div>
@@ -1201,8 +1201,8 @@ function SegurancaTab() {
         <Card className="border-dashed">
           <CardContent className="pt-5">
             <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/10">
+                <ShieldCheck className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="font-medium">Sessão protegida</p>
@@ -1251,11 +1251,11 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
   const isOwner = user?.role === 'owner';
   
   const statusColors: Record<string, string> = {
-    trialing: 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20',
-    active: 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20',
-    past_due: 'bg-red-500/10 text-red-500 hover:bg-red-500/20',
-    suspended: 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20',
-    cancelled: 'bg-zinc-500/10 text-zinc-500 hover:bg-zinc-500/20',
+    trialing: 'bg-warning/10 text-warning hover:bg-warning/20',
+    active: 'bg-success/10 text-success hover:bg-success/20',
+    past_due: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+    suspended: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+    cancelled: 'bg-muted text-muted-foreground hover:bg-muted/80',
   };
 
   const statusLabel: Record<string, string> = {
@@ -1396,9 +1396,9 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
 // ─── Notificações tab ─────────────────────────────────────────────────────────
 
 function statusIcon(status: string) {
-  if (status === 'sent' || status === 'delivered') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
-  if (status === 'failed') return <XCircle className="h-3.5 w-3.5 text-red-500" />;
-  if (status === 'skipped') return <SkipForward className="h-3.5 w-3.5 text-amber-500" />;
+  if (status === 'sent' || status === 'delivered') return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
+  if (status === 'failed') return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+  if (status === 'skipped') return <SkipForward className="h-3.5 w-3.5 text-warning" />;
   return <Send className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
@@ -1439,9 +1439,9 @@ function NotificacoesTab() {
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: 'Enviados', value: stats?.sent ?? 0, color: 'text-emerald-600 dark:text-emerald-400' },
-                { label: 'Ignorados', value: stats?.skipped ?? 0, color: 'text-amber-600 dark:text-amber-400' },
-                { label: 'Falhas', value: stats?.failed ?? 0, color: 'text-red-600 dark:text-red-400' },
+                { label: 'Enviados', value: stats?.sent ?? 0, color: 'text-success' },
+                { label: 'Ignorados', value: stats?.skipped ?? 0, color: 'text-warning' },
+                { label: 'Falhas', value: stats?.failed ?? 0, color: 'text-destructive' },
                 { label: 'Total', value: stats?.total ?? 0, color: 'text-foreground' },
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border p-3 text-center">
@@ -1466,15 +1466,15 @@ function NotificacoesTab() {
           </p>
 
           {result && (
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm">
-              <p className="font-medium text-emerald-700 dark:text-emerald-300">
+            <div className="rounded-lg border border-success/20 bg-success/5 p-3 text-sm">
+              <p className="font-medium text-success">
                 Resultado: {result.clients_notified} cliente(s) processados
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Enviados: {result.sent} · Ignorados: {result.skipped} · Falhas: {result.failed}
               </p>
               {result.sent === 0 && result.skipped > 0 && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                <p className="mt-1 text-xs text-warning">
                   Mensagens registradas como "ignoradas" — configure EMAIL_PROVIDER no servidor para envio real.
                 </p>
               )}
@@ -1674,7 +1674,7 @@ function BaseConhecimentoTab({
           <p className="max-w-md text-sm text-muted-foreground">
             Alimente o cérebro da IA fiscal do seu escritório com regras, FAQs e procedimentos próprios. Quando você fizer perguntas na calculadora com IA, ela responderá baseada prioritariamente nas diretrizes do seu escritório, citando fontes e confiança!
           </p>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+          <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-xs text-warning">
             Esta funcionalidade premium está disponível a partir do Plano Intermediário.
           </div>
           <Button onClick={onNavigateToPlans} className="mt-2">
@@ -1708,9 +1708,9 @@ function BaseConhecimentoTab({
 
   const getCategoryBadgeColor = (cat: string) => {
     switch (cat) {
-      case 'procedimento': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-      case 'faq': return 'bg-sky-500/10 text-sky-500 border-sky-500/20';
-      case 'regulamento': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+      case 'procedimento': return 'bg-success/10 text-success border-success/20';
+      case 'faq': return 'bg-info/10 text-info border-info/20';
+      case 'regulamento': return 'bg-info/10 text-info border-info/20';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -2027,8 +2027,8 @@ function DesenvolvedorTab() {
 
         {/* New Key Revealed Banner */}
         {createdKey && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+          <div className="rounded-xl border border-success/30 bg-success/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-success">
               <CheckCircle2 className="h-4 w-4" />
               <p className="text-sm font-semibold">Chave criada! Copie agora — não será exibida novamente.</p>
             </div>
@@ -2039,7 +2039,7 @@ function DesenvolvedorTab() {
                 className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 title="Copiar chave"
               >
-                {copiedKeyId === createdKey.id ? <CheckCheck className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {copiedKeyId === createdKey.id ? <CheckCheck className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
             <button
@@ -2128,8 +2128,8 @@ function DesenvolvedorTab() {
 
         {/* Signing secret revealed banner */}
         {createdWebhook && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+          <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-warning">
               <AlertCircle className="h-4 w-4" />
               <p className="text-sm font-semibold">Segredo de assinatura gerado! Copie agora — não será exibido novamente.</p>
             </div>
@@ -2140,7 +2140,7 @@ function DesenvolvedorTab() {
                 className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 title="Copiar segredo"
               >
-                {copiedSecret ? <CheckCheck className="h-4 w-4 text-amber-500" /> : <Copy className="h-4 w-4" />}
+                {copiedSecret ? <CheckCheck className="h-4 w-4 text-warning" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -2272,7 +2272,7 @@ function DesenvolvedorTab() {
                   <div key={log.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center gap-3">
                     <div className={cn(
                       'h-2 w-2 shrink-0 rounded-full',
-                      log.success ? 'bg-emerald-500' : 'bg-red-500'
+                      log.success ? 'bg-success' : 'bg-destructive'
                     )} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-mono truncate">{log.event}</p>

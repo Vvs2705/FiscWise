@@ -22,10 +22,10 @@ const COMPETENCE_OPTIONS = [
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
-    score >= 100 ? 'text-emerald-400 bg-emerald-500/10' :
-    score >= 80 ? 'text-blue-400 bg-blue-500/10' :
-    score >= 50 ? 'text-yellow-400 bg-yellow-500/10' :
-    'text-red-400 bg-red-500/10';
+    score >= 100 ? 'text-success bg-success/10' :
+    score >= 80 ? 'text-info bg-info/10' :
+    score >= 50 ? 'text-warning bg-warning/10' :
+    'text-destructive bg-destructive/10';
 
   return (
     <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums', color)}>
@@ -36,7 +36,7 @@ function ScoreBadge({ score }: { score: number }) {
 
 function ProgressBar({ value, max, className }: { value: number; max: number; className?: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  const color = pct >= 100 ? 'bg-emerald-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+  const color = pct >= 100 ? 'bg-success' : pct >= 50 ? 'bg-warning' : 'bg-destructive';
   return (
     <div className={cn('h-1.5 w-full overflow-hidden rounded-full bg-muted', className)}>
       <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${pct}%` }} />
@@ -130,7 +130,7 @@ export function MonthlyClosingsPage() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : error ? (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
             Erro ao carregar fechamentos. Tente novamente.
           </div>
         ) : filtered.length === 0 ? (
@@ -196,28 +196,28 @@ function ClosingRow({ closing }: { closing: MonthlyClosing }) {
         </div>
       </td>
       <td className="hidden px-4 py-3 lg:table-cell">
-        <span className={cn('text-xs', closing.invoicesPending > 0 ? 'text-orange-400' : 'text-muted-foreground')}>
+        <span className={cn('text-xs', closing.invoicesPending > 0 ? 'text-warning' : 'text-muted-foreground')}>
           {closing.invoicesCount - closing.invoicesPending}/{closing.invoicesCount}
         </span>
       </td>
       <td className="hidden px-4 py-3 lg:table-cell">
-        <span className={cn('text-xs', closing.guidesPaid < closing.guidesCount ? 'text-orange-400' : 'text-muted-foreground')}>
+        <span className={cn('text-xs', closing.guidesPaid < closing.guidesCount ? 'text-warning' : 'text-muted-foreground')}>
           {closing.guidesPaid}/{closing.guidesCount}
         </span>
       </td>
       <td className="hidden px-4 py-3 xl:table-cell">
-        <span className={cn('text-xs', closing.obligationsDone < closing.obligationsTotal ? 'text-orange-400' : 'text-muted-foreground')}>
+        <span className={cn('text-xs', closing.obligationsDone < closing.obligationsTotal ? 'text-warning' : 'text-muted-foreground')}>
           {closing.obligationsDone}/{closing.obligationsTotal}
         </span>
       </td>
       <td className="hidden px-4 py-3 xl:table-cell">
         {closing.blockers.length > 0 ? (
-          <span className="inline-flex items-center gap-1 text-xs text-red-400">
+          <span className="inline-flex items-center gap-1 text-xs text-destructive">
             <AlertTriangle className="h-3 w-3" />
             {closing.blockers.length}
           </span>
         ) : (
-          <span className="text-xs text-emerald-400">—</span>
+          <span className="text-xs text-success">—</span>
         )}
       </td>
       <td className="px-4 py-3">

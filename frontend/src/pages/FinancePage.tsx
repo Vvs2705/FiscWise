@@ -190,7 +190,7 @@ export function FinancePage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-teal-400 via-emerald-400 to-sky-400">
+          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
             Financeiro
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -202,13 +202,13 @@ export function FinancePage() {
             variant="outline"
             size="sm"
             onClick={() => navigate('/aprender')}
-            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-md">
+          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Nova cobranca
           </Button>
@@ -229,7 +229,7 @@ export function FinancePage() {
           title="Recebido"
           value={isLoading ? '...' : moneyBRL(paidTotal)}
           icon={DollarSign}
-          className="bg-card/45 backdrop-blur-sm border-border/50 text-emerald-500"
+          className="bg-card/45 backdrop-blur-sm border-border/50 text-success"
         />
         <MetricCard
           title="Em atraso"
@@ -255,7 +255,7 @@ export function FinancePage() {
                 placeholder="Buscar por descrição ou cliente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-muted/20 border-border/50 focus:border-teal-500/50"
+                className="pl-9 bg-muted/20 border-border/50 focus:border-primary/50"
               />
             </div>
 
@@ -359,7 +359,7 @@ export function FinancePage() {
                       <span>Vencimento: <strong className={r.status === 'overdue' ? 'text-destructive' : 'text-foreground'}>{dateBR(r.due_date)}</strong></span>
                     </div>
                     {r.paid_at && (
-                      <div className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/10 w-fit">
+                      <div className="flex items-center gap-2 text-xs text-success bg-success/5 px-2 py-1 rounded border border-success/10 w-fit">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         <span>Pago em: {dateBR(r.paid_at)}</span>
                       </div>
@@ -376,7 +376,7 @@ export function FinancePage() {
                   {(r.status === 'pending' || r.status === 'overdue') && (
                     <Button
                       size="sm"
-                      className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                      className="bg-success/10 text-success hover:bg-success/20 border border-success/20"
                       onClick={() => handleMarkPaid(r.id)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
@@ -444,7 +444,7 @@ export function FinancePage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleMarkPaid(r.id)}
-                          className="h-8 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                          className="h-8 text-xs text-success hover:text-success hover:bg-success/10 gap-1"
                           title="Marcar como Pago"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
@@ -527,7 +527,7 @@ export function FinancePage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white">
+            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
               {isSubmitting ? 'Salvando...' : 'Salvar cobranca'}
             </Button>
           </div>
@@ -536,17 +536,17 @@ export function FinancePage() {
 
       {/* ── Inadimplência Report (owner/admin) ── */}
       {isAdminOrOwner && inadimplencia && inadimplencia.total_clients > 0 && (
-        <Card className="mt-8 border-red-200 dark:border-red-800/40 bg-card/45 backdrop-blur-sm">
+        <Card className="mt-8 border-destructive/20 dark:border-destructive/40 bg-card/45 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 border border-red-500/20">
-                <TrendingDown className="h-4 w-4 text-red-500" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 border border-destructive/20">
+                <TrendingDown className="h-4 w-4 text-destructive" />
               </div>
               <div>
                 <CardTitle className="text-base font-bold text-foreground">Relatório de Inadimplência</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {inadimplencia.total_clients} cliente{inadimplencia.total_clients !== 1 ? 's' : ''} com recebíveis vencidos
-                  &nbsp;·&nbsp;Total: <strong className="text-red-500 font-bold">{moneyBRL(inadimplencia.total_overdue_amount)}</strong>
+                  &nbsp;·&nbsp;Total: <strong className="text-destructive font-bold">{moneyBRL(inadimplencia.total_overdue_amount)}</strong>
                 </p>
               </div>
             </div>
@@ -568,16 +568,16 @@ export function FinancePage() {
                     <TableCell className="font-semibold text-foreground">{c.client_name}</TableCell>
                     <TableCell className="text-muted-foreground">{c.email ?? '—'}</TableCell>
                     <TableCell className="text-right font-medium text-foreground">{c.overdue_count}</TableCell>
-                    <TableCell className="text-right font-bold text-red-500">
+                    <TableCell className="text-right font-bold text-destructive">
                       {moneyBRL(c.overdue_total)}
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold border ${
                         c.days_overdue > 90
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                          ? 'bg-destructive/10 text-destructive border-destructive/20'
                           : c.days_overdue > 30
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                          ? 'bg-warning/10 text-warning border-warning/20'
+                          : 'bg-warning/10 text-warning border-warning/20'
                       }`}>
                         {c.days_overdue} dias
                       </span>

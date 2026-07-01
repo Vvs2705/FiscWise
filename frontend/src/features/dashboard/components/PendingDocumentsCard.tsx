@@ -20,30 +20,30 @@ const statusConfig = {
   awaiting_client: {
     label: 'Aguardando cliente',
     icon: Upload,
-    color: 'text-fw-warning',
-    bg: 'bg-fw-warning-soft',
-    border: 'border-fw-warning/30',
+    color: 'text-warning',
+    bg: 'bg-warning/10',
+    border: 'border-warning/30',
   },
   received: {
     label: 'Recebido',
     icon: FileText,
-    color: 'text-fw-blue',
-    bg: 'bg-fw-blue-soft',
-    border: 'border-fw-blue/30',
+    color: 'text-info',
+    bg: 'bg-info/10',
+    border: 'border-info/30',
   },
   approved: {
     label: 'Aprovado',
     icon: CheckCircle2,
-    color: 'text-fw-success',
-    bg: 'bg-fw-success-soft',
-    border: 'border-fw-success/30',
+    color: 'text-success',
+    bg: 'bg-success/10',
+    border: 'border-success/30',
   },
   rejected: {
     label: 'Rejeitado',
     icon: XCircle,
-    color: 'text-fw-danger',
-    bg: 'bg-fw-danger-soft',
-    border: 'border-fw-danger/30',
+    color: 'text-destructive',
+    bg: 'bg-destructive/10',
+    border: 'border-destructive/30',
   },
 };
 
@@ -54,11 +54,11 @@ export function PendingDocumentsCard({
 }: PendingDocumentsCardProps) {
   if (isLoading) {
     return (
-      <div className="bg-fw-surface-solid border border-fw-border rounded-xl p-6">
-        <div className="h-6 w-48 bg-fw-surface animate-pulse rounded mb-4" />
+      <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
+        <div className="h-6 w-48 bg-muted animate-pulse rounded mb-4" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-fw-surface animate-pulse rounded-lg" />
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       </div>
@@ -69,15 +69,15 @@ export function PendingDocumentsCard({
     return (
       <motion.div
         variants={fadeIn}
-        className="bg-fw-surface-solid border border-fw-border rounded-xl p-8 text-center"
+        className="bg-card border border-border rounded-card shadow-token-sm p-8 text-center"
       >
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-fw-success-soft flex items-center justify-center">
-          <CheckCircle2 className="w-8 h-8 text-fw-success" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8 text-success" />
         </div>
-        <h3 className="text-lg font-semibold text-fw-text mb-2">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
           Todos os documentos em dia
         </h3>
-        <p className="text-fw-text-muted text-sm">
+        <p className="text-muted-foreground text-sm">
           Não há documentos pendentes no momento.
         </p>
       </motion.div>
@@ -87,14 +87,14 @@ export function PendingDocumentsCard({
   return (
     <motion.div
       variants={fadeIn}
-      className="bg-fw-surface-solid border border-fw-border rounded-xl p-6"
+      className="bg-card border border-border rounded-card shadow-token-sm p-6"
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-fw-text flex items-center gap-2">
-          <FileText className="w-5 h-5 text-fw-primary" />
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary" />
           Documentos Pendentes
         </h2>
-        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-fw-warning-soft text-fw-warning border border-fw-warning/30">
+        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-warning/10 text-warning border border-warning/30">
           {totalPending} pendentes
         </span>
       </div>
@@ -107,7 +107,7 @@ export function PendingDocumentsCard({
           return (
             <div
               key={doc.id}
-              className="bg-fw-surface border border-fw-border rounded-lg p-4 hover:border-fw-primary/30 transition-all cursor-pointer group"
+              className="bg-muted border border-border rounded-lg p-4 hover:border-primary/30 transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -117,13 +117,13 @@ export function PendingDocumentsCard({
                     <Icon className={`w-5 h-5 ${config.color}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-fw-text truncate">
+                    <h3 className="font-semibold text-foreground truncate">
                       {doc.clientName}
                     </h3>
-                    <p className="text-sm text-fw-text-muted truncate">
+                    <p className="text-sm text-muted-foreground truncate">
                       {doc.documentType}
                     </p>
-                    <p className="text-xs text-fw-text-soft mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {doc.daysWaiting === 0
                         ? 'Hoje'
                         : doc.daysWaiting === 1
@@ -144,7 +144,7 @@ export function PendingDocumentsCard({
       </div>
 
       {totalPending > documents.length && (
-        <button className="w-full mt-4 py-2 text-sm font-medium text-fw-primary hover:text-fw-primary-strong transition-colors">
+        <button className="w-full mt-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
           Ver todos os {totalPending} documentos
         </button>
       )}

@@ -7,39 +7,39 @@ import { cn } from '@/lib/utils';
 const STATUS_CONFIGS: Record<string, { label: string; color: string }> = {
   // Notas
   draft: { label: 'Rascunho', color: 'bg-muted text-muted-foreground' },
-  validating: { label: 'Validando', color: 'bg-blue-500/10 text-blue-400' },
-  ready_to_issue: { label: 'Pronta p/ emitir', color: 'bg-emerald-500/10 text-emerald-400' },
-  issuing: { label: 'Emitindo', color: 'bg-yellow-500/10 text-yellow-400' },
-  processing: { label: 'Processando', color: 'bg-blue-500/10 text-blue-400' },
-  issued: { label: 'Emitida', color: 'bg-emerald-500/10 text-emerald-400' },
-  rejected: { label: 'Rejeitada', color: 'bg-red-500/10 text-red-400' },
-  cancel_requested: { label: 'Cancel. solicitado', color: 'bg-orange-500/10 text-orange-400' },
+  validating: { label: 'Validando', color: 'bg-info/10 text-info' },
+  ready_to_issue: { label: 'Pronta p/ emitir', color: 'bg-success/10 text-success' },
+  issuing: { label: 'Emitindo', color: 'bg-warning/10 text-warning' },
+  processing: { label: 'Processando', color: 'bg-info/10 text-info' },
+  issued: { label: 'Emitida', color: 'bg-success/10 text-success' },
+  rejected: { label: 'Rejeitada', color: 'bg-destructive/10 text-destructive' },
+  cancel_requested: { label: 'Cancel. solicitado', color: 'bg-warning/10 text-warning' },
   cancelled: { label: 'Cancelada', color: 'bg-muted text-muted-foreground' },
-  failed: { label: 'Falha', color: 'bg-red-500/10 text-red-400' },
+  failed: { label: 'Falha', color: 'bg-destructive/10 text-destructive' },
   // Guias
-  generated: { label: 'Gerada', color: 'bg-blue-500/10 text-blue-400' },
-  sent_to_customer: { label: 'Enviada ao cliente', color: 'bg-purple-500/10 text-purple-400' },
-  awaiting_payment: { label: 'Aguard. pagamento', color: 'bg-yellow-500/10 text-yellow-400' },
-  paid: { label: 'Paga', color: 'bg-emerald-500/10 text-emerald-400' },
-  overdue: { label: 'Vencida', color: 'bg-red-500/10 text-red-400' },
-  divergent: { label: 'Divergente', color: 'bg-orange-500/10 text-orange-400' },
+  generated: { label: 'Gerada', color: 'bg-info/10 text-info' },
+  sent_to_customer: { label: 'Enviada ao cliente', color: 'bg-info/10 text-info' },
+  awaiting_payment: { label: 'Aguard. pagamento', color: 'bg-warning/10 text-warning' },
+  paid: { label: 'Paga', color: 'bg-success/10 text-success' },
+  overdue: { label: 'Vencida', color: 'bg-destructive/10 text-destructive' },
+  divergent: { label: 'Divergente', color: 'bg-warning/10 text-warning' },
   // Procurações
-  pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-400' },
-  active: { label: 'Ativa', color: 'bg-emerald-500/10 text-emerald-400' },
-  expired: { label: 'Vencida', color: 'bg-red-500/10 text-red-400' },
+  pending: { label: 'Pendente', color: 'bg-warning/10 text-warning' },
+  active: { label: 'Ativa', color: 'bg-success/10 text-success' },
+  expired: { label: 'Vencida', color: 'bg-destructive/10 text-destructive' },
   revoked: { label: 'Revogada', color: 'bg-muted text-muted-foreground' },
-  invalid: { label: 'Inválida', color: 'bg-red-500/10 text-red-400' },
+  invalid: { label: 'Inválida', color: 'bg-destructive/10 text-destructive' },
   unknown: { label: 'Desconhecido', color: 'bg-muted text-muted-foreground' },
   // Certificados
-  valid: { label: 'Válido', color: 'bg-emerald-500/10 text-emerald-400' },
-  expiring: { label: 'Vencendo', color: 'bg-orange-500/10 text-orange-400' },
+  valid: { label: 'Válido', color: 'bg-success/10 text-success' },
+  expiring: { label: 'Vencendo', color: 'bg-warning/10 text-warning' },
   // Fechamento
   not_started: { label: 'Não iniciado', color: 'bg-muted text-muted-foreground' },
-  in_progress: { label: 'Em andamento', color: 'bg-blue-500/10 text-blue-400' },
-  blocked: { label: 'Bloqueado', color: 'bg-red-500/10 text-red-400' },
-  ready_for_review: { label: 'Pronto p/ revisão', color: 'bg-purple-500/10 text-purple-400' },
-  completed: { label: 'Concluído', color: 'bg-emerald-500/10 text-emerald-400' },
-  reopened: { label: 'Reaberto', color: 'bg-orange-500/10 text-orange-400' },
+  in_progress: { label: 'Em andamento', color: 'bg-info/10 text-info' },
+  blocked: { label: 'Bloqueado', color: 'bg-destructive/10 text-destructive' },
+  ready_for_review: { label: 'Pronto p/ revisão', color: 'bg-info/10 text-info' },
+  completed: { label: 'Concluído', color: 'bg-success/10 text-success' },
+  reopened: { label: 'Reaberto', color: 'bg-warning/10 text-warning' },
 };
 
 interface StatusBadgeProps {
@@ -59,10 +59,10 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 // ─── RiskBadge ─────────────────────────────────────────────────────────────
 
 const RISK_CONFIGS: Record<string, { label: string; color: string; icon: ReactNode }> = {
-  critical: { label: 'Crítico', color: 'bg-red-500/10 text-red-400 border border-red-500/20', icon: <XCircle className="h-3 w-3" /> },
-  high: { label: 'Alto', color: 'bg-orange-500/10 text-orange-400 border border-orange-500/20', icon: <AlertTriangle className="h-3 w-3" /> },
-  medium: { label: 'Médio', color: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20', icon: <Info className="h-3 w-3" /> },
-  low: { label: 'Baixo', color: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', icon: <CheckCircle2 className="h-3 w-3" /> },
+  critical: { label: 'Crítico', color: 'bg-destructive/10 text-destructive border border-destructive/20', icon: <XCircle className="h-3 w-3" /> },
+  high: { label: 'Alto', color: 'bg-warning/10 text-warning border border-warning/20', icon: <AlertTriangle className="h-3 w-3" /> },
+  medium: { label: 'Médio', color: 'bg-warning/10 text-warning border border-warning/20', icon: <Info className="h-3 w-3" /> },
+  low: { label: 'Baixo', color: 'bg-success/10 text-success border border-success/20', icon: <CheckCircle2 className="h-3 w-3" /> },
   none: { label: 'Normal', color: 'bg-muted text-muted-foreground', icon: null },
 };
 

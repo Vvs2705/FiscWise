@@ -302,7 +302,7 @@ export function DasMensalPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Total Faturamento Declarado
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-500" />
+            <DollarSign className="h-4 w-4 text-info" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">
@@ -319,7 +319,7 @@ export function DasMensalPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Total DAS Pago
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">
@@ -336,7 +336,7 @@ export function DasMensalPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Total DAS em Aberto
             </CardTitle>
-            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertCircle className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">
@@ -414,7 +414,7 @@ export function DasMensalPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-2 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                              className="h-8 px-2 text-success hover:bg-success/10 hover:text-success"
                               onClick={() => handlePayQuickly(record.id)}
                               title="Marcar como Pago"
                             >
@@ -433,7 +433,7 @@ export function DasMensalPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-2 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                              className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => handleDelete(record.id)}
                             >
                               <Trash2 className="h-4 w-4" />

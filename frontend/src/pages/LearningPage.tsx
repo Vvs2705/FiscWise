@@ -110,13 +110,13 @@ export function LearningPage() {
   return (
     <div className="space-y-6">
       {/* Header section with premium design */}
-      <div className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card/45 p-6 md:p-8 backdrop-blur-sm shadow-md">
+      <div className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card/45 p-6 md:p-8 backdrop-blur-sm shadow-token-sm">
         <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-teal-500 uppercase tracking-widest dark:text-teal-400">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-widest dark:text-primary">
             <Sparkles className="h-4 w-4" />
             <span>Academia Contábil</span>
           </div>
-          <h1 className="bg-gradient-to-r from-teal-500 via-emerald-500 to-sky-500 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-teal-400 dark:via-emerald-400 dark:to-sky-400">
+          <h1 className="bg-gradient-to-r from-primary via-primary to-primary/60 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-primary dark:via-primary dark:to-primary/60">
             Central de Aprendizado FiscWise
           </h1>
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
@@ -124,8 +124,8 @@ export function LearningPage() {
           </p>
         </div>
         {/* Background glow decoration */}
-        <div className="absolute right-0 top-0 -z-0 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
-        <div className="absolute left-1/3 bottom-0 -z-0 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute right-0 top-0 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute left-1/3 bottom-0 -z-0 h-48 w-48 rounded-full bg-info/10 blur-3xl" />
       </div>
 
       {/* Tabs selector */}
@@ -134,7 +134,7 @@ export function LearningPage() {
           onClick={() => setActiveTab('checklist')}
           className={`pb-3 text-sm font-semibold transition-all relative ${
             activeTab === 'checklist'
-              ? 'text-teal-400 border-b-2 border-teal-400'
+              ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -144,7 +144,7 @@ export function LearningPage() {
           onClick={() => setActiveTab('tutorials')}
           className={`pb-3 text-sm font-semibold transition-all relative ${
             activeTab === 'tutorials'
-              ? 'text-teal-400 border-b-2 border-teal-400'
+              ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -154,7 +154,7 @@ export function LearningPage() {
           onClick={() => setActiveTab('tours')}
           className={`pb-3 text-sm font-semibold transition-all relative ${
             activeTab === 'tours'
-              ? 'text-teal-400 border-b-2 border-teal-400'
+              ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -177,7 +177,7 @@ export function LearningPage() {
               <div className="flex flex-col items-center justify-center py-4">
                 <div className="relative flex items-center justify-center">
                   {/* Progress ring or score label */}
-                  <div className="text-4xl font-extrabold text-teal-400">{progressPercent}%</div>
+                  <div className="text-4xl font-extrabold text-primary">{progressPercent}%</div>
                 </div>
                 <div className="text-xs text-muted-foreground font-semibold mt-3 text-center">
                   {completedCount} de {checklistItems.length} tarefas completadas
@@ -187,7 +187,7 @@ export function LearningPage() {
               {/* Progress bar */}
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-primary to-success rounded-full transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -206,19 +206,19 @@ export function LearningPage() {
                 key={item.id}
                 className={`transition-all border-border/50 bg-card/40 ${
                   item.completed
-                    ? 'border-emerald-500/25 bg-emerald-500/5'
+                    ? 'border-success/25 bg-success/5'
                     : 'hover:border-primary/30'
                 }`}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   {item.completed ? (
-                    <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
                   ) : (
                     <Circle className="h-6 w-6 text-muted-foreground/50 shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-4">
-                      <h4 className={`font-bold text-base ${item.completed ? 'text-emerald-400/90 line-through' : 'text-foreground'}`}>
+                      <h4 className={`font-bold text-base ${item.completed ? 'text-success/90 line-through' : 'text-foreground'}`}>
                         {item.title}
                       </h4>
                       {!item.completed && (
@@ -247,14 +247,14 @@ export function LearningPage() {
           {/* Quick Tutorials Grid */}
           <div className="space-y-6">
             <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
-              <BookOpen className="h-5 w-5 text-teal-400" />
+              <BookOpen className="h-5 w-5 text-primary" />
               Guias Rápidos de Gestão
             </h3>
 
             <div className="grid gap-4">
               <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 mb-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <Building className="h-4 w-4" />
                   </div>
                   <CardTitle className="text-base font-bold">Gestão de Carteira</CardTitle>
@@ -266,7 +266,7 @@ export function LearningPage() {
 
               <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 mb-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <FolderOpen className="h-4 w-4" />
                   </div>
                   <CardTitle className="text-base font-bold">Esteira Inteligente de Arquivos</CardTitle>
@@ -278,7 +278,7 @@ export function LearningPage() {
 
               <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 mb-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <CreditCard className="h-4 w-4" />
                   </div>
                   <CardTitle className="text-base font-bold">Honorários Recorrentes</CardTitle>
@@ -293,7 +293,7 @@ export function LearningPage() {
           {/* FAQs Accordion */}
           <div className="space-y-6">
             <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
-              <HelpCircle className="h-5 w-5 text-teal-400" />
+              <HelpCircle className="h-5 w-5 text-primary" />
               Perguntas Frequentes (FAQ)
             </h3>
 
@@ -307,12 +307,12 @@ export function LearningPage() {
                   >
                     <button
                       onClick={() => setExpandedFAQ(isExpanded ? null : index)}
-                      className="flex w-full items-center justify-between p-4 text-left font-bold text-sm text-foreground hover:text-teal-400 transition-colors"
+                      className="flex w-full items-center justify-between p-4 text-left font-bold text-sm text-foreground hover:text-primary transition-colors"
                     >
                       <span>{faq.question}</span>
                       <ChevronDown
                         className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-                          isExpanded ? 'rotate-180 text-teal-400' : ''
+                          isExpanded ? 'rotate-180 text-primary' : ''
                         }`}
                       />
                     </button>
@@ -334,7 +334,7 @@ export function LearningPage() {
         <div className="space-y-6">
           <div>
             <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
-              <Play className="h-5 w-5 text-teal-400" />
+              <Play className="h-5 w-5 text-primary" />
               Tours Guiados e Interativos
             </h3>
             <p className="text-sm text-muted-foreground mt-1">

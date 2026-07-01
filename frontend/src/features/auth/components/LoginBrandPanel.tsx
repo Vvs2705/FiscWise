@@ -32,31 +32,31 @@ export function LoginBrandPanel() {
       style={{
         padding: 'clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px)',
         background:
-          'radial-gradient(circle at 14% 18%, rgba(45,212,191,0.22), transparent 26%), radial-gradient(circle at 86% 18%, rgba(56,189,248,0.18), transparent 24%), linear-gradient(135deg, #06111f 0%, #0d2136 55%, #081321 100%)',
+          'radial-gradient(circle at 14% 18%, hsl(var(--primary) / 0.22), transparent 26%), radial-gradient(circle at 86% 18%, hsl(var(--info) / 0.18), transparent 24%), linear-gradient(135deg, hsl(var(--sidebar)) 0%, hsl(var(--sidebar)) 55%, hsl(var(--sidebar)) 100%)',
       }}
     >
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-10 top-10 h-40 w-40 rounded-full bg-cyan-300/10 blur-3xl" />
-        <div className="absolute bottom-12 right-0 h-52 w-52 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute left-10 top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute bottom-12 right-0 h-52 w-52 rounded-full bg-success/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 flex w-full flex-col flex-1 justify-between">
         <div className="flex items-center justify-between gap-4">
           <Logo variant="full" theme="dark" size={38} />
-          <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100/90 lg:block">
+          <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90 lg:block">
             Fiscal Intelligence OS
           </div>
         </div>
 
         <div className="mt-5 max-w-xl">
-          <span className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">
+          <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/90">
             Feito para contador autônomo
           </span>
           <h1 className="mt-3 font-semibold leading-none tracking-tight text-white animate-fade-in-up"
               style={{ fontSize: 'clamp(2.1rem, 3.2vw, 3.2rem)', lineHeight: 1.05, letterSpacing: '-0.04em' }}>
             Controle sua carteira contábil com precisão.
           </h1>
-          <p className="mt-3 text-xs leading-relaxed text-slate-300 sm:text-sm"
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground sm:text-sm"
              style={{ maxWidth: '600px', fontSize: 'clamp(0.85rem, 1.05vw, 1rem)', lineHeight: 1.5 }}>
             Clientes, documentos, prazos, certificados e obrigações fiscais em uma central feita para quem precisa manter a rotina em dia e saber onde agir primeiro.
           </p>
@@ -71,11 +71,11 @@ export function LoginBrandPanel() {
             >
               <div>
                 <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/10">
-                  <point.icon className="h-3.5 w-3.5 text-cyan-100" />
+                  <point.icon className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <p className="text-[11px] font-bold text-white tracking-tight leading-tight">{point.title}</p>
               </div>
-              <p className="mt-1 text-[10px] leading-snug text-slate-300/90">{point.description}</p>
+              <p className="mt-1 text-[10px] leading-snug text-muted-foreground/90">{point.description}</p>
             </div>
           ))}
         </div>
@@ -88,7 +88,7 @@ export function LoginBrandPanel() {
           <FiscalRadarAnimation />
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-slate-300">
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
           <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
             Atenção de hoje
           </span>

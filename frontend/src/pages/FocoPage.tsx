@@ -15,11 +15,11 @@ import { toast } from 'sonner';
 import { fetchFocusItems, type FocusGroup, type FocusItem, type FocusItemType } from '@/features/focus/api';
 
 const GROUP_CONFIG: Record<FocusGroup, { label: string; icon: typeof AlertTriangle; color: string; bg: string }> = {
-  critical: { label: 'Crítico', icon: AlertTriangle, color: 'text-red-400', bg: 'border-red-500/30 bg-red-500/5' },
-  today: { label: 'Hoje', icon: Clock, color: 'text-orange-400', bg: 'border-orange-500/20 bg-orange-500/5' },
-  week: { label: 'Esta semana', icon: Calendar, color: 'text-yellow-400', bg: 'border-yellow-500/20 bg-yellow-500/5' },
-  waiting_client: { label: 'Aguardando cliente', icon: Users, color: 'text-blue-400', bg: 'border-blue-500/20 bg-blue-500/5' },
-  waiting_organ: { label: 'Aguardando órgão', icon: Building2, color: 'text-purple-400', bg: 'border-purple-500/20 bg-purple-500/5' },
+  critical: { label: 'Crítico', icon: AlertTriangle, color: 'text-destructive', bg: 'border-destructive/30 bg-destructive/5' },
+  today: { label: 'Hoje', icon: Clock, color: 'text-warning', bg: 'border-warning/20 bg-warning/5' },
+  week: { label: 'Esta semana', icon: Calendar, color: 'text-warning', bg: 'border-warning/20 bg-warning/5' },
+  waiting_client: { label: 'Aguardando cliente', icon: Users, color: 'text-info', bg: 'border-info/20 bg-info/5' },
+  waiting_organ: { label: 'Aguardando órgão', icon: Building2, color: 'text-info', bg: 'border-info/20 bg-info/5' },
 };
 
 const TYPE_ICONS: Record<FocusItemType, typeof FileText> = {
@@ -136,7 +136,7 @@ export function FocoPage() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : error ? (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
             Erro ao carregar a lista de foco. Tente novamente.
           </div>
         ) : (
@@ -158,8 +158,8 @@ export function FocoPage() {
 
             {filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10">
-                  <Target className="h-6 w-6 text-emerald-400" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+                  <Target className="h-6 w-6 text-success" />
                 </div>
                 <p className="text-sm font-medium text-foreground">Nenhum item pendente</p>
                 <p className="text-xs text-muted-foreground">Você está em dia. Bom trabalho!</p>

@@ -156,7 +156,7 @@ export function ProxiesListPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleRevoke(p.id)}
-                              className="text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             >
                               Revogar
                             </Button>

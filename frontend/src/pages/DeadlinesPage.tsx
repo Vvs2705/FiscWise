@@ -496,7 +496,7 @@ export function DeadlinesPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleQuickComplete(deadline)}
-                              className="h-8 gap-1 text-emerald-500 hover:text-emerald-500 hover:bg-emerald-500/10"
+                              className="h-8 gap-1 text-success hover:text-success hover:bg-success/10"
                               title="Concluir Prazo"
                             >
                               <Check className="h-4 w-4" />
@@ -571,7 +571,7 @@ export function DeadlinesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleQuickComplete(deadline)}
-                            className="h-8 gap-1.5 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 px-2 text-[11px] font-bold"
+                            className="h-8 gap-1.5 text-success hover:bg-success/10 hover:text-success px-2 text-[11px] font-bold"
                           >
                             <Check className="h-3.5 w-3.5" />
                             Concluir

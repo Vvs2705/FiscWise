@@ -80,11 +80,11 @@ function TwoFAScreen({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:p-8"
+      className="w-full max-w-md rounded-[28px] border border-border bg-white/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
     >
       {/* Header */}
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary/20">
+        <div className="flex h-16 w-16 items-center justify-center rounded-card bg-primary/10 ring-2 ring-primary/20">
           <Icon className="h-8 w-8 text-primary" />
         </div>
         <div>
@@ -166,7 +166,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-foreground lg:grid lg:grid-cols-[46%_54%] lg:h-screen lg:max-h-screen lg:overflow-hidden">
+    <div className="min-h-screen bg-muted text-foreground lg:grid lg:grid-cols-[46%_54%] lg:h-screen lg:max-h-screen lg:overflow-hidden">
       <style>{`
         @media (min-width: 1024px) {
           body {
@@ -181,11 +181,11 @@ export function LoginPage() {
         className="relative flex min-h-screen lg:min-h-0 flex-1 flex-col items-center justify-center lg:justify-end lg:h-screen lg:max-h-screen lg:overflow-hidden px-5 py-8 lg:py-0 lg:pl-[clamp(32px,5vw,80px)] lg:pr-[clamp(72px,8vw,150px)]"
         style={{
           background:
-            'radial-gradient(circle at 70% 20%, rgba(45, 212, 191, 0.12), transparent 28%), radial-gradient(circle at 20% 80%, rgba(56, 189, 248, 0.10), transparent 26%), linear-gradient(135deg, #f8fbff 0%, #eef6fb 100%)',
+            'radial-gradient(circle at 70% 20%, hsl(var(--primary) / 0.12), transparent 28%), radial-gradient(circle at 20% 80%, hsl(var(--info) / 0.10), transparent 26%), linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(var(--muted)) 100%)',
         }}
       >
-        <div className="pointer-events-none absolute right-10 top-10 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-sky-200/25 blur-3xl" />
+        <div className="pointer-events-none absolute right-10 top-10 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-10 h-56 w-56 rounded-full bg-info/25 blur-3xl" />
 
         <div className="relative z-10 flex w-full max-w-[480px] flex-col items-center gap-[22px]">
           <motion.div
@@ -195,7 +195,7 @@ export function LoginPage() {
             className="mb-8 flex items-center justify-between lg:hidden"
           >
             <Logo variant="full" theme="light" size={34} />
-            <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-sm">
+            <span className="rounded-full border border-border bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
               Login seguro
             </span>
           </motion.div>
@@ -214,19 +214,19 @@ export function LoginPage() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="w-full rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-[0_28px_100px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:p-8"
+              className="w-full rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
             >
               <div className="mb-6 space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                <div className="inline-flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-success">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Seus dados seguem protegidos
                 </div>
 
                 <div className="space-y-1.5">
-                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-slate-950">
+                  <h2 className="text-2xl font-bold tracking-[-0.02em] text-foreground">
                     Bem-vindo de volta
                   </h2>
-                  <p className="text-sm leading-normal text-slate-600">
+                  <p className="text-sm leading-normal text-muted-foreground">
                     Acesse sua central para acompanhar clientes, pendências e tudo o que precisa da sua atenção hoje.
                   </p>
                 </div>
@@ -235,7 +235,7 @@ export function LoginPage() {
               {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
                 <div
                   className={cn(
-                    'mb-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2',
+                    'mb-4 rounded-card border border-border bg-muted/80 p-2',
                     isLoading && 'pointer-events-none opacity-60',
                   )}
                 >
@@ -253,20 +253,20 @@ export function LoginPage() {
               )}
 
               <div className="relative mb-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                   ou continue com e-mail
                 </span>
-                <div className="h-px flex-1 bg-slate-200" />
+                <div className="h-px flex-1 bg-border" />
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-sm font-medium text-slate-800">
+                  <label htmlFor="email" className="text-sm font-medium text-foreground">
                     E-mail
                   </label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -275,17 +275,17 @@ export function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-slate-900 shadow-sm"
+                      className="h-11 rounded-xl border-border bg-white pl-10 text-foreground shadow-sm"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-sm font-medium text-slate-800">
+                  <label htmlFor="password" className="text-sm font-medium text-foreground">
                     Senha
                   </label>
                   <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPass ? 'text' : 'password'}
@@ -294,13 +294,13 @@ export function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-11 rounded-xl border-slate-200 bg-white pl-10 pr-12 text-slate-900 shadow-sm"
+                      className="h-11 rounded-xl border-border bg-white pl-10 pr-12 text-foreground shadow-sm"
                     />
                     <button
                       type="button"
                       tabIndex={-1}
                       onClick={() => setShowPass((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:text-slate-700"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
                       aria-label={showPass ? 'Ocultar senha' : 'Exibir senha'}
                     >
                       {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -310,7 +310,7 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-xl bg-[linear-gradient(135deg,#14b8a6_0%,#0f766e_45%,#0f172a_100%)] text-white shadow-[0_18px_40px_rgba(20,184,166,0.28)] hover:shadow-[0_22px_50px_rgba(20,184,166,0.32)]"
+                  className="h-11 w-full rounded-xl bg-[linear-gradient(135deg,hsl(var(--primary))_0%,hsl(var(--primary))_60%,hsl(var(--primary)/0.82)_100%)] text-primary-foreground shadow-token hover:shadow-token"
                   size="md"
                   disabled={isLoading}
                 >
@@ -325,21 +325,21 @@ export function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+              <div className="mt-4 rounded-card border border-border bg-muted/80 px-3 py-2.5">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full bg-cyan-100 p-2 text-cyan-700">
+                  <div className="mt-0.5 rounded-full bg-primary/10 p-2 text-primary">
                     <ShieldCheck className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-800">Acesso com verificação reforçada</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                    <p className="text-xs font-semibold text-foreground">Acesso com verificação reforçada</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                       Login por Google, senha e fluxos de 2FA permanecem ativos para manter sua conta protegida.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <p className="mt-4 text-center text-sm text-slate-500">
+              <p className="mt-4 text-center text-sm text-muted-foreground">
                 Não tem uma conta?{' '}
                 <Link
                   to="/register"
@@ -352,13 +352,13 @@ export function LoginPage() {
           )}
 
           <footer className="text-center">
-            <p className="text-xs text-slate-500/80">
+            <p className="text-xs text-muted-foreground/80">
               Desenvolvido por{' '}
               <a
                 href="https://vstack-solutions.com.br"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-slate-600 transition-colors hover:text-primary"
+                className="font-medium text-muted-foreground transition-colors hover:text-primary"
               >
                 Vstack Solutions
               </a>

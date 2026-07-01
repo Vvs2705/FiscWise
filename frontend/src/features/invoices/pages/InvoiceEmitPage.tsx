@@ -128,11 +128,11 @@ export function InvoiceEmitPage() {
                 {validations.map((v, i) => (
                   <li key={i} className="flex items-center gap-3 text-sm">
                     {v.status ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                      <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
                     ) : (
-                      <ShieldCheck className="h-5 w-5 text-red-500 shrink-0" />
+                      <ShieldCheck className="h-5 w-5 text-destructive shrink-0" />
                     )}
-                    <span className={v.status ? 'text-foreground' : 'text-red-500'}>
+                    <span className={v.status ? 'text-foreground' : 'text-destructive'}>
                       {v.name}
                     </span>
                   </li>

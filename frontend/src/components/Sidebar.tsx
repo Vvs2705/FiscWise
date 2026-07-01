@@ -85,8 +85,8 @@ const navGroups: NavGroup[] = [
 ];
 
 const BADGE_CLASSES = {
-  danger:  'bg-red-500/90 text-white',
-  warning: 'bg-orange-500/90 text-white',
+  danger:  'bg-destructive/90 text-white',
+  warning: 'bg-warning/90 text-white',
   primary: 'bg-primary/90 text-primary-foreground',
 };
 
@@ -194,7 +194,7 @@ export function Sidebar() {
                       )}
 
                       {/* Tooltip mobile */}
-                      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md group-hover:block md:hidden">
+                      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-token-sm group-hover:block md:hidden">
                         {item.name}
                         {item.badge && (
                           <span className={cn('ml-1.5 rounded-full px-1 text-[9px]', BADGE_CLASSES[item.badgeVariant ?? 'primary'])}>

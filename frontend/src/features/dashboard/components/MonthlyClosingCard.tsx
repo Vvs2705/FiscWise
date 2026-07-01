@@ -26,64 +26,64 @@ export function MonthlyClosingCard({
 }: MonthlyClosingCardProps) {
   if (isLoading) {
     return (
-      <div className="bg-fw-surface-solid border border-fw-border rounded-xl p-6">
-        <div className="h-6 w-40 bg-fw-surface animate-pulse rounded mb-4" />
-        <div className="h-32 bg-fw-surface animate-pulse rounded-lg" />
+      <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
+        <div className="h-6 w-40 bg-muted animate-pulse rounded mb-4" />
+        <div className="h-32 bg-muted animate-pulse rounded-lg" />
       </div>
     );
   }
 
   const progressColor =
     stats.completionPercentage >= 90
-      ? 'bg-fw-success'
+      ? 'bg-success'
       : stats.completionPercentage >= 70
-      ? 'bg-fw-blue'
+      ? 'bg-info'
       : stats.completionPercentage >= 50
-      ? 'bg-fw-warning'
-      : 'bg-fw-danger';
+      ? 'bg-warning'
+      : 'bg-destructive';
 
   const statusItems = [
     {
       label: 'Concluídos',
       value: stats.completed,
       icon: CheckCircle2,
-      color: 'text-fw-success',
-      bg: 'bg-fw-success-soft',
+      color: 'text-success',
+      bg: 'bg-success/10',
     },
     {
       label: 'Em andamento',
       value: stats.inProgress,
       icon: Clock,
-      color: 'text-fw-blue',
-      bg: 'bg-fw-blue-soft',
+      color: 'text-info',
+      bg: 'bg-info/10',
     },
     {
       label: 'Bloqueados',
       value: stats.blockedByClient,
       icon: AlertCircle,
-      color: 'text-fw-warning',
-      bg: 'bg-fw-warning-soft',
+      color: 'text-warning',
+      bg: 'bg-warning/10',
     },
     {
       label: 'Atrasados',
       value: stats.overdue,
       icon: XCircle,
-      color: 'text-fw-danger',
-      bg: 'bg-fw-danger-soft',
+      color: 'text-destructive',
+      bg: 'bg-destructive/10',
     },
   ];
 
   return (
     <motion.div
       variants={fadeIn}
-      className="bg-fw-surface-solid border border-fw-border rounded-xl p-6"
+      className="bg-card border border-border rounded-card shadow-token-sm p-6"
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-fw-text flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-fw-primary" />
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary" />
           Fechamentos Mensais
         </h2>
-        <span className="text-sm font-medium text-fw-text-muted">
+        <span className="text-sm font-medium text-muted-foreground">
           {month}/{year}
         </span>
       </div>
@@ -91,14 +91,14 @@ export function MonthlyClosingCard({
       {/* Progress Bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-fw-text">
+          <span className="text-sm font-medium text-foreground">
             Progresso geral
           </span>
-          <span className="text-2xl font-bold text-fw-text">
+          <span className="text-2xl font-bold text-foreground">
             {stats.completionPercentage}%
           </span>
         </div>
-        <div className="h-3 bg-fw-surface rounded-full overflow-hidden">
+        <div className="h-3 bg-muted rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${stats.completionPercentage}%` }}
@@ -106,7 +106,7 @@ export function MonthlyClosingCard({
             className={`h-full ${progressColor} rounded-full`}
           />
         </div>
-        <p className="text-xs text-fw-text-muted mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           {stats.completed} de {stats.total} fechamentos concluídos
         </p>
       </div>
@@ -118,11 +118,11 @@ export function MonthlyClosingCard({
           return (
             <div
               key={item.label}
-              className={`${item.bg} border border-fw-border rounded-lg p-3`}
+              className={`${item.bg} border border-border rounded-lg p-3`}
             >
               <div className="flex items-center gap-2 mb-1">
                 <Icon className={`w-4 h-4 ${item.color}`} />
-                <span className="text-xs font-medium text-fw-text-muted">
+                <span className="text-xs font-medium text-muted-foreground">
                   {item.label}
                 </span>
               </div>
@@ -136,8 +136,8 @@ export function MonthlyClosingCard({
 
       {/* Alert for overdue */}
       {stats.overdue > 0 && (
-        <div className="mt-4 p-3 bg-fw-danger-soft border border-fw-danger/30 rounded-lg">
-          <p className="text-sm font-medium text-fw-danger">
+        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+          <p className="text-sm font-medium text-destructive">
             {stats.overdue} fechamento{stats.overdue > 1 ? 's' : ''} atrasado
             {stats.overdue > 1 ? 's' : ''} precisa{stats.overdue > 1 ? 'm' : ''}{' '}
             de atenção

@@ -23,12 +23,12 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'fiscwise-surface flex flex-col items-center justify-center text-center p-8 md:p-12 rounded-2xl border border-border/70 max-w-lg mx-auto',
+        'fiscwise-surface flex flex-col items-center justify-center text-center p-8 md:p-12 rounded-card border border-border/70 max-w-lg mx-auto',
         'animate-fade-in-up',
         className
       )}
     >
-      <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-6 shadow-glow-sm">
+      <div className="w-16 h-16 rounded-card bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-6 shadow-glow-sm">
         <Icon className="w-8 h-8" />
       </div>
       <h3 className="text-xl font-bold text-foreground mb-2">{title}</h3>

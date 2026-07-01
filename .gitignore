@@ -167,3 +167,29 @@ PROGRESSO_*.md
 rascunhos-locais/
 .local-notes/
 
+# ===== Higiene do repositório: só código versionado =====
+# Briefs de design/marca — uso local (colados em prompts), nunca versionar
+DESIGN.md
+AJUSTES-DESIGN.md
+
+# Instruções / tutoriais / passo-a-passo / processo — nunca versionar
+*INSTRU*.md
+*INSTRU*.txt
+*PASSO*A*PASSO*.md
+*PASSO-A-PASSO*.md
+*GUIA*.md
+*TUTORIAL*.md
+*MEMORIA*.md
+*_LOCAL.md
+RESUMO_*.md
+PLANO_*.md
+ROADMAP.md
+ROADMAP_*.md
+TODO.md
+TODO_*.md
+SETUP_*.md
+DEPLOY_*.md
+COMO_FAZER*.md
+COMO-FAZER*.md
+# Exceção: se um doc legítimo casar por engano, libere com:  !caminho/para/arquivo.md
+

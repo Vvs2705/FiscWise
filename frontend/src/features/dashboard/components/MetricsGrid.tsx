@@ -34,17 +34,17 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
           <motion.div
             key={metric.id}
             variants={itemVariants}
-            className="rounded-[24px] border border-white/8 bg-[#101826] px-5 py-5"
+            className="rounded-card border border-border bg-card shadow-token-sm px-5 py-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{metric.label}</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{metric.label}</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
                   {metric.value}
                 </p>
-                <p className="mt-2 text-sm text-slate-300">{metric.detail}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{metric.detail}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-cyan-200">
+              <div className="rounded-card border border-border bg-muted p-3 text-primary">
                 <Icon className="h-5 w-5" />
               </div>
             </div>

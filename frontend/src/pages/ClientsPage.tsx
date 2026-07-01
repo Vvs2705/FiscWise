@@ -183,7 +183,7 @@ function CnpjWatcher({ control, setValue }: CnpjWatcherProps) {
         </span>
       )}
       {filled && !loading && (
-        <span className="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+        <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
           Dados preenchidos via Receita Federal
         </span>
       )}
@@ -406,7 +406,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
             variant="ghost"
             size="sm"
             onClick={onNotes}
-            className="h-8 gap-1 text-amber-500 hover:text-amber-500 hover:bg-amber-500/10"
+            className="h-8 gap-1 text-warning hover:text-warning hover:bg-warning/10"
             title="Notas seguras"
           >
             <Lock className="h-4 w-4" />
@@ -514,7 +514,7 @@ function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: 
           variant="ghost"
           size="sm"
           onClick={onNotes}
-          className="flex-1 h-8 gap-1.5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+          className="flex-1 h-8 gap-1.5 text-warning hover:bg-warning/10 hover:text-warning"
         >
           <Lock className="h-3.5 w-3.5" />
           <span>Notas</span>
@@ -695,7 +695,7 @@ export function ClientsPage() {
             variant="outline"
             size="sm"
             onClick={() => startTour('clients', navigate, '/clientes')}
-            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />

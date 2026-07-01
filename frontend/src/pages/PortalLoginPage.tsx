@@ -63,7 +63,7 @@ export function PortalLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="flex justify-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex h-14 w-14 items-center justify-center rounded-card bg-primary/10 text-primary">
             <ShieldCheck className="h-7 w-7" />
           </div>
         </div>
@@ -81,9 +81,9 @@ export function PortalLoginPage() {
         )}
 
         {phase === 'success' && (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-8 shadow-sm">
-            <CheckCircle2 className="mx-auto mb-4 h-8 w-8 text-emerald-500" />
-            <p className="font-semibold text-emerald-600">Acesso verificado!</p>
+          <div className="rounded-xl border border-success/20 bg-success/5 p-8 shadow-sm">
+            <CheckCircle2 className="mx-auto mb-4 h-8 w-8 text-success" />
+            <p className="font-semibold text-success">Acesso verificado!</p>
             <p className="mt-1 text-sm text-muted-foreground">Redirecionando para o portal...</p>
           </div>
         )}

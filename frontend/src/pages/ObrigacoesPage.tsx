@@ -105,9 +105,9 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'warning' | 'succe
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; variant: 'default' | 'warning' | 'error' | 'success' }> = {
   low:      { label: 'Baixa',    color: 'text-muted-foreground', variant: 'default' },
-  medium:   { label: 'Média',    color: 'text-blue-500', variant: 'default' },
-  high:     { label: 'Alta',     color: 'text-amber-500', variant: 'warning' },
-  critical: { label: 'Crítica',  color: 'text-red-500', variant: 'error' },
+  medium:   { label: 'Média',    color: 'text-info', variant: 'default' },
+  high:     { label: 'Alta',     color: 'text-warning', variant: 'warning' },
+  critical: { label: 'Crítica',  color: 'text-destructive', variant: 'error' },
 };
 
 const JURISDICTION_LABEL: Record<string, string> = {
@@ -353,7 +353,7 @@ function CreateObligationDrawer({ isOpen, onClose, clients, rules, defaultCompet
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()} direction="right">
-      <DrawerContent className="fixed inset-y-0 right-0 bottom-0 top-0 mt-0 h-full w-full max-w-lg rounded-t-none border-l border-border bg-card shadow-2xl flex flex-col p-6 overflow-y-auto scrollbar">
+      <DrawerContent className="fixed inset-y-0 right-0 bottom-0 top-0 mt-0 h-full w-full max-w-lg rounded-t-none border-l border-border bg-card shadow-token flex flex-col p-6 overflow-y-auto scrollbar">
         <DrawerHeader className="px-0 pb-4 border-b">
           <DrawerTitle className="text-lg font-bold">Nova Obrigação</DrawerTitle>
         </DrawerHeader>
@@ -659,10 +659,10 @@ export function ObrigacoesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Pendentes</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
+            <Clock className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-500">{stats.pending}</p>
+            <p className="text-2xl font-bold text-warning">{stats.pending}</p>
             <p className="text-[10px] text-muted-foreground">aguardando ação</p>
           </CardContent>
         </Card>
@@ -670,10 +670,10 @@ export function ObrigacoesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Entregues</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-500">{stats.delivered}</p>
+            <p className="text-2xl font-bold text-success">{stats.delivered}</p>
             <p className="text-[10px] text-muted-foreground">concluídas no prazo</p>
           </CardContent>
         </Card>
@@ -681,10 +681,10 @@ export function ObrigacoesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Vencidas</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-500" />
+            <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-500">{stats.overdue}</p>
+            <p className="text-2xl font-bold text-destructive">{stats.overdue}</p>
             <p className="text-[10px] text-muted-foreground">com prazo expirado</p>
           </CardContent>
         </Card>
@@ -888,7 +888,7 @@ export function ObrigacoesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500"
+                              className="h-8 w-8 p-0 text-success hover:bg-success/10 hover:text-success"
                               title="Marcar como entregue"
                               onClick={() => handleStatusChange(inst.id, 'delivered')}
                             >
@@ -977,7 +977,7 @@ export function ObrigacoesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleStatusChange(inst.id, 'delivered')}
-                            className="h-8 gap-1 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 text-[10px] font-bold uppercase tracking-wider"
+                            className="h-8 gap-1 text-success hover:bg-success/10 hover:text-success text-[10px] font-bold uppercase tracking-wider"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Entregar

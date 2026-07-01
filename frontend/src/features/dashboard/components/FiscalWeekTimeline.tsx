@@ -23,9 +23,9 @@ interface FiscalWeekTimelineProps {
 }
 
 const statusStyles = {
-  pending: 'bg-fw-blue-soft text-fw-blue border-fw-blue/30',
-  completed: 'bg-fw-success-soft text-fw-success border-fw-success/30',
-  overdue: 'bg-fw-danger-soft text-fw-danger border-fw-danger/30',
+  pending: 'bg-info/10 text-info border-info/30',
+  completed: 'bg-success/10 text-success border-success/30',
+  overdue: 'bg-destructive/10 text-destructive border-destructive/30',
 };
 
 const statusIcons = {
@@ -37,13 +37,13 @@ const statusIcons = {
 export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelineProps) {
   if (isLoading) {
     return (
-      <div className="bg-fw-surface-solid border border-fw-border rounded-xl p-6">
-        <div className="h-6 w-56 bg-fw-surface animate-pulse rounded mb-4" />
+      <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
+        <div className="h-6 w-56 bg-muted animate-pulse rounded mb-4" />
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-2">
-              <div className="h-5 w-32 bg-fw-surface animate-pulse rounded" />
-              <div className="h-12 bg-fw-surface animate-pulse rounded-lg" />
+              <div className="h-5 w-32 bg-muted animate-pulse rounded" />
+              <div className="h-12 bg-muted animate-pulse rounded-lg" />
             </div>
           ))}
         </div>
@@ -55,15 +55,15 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
     return (
       <motion.div
         variants={fadeIn}
-        className="bg-fw-surface-solid border border-fw-border rounded-xl p-8 text-center"
+        className="bg-card border border-border rounded-card shadow-token-sm p-8 text-center"
       >
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-fw-blue-soft flex items-center justify-center">
-          <Calendar className="w-8 h-8 text-fw-blue" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-info/10 flex items-center justify-center">
+          <Calendar className="w-8 h-8 text-info" />
         </div>
-        <h3 className="text-lg font-semibold text-fw-text mb-2">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
           Nenhuma atividade agendada
         </h3>
-        <p className="text-fw-text-muted text-sm">
+        <p className="text-muted-foreground text-sm">
           Sua agenda fiscal está livre para esta semana.
         </p>
       </motion.div>
@@ -75,10 +75,10 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
       variants={staggerContainer}
       initial="initial"
       animate="animate"
-      className="bg-fw-surface-solid border border-fw-border rounded-xl p-6"
+      className="bg-card border border-border rounded-card shadow-token-sm p-6"
     >
-      <h2 className="text-lg font-semibold text-fw-text mb-4 flex items-center gap-2">
-        <Calendar className="w-5 h-5 text-fw-primary" />
+      <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+        <Calendar className="w-5 h-5 text-primary" />
         Agenda Fiscal da Semana
       </h2>
 
@@ -88,21 +88,21 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
             <div className="flex items-center gap-2">
               <h3
                 className={`font-semibold ${
-                  day.isToday ? 'text-fw-primary' : 'text-fw-text'
+                  day.isToday ? 'text-primary' : 'text-foreground'
                 }`}
               >
                 {day.day}
               </h3>
-              <span className="text-sm text-fw-text-muted">{day.date}</span>
+              <span className="text-sm text-muted-foreground">{day.date}</span>
               {day.isToday && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-fw-primary-soft text-fw-primary border border-fw-primary/30">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/30">
                   Hoje
                 </span>
               )}
             </div>
 
             {day.items.length === 0 ? (
-              <div className="bg-fw-surface border border-fw-border rounded-lg p-3 text-sm text-fw-text-muted">
+              <div className="bg-muted border border-border rounded-lg p-3 text-sm text-muted-foreground">
                 Nenhuma atividade
               </div>
             ) : (
@@ -112,7 +112,7 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
                   return (
                     <div
                       key={item.id}
-                      className="bg-fw-surface border border-fw-border rounded-lg p-3 hover:border-fw-primary/30 transition-all cursor-pointer group"
+                      className="bg-muted border border-border rounded-lg p-3 hover:border-primary/30 transition-all cursor-pointer group"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -124,11 +124,11 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
                             <StatusIcon className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-fw-text truncate">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {item.title}
                             </p>
                             {item.time && (
-                              <p className="text-xs text-fw-text-muted">
+                              <p className="text-xs text-muted-foreground">
                                 {item.time}
                               </p>
                             )}

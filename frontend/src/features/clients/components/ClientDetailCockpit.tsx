@@ -722,7 +722,7 @@ FiscWise`,
               variant="outline"
               size="sm"
               onClick={() => setIsReportOpen(true)}
-              className="gap-1.5 border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10"
+              className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
             >
               <Printer className="h-4 w-4" />
               Gerar Relatório
@@ -761,7 +761,7 @@ FiscWise`,
         {activeTab === 'resumo' && (
           <div className="space-y-6">
             {/* AI Summary Block */}
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-4 shadow-glow-sm">
+            <div className="rounded-card border border-primary/20 bg-primary/5 p-5 space-y-4 shadow-glow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4.5 w-4.5 text-primary" />
@@ -1156,17 +1156,17 @@ FiscWise`,
               const overdueCount = clientDeadlines.filter((d) => d.status === 'overdue').length;
               if (overdueCount === 0) return null;
               return (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex gap-3 items-center justify-between">
+                <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 flex gap-3 items-center justify-between">
                   <div className="flex gap-2.5 items-center">
-                    <AlertTriangle className="h-5 w-5 text-red-400 shrink-0" />
-                    <span className="text-xs text-red-200 font-semibold">
+                    <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                    <span className="text-xs text-destructive font-semibold">
                       Atenção: Este cliente possui {overdueCount} obrigação(ões) em atraso!
                     </span>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[10px] py-1 border-red-500/30 text-red-300 bg-red-500/10 hover:bg-red-500/20"
+                    className="h-7 text-[10px] py-1 border-destructive/30 text-destructive bg-destructive/10 hover:bg-destructive/20"
                     onClick={() => {
                       setSelectedTemplate('das');
                       setActiveTab('comunicacao');
@@ -1253,17 +1253,17 @@ FiscWise`,
               const hasExpiring = clientCertificates.some((c) => c.status === 'expiring' || c.status === 'expired');
               if (!hasExpiring) return null;
               return (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3 items-center justify-between">
+                <div className="rounded-xl border border-warning/20 bg-warning/5 p-4 flex gap-3 items-center justify-between">
                   <div className="flex gap-2.5 items-center">
-                    <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
-                    <span className="text-xs text-amber-200 font-semibold">
+                    <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+                    <span className="text-xs text-warning font-semibold">
                       Alerta: Certificado digital expirando ou vencido detectado!
                     </span>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[10px] py-1 border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
+                    className="h-7 text-[10px] py-1 border-warning/30 text-warning bg-warning/10 hover:bg-warning/20"
                     onClick={() => {
                       setSelectedTemplate('certificado');
                       setActiveTab('comunicacao');
@@ -1297,13 +1297,13 @@ FiscWise`,
                       <div>
                         <div className="flex justify-between items-center text-xs mb-1">
                           <span className="text-muted-foreground">Validade: {dateBR(cert.valid_until)}</span>
-                          <span className={cn('font-bold', isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-emerald-400')}>
+                          <span className={cn('font-bold', isCritical ? 'text-destructive' : isWarning ? 'text-warning' : 'text-success')}>
                             {daysRemaining} dias
                           </span>
                         </div>
                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={cn('h-full', isCritical ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500')}
+                            className={cn('h-full', isCritical ? 'bg-destructive' : isWarning ? 'bg-warning' : 'bg-success')}
                             style={{ width: `${Math.min(100, (daysRemaining / 365) * 100)}%` }}
                           />
                         </div>
@@ -1414,12 +1414,12 @@ FiscWise`,
                     rows={10}
                     value={composedMessage}
                     onChange={(e) => setComposedMessage(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background p-4 text-sm text-slate-200 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar"
+                    className="w-full rounded-xl border border-border bg-background p-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent scrollbar"
                   />
                 </FormField>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={handleCopyWhatsApp} className="gap-1.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400">
+                  <Button onClick={handleCopyWhatsApp} className="gap-1.5 bg-success text-background hover:bg-success/90">
                     Copiar WhatsApp
                   </Button>
                   <Button onClick={handleSendEmail} disabled={sendingEmail} className="gap-1.5">
@@ -1433,9 +1433,9 @@ FiscWise`,
                 <ClientWhatsAppWidget clientId={client.id} clientPhone={client.phone || null} />
                 
                 {/* Dynamically resolved variables card */}
-                <Card className="p-4 space-y-2 text-xs leading-relaxed text-slate-400 border border-white/5 bg-slate-900/10">
-                  <h4 className="font-bold text-white uppercase text-[9px] tracking-wider">Variáveis Dinâmicas Resolvidas</h4>
-                  <ul className="list-disc pl-4 space-y-1 font-mono text-[9px] text-slate-300">
+                <Card className="p-4 space-y-2 text-xs leading-relaxed text-muted-foreground border border-border bg-card/10">
+                  <h4 className="font-bold text-foreground uppercase text-[9px] tracking-wider">Variáveis Dinâmicas Resolvidas</h4>
+                  <ul className="list-disc pl-4 space-y-1 font-mono text-[9px] text-muted-foreground">
                     <li>{`{cliente}`} = {client.name}</li>
                     <li>{`{documentos_pendentes}`} = {missingDocsList.join(', ') || 'Nenhum pendente'}</li>
                     <li>{`{das_detalhe}`} = {dasPendingDetail}</li>
@@ -1627,7 +1627,7 @@ FiscWise`,
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-foreground text-sm">{debt.description}</span>
-                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
+                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">
                             {debt.type}
                           </span>
                         </div>
@@ -1636,7 +1636,7 @@ FiscWise`,
                         </p>
                       </div>
                       <div className="flex items-center gap-4 justify-between sm:justify-end shrink-0">
-                        <span className="font-bold text-red-400 font-mono text-sm">
+                        <span className="font-bold text-destructive font-mono text-sm">
                           R$ {debt.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                         <Button
@@ -1645,7 +1645,7 @@ FiscWise`,
                           onClick={() => {
                             toast.info("Guia de regularização sendo emitida pelo parceiro...");
                           }}
-                          className="h-8 text-xs border-red-500/20 hover:bg-red-500/10 text-red-300"
+                          className="h-8 text-xs border-destructive/20 hover:bg-destructive/10 text-destructive"
                         >
                           Emitir Guia
                         </Button>

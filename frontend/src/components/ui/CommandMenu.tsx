@@ -45,7 +45,7 @@ export function CommandMenu() {
       {/* Command Palette Panel */}
       <Command
         className={cn(
-          'relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-border/80 bg-card/95 text-card-foreground shadow-2xl backdrop-blur-md',
+          'relative z-10 w-full max-w-lg overflow-hidden rounded-card border border-border/80 bg-card/95 text-card-foreground shadow-token backdrop-blur-md',
           'animate-scale-in max-h-[50vh] flex flex-col'
         )}
       >

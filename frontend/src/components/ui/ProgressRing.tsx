@@ -22,21 +22,21 @@ export function ProgressRing({
 
   const ringColor =
     score >= 90
-      ? 'text-emerald-500'
+      ? 'text-success'
       : score >= 75
-      ? 'text-sky-500'
+      ? 'text-info'
       : score >= 55
-      ? 'text-amber-500'
-      : 'text-red-500';
+      ? 'text-warning'
+      : 'text-destructive';
 
   const ringBgColor =
     score >= 90
-      ? 'bg-emerald-500/10'
+      ? 'bg-success/10'
       : score >= 75
-      ? 'bg-sky-500/10'
+      ? 'bg-info/10'
       : score >= 55
-      ? 'bg-amber-500/10'
-      : 'bg-red-500/10';
+      ? 'bg-warning/10'
+      : 'bg-destructive/10';
 
   return (
     <div

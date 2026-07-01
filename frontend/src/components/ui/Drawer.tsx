@@ -42,7 +42,7 @@ export function DrawerContent({
       <DrawerOverlay />
       <VaulDrawer.Content
         className={cn(
-          'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[20px] border border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-md outline-none',
+          'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[20px] border border-border bg-card/95 text-card-foreground shadow-token backdrop-blur-md outline-none',
           className
         )}
         {...props}

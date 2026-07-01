@@ -28,7 +28,7 @@ export function ClientsWithoutProxyList({ onAddProxyClick }: ClientsWithoutProxy
     <Card className="border-border/60 bg-card">
       <CardHeader>
         <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-amber-500" />
+          <ShieldAlert className="h-4 w-4 text-warning" />
           Clientes Sem Procuração e-CAC ({clients.length})
         </CardTitle>
       </CardHeader>

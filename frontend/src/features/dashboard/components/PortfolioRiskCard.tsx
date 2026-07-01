@@ -35,9 +35,9 @@ export function PortfolioRiskCard({
 
   if (isLoading) {
     return (
-      <div className="bg-fw-surface-solid border border-fw-border rounded-xl p-6">
-        <div className="h-6 w-48 bg-fw-surface animate-pulse rounded mb-4" />
-        <div className="h-40 bg-fw-surface animate-pulse rounded-lg" />
+      <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
+        <div className="h-6 w-48 bg-muted animate-pulse rounded mb-4" />
+        <div className="h-40 bg-muted animate-pulse rounded-lg" />
       </div>
     );
   }
@@ -46,35 +46,35 @@ export function PortfolioRiskCard({
     if (score >= 90) {
       return {
         label: 'Excelente',
-        color: 'text-fw-success',
-        bg: 'bg-fw-success',
-        gradient: 'from-fw-success to-fw-success/80',
+        color: 'text-success',
+        bg: 'bg-success',
+        gradient: 'from-success to-success/80',
         icon: TrendingUp,
       };
     }
     if (score >= 75) {
       return {
         label: 'Boa',
-        color: 'text-fw-blue',
-        bg: 'bg-fw-blue',
-        gradient: 'from-fw-blue to-fw-blue/80',
+        color: 'text-info',
+        bg: 'bg-info',
+        gradient: 'from-info to-info/80',
         icon: TrendingUp,
       };
     }
     if (score >= 55) {
       return {
         label: 'Atenção',
-        color: 'text-fw-warning',
-        bg: 'bg-fw-warning',
-        gradient: 'from-fw-warning to-fw-warning/80',
+        color: 'text-warning',
+        bg: 'bg-warning',
+        gradient: 'from-warning to-warning/80',
         icon: AlertTriangle,
       };
     }
     return {
       label: 'Crítica',
-      color: 'text-fw-danger',
-      bg: 'bg-fw-danger',
-      gradient: 'from-fw-danger to-fw-danger/80',
+      color: 'text-destructive',
+      bg: 'bg-destructive',
+      gradient: 'from-destructive to-destructive/80',
       icon: TrendingDown,
     };
   };
@@ -84,19 +84,19 @@ export function PortfolioRiskCard({
 
   const factorStatusConfig = {
     good: {
-      color: 'text-fw-success',
-      bg: 'bg-fw-success-soft',
-      border: 'border-fw-success/30',
+      color: 'text-success',
+      bg: 'bg-success/10',
+      border: 'border-success/30',
     },
     warning: {
-      color: 'text-fw-warning',
-      bg: 'bg-fw-warning-soft',
-      border: 'border-fw-warning/30',
+      color: 'text-warning',
+      bg: 'bg-warning/10',
+      border: 'border-warning/30',
     },
     critical: {
-      color: 'text-fw-danger',
-      bg: 'bg-fw-danger-soft',
-      border: 'border-fw-danger/30',
+      color: 'text-destructive',
+      bg: 'bg-destructive/10',
+      border: 'border-destructive/30',
     },
   };
 
@@ -139,16 +139,16 @@ export function PortfolioRiskCard({
   return (
     <motion.div
       variants={fadeIn}
-      className="bg-fw-surface-solid border border-fw-border rounded-xl p-6 space-y-5"
+      className="bg-card border border-border rounded-card shadow-token-sm p-6 space-y-5"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-fw-text flex items-center gap-2">
-          <Shield className="w-5 h-5 text-fw-primary" />
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Shield className="w-5 h-5 text-primary" />
           Saúde da Carteira
         </h2>
         <button
           onClick={() => setShowCalculation(!showCalculation)}
-          className="text-xs text-fw-primary hover:underline flex items-center gap-1 font-medium"
+          className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
         >
           <Info className="w-3.5 h-3.5" />
           {showCalculation ? 'Ocultar regras' : 'Ver regras de cálculo'}
@@ -168,7 +168,7 @@ export function PortfolioRiskCard({
                 stroke="currentColor"
                 strokeWidth="12"
                 fill="none"
-                className="text-fw-surface"
+                className="text-muted"
               />
               <motion.circle
                 cx="80"
@@ -193,7 +193,7 @@ export function PortfolioRiskCard({
               <span className={`text-4xl font-bold ${config.color}`}>
                 {score}
               </span>
-              <span className="text-sm text-fw-text-muted">de 100</span>
+              <span className="text-sm text-muted-foreground">de 100</span>
             </div>
           </div>
         </div>
@@ -222,32 +222,32 @@ export function PortfolioRiskCard({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden bg-[#0d1522] border border-white/5 rounded-xl p-4 text-xs space-y-2 text-slate-300"
+            className="overflow-hidden bg-muted border border-border rounded-card p-4 text-xs space-y-2 text-muted-foreground"
           >
-            <p className="font-bold text-white mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+            <p className="font-bold text-foreground mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
               Fórmula de Dedução de Pontos:
             </p>
             <div className="grid grid-cols-2 gap-2 font-mono">
-              <div className="flex items-center justify-between p-1.5 bg-white/5 rounded">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded">
                 <span>DAS Atrasado</span>
-                <span className="text-fw-danger font-bold">-15 pts</span>
+                <span className="text-destructive font-bold">-15 pts</span>
               </div>
-              <div className="flex items-center justify-between p-1.5 bg-white/5 rounded">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded">
                 <span>Prazo Atrasado</span>
-                <span className="text-fw-danger font-bold">-5 pts</span>
+                <span className="text-destructive font-bold">-5 pts</span>
               </div>
-              <div className="flex items-center justify-between p-1.5 bg-white/5 rounded">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded">
                 <span>Certificado Exp.</span>
-                <span className="text-fw-warning font-bold">-3 pts</span>
+                <span className="text-warning font-bold">-3 pts</span>
               </div>
-              <div className="flex items-center justify-between p-1.5 bg-white/5 rounded">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded">
                 <span>Fatura Atrasada</span>
-                <span className="text-fw-danger font-bold">-4 pts</span>
+                <span className="text-destructive font-bold">-4 pts</span>
               </div>
-              <div className="flex items-center justify-between p-1.5 bg-white/5 rounded col-span-2">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded col-span-2">
                 <span>Doc. Pendente conferência</span>
-                <span className="text-fw-blue font-bold">-2 pts</span>
+                <span className="text-info font-bold">-2 pts</span>
               </div>
             </div>
           </motion.div>
@@ -257,7 +257,7 @@ export function PortfolioRiskCard({
       {/* Risk Factors Breakdown */}
       {factors.length > 0 ? (
         <div className="space-y-2.5">
-          <h3 className="text-sm font-semibold text-fw-text flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-1">
             Fatores que reduziram a saúde:
           </h3>
           <div className="space-y-2">
@@ -268,7 +268,7 @@ export function PortfolioRiskCard({
                   key={index}
                   className={`${factorConfig.bg} border ${factorConfig.border} rounded-lg p-3 flex items-center justify-between text-xs`}
                 >
-                  <span className="font-medium text-fw-text">
+                  <span className="font-medium text-foreground">
                     {factor.label}
                   </span>
                   <span className={`font-mono font-bold ${factorConfig.color}`}>
@@ -280,37 +280,37 @@ export function PortfolioRiskCard({
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-start gap-2.5 text-xs text-emerald-300">
-          <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+        <div className="rounded-card border border-success/20 bg-success/5 p-4 flex items-start gap-2.5 text-xs text-success">
+          <CheckCircle className="w-5 h-5 shrink-0 text-success" />
           <div>
             <p className="font-bold">Nenhum fator de risco ativo!</p>
-            <p className="text-slate-400 mt-0.5">Sua carteira está operando em compliance máximo.</p>
+            <p className="text-muted-foreground mt-0.5">Sua carteira está operando em compliance máximo.</p>
           </div>
         </div>
       )}
 
       {/* Actionable recommendations tips */}
       {recommendations.length > 0 && (
-        <div className="border-t border-white/5 pt-4 space-y-2.5">
-          <h3 className="text-xs uppercase tracking-wider text-slate-400 font-bold">
+        <div className="border-t border-border pt-4 space-y-2.5">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
             Como melhorar o score:
           </h3>
           <div className="space-y-2">
             {recommendations.slice(0, 2).map((rec, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between gap-3 text-xs bg-white/5 border border-white/10 p-3 rounded-lg"
+                className="flex items-center justify-between gap-3 text-xs bg-muted border border-border p-3 rounded-lg"
               >
-                <div className="space-y-0.5 text-slate-200">
+                <div className="space-y-0.5 text-foreground">
                   <p>{rec.tip}</p>
-                  <p className="text-[10px] text-emerald-400 font-bold">
+                  <p className="text-[10px] text-success font-bold">
                     Recupera {rec.recovery}
                   </p>
                 </div>
                 {rec.action ? (
                   <button
                     onClick={rec.action}
-                    className="shrink-0 flex items-center gap-1 text-[10px] bg-cyan-300 text-slate-950 font-bold px-2 py-1.5 rounded-md hover:bg-cyan-200 transition"
+                    className="shrink-0 flex items-center gap-1 text-[10px] bg-primary text-primary-foreground font-bold px-2 py-1.5 rounded-md hover:bg-primary/90 transition"
                   >
                     Focar
                     <ArrowRight className="w-3 h-3" />
@@ -318,7 +318,7 @@ export function PortfolioRiskCard({
                 ) : rec.link ? (
                   <a
                     href={rec.link}
-                    className="shrink-0 flex items-center gap-1 text-[10px] border border-cyan-400/35 bg-cyan-500/10 text-cyan-300 font-bold px-2 py-1.5 rounded-md hover:bg-cyan-500/20 transition"
+                    className="shrink-0 flex items-center gap-1 text-[10px] border border-primary/35 bg-primary/10 text-primary font-bold px-2 py-1.5 rounded-md hover:bg-primary/20 transition"
                   >
                     Acessar
                   </a>

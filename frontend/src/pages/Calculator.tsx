@@ -83,7 +83,7 @@ export function CalculatorPage() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${
                 userPlan === 'PREMIUM'
-                  ? 'bg-amber-500/10 text-amber-500 border-amber-500/25'
+                  ? 'bg-warning/10 text-warning border-warning/25'
                   : userPlan === 'INTERMEDIARIO'
                   ? 'bg-primary/10 text-primary border-primary/25'
                   : 'bg-muted text-muted-foreground border-border'
@@ -92,7 +92,7 @@ export function CalculatorPage() {
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
                   userPlan === 'PREMIUM'
-                    ? 'bg-amber-500'
+                    ? 'bg-warning'
                     : userPlan === 'INTERMEDIARIO'
                     ? 'bg-primary'
                     : 'bg-muted-foreground'
@@ -125,7 +125,7 @@ export function CalculatorPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
-              className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
+              className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-token-sm hover:border-primary/30"
             >
               <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 border border-primary/15 transition-colors group-hover:bg-primary/15">
                 <Icon className="h-4 w-4 text-primary" />

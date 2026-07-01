@@ -100,7 +100,7 @@ export function InvoicesListPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Total Faturado (NFS-e)
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-500" />
+            <DollarSign className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">
@@ -117,7 +117,7 @@ export function InvoicesListPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Notas Emitidas
             </CardTitle>
-            <FileCheck className="h-4 w-4 text-blue-500" />
+            <FileCheck className="h-4 w-4 text-info" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">{issuedCount}</p>
@@ -132,7 +132,7 @@ export function InvoicesListPage() {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Rascunhos pendentes
             </CardTitle>
-            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertCircle className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">{draftCount}</p>
@@ -188,9 +188,9 @@ export function InvoicesListPage() {
 
       {/* Invoices List table */}
       {!hasIssuer && (
-        <Card className="border-yellow-500/20 bg-yellow-500/5 text-yellow-800 dark:text-yellow-400">
+        <Card className="border-warning/20 bg-warning/5 text-warning dark:text-warning">
           <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-3">
-            <AlertCircle className="h-8 w-8 text-yellow-500 animate-pulse" />
+            <AlertCircle className="h-8 w-8 text-warning animate-pulse" />
             <div>
               <h3 className="font-semibold text-sm">Nenhum emissor configurado</h3>
               <p className="text-xs text-muted-foreground max-w-md mt-1">

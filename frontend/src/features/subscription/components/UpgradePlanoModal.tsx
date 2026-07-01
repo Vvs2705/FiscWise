@@ -192,21 +192,21 @@ export function UpgradePlanoModal({
               
               {activeTab === 'cartao' && (
                 <div 
-                  className={`w-full max-w-[320px] h-[170px] rounded-xl text-white p-5 flex flex-col justify-between shadow-lg relative overflow-hidden transition-all duration-500 bg-gradient-to-br from-zinc-800 to-zinc-950 dark:from-zinc-900 dark:to-black border border-zinc-700/50 ${
+                  className={`w-full max-w-[320px] h-[170px] rounded-xl text-white p-5 flex flex-col justify-between shadow-token relative overflow-hidden transition-all duration-500 bg-gradient-to-br from-zinc-800 to-zinc-950 dark:from-zinc-900 dark:to-black border border-zinc-700/50 ${
                     isFlipped ? 'rotate-y-180' : ''
                   }`}
                   onClick={() => setIsFlipped(!isFlipped)}
                   style={{ perspective: '1000px', cursor: 'pointer' }}
                 >
                   {/* Decorative mesh */}
-                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-success/10 via-transparent to-transparent pointer-events-none" />
                   
                   {!isFlipped ? (
                     <>
                       {/* Front of card */}
                       <div className="flex items-start justify-between">
-                        <div className="h-8 w-11 bg-amber-500/80 rounded-md opacity-80" /> {/* Chip */}
-                        <Sparkles className="h-5 w-5 text-emerald-400" />
+                        <div className="h-8 w-11 bg-warning/80 rounded-md opacity-80" /> {/* Chip */}
+                        <Sparkles className="h-5 w-5 text-success" />
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm tracking-[0.25em] font-mono leading-none">
@@ -247,7 +247,7 @@ export function UpgradePlanoModal({
                   <div className="relative p-2 bg-white rounded-lg border">
                     <QrCode className="h-24 w-24 text-zinc-900" />
                     {/* Simulated scanning beam */}
-                    <div className="absolute left-0 right-0 h-0.5 bg-emerald-500 animate-bounce top-1/2" />
+                    <div className="absolute left-0 right-0 h-0.5 bg-success animate-bounce top-1/2" />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-foreground">Pix Gerado sob Demanda</p>
@@ -458,14 +458,14 @@ export function UpgradePlanoModal({
 
               {/* Security info */}
               <div className="pt-2 border-t border-border/80 flex items-start gap-2 text-[10px] text-muted-foreground">
-                <Lock className="h-3.5 w-3.5 shrink-0 text-emerald-500 mt-0.5" />
+                <Lock className="h-3.5 w-3.5 shrink-0 text-success mt-0.5" />
                 <span>Cobrança processada de forma segura pela Asaas S.A. Conexão criptografada SSL de 256 bits.</span>
               </div>
             </div>
 
             <div className="space-y-2">
               <Button
-                className="w-full font-semibold shadow-md py-5 flex items-center justify-center gap-2"
+                className="w-full font-semibold shadow-token-sm py-5 flex items-center justify-center gap-2"
                 onClick={handleConfirm}
                 disabled={!isFormValid()}
               >
@@ -502,10 +502,10 @@ export function UpgradePlanoModal({
         <div className="flex flex-col items-center justify-center py-10 text-center space-y-6 max-w-md mx-auto">
           {/* Confetti simulation top indicator */}
           <div className="relative">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 animate-pulse border-2 border-emerald-500/20">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success animate-pulse border-2 border-success/20">
               <CheckCircle2 className="h-10 w-10" />
             </div>
-            <Sparkles className="absolute -top-1 -right-1 h-5 w-5 text-amber-400 animate-bounce" />
+            <Sparkles className="absolute -top-1 -right-1 h-5 w-5 text-warning animate-bounce" />
           </div>
 
           <div className="space-y-2">
@@ -536,7 +536,7 @@ export function UpgradePlanoModal({
           </div>
 
           <Button
-            className="w-full font-semibold shadow-md py-4"
+            className="w-full font-semibold shadow-token-sm py-4"
             onClick={onClose}
           >
             Começar a Usar Agora

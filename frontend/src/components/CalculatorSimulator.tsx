@@ -250,12 +250,12 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
                     transition={{ delay: i * 0.08 }}
                     className={`relative rounded-xl border p-4 transition-all ${
                       isRecommended
-                        ? 'border-emerald-500/40 bg-emerald-500/5 shadow-sm'
+                        ? 'border-success/40 bg-success/5 shadow-sm'
                         : 'border-border bg-card'
                     }`}
                   >
                     {isRecommended && (
-                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                         <Star className="h-2.5 w-2.5" />
                         Recomendado
                       </div>
@@ -263,7 +263,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                       {scenario.regime}
                     </p>
-                    <p className={`text-xl font-bold ${isRecommended ? 'text-emerald-500' : 'text-foreground'}`}>
+                    <p className={`text-xl font-bold ${isRecommended ? 'text-success' : 'text-foreground'}`}>
                       {moneyBRL(scenario.annual_tax)}
                     </p>
                     <p className="text-xs text-muted-foreground">imposto anual</p>

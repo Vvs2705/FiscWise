@@ -96,7 +96,7 @@ export function PortalClientePage() {
             </p>
           </div>
         ) : error || !preview ? (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
             Erro ao carregar o portal deste cliente. Tente novamente.
           </div>
         ) : (
@@ -131,7 +131,7 @@ export function PortalClientePage() {
                   <tab.icon className="h-3.5 w-3.5" />
                   {tab.label}
                   {tab.key === 'pending' && pendencies.length > 0 && (
-                    <span className="ml-1 rounded-full bg-red-500/20 px-1.5 text-[10px] font-bold text-red-400">
+                    <span className="ml-1 rounded-full bg-destructive/20 px-1.5 text-[10px] font-bold text-destructive">
                       {pendencies.length}
                     </span>
                   )}
@@ -164,7 +164,7 @@ export function PortalClientePage() {
                       <div
                         className={cn(
                           'h-full rounded-full transition-all',
-                          preview.closing.score >= 80 ? 'bg-emerald-500' : preview.closing.score >= 50 ? 'bg-yellow-500' : 'bg-red-500',
+                          preview.closing.score >= 80 ? 'bg-success' : preview.closing.score >= 50 ? 'bg-warning' : 'bg-destructive',
                         )}
                         style={{ width: `${preview.closing.score}%` }}
                       />
@@ -194,7 +194,7 @@ export function PortalClientePage() {
                     <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
                       <div className={cn(
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                        doc.status === 'pending' ? 'bg-orange-500/10 text-orange-400' : 'bg-emerald-500/10 text-emerald-400',
+                        doc.status === 'pending' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success',
                       )}>
                         {doc.status === 'pending' ? <Clock className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                       </div>
@@ -257,8 +257,8 @@ export function PortalClientePage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma pendência em aberto. Tudo em dia!</p>
                 ) : (
                   pendencies.map(p => (
-                    <div key={p.id} className="flex items-center gap-3 rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-orange-400" />
+                    <div key={p.id} className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 p-4">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">{p.title}</p>
                         {p.deadline && (
@@ -269,7 +269,7 @@ export function PortalClientePage() {
                       </div>
                       <Link
                         to="/obrigacoes"
-                        className="rounded-lg bg-orange-600/20 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-600/30 transition-colors"
+                        className="rounded-lg bg-warning/20 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/30 transition-colors"
                       >
                         Resolver
                       </Link>

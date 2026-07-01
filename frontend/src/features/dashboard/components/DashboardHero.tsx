@@ -24,16 +24,16 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
   return (
     <div className="p-6 md:p-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-700 dark:text-cyan-200/90">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
           Painel
         </p>
         <h1
           id="tour-welcome"
-          className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-[2.8rem]"
+          className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-[2.8rem]"
         >
           Veja o que precisa da sua atenção hoje
         </h1>
-        <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+        <p className="mt-4 text-sm leading-7 text-muted-foreground md:text-base">
           Mantenha seus clientes em dia acompanhando obrigações, documentos pendentes e prazos fiscais em um só lugar.
         </p>
 
@@ -41,7 +41,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => startTour('dashboard', navigate, '/painel')}
-            className="inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/10 px-5 py-3 text-sm font-semibold text-teal-700 transition hover:-translate-y-0.5 hover:bg-teal-500/20 dark:text-teal-300"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/20"
           >
             <BookOpen className="h-4 w-4" />
             Iniciar Guia
@@ -50,7 +50,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={onStartFocusMode}
-            className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-200"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:-translate-y-0.5 hover:bg-primary/90"
           >
             Resolver agora
             <ArrowRight className="h-4 w-4" />
@@ -59,7 +59,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/obrigacoes')}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Calendar className="h-4 w-4" />
             Ver agenda fiscal
@@ -68,7 +68,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/clientes', { state: { openCreate: true } })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <UserPlus className="h-4 w-4" />
             Novo cliente
@@ -77,7 +77,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/obrigacoes', { state: { openCreate: true } })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Calendar className="h-4 w-4" />
             Nova obrigação
@@ -86,7 +86,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/documentos', { state: { openCreate: true } })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Upload className="h-4 w-4" />
             Enviar documento
@@ -95,7 +95,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/certificados', { state: { openCreate: true } })}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Shield className="h-4 w-4" />
             Cadastrar certificado
@@ -104,7 +104,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/guias')}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Receipt className="h-4 w-4" />
             Registrar guia
@@ -113,7 +113,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => navigate('/calculadora')}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300/70 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:bg-muted"
           >
             <Calculator className="h-4 w-4" />
             Calculadora
@@ -124,7 +124,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:border-amber-400/20 dark:text-amber-100"
+            className="mt-6 flex items-center gap-3 rounded-card border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" />
             Não foi possível atualizar todo o painel agora. Os blocos abaixo usam os dados

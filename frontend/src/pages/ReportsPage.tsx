@@ -19,10 +19,10 @@ const REPORTS = [
     description: 'Distribui clientes por nível de risco: crítico, alto, médio, baixo.',
     icon: AlertTriangle,
     data: [
-      { label: 'Crítico', value: 2, color: 'bg-red-500' },
-      { label: 'Alto', value: 4, color: 'bg-orange-500' },
-      { label: 'Médio', value: 8, color: 'bg-yellow-500' },
-      { label: 'Baixo', value: 15, color: 'bg-emerald-500' },
+      { label: 'Crítico', value: 2, color: 'bg-destructive' },
+      { label: 'Alto', value: 4, color: 'bg-warning' },
+      { label: 'Médio', value: 8, color: 'bg-warning' },
+      { label: 'Baixo', value: 15, color: 'bg-success' },
     ],
     total: 29,
   },
@@ -32,9 +32,9 @@ const REPORTS = [
     description: 'Acompanhe o cumprimento de obrigações acessórias e principais.',
     icon: CheckCircle2,
     data: [
-      { label: 'Cumpridas', value: 47, color: 'bg-emerald-500' },
-      { label: 'Pendentes', value: 12, color: 'bg-yellow-500' },
-      { label: 'Atrasadas', value: 3, color: 'bg-red-500' },
+      { label: 'Cumpridas', value: 47, color: 'bg-success' },
+      { label: 'Pendentes', value: 12, color: 'bg-warning' },
+      { label: 'Atrasadas', value: 3, color: 'bg-destructive' },
     ],
     total: 62,
   },
@@ -44,8 +44,8 @@ const REPORTS = [
     description: 'Evolução mensal de emissão, rejeição e cancelamento.',
     icon: FileText,
     data: [
-      { label: 'Emitidas', value: 143, color: 'bg-emerald-500' },
-      { label: 'Rejeitadas', value: 7, color: 'bg-red-500' },
+      { label: 'Emitidas', value: 143, color: 'bg-success' },
+      { label: 'Rejeitadas', value: 7, color: 'bg-destructive' },
       { label: 'Canceladas', value: 4, color: 'bg-muted' },
     ],
     total: 154,
@@ -56,9 +56,9 @@ const REPORTS = [
     description: 'Guias geradas e ainda não pagas por cliente e competência.',
     icon: Coins,
     data: [
-      { label: 'Pagas', value: 38, color: 'bg-emerald-500' },
-      { label: 'Aguardando', value: 11, color: 'bg-yellow-500' },
-      { label: 'Vencidas', value: 3, color: 'bg-red-500' },
+      { label: 'Pagas', value: 38, color: 'bg-success' },
+      { label: 'Aguardando', value: 11, color: 'bg-warning' },
+      { label: 'Vencidas', value: 3, color: 'bg-destructive' },
     ],
     total: 52,
   },
@@ -68,9 +68,9 @@ const REPORTS = [
     description: 'Status de todos os fechamentos mensais na competência atual.',
     icon: Calendar,
     data: [
-      { label: 'Concluídos', value: 8, color: 'bg-emerald-500' },
-      { label: 'Em andamento', value: 12, color: 'bg-blue-500' },
-      { label: 'Bloqueados', value: 3, color: 'bg-red-500' },
+      { label: 'Concluídos', value: 8, color: 'bg-success' },
+      { label: 'Em andamento', value: 12, color: 'bg-info' },
+      { label: 'Bloqueados', value: 3, color: 'bg-destructive' },
       { label: 'Não iniciados', value: 6, color: 'bg-muted' },
     ],
     total: 29,
@@ -81,9 +81,9 @@ const REPORTS = [
     description: 'Procurações que vencem nos próximos 30, 60 e 90 dias.',
     icon: Clock,
     data: [
-      { label: '≤ 30 dias', value: 2, color: 'bg-red-500' },
-      { label: '31-60 dias', value: 4, color: 'bg-orange-500' },
-      { label: '61-90 dias', value: 3, color: 'bg-yellow-500' },
+      { label: '≤ 30 dias', value: 2, color: 'bg-destructive' },
+      { label: '31-60 dias', value: 4, color: 'bg-warning' },
+      { label: '61-90 dias', value: 3, color: 'bg-warning' },
     ],
     total: 9,
   },
@@ -129,7 +129,7 @@ export function ReportsPage() {
         />
 
         {/* Financial summary — owner/admin only */}
-        <PermissionGate requiredRole="financeiro">
+        <PermissionGate requiredRole="admin">
           <div>
             <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Resumo financeiro</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -156,7 +156,7 @@ export function ReportsPage() {
 
 function ReportCard({ report }: { report: typeof REPORTS[number] }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5 hover:shadow-md transition-shadow">
+    <div className="rounded-xl border border-border bg-card p-5 hover:shadow-token-sm transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">

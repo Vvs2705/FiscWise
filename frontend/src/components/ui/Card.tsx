@@ -7,7 +7,7 @@ export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     <div
       ref={ref}
       className={cn(
-        'fiscwise-surface rounded-2xl border border-border/70 bg-card/80 text-card-foreground',
+        'fiscwise-surface rounded-card border border-border/70 bg-card/80 text-card-foreground',
         'transition-all duration-200 ease-out',
         className,
       )}
@@ -89,7 +89,7 @@ export const MetricCard = forwardRef<HTMLDivElement, MetricCardProps>(
               className={cn(
                 'inline-flex items-center text-xs font-semibold gap-0.5 px-2 py-0.5 rounded-full border',
                 trend.isPositive
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  ? 'bg-success/10 text-success border-success/20'
                   : 'bg-destructive/10 text-destructive border-destructive/20'
               )}
             >
@@ -155,12 +155,12 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
   ({ className, score, label, factors, ...props }, ref) => {
     const ringColor =
       score >= 90
-        ? 'text-emerald-500'
+        ? 'text-success'
         : score >= 75
-        ? 'text-sky-500'
+        ? 'text-info'
         : score >= 55
-        ? 'text-amber-500'
-        : 'text-red-500';
+        ? 'text-warning'
+        : 'text-destructive';
 
     return (
       <Card ref={ref} className={cn('p-6', className)} {...props}>
@@ -204,10 +204,10 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
                     className={cn(
                       'w-2 h-2 rounded-full',
                       factor.status === 'critical'
-                        ? 'bg-red-500'
+                        ? 'bg-destructive'
                         : factor.status === 'warning'
-                        ? 'bg-amber-500'
-                        : 'bg-sky-500'
+                        ? 'bg-warning'
+                        : 'bg-info'
                     )}
                   />
                   {factor.label}
@@ -217,7 +217,7 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs">
+          <div className="flex items-center gap-2 p-3 bg-success/10 text-success border border-success/20 rounded-xl text-xs">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>Nenhum fator de risco ativo. Parabéns!</span>
           </div>
@@ -240,10 +240,10 @@ interface DocumentCardProps extends HTMLAttributes<HTMLDivElement> {
 export const DocumentCard = forwardRef<HTMLDivElement, DocumentCardProps>(
   ({ className, name, type, date, status, onClick, ...props }, ref) => {
     const statusConfig = {
-      available: { label: 'Disponível', color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' },
-      missing: { label: 'Pendente', color: 'text-amber-400 border-amber-500/20 bg-amber-500/10' },
-      expired: { label: 'Expirado', color: 'text-red-400 border-red-500/20 bg-red-500/10' },
-      review: { label: 'Em revisão', color: 'text-sky-400 border-sky-500/20 bg-sky-500/10' },
+      available: { label: 'Disponível', color: 'text-success border-success/20 bg-success/10' },
+      missing: { label: 'Pendente', color: 'text-warning border-warning/20 bg-warning/10' },
+      expired: { label: 'Expirado', color: 'text-destructive border-destructive/20 bg-destructive/10' },
+      review: { label: 'Em revisão', color: 'text-info border-info/20 bg-info/10' },
     };
 
     const config = statusConfig[status];
@@ -303,7 +303,7 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
             <h4 className="font-bold text-foreground text-base leading-tight">{label}</h4>
           </div>
           {(isCritical || isWarning) && (
-            <div className={cn('p-1.5 rounded-md', isCritical ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500')}>
+            <div className={cn('p-1.5 rounded-md', isCritical ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')}>
               <ShieldAlert className="w-5 h-5" />
             </div>
           )}
@@ -312,7 +312,7 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
         <div className="mb-4">
           <div className="flex justify-between items-center text-xs mb-1">
             <span className="text-muted-foreground">Validade: {expiryDate}</span>
-            <span className={cn('font-bold', isCritical ? 'text-red-500' : isWarning ? 'text-amber-500' : 'text-emerald-400')}>
+            <span className={cn('font-bold', isCritical ? 'text-destructive' : isWarning ? 'text-warning' : 'text-success')}>
               {daysRemaining} dias restantes
             </span>
           </div>
@@ -321,7 +321,7 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-300',
-                isCritical ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                isCritical ? 'bg-destructive' : isWarning ? 'bg-warning' : 'bg-success'
               )}
               style={{ width: `${Math.min(100, (daysRemaining / 365) * 100)}%` }}
             />

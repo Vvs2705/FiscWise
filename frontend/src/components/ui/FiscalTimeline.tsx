@@ -55,10 +55,10 @@ export function FiscalTimeline({ items, isLoading, className, ...props }: Fiscal
         
         const typeColors = {
           default: 'bg-muted border-border text-muted-foreground',
-          success: 'bg-emerald-500/10 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_-2px_rgba(16,185,129,0.2)]',
-          warning: 'bg-amber-500/10 border-amber-500/35 text-amber-400 shadow-[0_0_12px_-2px_rgba(245,158,11,0.2)]',
-          error: 'bg-red-500/10 border-red-500/35 text-red-400 shadow-[0_0_12px_-2px_rgba(239,68,68,0.2)]',
-          info: 'bg-sky-500/10 border-sky-500/35 text-sky-400 shadow-[0_0_12px_-2px_rgba(56,189,248,0.2)]',
+          success: 'bg-success/10 border-success/35 text-success shadow-[0_0_12px_-2px_hsl(var(--success)/0.2)]',
+          warning: 'bg-warning/10 border-warning/35 text-warning shadow-[0_0_12px_-2px_hsl(var(--warning)/0.2)]',
+          error: 'bg-destructive/10 border-destructive/35 text-destructive shadow-[0_0_12px_-2px_hsl(var(--destructive)/0.2)]',
+          info: 'bg-info/10 border-info/35 text-info shadow-[0_0_12px_-2px_hsl(var(--info)/0.2)]',
         };
 
         const currentTypeColor = typeColors[item.type || 'default'];

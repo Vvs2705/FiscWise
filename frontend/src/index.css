@@ -11,32 +11,45 @@
     --card-foreground: 211 49% 13%;
     --popover: 0 0% 100%;
     --popover-foreground: 211 49% 13%;
-    --primary: 173 72% 42%;
+    --primary: 21 81% 49%;
     --primary-foreground: 0 0% 100%;
     --secondary: 206 34% 93%;
     --secondary-foreground: 211 49% 18%;
     --muted: 206 34% 93%;
     --muted-foreground: 214 16% 42%;
-    --accent: 198 67% 95%;
-    --accent-foreground: 201 71% 24%;
+    --accent: 24 100% 95%;
+    --accent-foreground: 21 81% 30%;
     --destructive: 0 75% 56%;
     --destructive-foreground: 0 0% 100%;
+    --success: 152 58% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 92% 48%;
+    --warning-foreground: 0 0% 100%;
+    --info: 205 85% 44%;
+    --info-foreground: 0 0% 100%;
     --border: 205 26% 86%;
     --input: 205 26% 86%;
-    --ring: 173 72% 42%;
-    --radius: 1rem;
+    --ring: 21 81% 49%;
+    --radius: 0.75rem;
+    --radius-card: 1.125rem;
+    --radius-panel: 1.75rem;
+
+    /* Sombras de marca (V-STACK) */
+    --shadow-sm: 0 12px 32px hsl(211 49% 13% / 0.08);
+    --shadow: 0 28px 80px hsl(211 49% 13% / 0.14);
+    --shadow-glow: 0 22px 70px hsl(21 81% 49% / 0.18);
 
     --sidebar-bg: 211 68% 10%;
     --sidebar-fg: 205 53% 95%;
     --sidebar-muted: 212 20% 66%;
-    --sidebar-active-bg: 173 72% 42%;
+    --sidebar-active-bg: 21 81% 49%;
     --sidebar-active-fg: 0 0% 100%;
     --sidebar-hover-bg: 210 53% 16%;
     --sidebar-border: 210 41% 18%;
-    --sidebar-logo-accent: 191 88% 57%;
+    --sidebar-logo-accent: 24 95% 55%;
 
     --shell-bg: 206 45% 95%;
-    --shell-glow: 173 72% 42%;
+    --shell-glow: 21 81% 49%;
     --surface-elevated: 0 0% 100%;
     --surface-elevated-foreground: 211 49% 13%;
   }
@@ -49,22 +62,32 @@
     --card-foreground: 203 54% 94%;
     --popover: 211 58% 13%;
     --popover-foreground: 203 54% 94%;
-    --primary: 173 72% 52%;
-    --primary-foreground: 208 69% 8%;
+    --primary: 22 87% 55%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 212 38% 17%;
     --secondary-foreground: 204 44% 92%;
     --muted: 212 38% 17%;
     --muted-foreground: 213 19% 65%;
-    --accent: 206 39% 19%;
-    --accent-foreground: 203 54% 94%;
+    --accent: 20 40% 18%;
+    --accent-foreground: 28 100% 92%;
     --destructive: 0 74% 58%;
     --destructive-foreground: 0 0% 100%;
+    --success: 152 52% 50%;
+    --success-foreground: 152 60% 8%;
+    --warning: 35 90% 55%;
+    --warning-foreground: 35 80% 10%;
+    --info: 205 80% 58%;
+    --info-foreground: 205 80% 10%;
     --border: 209 38% 21%;
     --input: 209 38% 21%;
-    --ring: 173 72% 52%;
+    --ring: 22 87% 55%;
+
+    --shadow-sm: 0 12px 32px hsl(212 69% 3% / 0.45);
+    --shadow: 0 28px 80px hsl(212 69% 2% / 0.55);
+    --shadow-glow: 0 22px 70px hsl(22 87% 55% / 0.22);
 
     --shell-bg: 212 69% 7%;
-    --shell-glow: 173 72% 52%;
+    --shell-glow: 22 87% 55%;
     --surface-elevated: 211 58% 13%;
     --surface-elevated-foreground: 203 54% 94%;
   }
@@ -87,7 +110,7 @@
     -moz-osx-font-smoothing: grayscale;
     background-image:
       radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.12), transparent 28%),
-      radial-gradient(circle at top right, hsl(198 93% 60% / 0.12), transparent 24%),
+      radial-gradient(circle at top right, hsl(28 90% 55% / 0.10), transparent 24%),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
     background-attachment: fixed;
   }
@@ -219,7 +242,7 @@
   .fiscwise-shell {
     background:
       radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.18), transparent 22%),
-      radial-gradient(circle at top right, hsl(198 93% 60% / 0.12), transparent 20%),
+      radial-gradient(circle at top right, hsl(28 90% 55% / 0.10), transparent 20%),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
   }
 

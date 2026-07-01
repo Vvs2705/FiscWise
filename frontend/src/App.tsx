@@ -7,6 +7,8 @@ initTheme();
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import * as Sentry from '@sentry/react';
+import { MotionConfig } from 'framer-motion';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { CommandMenu } from '@/components/ui/CommandMenu';
@@ -79,6 +81,10 @@ class ErrorBoundary extends React.Component<
     return { hasError: true, message: error.message };
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -103,6 +109,7 @@ class ErrorBoundary extends React.Component<
 
 function App() {
   return (
+    <MotionConfig reducedMotion="user">
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -178,6 +185,7 @@ function App() {
         <Toaster position="top-right" theme="dark" richColors closeButton />
       </QueryClientProvider>
     </ErrorBoundary>
+    </MotionConfig>
   );
 }
 

@@ -80,7 +80,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Fiscal',
     Icon: FileSpreadsheet,
-    color: 'text-blue-600',
+    color: 'text-info',
     types: [
       { value: 'SPED Fiscal', label: 'SPED Fiscal' },
       { value: 'SPED Contribuicoes', label: 'SPED Contribuições' },
@@ -95,7 +95,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Contábil',
     Icon: FileText,
-    color: 'text-emerald-600',
+    color: 'text-success',
     types: [
       { value: 'Balanco Patrimonial', label: 'Balanço Patrimonial' },
       { value: 'DRE', label: 'DRE — Demonstração de Resultado' },
@@ -107,7 +107,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Certificado Digital',
     Icon: FileBadge,
-    color: 'text-purple-600',
+    color: 'text-info',
     types: [
       { value: 'e-CNPJ A1', label: 'e-CNPJ A1', autoExpireYears: 1 },
       { value: 'e-CNPJ A3', label: 'e-CNPJ A3', autoExpireYears: 3 },
@@ -119,7 +119,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Trabalhista',
     Icon: Users,
-    color: 'text-orange-600',
+    color: 'text-warning',
     types: [
       { value: 'Folha de Pagamento', label: 'Folha de Pagamento' },
       { value: 'eSocial', label: 'eSocial' },
@@ -132,7 +132,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Societário',
     Icon: Building2,
-    color: 'text-slate-600',
+    color: 'text-muted-foreground',
     types: [
       { value: 'Contrato Social', label: 'Contrato Social' },
       { value: 'Cartao CNPJ', label: 'Cartão CNPJ' },
@@ -144,7 +144,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Pessoal',
     Icon: CreditCard,
-    color: 'text-rose-600',
+    color: 'text-destructive',
     types: [
       { value: 'CPF', label: 'CPF' },
       { value: 'RG', label: 'RG / CNH' },
@@ -155,7 +155,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Contratos',
     Icon: FileSignature,
-    color: 'text-amber-600',
+    color: 'text-warning',
     types: [
       { value: 'Contrato de Servicos', label: 'Contrato de Prestação de Serviços' },
       { value: 'Termo Aditivo', label: 'Termo Aditivo' },
@@ -165,7 +165,7 @@ const DOC_CATEGORIES: DocCategory[] = [
   {
     label: 'Outros',
     Icon: FolderOpen,
-    color: 'text-gray-500',
+    color: 'text-muted-foreground',
     types: [{ value: 'Outros', label: 'Outros' }],
   },
 ];
@@ -319,7 +319,7 @@ function DocTypeSelector({ value, onChange }: DocTypeSelectorProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-border/80 bg-card shadow-lg max-h-72 overflow-y-auto scrollbar">
+        <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-border/80 bg-card shadow-token max-h-72 overflow-y-auto scrollbar">
           <div className="py-1">
             {DOC_CATEGORIES.map((cat) => {
               const isExpanded = expandedCat === cat.label;
@@ -603,7 +603,7 @@ export function DocumentsPage() {
             variant="outline"
             size="sm"
             onClick={() => startTour('documents', navigate, '/documentos')}
-            className="h-9 border-teal-500/25 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />

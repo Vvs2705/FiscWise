@@ -83,9 +83,9 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
         <div className="flex items-center justify-between p-4 rounded-lg bg-muted/10 border border-border/30">
           <div className="flex items-center gap-3">
             {isRegular ? (
-              <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+              <CheckCircle2 className="h-6 w-6 text-success" />
             ) : (
-              <AlertCircle className="h-6 w-6 text-red-500" />
+              <AlertCircle className="h-6 w-6 text-destructive" />
             )}
             <div>
               <p className="text-xs text-muted-foreground">Status Geral CNPJ</p>
@@ -127,7 +127,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
           <div className="space-y-3 border-t border-border/40 pt-3">
             {pendencias && (
               <div>
-                <span className="text-xs font-semibold text-red-500 block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
                   Declarações Pendentes / Atrasadas
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">
@@ -142,7 +142,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
 
             {debitos && (
               <div className="border-t border-border/30 pt-2">
-                <span className="text-xs font-semibold text-red-500 block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
                   Débitos Fiscais Ativos
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">

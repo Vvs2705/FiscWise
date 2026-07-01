@@ -127,7 +127,7 @@ export function IssuerProfileForm({ onSuccess }: IssuerProfileFormProps) {
         <input
           type="checkbox"
           id="retencao_iss"
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
           {...register('retencao_iss')}
         />
         <label htmlFor="retencao_iss" className="text-sm font-medium text-foreground">

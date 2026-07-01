@@ -492,7 +492,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl transition-all duration-300 ease-in-out"
+        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col border-l border-border bg-background shadow-token transition-all duration-300 ease-in-out"
       >
         {/* Drawer Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border bg-muted/20 px-6 py-5">

@@ -124,15 +124,15 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
   // — Plan gate —
   if (!canUseChat) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-10 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10">
-          <Lock className="h-7 w-7 text-amber-500" />
+      <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-warning/20 bg-warning/5 p-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-warning/20 bg-warning/10">
+          <Lock className="h-7 w-7 text-warning" />
         </div>
         <div>
           <p className="text-base font-semibold text-foreground">Chat com IA não disponível no plano Gratuito</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Faça upgrade para o plano{' '}
-            <strong className="text-amber-500">Intermediário</strong> (20 mensagens/mês) ou{' '}
+            <strong className="text-warning">Intermediário</strong> (20 mensagens/mês) ou{' '}
             <strong className="text-primary">Premium</strong> (ilimitado) para conversar com o assistente fiscal.
           </p>
         </div>
@@ -143,9 +143,9 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
   // — Quota exhausted —
   if (typeof remaining === 'number' && remaining === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-red-500/20 bg-red-500/5 p-10 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10">
-          <AlertCircle className="h-7 w-7 text-red-400" />
+      <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-destructive/20 bg-destructive/5 p-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-destructive/20 bg-destructive/10">
+          <AlertCircle className="h-7 w-7 text-destructive" />
         </div>
         <div>
           <p className="text-base font-semibold text-foreground">Limite mensal de mensagens atingido</p>

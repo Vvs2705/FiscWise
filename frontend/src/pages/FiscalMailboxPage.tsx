@@ -95,9 +95,9 @@ export function FiscalMailboxPage() {
 
         {/* Alert banners */}
         {criticalCount > 0 && (
-          <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
-            <p className="text-sm text-red-300">
+          <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">
               <span className="font-semibold">{criticalCount} mensagem{criticalCount > 1 ? 'ns' : ''} crítica{criticalCount > 1 ? 's' : ''}</span> exigindo ação imediata.
             </p>
           </div>
@@ -134,7 +134,7 @@ export function FiscalMailboxPage() {
         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
           <span>{filtered.length} mensagem{filtered.length !== 1 ? 'ns' : ''}</span>
           {unreadCount > 0 && (
-            <span className="font-medium text-orange-400">{unreadCount} não lida{unreadCount !== 1 ? 's' : ''}</span>
+            <span className="font-medium text-warning">{unreadCount} não lida{unreadCount !== 1 ? 's' : ''}</span>
           )}
         </div>
 
@@ -206,7 +206,7 @@ export function FiscalMailboxPage() {
                         {msg.status !== 'resolved' && (
                           <button
                             onClick={e => { e.stopPropagation(); resolveMutation.mutate(msg.id); }}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                            className="rounded p-1.5 text-muted-foreground hover:bg-success/10 hover:text-success transition-colors"
                             title="Marcar como resolvida"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -225,7 +225,7 @@ export function FiscalMailboxPage() {
         {selected && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onClick={() => setSelected(null)}>
             <div
-              className="w-full max-w-2xl rounded-t-2xl sm:rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-t-2xl sm:rounded-2xl border border-border bg-card p-6 shadow-token max-h-[85vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -260,7 +260,7 @@ export function FiscalMailboxPage() {
                   <button
                     onClick={() => resolveMutation.mutate(selected.id)}
                     disabled={resolveMutation.isPending}
-                    className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success/90 transition-colors disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Marcar resolvida

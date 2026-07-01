@@ -12,7 +12,7 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
 
 export function SkeletonCard() {
   return (
-    <div className="fiscwise-surface rounded-2xl border border-border/70 p-6 space-y-4">
+    <div className="fiscwise-surface rounded-card border border-border/70 p-6 space-y-4">
       <div className="flex justify-between items-center">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-8 w-8 rounded-lg" />

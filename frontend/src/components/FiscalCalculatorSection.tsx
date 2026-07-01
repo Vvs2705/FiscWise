@@ -29,7 +29,7 @@ export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
         </p>
       </div>
 
-      <div className="bg-card text-card-foreground rounded-lg border border-border shadow-lg overflow-hidden">
+      <div className="bg-card text-card-foreground rounded-lg border border-border shadow-token overflow-hidden">
         <div className="border-b border-border flex">
           {tabs.map((tab) => (
             <button
@@ -66,10 +66,10 @@ export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
         </div>
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900/50">
+      <div className="mt-6 p-4 bg-info/10 dark:bg-info/10 rounded-lg border border-info/20 dark:border-info/20">
         <div className="flex items-start">
           <span className="text-2xl mr-3">💡</span>
-          <div className="text-sm text-blue-900 dark:text-blue-200">
+          <div className="text-sm text-info dark:text-info">
             <strong>Dica:</strong> A Calculadora Fiscal usa IA para analisar seu regime tributário
             e sugerir otimizações. Quanto mais detalhes você fornecer, melhor serão as recomendações.
           </div>

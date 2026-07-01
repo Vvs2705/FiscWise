@@ -702,8 +702,8 @@ export function FatorRCalculator() {
                 <p
                   className={`text-lg font-bold ${
                     result.fatorR >= 0.28
-                      ? 'text-emerald-500'
-                      : 'text-red-500'
+                      ? 'text-success'
+                      : 'text-destructive'
                   }`}
                 >
                   {pctBR(result.fatorR)}
@@ -714,8 +714,8 @@ export function FatorRCalculator() {
               <div
                 className={`rounded-xl border p-4 ${
                   result.anexo === 'III'
-                    ? 'border-emerald-500/40 bg-emerald-500/5'
-                    : 'border-red-500/40 bg-red-500/5'
+                    ? 'border-success/40 bg-success/5'
+                    : 'border-destructive/40 bg-destructive/5'
                 }`}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
@@ -724,8 +724,8 @@ export function FatorRCalculator() {
                 <p
                   className={`text-lg font-bold ${
                     result.anexo === 'III'
-                      ? 'text-emerald-500'
-                      : 'text-red-500'
+                      ? 'text-success'
+                      : 'text-destructive'
                   }`}
                 >
                   Anexo {result.anexo}
@@ -802,9 +802,9 @@ export function FatorRCalculator() {
             >
               <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                 {result.savings > 0 ? (
-                  <TrendingDown className="h-4 w-4 text-emerald-500" />
+                  <TrendingDown className="h-4 w-4 text-success" />
                 ) : (
-                  <TrendingUp className="h-4 w-4 text-red-500" />
+                  <TrendingUp className="h-4 w-4 text-destructive" />
                 )}
                 Comparação com Anexo {result.otherAnexo}
               </h4>
@@ -836,8 +836,8 @@ export function FatorRCalculator() {
               <div
                 className={`mt-4 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold ${
                   result.savings > 0
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                    ? 'bg-success/10 text-success dark:text-success'
+                    : 'bg-destructive/10 text-destructive dark:text-destructive'
                 }`}
               >
                 {result.savings > 0 ? (
@@ -862,9 +862,9 @@ export function FatorRCalculator() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4"
+                className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 px-5 py-4"
               >
-                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">
                     Fator R próximo ao limite de 28%
@@ -936,7 +936,7 @@ export function FatorRCalculator() {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-sm text-emerald-600 dark:text-emerald-400 font-medium"
+                className="text-sm text-success dark:text-success font-medium"
               >
                 ✅ Simulação salva com sucesso!
               </motion.p>

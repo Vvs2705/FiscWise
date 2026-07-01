@@ -9,11 +9,11 @@ export function PendingReceiptAlert() {
   if (isLoading || !guides || guides.length === 0) return null;
 
   return (
-    <Card className="border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400">
+    <Card className="border-warning/20 bg-warning/5 text-warning dark:text-warning">
       <CardContent className="flex gap-3 p-4">
         <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+          <h4 className="text-sm font-semibold text-warning dark:text-warning">
             Guias pagas pendentes de comprovante ({guides.length})
           </h4>
           <p className="text-xs text-muted-foreground">

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.email_service import send_email, render_lgpd_deletion_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/account", tags=["Account / LGPD"])
@@ -149,7 +150,19 @@ async def request_account_deletion(
         tenant.id, current_user.email
     )
 
-    # TODO: when email provider is configured, send confirmation email to current_user.email
+    # Send LGPD confirmation email. Falls back to a redacted log when the email
+    # provider is disabled / unconfigured — the request is already recorded, so
+    # a failed email must never break the deletion flow.
+    email_sent = await send_email(
+        to=current_user.email,
+        subject="Recebemos sua solicitação de exclusão de dados — FiscWise",
+        html=render_lgpd_deletion_email(deadline_business_days=15),
+    )
+    logger.info(
+        "LGPD deletion confirmation email for %s: sent=%s",
+        current_user.email,
+        email_sent,
+    )
 
     return {
         "status": "request_received",

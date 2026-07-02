@@ -186,6 +186,24 @@ class Settings(BaseSettings):
     # OpenAI (Feature #7 — Calculadora Fiscal com IA)
     OPENAI_API_KEY: str = ""
 
+    # ── Billing / Mercado Pago ───────────────────────────────────────────
+    # Real payment gateway credentials (filled in via Fly.io/deploy secrets).
+    # The public key is safe to expose to the frontend; the access token and
+    # webhook secret are secrets and must never appear in the repo or logs.
+    MERCADO_PAGO_ACCESS_TOKEN: str = ""
+    MERCADO_PAGO_PUBLIC_KEY: str = ""
+    MERCADO_PAGO_WEBHOOK_SECRET: str = ""
+    # Real-charge go-live lock. False = checkout endpoints return 503
+    # (code is ready, but NOBODY is charged). Enable as a deploy secret ONLY
+    # after explicit confirmation from the product owner.
+    PAGAMENTOS_GO_LIVE: bool = False
+
+    # ── Transactional e-mail (Resend) — placeholders for the e-mail agent ──
+    # Declared here so the config is complete; the e-mail agent owns the usage.
+    RESEND_API_KEY: str = ""
+    RESEND_FROM: str = "FiscWise <no-reply@fiscwise.com.br>"
+    RESEND_ENABLED: bool = False
+
     # Observability
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1

@@ -3,6 +3,7 @@
 Tables:
   tenant_subscriptions    — one per tenant, tracks plan + payment provider state
   billing_webhook_events  — idempotent log of all incoming webhook events
+  billing_charges         — local charge intent created BEFORE calling the gateway
 """
 
 import uuid
@@ -159,4 +160,81 @@ class BillingWebhookEvent(Base):
         return (
             f"<BillingWebhookEvent(provider='{self.provider}', "
             f"event_type='{self.event_type}', processed={self.processed})>"
+        )
+
+
+class BillingCharge(Base):
+    """Local charge intent — created BEFORE calling the gateway (P0-06).
+
+    ``external_reference`` and ``idempotency_key`` use the local charge id
+    (never the tenant_id), avoiding tenant leakage and preventing distinct
+    checkouts from colliding. The subscription is only activated after the
+    payment/preapproval is reconciled against the gateway (webhook).
+    """
+
+    __tablename__ = "billing_charges"
+    __table_args__ = (
+        UniqueConstraint("external_reference",
+                         name="uq_billing_charge_external_reference"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    plan_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        SQLUUID(as_uuid=True), nullable=True,
+        comment="Optional link to plans.id",
+    )
+    plan_slug: Mapped[str] = mapped_column(
+        String(50), nullable=False,
+        comment="Billing plan slug: escritorio | escritorio_pro",
+    )
+    ciclo: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="mensal | anual",
+    )
+    metodo: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Intended method hint: pix | card | boleto",
+    )
+    amount_cents: Mapped[int] = mapped_column(
+        Integer, nullable=False,
+        comment="Server-computed sale amount in cents (BRL)",
+    )
+    moeda: Mapped[str] = mapped_column(String(3), server_default="BRL", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), server_default="CRIADA", nullable=False,
+        comment="CRIADA | ENVIADA_GATEWAY | PENDENTE | PAGA | EXPIRADA | CANCELADA | FALHA",
+    )
+    gateway: Mapped[str] = mapped_column(
+        String(40), server_default="mercadopago", nullable=False
+    )
+    gateway_preference_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    gateway_preapproval_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    external_reference: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    init_point: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        SQLUUID(as_uuid=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<BillingCharge(tenant_id={self.tenant_id}, plan_slug='{self.plan_slug}', "
+            f"ciclo='{self.ciclo}', status='{self.status}')>"
         )

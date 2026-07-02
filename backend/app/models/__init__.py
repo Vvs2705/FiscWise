@@ -25,7 +25,7 @@ from app.models.obligation import (
 from app.models.plan import Plan
 from app.models.portal import PortalMagicToken
 from app.models.notification import NotificationTemplate, NotificationMessage
-from app.models.billing import TenantSubscription, BillingWebhookEvent
+from app.models.billing import TenantSubscription, BillingWebhookEvent, BillingCharge
 from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
 from app.models.fiscal_monitor import FiscalMonitorSummary, FiscalNFe
 from app.models.rag_fiscal import RagDocument
@@ -60,6 +60,7 @@ __all__ = [
     "NotificationMessage",
     "TenantSubscription",
     "BillingWebhookEvent",
+    "BillingCharge",
     "WhatsAppInbox",
     "WhatsAppMessage",
     "FiscalMonitorSummary",

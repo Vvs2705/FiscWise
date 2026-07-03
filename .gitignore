@@ -1,3 +1,6 @@
+# MCP local (contém connection string com credencial)
+.mcp.json
+
 # Python
 __pycache__/
 *.py[cod]

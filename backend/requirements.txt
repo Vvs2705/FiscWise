@@ -45,6 +45,11 @@ fpdf2==2.8.3
 openpyxl==3.1.5
 python-docx==0.8.11
 
+# Stack Fiscal Brasileira (isolada atras de app/fiscal/)
+nfelib==2.5.2               # bindings XML NF-e/NFS-e/CT-e/MDF-e (XSDs da Fazenda)
+erpbrasil.edoc==3.1.1       # transmissao SEFAZ
+brazilfiscalreport==1.0.1   # DANFE em PDF
+
 # Task Scheduling
 apscheduler==3.10.4
 pytz==2024.1

@@ -152,7 +152,7 @@ async def test_monthly_closing_workflow(client_with_auth_a, test_db):
 
     # 9. Invalid competence format -> 422
     response = http_client.post("/api/v1/monthly-closing/generate", params={"competence": "junho"})
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.asyncio

@@ -78,7 +78,7 @@ async def set_plan_by_email(
     VALID_PLANS = {"free", "intermediario", "premium"}
     if body.plan_slug not in VALID_PLANS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid plan_slug '{body.plan_slug}'. Valid values: {sorted(VALID_PLANS)}",
         )
 

@@ -121,7 +121,7 @@ async def invite_client(
         email=request.email,
         status=InviteStatus.PENDING,
         invited_by=current_user.id,
-        expires_at=datetime.utcnow() + timedelta(days=30)
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
     )
 
     db.add(invite)
@@ -151,7 +151,7 @@ async def get_invite(
         )
 
     # Check if expired
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if invite.expires_at and datetime.now(timezone.utc) > invite.expires_at:
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -201,7 +201,7 @@ async def accept_invite(
             detail=f"Invitation has been {invite.status}"
         )
 
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if invite.expires_at and datetime.now(timezone.utc) > invite.expires_at:
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -243,7 +243,7 @@ async def accept_invite(
 
     # Mark invitation as accepted
     invite.status = InviteStatus.ACCEPTED
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = datetime.now(timezone.utc)
 
     db.add(client_user)
     db.add(client)

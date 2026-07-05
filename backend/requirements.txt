@@ -36,7 +36,6 @@ redis==5.1.1
 hiredis==3.0.0
 
 # Logging & Observability
-loguru==0.7.2
 sentry-sdk[fastapi]>=2.0.0
 
 # Document Parsing / Generation
@@ -56,6 +55,6 @@ pytz==2024.1
 
 # Testing (Development)
 pytest==8.3.3
-pytest-asyncio==0.24.0
+pytest-asyncio==1.4.0
 pytest-cov==5.0.0
 aiosqlite==0.19.0

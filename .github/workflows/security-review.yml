@@ -1,22 +1,24 @@
 name: Security Review
 
 permissions:
-  pull-requests: write # Needed for leaving PR comments
+  pull-requests: write # comentários no PR
   contents: read
 
 on:
   pull_request:
 
 jobs:
-  security:
+  security-review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0 # diff completo do PR para o /security-review
 
-      - uses: anthropics/claude-code-security-review@main
+      # Autentica pelo plano Claude ativo (token gerado com `claude setup-token`),
+      # sem consumo de créditos de API.
+      - uses: anthropics/claude-code-action@v1
         with:
-          comment-pr: true
-          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "/security-review"

@@ -4,7 +4,7 @@ Manages scheduled tasks like automatic monthly billing generation.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
@@ -85,7 +85,7 @@ async def generate_obligations_scheduled():
     from app.services.obligation_engine import generate_obligations_for_month
 
     try:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         # Generate for PREVIOUS month (we're on day 1 of the new month)
         if now.month == 1:
             year, month = now.year - 1, 12
@@ -156,7 +156,7 @@ async def generate_monthly_billing_scheduled():
 
         async with async_session() as db:
             # Get current month
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             year, month = now.year, now.month
 
             # Get all tenants

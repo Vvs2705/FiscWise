@@ -42,8 +42,8 @@ npm run dev / npm run build / npm run lint / npm run type-check
 
 ## Baseline de testes
 
-- **03/07/2026: 251 passed, 0 failed (~62s)** — Python 3.14 local, SQLite async via aiosqlite.
-- ~20k warnings de deprecation (`datetime.utcnow()`, `HTTP_422_UNPROCESSABLE_ENTITY`) — dívida conhecida, não bloqueia.
+- **04/07/2026: 252 passed, 0 failed (~56s), 208 warnings** — Python 3.14 local, SQLite async via aiosqlite.
+- Deprecations do nosso código (`datetime.utcnow()`, `HTTP_422_UNPROCESSABLE_ENTITY`) foram zeradas em 04/07/2026; os ~200 warnings restantes vêm de libs de terceiros (jose, passlib, pydantic v1-style Config em alguns schemas).
 - Qualquer PR deve manter a suíte verde; rodar `pytest` a partir de `backend/` antes de commit.
 
 ## Tooling
@@ -53,7 +53,7 @@ npm run dev / npm run build / npm run lint / npm run type-check
   - `supabase` — gestão do projeto `lkgmgbieottygodrdubi` (FiscWise).
   - `context7` — documentação atualizada de libs.
 - **Stack fiscal** (instalada 03/07/2026): `nfelib` 2.5.2 (bindings XML NF-e/NFS-e/CT-e/MDF-e gerados dos XSDs da Fazenda), `erpbrasil.edoc` 3.1.1 (transmissão SEFAZ), `brazilfiscalreport` 1.0.1 (DANFE em PDF). Isoladas atrás de `app/fiscal/` — trocar de lib não pode vazar para o resto do app. Para NFS-e municipal (Abrasf/Ginfes/Betha), avaliar `PyNFe` como complemento.
-- **CI**: `ci.yml` roda pytest (Postgres+Redis de serviço), ESLint/tsc/build, Gitleaks, pip-audit, Bandit, npm audit. `security-review.yml` roda o Claude security review em cada PR (usa o secret `ANTHROPIC_API_KEY` já existente no repo).
+- **CI**: `ci.yml` roda pytest (Postgres+Redis de serviço), ESLint/tsc/build, Gitleaks, pip-audit, Bandit, npm audit. `security-review.yml` roda o Claude security review em cada PR via `claude-code-action` autenticado pelo **plano ativo** (secret `CLAUDE_CODE_OAUTH_TOKEN`, gerado com `claude setup-token`) — sem consumo de API.
 
 ## Regras de produção
 

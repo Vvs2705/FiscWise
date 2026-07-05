@@ -57,7 +57,7 @@ class TestWhatsAppAPI:
         test_db.add(inbox)
         await test_db.flush()
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         msg1 = WhatsAppMessage(
             id=uuid.uuid4(),
@@ -67,7 +67,7 @@ class TestWhatsAppAPI:
             body="Olá, preciso de ajuda com o DAS",
             message_type="text",
             status="delivered",
-            created_at=datetime.utcnow() - timedelta(minutes=5)
+            created_at=datetime.now(timezone.utc) - timedelta(minutes=5)
         )
         msg2 = WhatsAppMessage(
             id=uuid.uuid4(),
@@ -77,7 +77,7 @@ class TestWhatsAppAPI:
             body="Olá! Como posso ajudar?",
             message_type="text",
             status="sent",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         test_db.add_all([msg1, msg2])
         await test_db.commit()

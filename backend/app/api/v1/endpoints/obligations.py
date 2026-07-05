@@ -14,7 +14,7 @@ Covers:
 """
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -275,7 +275,7 @@ async def update_obligation_instance(
             raise HTTPException(422, f"Invalid status. Valid: {sorted(VALID_INSTANCE_STATUSES)}")
         instance.status = body.status
         if body.status == "delivered" and not instance.completed_at:
-            instance.completed_at = datetime.utcnow()
+            instance.completed_at = datetime.now(timezone.utc)
 
     if body.priority is not None:
         if body.priority not in VALID_PRIORITIES:
@@ -438,7 +438,7 @@ async def update_checklist_item(
             raise HTTPException(422, f"Invalid status. Valid: {sorted(VALID_CHECKLIST_STATUSES)}")
         item.status = body.status
         if body.status == "received" and not item.received_at:
-            item.received_at = datetime.utcnow()
+            item.received_at = datetime.now(timezone.utc)
 
     if body.notes is not None:
         item.notes = body.notes

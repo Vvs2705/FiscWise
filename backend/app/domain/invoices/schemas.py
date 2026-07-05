@@ -105,10 +105,6 @@ class InvoiceRejectionResponse(BaseModel):
     created_at: datetime
 
 
-class InvoiceEmitRequest(BaseModel):
-    pass
-
-
 class InvoiceCancelRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     reason: str = Field(..., min_length=5, max_length=255)

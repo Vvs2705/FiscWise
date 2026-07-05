@@ -105,7 +105,7 @@ async def create_webhook(
             db, payload, current_user.tenant_id
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
     return WebhookSubscriptionCreatedResponse(
         id=sub.id,
@@ -130,7 +130,7 @@ async def update_webhook(
             db, sub_id, current_user.tenant_id, payload
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
     if not sub:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook não encontrado.")
     return sub

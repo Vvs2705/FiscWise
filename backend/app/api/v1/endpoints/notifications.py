@@ -142,7 +142,7 @@ async def trigger_pending_document_notifications(
             comp_month = date(int(year_s), int(month_s), 1)
         except (ValueError, AttributeError):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="competence_month must be in YYYY-MM format",
             )
     else:

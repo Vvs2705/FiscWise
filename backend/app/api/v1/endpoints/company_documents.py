@@ -1,6 +1,6 @@
 """Endpoints for managing company official documents."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, and_
@@ -94,7 +94,7 @@ async def get_expiring_documents(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
     from datetime import timedelta
-    expiration_threshold = datetime.utcnow().date() + timedelta(days=days_threshold)
+    expiration_threshold = datetime.now(timezone.utc).date() + timedelta(days=days_threshold)
 
     result = await db.execute(
         select(CompanyDocument).where(

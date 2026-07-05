@@ -7,7 +7,7 @@ Protection for /api/v1/admin/* endpoints (10 attempts per minute per IP).
 
 import logging
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -157,6 +157,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if current_count > 0:
             response.headers["X-RateLimit-Limit"] = str(self.ADMIN_LIMIT)
             response.headers["X-RateLimit-Remaining"] = str(max(0, self.ADMIN_LIMIT - current_count))
-            response.headers["X-RateLimit-Reset"] = str(datetime.utcnow().timestamp() + self.ADMIN_WINDOW)
+            response.headers["X-RateLimit-Reset"] = str(datetime.now(timezone.utc).timestamp() + self.ADMIN_WINDOW)
 
         return response

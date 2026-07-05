@@ -38,7 +38,7 @@ def _to_response(closing: MonthlyClosing) -> MonthlyClosingResponse:
 def _validate_competence(competence: str) -> str:
     if not _COMPETENCE_RE.match(competence):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="competence must be in YYYY-MM format",
         )
     return competence

@@ -12,11 +12,16 @@ export interface SubscriptionData {
   amount: string | null;
   currency: string;
   created_at: string;
+  /** Asaas hosted checkout URL (invoiceUrl) — redirect the user here to pay */
+  checkout_url?: string | null;
 }
 
 export interface CreateSubscriptionRequest {
   plan_id: string;
   billing_provider?: string;
+  cpf_cnpj?: string;
+  name?: string;
+  email?: string;
 }
 
 export function useSubscription() {

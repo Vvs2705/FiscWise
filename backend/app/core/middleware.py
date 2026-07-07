@@ -38,6 +38,9 @@ _EXCLUDED_EXACT_PATHS: Set[str] = {
     "/api/v1/auth/login",
     "/api/v1/auth/google",
     "/api/v1/auth/logout",
+    "/api/v1/auth/forgot-password",  # Public — user has no session/tenant yet
+    "/api/v1/auth/reset-password",   # Public — token-based reset
+
     "/api/v1/ready",         # Public database readiness check
 }
 

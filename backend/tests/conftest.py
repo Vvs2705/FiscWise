@@ -37,6 +37,26 @@ os.environ.setdefault("VOYAGE_API_KEY", "test")
 
 
 # ============================================================================
+# Rate limiter isolation
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_rate_limiter():
+    """Clear the in-process auth rate limiter between tests.
+
+    The limiter is a module-level singleton; without this, requests from one
+    test (all sharing the 'testclient' IP) would trip 429s in later tests.
+    """
+    from app.core.auth_rate_limiter import auth_rate_limiter
+
+    auth_rate_limiter._login_store.clear()
+    auth_rate_limiter._otp_store.clear()
+    auth_rate_limiter._request_store.clear()
+    yield
+
+
+# ============================================================================
 # Async Database Fixtures
 # ============================================================================
 

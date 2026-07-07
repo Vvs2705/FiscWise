@@ -83,6 +83,9 @@ class _AuthRateLimiter:
         # Key: str (IP or user_id) → _AttemptRecord
         self._login_store:  dict[str, _AttemptRecord] = {}
         self._otp_store:    dict[str, _AttemptRecord] = {}
+        # Contador genérico de requisições (scope:key) — usado por
+        # forgot-password (IP/e-mail) e /onboarding/register (IP)
+        self._request_store: dict[str, _AttemptRecord] = {}
 
     def _get_or_create(self, store: dict, key: str, window_minutes: int) -> _AttemptRecord:
         record = store.get(key)
@@ -186,6 +189,34 @@ class _AuthRateLimiter:
                 return OTP_MAX_ATTEMPTS
             return max(0, OTP_MAX_ATTEMPTS - record.count)
 
+    # ── Contador genérico de requisições (janela fixa) ────────────────────────
+
+    def check_request_rate(self, scope: str, key: str, max_requests: int, window_minutes: int) -> None:
+        """
+        Conta TODA requisição (não apenas falhas) para `scope:key` e levanta
+        HTTP 429 quando excede `max_requests` dentro de `window_minutes`.
+
+        Uso: check_request_rate("pwd_reset_ip", ip, 5, 15)
+        """
+        with self._lock:
+            record = self._get_or_create(self._request_store, f"{scope}:{key}", window_minutes)
+            record.count += 1
+            if record.count > max_requests:
+                window_end = record.first_attempt + timedelta(minutes=window_minutes)
+                secs = max(1, int((window_end - datetime.now(timezone.utc)).total_seconds()))
+                logger.warning(
+                    "Rate limit %s excedido para key=%s (%d/%d em %dmin)",
+                    scope, key, record.count, max_requests, window_minutes,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Muitas solicitações. "
+                        f"Tente novamente em {secs // 60 + 1} minuto(s)."
+                    ),
+                    headers={"Retry-After": str(secs)},
+                )
+
     # ── Limpeza periódica (opcional) ──────────────────────────────────────────
 
     def cleanup_expired(self) -> int:
@@ -200,6 +231,9 @@ class _AuthRateLimiter:
             for store, window in [
                 (self._login_store, LOGIN_WINDOW_MINUTES),
                 (self._otp_store, OTP_WINDOW_MINUTES),
+                # ponytail: 60min cobre a maior janela usada (registro); entradas
+                # de janelas menores só demoram um pouco mais para serem limpas
+                (self._request_store, 60),
             ]:
                 expired_keys = [
                     k for k, r in store.items()

@@ -8,11 +8,12 @@ Creates tenant and owner user in a single atomic transaction.
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
 from app.core.deps import get_db
 from app.core.security import get_password_hash, create_access_token
 from app.models.tenant import Tenant, SubscriptionStatus
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 @router.post("/register", response_model=AuthResponse, summary="Register New Tenant")
 async def register_tenant(
     registration: TenantRegistrationRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ) -> AuthResponse:
     """
@@ -53,7 +55,9 @@ async def register_tenant(
         HTTPException: 400 if email is already registered
         HTTPException: 500 if database transaction fails
     """
-    
+    # Rate limit: max 5 registros por IP por hora (anti-abuso do endpoint público)
+    auth_rate_limiter.check_request_rate("register_ip", get_client_ip(request), 5, 60)
+
     # Step 1: Check if email is already registered
     existing_user_query = await db.execute(
         select(User).where(User.email == registration.owner_email)

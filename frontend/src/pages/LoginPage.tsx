@@ -80,7 +80,7 @@ function TwoFAScreen({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-md rounded-[28px] border border-border bg-white/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
+      className="w-full max-w-md rounded-[28px] border border-border bg-card/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
     >
       {/* Header */}
       <div className="flex flex-col items-center gap-3 text-center">
@@ -195,7 +195,7 @@ export function LoginPage() {
             className="mb-8 flex items-center justify-between lg:hidden"
           >
             <Logo variant="full" theme="light" size={34} />
-            <span className="rounded-full border border-border bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
+            <span className="rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground shadow-sm">
               Login seguro
             </span>
           </motion.div>
@@ -214,7 +214,7 @@ export function LoginPage() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="w-full rounded-[30px] border border-white/70 bg-white/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
+              className="w-full rounded-[30px] border border-border bg-card/90 p-6 shadow-token backdrop-blur-xl sm:p-8"
             >
               <div className="mb-6 space-y-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-success">
@@ -275,15 +275,23 @@ export function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-11 rounded-xl border-border bg-white pl-10 text-foreground shadow-sm"
+                      className="h-11 rounded-xl border-border bg-background pl-10 text-foreground shadow-sm"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-sm font-medium text-foreground">
-                    Senha
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="password" className="text-sm font-medium text-foreground">
+                      Senha
+                    </label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      Esqueci minha senha
+                    </Link>
+                  </div>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -294,7 +302,7 @@ export function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={isLoading}
-                      className="h-11 rounded-xl border-border bg-white pl-10 pr-12 text-foreground shadow-sm"
+                      className="h-11 rounded-xl border-border bg-background pl-10 pr-12 text-foreground shadow-sm"
                     />
                     <button
                       type="button"

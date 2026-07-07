@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ChevronRight, UserPlus, CalendarCheck, Share2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { dateBR, moneyBRL, useDashboardOverview, useProductivityOverview } from '@/lib/hooks/useOperations';
 import { DashboardHero } from '@/features/dashboard/components/DashboardHero';
 import { DailyFocusCard } from '@/features/dashboard/components/DailyFocusCard';
@@ -11,6 +14,63 @@ import { MonthlyClosingCard } from '@/features/dashboard/components/MonthlyClosi
 import { PortfolioRiskCard } from '@/features/dashboard/components/PortfolioRiskCard';
 import { ModoFocoModal } from '@/features/dashboard/components/ModoFocoModal';
 import { staggerContainer, fadeIn } from '@/lib/motion';
+
+// ponytail: card de onboarding sem estado próprio — some quando o tenant tem clientes
+const SETUP_STEPS = [
+  {
+    to: '/clientes',
+    icon: UserPlus,
+    title: 'Cadastre seu primeiro cliente',
+    description: 'Monte sua carteira para organizar documentos e prazos.',
+  },
+  {
+    to: '/obrigacoes',
+    icon: CalendarCheck,
+    title: 'Confira a agenda de obrigações',
+    description: 'Veja os vencimentos fiscais e nunca perca um prazo.',
+  },
+  {
+    to: '/portal',
+    icon: Share2,
+    title: 'Convide seu cliente para o portal',
+    description: 'Compartilhe documentos e pendências direto com o cliente.',
+  },
+];
+
+function SetupChecklistCard() {
+  return (
+    <Card className="border-primary/25 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-bold">Comece por aqui</CardTitle>
+        <CardDescription>
+          Três passos para colocar sua central fiscal em movimento.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 md:grid-cols-3">
+          {SETUP_STEPS.map(({ to, icon: Icon, title, description }, i) => (
+            <Link
+              key={to}
+              to={to}
+              className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  <span className="text-muted-foreground">{i + 1}.</span> {title}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+              </div>
+              <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function startOfToday() {
   const today = new Date();
@@ -276,6 +336,13 @@ export function DashboardPage() {
         animate="animate"
         className="mx-auto max-w-[1400px] space-y-6 p-5 md:p-8"
       >
+        {/* Setup checklist — só para tenant sem clientes */}
+        {!isLoading && !isError && data?.active_clients === 0 && (
+          <motion.div variants={fadeIn}>
+            <SetupChecklistCard />
+          </motion.div>
+        )}
+
         {/* Hero Section */}
         <motion.div variants={fadeIn}>
           <DashboardHero isError={isError} onStartFocusMode={() => setIsModoFocoOpen(true)} />

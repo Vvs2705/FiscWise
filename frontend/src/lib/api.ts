@@ -32,6 +32,14 @@ api.interceptors.request.use(
   }
 );
 
+export function requestPasswordReset(email: string) {
+  return api.post<{ message: string }>('/api/v1/auth/forgot-password', { email });
+}
+
+export function resetPassword(token: string, new_password: string) {
+  return api.post('/api/v1/auth/reset-password', { token, new_password });
+}
+
 export function getApiErrorMessage(
   error: unknown,
   fallback = 'Ocorreu um erro inesperado.'

@@ -17,7 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db
 from app.models.billing import TenantSubscription
 from app.models.plan import Plan
+from app.models.tenant import Tenant
 from app.models.user import User
+from app.services import billing_service
+from app.services.billing_service import BillingUnavailableError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["Billing"])
@@ -36,11 +39,16 @@ class SubscriptionOut(BaseModel):
     amount: Optional[str]
     currency: str
     created_at: str
+    checkout_url: Optional[str] = None  # Asaas hosted checkout (invoiceUrl)
 
 
 class CreateSubscriptionRequest(BaseModel):
     plan_id: uuid.UUID
-    billing_provider: Optional[str] = None  # 'asaas' | 'iugu' | 'manual'
+    billing_provider: Optional[str] = None  # 'asaas' | 'manual'
+    # Billing profile for the Asaas customer (fallback: tenant/user data)
+    cpf_cnpj: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -49,8 +57,9 @@ def _fmt(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
-def _sub_out(sub: TenantSubscription) -> SubscriptionOut:
+def _sub_out(sub: TenantSubscription, checkout_url: Optional[str] = None) -> SubscriptionOut:
     return SubscriptionOut(
+        checkout_url=checkout_url,
         id=sub.id,
         tenant_id=sub.tenant_id,
         plan_id=sub.plan_id,
@@ -95,12 +104,23 @@ async def create_or_update_subscription(
     """
     Create or update the billing subscription for this tenant.
 
-    Owner only. In production, this also calls the billing provider API.
+    Owner only. With Asaas configured, creates customer + subscription on
+    the gateway and returns `checkout_url` (hosted checkout — card data
+    never touches FiscWise). Fail-closed: outside development, no gateway
+    means 503 — a subscription is never activated without real billing.
     """
     if current_user.role.value != "owner":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Apenas o proprietário pode gerenciar assinaturas",
+        )
+
+    try:
+        billing_service.require_billing_gateway()
+    except BillingUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cobrança temporariamente indisponível",
         )
 
     plan_result = await db.execute(select(Plan).where(Plan.id == body.plan_id))
@@ -115,26 +135,63 @@ async def create_or_update_subscription(
     )
     sub = existing_result.scalar_one_or_none()
 
+    checkout_url: Optional[str] = None
+    provider_customer_id: Optional[str] = sub.provider_customer_id if sub else None
+    provider_subscription_id: Optional[str] = None
+
+    if billing_service.asaas_enabled():
+        tenant = await db.get(Tenant, current_user.tenant_id)
+        cpf_cnpj = body.cpf_cnpj or (tenant.document if tenant else None)
+        if not cpf_cnpj:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="CPF/CNPJ é obrigatório para ativar a cobrança",
+            )
+        try:
+            if not provider_customer_id:
+                provider_customer_id = await billing_service.create_asaas_customer(
+                    name=body.name or (tenant.name if tenant else current_user.full_name),
+                    email=body.email or current_user.email,
+                    cpf_cnpj=cpf_cnpj,
+                )
+            if sub and sub.provider_subscription_id:
+                # Plan change: stop billing the old subscription before creating the new one
+                await billing_service.cancel_asaas_subscription(sub.provider_subscription_id)
+            asaas_sub = await billing_service.create_asaas_subscription(
+                provider_customer_id, plan
+            )
+        except BillingUnavailableError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cobrança temporariamente indisponível",
+            )
+        provider_subscription_id = asaas_sub["id"]
+        checkout_url = asaas_sub.get("checkout_url")
+
     if sub:
         sub.plan_id = body.plan_id
-        if body.billing_provider:
-            sub.billing_provider = body.billing_provider
         sub.amount = plan.price_monthly
     else:
         sub = TenantSubscription(
             tenant_id=current_user.tenant_id,
             plan_id=body.plan_id,
-            billing_provider=body.billing_provider,
             status="trialing",
             amount=plan.price_monthly,
             currency="BRL",
         )
         db.add(sub)
 
+    if provider_subscription_id:
+        sub.billing_provider = "asaas"
+        sub.provider_customer_id = provider_customer_id
+        sub.provider_subscription_id = provider_subscription_id
+    elif body.billing_provider:
+        sub.billing_provider = body.billing_provider
+
     await db.commit()
     await db.refresh(sub)
     logger.info("Subscription upserted: tenant=%s plan=%s", current_user.tenant_id, plan.slug)
-    return _sub_out(sub)
+    return _sub_out(sub, checkout_url=checkout_url)
 
 
 # ─── Webhook endpoints ────────────────────────────────────────────────────────
@@ -149,7 +206,8 @@ async def asaas_webhook(
     Receive Asaas webhook events (public — no JWT).
 
     Idempotent: duplicate events return 200 silently.
-    Configure BILLING_WEBHOOK_SECRET for signature verification.
+    Auth: Asaas sends the configured token in the `asaas-access-token`
+    header. Fail-closed: missing BILLING_WEBHOOK_SECRET outside dev → 503.
     """
     from app.services.billing_service import (
         verify_asaas_signature,
@@ -158,10 +216,15 @@ async def asaas_webhook(
         dispatch_asaas_event,
     )
 
-    raw_body = await request.body()
-
-    if not verify_asaas_signature(raw_body, asaas_access_token or ""):
-        logger.warning("Asaas webhook signature mismatch")
+    try:
+        token_ok = verify_asaas_signature(asaas_access_token or "")
+    except BillingUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook de cobrança não configurado",
+        )
+    if not token_ok:
+        logger.warning("Asaas webhook token mismatch")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature")
 
     try:

@@ -21,6 +21,7 @@ from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
 from app.core.security import create_access_token
+from app.services.email_service import send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["Client Portal"])
@@ -127,6 +128,22 @@ async def invite_client(
     db.add(invite)
     await db.commit()
     await db.refresh(invite)
+
+    # Envia o convite por e-mail; se o provedor não estiver configurado
+    # (send_email retorna False), o convite continua válido — comportamento anterior.
+    invite_link = f"{_PORTAL_URL}/invite/{invite.id}"
+    sent = await send_email(
+        to=request.email,
+        subject="Convite para o Portal do Cliente — FiscWise",
+        html=(
+            "<p>Seu escritório de contabilidade convidou você a acessar o "
+            f"Portal do Cliente FiscWise (empresa: <strong>{client.name}</strong>).</p>"
+            f"<p><a href=\"{invite_link}\">Clique aqui para aceitar o convite</a> "
+            "e criar sua conta (válido por 30 dias).</p>"
+        ),
+    )
+    if not sent:
+        logger.warning("Convite %s criado, mas e-mail não enviado para %s", invite.id, request.email)
 
     return InviteClientResponse.from_orm(invite)
 
@@ -547,14 +564,28 @@ async def request_magic_link(
         body.email, current_user.email, current_user.tenant_id
     )
 
-    # TODO: when email provider is configured, send portal_link to body.email
-    # For now, return it in the response so integrators can use it directly.
+    sent = await send_email(
+        to=body.email,
+        subject="Seu link de acesso ao Portal — FiscWise",
+        html=(
+            "<p>Seu escritório de contabilidade gerou um link de acesso ao "
+            "Portal do Cliente FiscWise.</p>"
+            f"<p><a href=\"{portal_link}\">Clique aqui para entrar</a> "
+            "(válido por 24 horas, uso único).</p>"
+            "<p>Se você não solicitou este acesso, ignore este e-mail.</p>"
+        ),
+    )
+    if not sent:
+        logger.warning("Magic link gerado, mas e-mail não enviado para %s", body.email)
+
+    # Link mantido na resposta para o staff copiar/colar (fallback quando o
+    # provedor de e-mail não está configurado).
     return {
         "status": "issued",
         "email": body.email,
         "expires_at": expires_at.isoformat(),
         "portal_link": portal_link,
-        "note": "In production, this link will be sent via email. Store it securely.",
+        "email_sent": sent,
     }
 
 

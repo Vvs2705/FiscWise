@@ -949,7 +949,13 @@ export function ClientsPage() {
           ) : total === 0 ? (
             <EmptyState
               title="Nenhum cliente cadastrado"
-              description="Cadastre seu primeiro cliente clicando em Novo cliente."
+              description="Sua carteira começa aqui: cadastre o primeiro cliente para organizar documentos, prazos e honorários."
+              action={
+                <Button onClick={() => setOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Cadastrar primeiro cliente
+                </Button>
+              }
             />
           ) : visibleClients.length === 0 && !hasActiveFilters ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">

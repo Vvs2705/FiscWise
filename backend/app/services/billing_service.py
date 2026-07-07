@@ -18,41 +18,137 @@ Status transitions:
   any       → cancelled   (explicit cancellation)
 """
 
-import hashlib
 import hmac
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.billing import BillingWebhookEvent, TenantSubscription
+from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 
 logger = logging.getLogger(__name__)
 
-_BILLING_PROVIDER = os.getenv("BILLING_PROVIDER", "").lower().strip()
-_WEBHOOK_SECRET = os.getenv("BILLING_WEBHOOK_SECRET", "")
-_ASAAS_API_KEY = os.getenv("ASAAS_API_KEY", "")
-_ASAAS_API_URL = os.getenv("ASAAS_API_URL", "https://sandbox.asaas.com/api/v3")
-_IUGU_API_KEY = os.getenv("IUGU_API_KEY", "")
+# Env vars are read at call time (not import time) so tests and Fly secrets
+# rotation work without process restart tricks.
 
 
-# ─── Webhook signature verification ───────────────────────────────────────────
+class BillingUnavailableError(RuntimeError):
+    """Billing gateway not configured / unreachable. Endpoints convert to 503."""
 
-def verify_asaas_signature(payload_bytes: bytes, signature_header: str) -> bool:
-    """Verify HMAC-SHA256 signature from Asaas webhook."""
-    if not _WEBHOOK_SECRET:
-        logger.warning("BILLING_WEBHOOK_SECRET not configured — skipping signature check")
-        return True  # Allow in dev; in prod this should return False
-    expected = hmac.new(
-        _WEBHOOK_SECRET.encode(),
-        msg=payload_bytes,
-        digestmod=hashlib.sha256,
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature_header or "")
+
+def _env() -> str:
+    return os.getenv("ENVIRONMENT", "development").lower().strip()
+
+
+def asaas_enabled() -> bool:
+    """True when the Asaas gateway is fully configured."""
+    return (
+        os.getenv("BILLING_PROVIDER", "").lower().strip() == "asaas"
+        and bool(os.getenv("ASAAS_API_KEY", ""))
+    )
+
+
+def require_billing_gateway() -> None:
+    """Fail-closed: outside development, a real gateway is mandatory.
+
+    Never activate a subscription without real billing in production.
+    """
+    if not asaas_enabled() and _env() != "development":
+        raise BillingUnavailableError(
+            "Gateway de cobrança não configurado (BILLING_PROVIDER=asaas + ASAAS_API_KEY)"
+        )
+
+
+# ─── Webhook token verification ───────────────────────────────────────────────
+
+def verify_asaas_signature(signature_header: str) -> bool:
+    """Verify the Asaas webhook auth token.
+
+    Asaas sends the configured token verbatim in the `asaas-access-token`
+    header (no HMAC — see https://docs.asaas.com/docs/webhooks).
+    Fail-closed: missing secret outside development raises (endpoint → 503).
+    """
+    secret = os.getenv("BILLING_WEBHOOK_SECRET", "")
+    if not secret:
+        if _env() != "development":
+            raise BillingUnavailableError("BILLING_WEBHOOK_SECRET não configurado")
+        logger.warning("BILLING_WEBHOOK_SECRET not configured — skipping check (dev only)")
+        return True
+    return hmac.compare_digest(secret.encode(), (signature_header or "").encode())
+
+
+# ─── Asaas REST client ────────────────────────────────────────────────────────
+
+async def _asaas_request(
+    method: str,
+    path: str,
+    json: Optional[Dict[str, Any]] = None,
+    allow_404: bool = False,
+) -> Dict[str, Any]:
+    """Single seam for all Asaas HTTP calls (tests monkeypatch this)."""
+    base = os.getenv("ASAAS_API_URL", "https://sandbox.asaas.com/api/v3").rstrip("/")
+    headers = {"access_token": os.getenv("ASAAS_API_KEY", "")}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.request(method, f"{base}{path}", json=json, headers=headers)
+    except httpx.HTTPError as exc:
+        logger.error("Asaas API unreachable: %s %s — %s", method, path, exc)
+        raise BillingUnavailableError("Asaas API inacessível") from exc
+
+    if resp.status_code == 404 and allow_404:
+        return {}
+    if resp.status_code >= 400:
+        logger.error(
+            "Asaas API error: %s %s → %s %s", method, path, resp.status_code, resp.text[:500]
+        )
+        raise BillingUnavailableError(f"Asaas API retornou {resp.status_code}")
+    return resp.json()
+
+
+async def create_asaas_customer(name: str, email: str, cpf_cnpj: str) -> str:
+    """Create a customer on Asaas. Returns the Asaas customer id."""
+    data = await _asaas_request(
+        "POST", "/customers",
+        json={"name": name, "email": email, "cpfCnpj": cpf_cnpj},
+    )
+    return data["id"]
+
+
+async def create_asaas_subscription(customer_id: str, plan: Plan) -> Dict[str, Any]:
+    """Create a monthly subscription on Asaas (hosted checkout — card never touches us).
+
+    billingType UNDEFINED lets the customer pick pix/boleto/card on the
+    Asaas invoice page. Returns {'id', 'checkout_url'} where checkout_url is
+    the invoiceUrl of the first payment.
+    """
+    sub = await _asaas_request(
+        "POST", "/subscriptions",
+        json={
+            "customer": customer_id,
+            "billingType": "UNDEFINED",
+            "value": float(plan.price_monthly or 0),
+            "cycle": "MONTHLY",
+            "description": f"FiscWise — Plano {plan.name}",
+            "nextDueDate": (date.today() + timedelta(days=1)).isoformat(),
+        },
+    )
+    checkout_url = None
+    payments = await _asaas_request("GET", f"/subscriptions/{sub['id']}/payments")
+    items = payments.get("data") or []
+    if items:
+        checkout_url = items[0].get("invoiceUrl")
+    return {"id": sub["id"], "checkout_url": checkout_url}
+
+
+async def cancel_asaas_subscription(subscription_id: str) -> None:
+    """Cancel a subscription on Asaas (404 tolerated — already gone)."""
+    await _asaas_request("DELETE", f"/subscriptions/{subscription_id}", allow_404=True)
 
 
 # ─── Subscription state machine ───────────────────────────────────────────────
@@ -99,6 +195,12 @@ async def handle_payment_confirmed(
     tenant = tenant_result.scalar_one_or_none()
     if tenant:
         tenant.subscription_status = SubscriptionStatus.ACTIVE
+        # Apply the paid plan to the tenant (plan changes only take effect
+        # after real payment — never on checkout intent).
+        plan_result = await db.execute(select(Plan).where(Plan.id == sub.plan_id))
+        plan = plan_result.scalar_one_or_none()
+        if plan:
+            tenant.plan_slug = plan.slug
 
     await db.commit()
     logger.info(

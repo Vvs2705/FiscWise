@@ -17,6 +17,8 @@ import { RouteTitle } from '@/lib/RouteTitle';
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage  = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const DashboardPage    = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const ClientsPage      = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const DocumentsPage    = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
@@ -26,6 +28,7 @@ const SettingsPage     = lazy(() => import('@/pages/SettingsPage').then(m => ({ 
 const CalculatorPage   = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
 const ObrigacoesPage   = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
 const PortalLoginPage  = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const PortalInvitePage = lazy(() => import('@/pages/PortalInvitePage').then(m => ({ default: m.PortalInvitePage })));
 const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
@@ -120,7 +123,10 @@ function App() {
               {/* Public routes */}
               <Route path="/login"       element={<LoginPage />} />
               <Route path="/register"    element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password"  element={<ResetPasswordPage />} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
+              <Route path="/portal/invite/:inviteId" element={<PortalInvitePage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
 

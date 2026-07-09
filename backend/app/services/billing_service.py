@@ -38,15 +38,27 @@ _WEBHOOK_SECRET = os.getenv("BILLING_WEBHOOK_SECRET", "")
 _ASAAS_API_KEY = os.getenv("ASAAS_API_KEY", "")
 _ASAAS_API_URL = os.getenv("ASAAS_API_URL", "https://sandbox.asaas.com/api/v3")
 _IUGU_API_KEY = os.getenv("IUGU_API_KEY", "")
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower().strip()
 
 
 # ─── Webhook signature verification ───────────────────────────────────────────
 
 def verify_asaas_signature(payload_bytes: bytes, signature_header: str) -> bool:
-    """Verify HMAC-SHA256 signature from Asaas webhook."""
+    """Verify HMAC-SHA256 signature from Asaas webhook.
+
+    Fail-closed: sem BILLING_WEBHOOK_SECRET, aceita só em ambiente de dev.
+    Em produção/staging um webhook sem secret é rejeitado (evita webhook aberto,
+    onde qualquer POST forjaria confirmação de pagamento).
+    """
     if not _WEBHOOK_SECRET:
-        logger.warning("BILLING_WEBHOOK_SECRET not configured — skipping signature check")
-        return True  # Allow in dev; in prod this should return False
+        if _ENVIRONMENT in ("production", "prod", "staging"):
+            logger.error(
+                "BILLING_WEBHOOK_SECRET ausente em %s — rejeitando webhook de pagamento",
+                _ENVIRONMENT,
+            )
+            return False
+        logger.warning("BILLING_WEBHOOK_SECRET não configurado — aceitando webhook (dev)")
+        return True
     expected = hmac.new(
         _WEBHOOK_SECRET.encode(),
         msg=payload_bytes,

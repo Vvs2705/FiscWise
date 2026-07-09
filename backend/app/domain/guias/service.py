@@ -8,10 +8,16 @@ from app.domain.guias.models import TaxGuide
 from app.domain.guias.repository import TaxGuideRepository
 from app.domain.guias.schemas import TaxGuideCreate, TaxGuideUpdate
 from app.core.file_validator import validate_file_mime
-from app.core.storage import get_signed_url
+from app.core.storage import get_signed_url, upload_bytes
 from app.core.audit import audit_log
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_filename(name: Optional[str]) -> str:
+    """Remove separadores de caminho para evitar path traversal no storage."""
+    base = (name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    return base or ""
 
 class TaxGuideService:
     def __init__(self, repo: TaxGuideRepository):
@@ -79,29 +85,39 @@ class TaxGuideService:
         await self._check_overdue(guide)
         return await self.repo.update(guide)
 
-    async def save_pdf_path(self, guide_id: uuid.UUID, tenant_id: uuid.UUID, file_name: str, content_type: str) -> TaxGuide:
-        # Validate mime
-        validate_file_mime(b"", allowed_mimes=["application/pdf"])
-        
+    async def save_pdf_path(
+        self, guide_id: uuid.UUID, tenant_id: uuid.UUID,
+        file_name: str, content_type: str, file_bytes: bytes,
+    ) -> TaxGuide:
+        if not validate_file_mime(file_bytes, allowed_mimes=["application/pdf"]):
+            raise HTTPException(status_code=400, detail="Arquivo inválido: envie um PDF válido")
+
         guide = await self.get_guide(guide_id, tenant_id)
-        path = f"guides/{guide_id}/guide_{file_name}"
+        safe_name = _safe_filename(file_name) or "guia.pdf"
+        path = f"{guide_id}/guide_{safe_name}"
+        await upload_bytes("guides", path, file_bytes, content_type or "application/pdf")
         guide.pdf_storage_path = path
         if guide.status == "pendente":
             guide.status = "enviada"
             guide.enviada_em = datetime.now(timezone.utc)
-            
+
         return await self.repo.update(guide)
 
-    async def save_receipt_path(self, guide_id: uuid.UUID, tenant_id: uuid.UUID, file_name: str, content_type: str) -> TaxGuide:
-        # Validate mime (pdf or image)
-        validate_file_mime(b"", allowed_mimes=["application/pdf", "image/png", "image/jpeg"])
-        
+    async def save_receipt_path(
+        self, guide_id: uuid.UUID, tenant_id: uuid.UUID,
+        file_name: str, content_type: str, file_bytes: bytes,
+    ) -> TaxGuide:
+        if not validate_file_mime(file_bytes, allowed_mimes=["application/pdf", "image/png", "image/jpeg"]):
+            raise HTTPException(status_code=400, detail="Arquivo inválido: envie PDF, PNG ou JPEG")
+
         guide = await self.get_guide(guide_id, tenant_id)
-        path = f"receipts/{guide_id}/receipt_{file_name}"
+        safe_name = _safe_filename(file_name) or "comprovante"
+        path = f"{guide_id}/receipt_{safe_name}"
+        await upload_bytes("receipts", path, file_bytes, content_type or "application/octet-stream")
         guide.comprovante_storage_path = path
         guide.status = "paga"
         guide.paga_em = datetime.now(timezone.utc)
-        
+
         updated = await self.repo.update(guide)
         
         await audit_log(

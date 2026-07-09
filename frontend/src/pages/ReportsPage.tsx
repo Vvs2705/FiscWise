@@ -128,6 +128,16 @@ export function ReportsPage() {
           }
         />
 
+        {/* Aviso de honestidade: os dados desta tela ainda são ilustrativos */}
+        <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p>
+            <strong>Prévia de demonstração.</strong> Os números abaixo são exemplos ilustrativos —
+            não refletem os dados reais do seu escritório. Relatórios com dados ao vivo e exportação
+            estão em desenvolvimento.
+          </p>
+        </div>
+
         {/* Financial summary — owner/admin only */}
         <PermissionGate requiredRole="admin">
           <div>

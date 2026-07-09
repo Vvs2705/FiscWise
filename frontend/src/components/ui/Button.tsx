@@ -25,14 +25,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
           // Variantes
           variant === 'default' && [
-            'bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(20,184,166,0.22)]',
-            'hover:bg-primary/95 hover:shadow-[0_16px_38px_rgba(20,184,166,0.28)]',
+            'bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(224,94,24,0.22)]',
+            'hover:bg-primary/95 hover:shadow-[0_16px_38px_rgba(224,94,24,0.28)]',
             'active:bg-primary/90',
           ],
           variant === 'premium' && [
-            'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(198_93%_60%))] text-primary-foreground',
-            'shadow-[0_14px_36px_rgba(20,184,166,0.28)]',
-            'hover:shadow-[0_18px_44px_rgba(20,184,166,0.34)] hover:saturate-110',
+            'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(38_92%_55%))] text-primary-foreground',
+            'shadow-[0_14px_36px_rgba(224,94,24,0.28)]',
+            'hover:shadow-[0_18px_44px_rgba(224,94,24,0.34)] hover:saturate-110',
           ],
           variant === 'outline' && [
             'border border-input bg-background/80 shadow-sm backdrop-blur-sm',

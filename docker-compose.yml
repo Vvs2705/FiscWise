@@ -12,8 +12,7 @@ services:
       - DEBUG=True
       - ENVIRONMENT=development
       - JWT_SECRET_KEY=fiscwise_dev_secret_key_2026_do_not_use_in_production_generate_with_openssl_rand_hex_64
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - VOYAGE_API_KEY=${VOYAGE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8000:8000"
     volumes:

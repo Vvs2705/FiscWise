@@ -48,8 +48,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://fiscwise:fiscwise@localhost:5432/fiscwise_test
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: test-secret-key-for-ci-at-least-32-chars-long
-      ANTHROPIC_API_KEY: test
-      VOYAGE_API_KEY: test
+      OPENAI_API_KEY: test
 
     steps:
       - name: Checkout

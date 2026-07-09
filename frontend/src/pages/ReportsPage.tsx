@@ -1,103 +1,155 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   BarChart3, Download, TrendingUp,
   Users, FileText, Coins, AlertTriangle, CheckCircle2, Clock,
   Calendar,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { MetricCard } from '@/components/ui/OperationalStates';
+import { MetricCard, EmptyState } from '@/components/ui/OperationalStates';
+import { LoadingCards, ErrorState } from '@/components/ui/StateViews';
 import { PermissionGate } from '@/components/ui/PermissionGate';
 import { FeatureGate } from '@/components/ui/FeatureGate';
+import { usePermission } from '@/lib/hooks/usePermission';
+import { moneyBRL } from '@/lib/hooks/useOperations';
+import { useReportsOperational, useReportsSummary, type OperationalReport } from '@/lib/hooks/useReports';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// Mock BI data
-const REPORTS = [
-  {
-    id: 'clientes-risco',
-    title: 'Clientes por risco fiscal',
-    description: 'Distribui clientes por nível de risco: crítico, alto, médio, baixo.',
-    icon: AlertTriangle,
-    data: [
-      { label: 'Crítico', value: 2, color: 'bg-destructive' },
-      { label: 'Alto', value: 4, color: 'bg-warning' },
-      { label: 'Médio', value: 8, color: 'bg-warning' },
-      { label: 'Baixo', value: 15, color: 'bg-success' },
-    ],
-    total: 29,
-  },
-  {
-    id: 'obrigacoes-status',
-    title: 'Obrigações por status',
-    description: 'Acompanhe o cumprimento de obrigações acessórias e principais.',
-    icon: CheckCircle2,
-    data: [
-      { label: 'Cumpridas', value: 47, color: 'bg-success' },
-      { label: 'Pendentes', value: 12, color: 'bg-warning' },
-      { label: 'Atrasadas', value: 3, color: 'bg-destructive' },
-    ],
-    total: 62,
-  },
-  {
-    id: 'notas-competencia',
-    title: 'Notas fiscais por competência',
-    description: 'Evolução mensal de emissão, rejeição e cancelamento.',
-    icon: FileText,
-    data: [
-      { label: 'Emitidas', value: 143, color: 'bg-success' },
-      { label: 'Rejeitadas', value: 7, color: 'bg-destructive' },
-      { label: 'Canceladas', value: 4, color: 'bg-muted' },
-    ],
-    total: 154,
-  },
-  {
-    id: 'guias-aberto',
-    title: 'Guias em aberto',
-    description: 'Guias geradas e ainda não pagas por cliente e competência.',
-    icon: Coins,
-    data: [
-      { label: 'Pagas', value: 38, color: 'bg-success' },
-      { label: 'Aguardando', value: 11, color: 'bg-warning' },
-      { label: 'Vencidas', value: 3, color: 'bg-destructive' },
-    ],
-    total: 52,
-  },
-  {
-    id: 'fechamentos',
-    title: 'Fechamentos por competência',
-    description: 'Status de todos os fechamentos mensais na competência atual.',
-    icon: Calendar,
-    data: [
-      { label: 'Concluídos', value: 8, color: 'bg-success' },
-      { label: 'Em andamento', value: 12, color: 'bg-info' },
-      { label: 'Bloqueados', value: 3, color: 'bg-destructive' },
-      { label: 'Não iniciados', value: 6, color: 'bg-muted' },
-    ],
-    total: 29,
-  },
-  {
-    id: 'procuracoes-vencendo',
-    title: 'Procurações vencendo',
-    description: 'Procurações que vencem nos próximos 30, 60 e 90 dias.',
-    icon: Clock,
-    data: [
-      { label: '≤ 30 dias', value: 2, color: 'bg-destructive' },
-      { label: '31-60 dias', value: 4, color: 'bg-warning' },
-      { label: '61-90 dias', value: 3, color: 'bg-warning' },
-    ],
-    total: 9,
-  },
+type ReportBar = { label: string; value: number; color: string };
+type ReportCardData = {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof BarChart3;
+  data: ReportBar[];
+  total: number;
+};
+
+const MONTHS_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-const SUMMARY_METRICS = [
-  { title: 'Receita faturada', value: 'R$ 48.200', subtitle: 'Mai/2026', icon: <TrendingUp className="h-4 w-4" />, variant: 'success' as const },
-  { title: 'Receita recebida', value: 'R$ 41.700', subtitle: 'Mai/2026', icon: <Coins className="h-4 w-4" />, variant: 'success' as const },
-  { title: 'Inadimplência', value: 'R$ 6.500', subtitle: '3 clientes', icon: <AlertTriangle className="h-4 w-4" />, variant: 'danger' as const },
-  { title: 'Clientes ativos', value: '29', subtitle: '2 novos este mês', icon: <Users className="h-4 w-4" />, variant: 'default' as const },
-];
+function currentCompetence() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Últimas 6 competências (mês atual e anteriores), como options. */
+function competenceOptions() {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return { value, label: `${MONTHS_PT[d.getMonth()]}/${d.getFullYear()}` };
+  });
+}
+
+function competenceLabel(competence: string) {
+  const [year, month] = competence.split('-').map(Number);
+  return `${MONTHS_PT[(month ?? 1) - 1]}/${year}`;
+}
+
+function buildReports(op: OperationalReport): ReportCardData[] {
+  return [
+    {
+      id: 'clientes-situacao',
+      title: 'Clientes por situação',
+      description: 'Distribuição da carteira por status cadastral.',
+      icon: Users,
+      total: op.clients_by_status.total,
+      data: [
+        { label: 'Ativos', value: op.clients_by_status.active, color: 'bg-success' },
+        { label: 'Onboarding', value: op.clients_by_status.onboarding, color: 'bg-info' },
+        { label: 'Inativos', value: op.clients_by_status.inactive, color: 'bg-muted' },
+      ],
+    },
+    {
+      id: 'obrigacoes-status',
+      title: 'Obrigações por status',
+      description: 'Cumprimento de obrigações na competência selecionada.',
+      icon: CheckCircle2,
+      total: op.obligations_by_status.total,
+      data: [
+        { label: 'Cumpridas', value: op.obligations_by_status.delivered, color: 'bg-success' },
+        { label: 'Em andamento', value: op.obligations_by_status.in_progress, color: 'bg-info' },
+        { label: 'Pendentes', value: op.obligations_by_status.pending, color: 'bg-warning' },
+        { label: 'Atrasadas', value: op.obligations_by_status.overdue, color: 'bg-destructive' },
+      ],
+    },
+    {
+      id: 'guias-aberto',
+      title: 'Guias por status',
+      description: 'Guias da competência: pagas, aguardando e vencidas.',
+      icon: Coins,
+      total: op.guias_by_status.total,
+      data: [
+        { label: 'Pagas', value: op.guias_by_status.paid, color: 'bg-success' },
+        { label: 'Aguardando', value: op.guias_by_status.awaiting, color: 'bg-warning' },
+        { label: 'Vencidas', value: op.guias_by_status.overdue, color: 'bg-destructive' },
+      ],
+    },
+    {
+      id: 'fechamentos',
+      title: 'Fechamentos por competência',
+      description: 'Status dos fechamentos mensais na competência.',
+      icon: Calendar,
+      total: op.closings_by_status.total,
+      data: [
+        { label: 'Concluídos', value: op.closings_by_status.completed, color: 'bg-success' },
+        { label: 'Em andamento', value: op.closings_by_status.in_progress, color: 'bg-info' },
+        { label: 'Bloqueados', value: op.closings_by_status.blocked, color: 'bg-destructive' },
+        { label: 'Não iniciados', value: op.closings_by_status.not_started, color: 'bg-muted' },
+      ],
+    },
+    {
+      id: 'notas-competencia',
+      title: 'Notas fiscais por competência',
+      description: 'Registros de NFS-e na competência (dados do FiscWise).',
+      icon: FileText,
+      total: op.invoices_by_status.total,
+      data: [
+        { label: 'Emitidas', value: op.invoices_by_status.issued, color: 'bg-success' },
+        { label: 'Rejeitadas', value: op.invoices_by_status.rejected, color: 'bg-destructive' },
+        { label: 'Canceladas', value: op.invoices_by_status.cancelled, color: 'bg-muted' },
+      ],
+    },
+    {
+      id: 'procuracoes-vencendo',
+      title: 'Procurações vencendo',
+      description: 'Procurações e-CAC que vencem nos próximos 90 dias.',
+      icon: Clock,
+      total: op.proxies_expiring.total,
+      data: [
+        { label: '≤ 30 dias', value: op.proxies_expiring.d30, color: 'bg-destructive' },
+        { label: '31-60 dias', value: op.proxies_expiring.d60, color: 'bg-warning' },
+        { label: '61-90 dias', value: op.proxies_expiring.d90, color: 'bg-warning' },
+      ],
+    },
+  ];
+}
 
 export function ReportsPage() {
-  const [competence, setCompetence] = useState('2026-05');
+  const [competence, setCompetence] = useState(currentCompetence);
+  const { hasRole } = usePermission();
+  const isAdmin = hasRole('admin');
+
+  const { data: op, isLoading, isError } = useReportsOperational(competence);
+  const { data: summary } = useReportsSummary(competence, isAdmin);
+
+  const options = useMemo(competenceOptions, []);
+  const reports = useMemo(() => (op ? buildReports(op) : []), [op]);
+
+  const summaryMetrics = useMemo(() => {
+    if (!summary) return [];
+    const label = competenceLabel(summary.competence);
+    return [
+      { title: 'Receita faturada', value: moneyBRL(summary.revenue_billed), subtitle: label, icon: <TrendingUp className="h-4 w-4" />, variant: 'success' as const },
+      { title: 'Receita recebida', value: moneyBRL(summary.revenue_received), subtitle: label, icon: <Coins className="h-4 w-4" />, variant: 'success' as const },
+      { title: 'Inadimplência', value: moneyBRL(summary.overdue_amount), subtitle: `${summary.overdue_clients} cliente${summary.overdue_clients === 1 ? '' : 's'}`, icon: <AlertTriangle className="h-4 w-4" />, variant: 'danger' as const },
+      { title: 'Clientes ativos', value: summary.active_clients, subtitle: `${summary.new_clients_month} novo${summary.new_clients_month === 1 ? '' : 's'} este mês`, icon: <Users className="h-4 w-4" />, variant: 'default' as const },
+    ];
+  }, [summary]);
 
   return (
     <FeatureGate feature="feature_reports">
@@ -113,9 +165,9 @@ export function ReportsPage() {
                 onChange={e => setCompetence(e.target.value)}
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
-                <option value="2026-05">Maio/2026</option>
-                <option value="2026-04">Abril/2026</option>
-                <option value="2026-03">Março/2026</option>
+                {options.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
               <button
                 onClick={() => toast.info('Exportação XLSX disponível em breve.')}
@@ -129,32 +181,47 @@ export function ReportsPage() {
         />
 
         {/* Financial summary — owner/admin only */}
-        <PermissionGate requiredRole="admin">
+        <PermissionGate requiredRole="admin" silent>
           <div>
             <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Resumo financeiro</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {SUMMARY_METRICS.map(m => (
-                <MetricCard key={m.title} {...m} />
-              ))}
-            </div>
+            {summaryMetrics.length === 0 ? (
+              <EmptyState
+                icon={<Coins className="h-5 w-5" />}
+                title="Sem dados financeiros nesta competência"
+                description="Nenhuma receita, recebimento ou inadimplência registrada no período."
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {summaryMetrics.map(m => (
+                  <MetricCard key={m.title} {...m} />
+                ))}
+              </div>
+            )}
           </div>
         </PermissionGate>
 
         {/* Report cards grid */}
         <div>
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Relatórios operacionais</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {REPORTS.map(report => (
-              <ReportCard key={report.id} report={report} />
-            ))}
-          </div>
+          {isLoading ? (
+            <LoadingCards count={6} />
+          ) : isError ? (
+            <ErrorState message="Não foi possível carregar os relatórios. Tente novamente." />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {reports.map(report => (
+                <ReportCard key={report.id} report={report} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </FeatureGate>
   );
 }
 
-function ReportCard({ report }: { report: typeof REPORTS[number] }) {
+function ReportCard({ report }: { report: ReportCardData }) {
+  const isEmpty = report.total === 0;
   return (
     <div className="rounded-xl border border-border bg-card p-5 hover:shadow-token-sm transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -165,45 +232,40 @@ function ReportCard({ report }: { report: typeof REPORTS[number] }) {
           </div>
           <p className="text-xs text-muted-foreground">{report.description}</p>
         </div>
-        <button
-          onClick={() => toast.info(`Exportando "${report.title}" em CSV...`)}
-          className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          title="Exportar CSV"
-        >
-          <Download className="h-3.5 w-3.5" />
-        </button>
       </div>
 
-      {/* Mini bar chart */}
-      <div className="space-y-2">
-        {report.data.map(item => {
-          const pct = Math.round((item.value / report.total) * 100);
-          return (
-            <div key={item.label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-muted-foreground">{item.label}</span>
-                <span className="text-xs font-semibold tabular-nums text-foreground">{item.value}</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn('h-full rounded-full transition-all', item.color)}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {isEmpty ? (
+        <p className="py-6 text-center text-xs text-muted-foreground">
+          Sem dados nesta competência.
+        </p>
+      ) : (
+        <>
+          {/* Mini bar chart */}
+          <div className="space-y-2">
+            {report.data.map(item => {
+              const pct = report.total > 0 ? Math.round((item.value / report.total) * 100) : 0;
+              return (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                    <span className="text-xs font-semibold tabular-nums text-foreground">{item.value}</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn('h-full rounded-full transition-all', item.color)}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-        <span className="text-xs text-muted-foreground">Total: <strong className="text-foreground">{report.total}</strong></span>
-        <button
-          onClick={() => toast.info(`Detalhamento de "${report.title}" em breve.`)}
-          className="text-xs text-primary hover:underline"
-        >
-          Ver detalhes →
-        </button>
-      </div>
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+            <span className="text-xs text-muted-foreground">Total: <strong className="text-foreground">{report.total}</strong></span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

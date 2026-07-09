@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias, fiscal_mailbox, monthly_closing, focus
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias, fiscal_mailbox, monthly_closing, focus, reports
 
 
 # Create main API router for v1
@@ -173,6 +173,12 @@ api_router.include_router(
 api_router.include_router(
     focus.router,
     tags=["Daily Focus"]
+)
+
+# Include Reports (aggregations) endpoints
+api_router.include_router(
+    reports.router,
+    tags=["Reports"]
 )
 
 

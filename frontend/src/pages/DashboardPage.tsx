@@ -187,11 +187,18 @@ export function DashboardPage() {
     });
   }, [upcomingDeadlines]);
 
-  // Documents for PendingDocumentsCard
-  const pendingDocuments = useMemo(() => {
-    // Mock data - replace with real data when available
-    return [];
-  }, []);
+  // Documents for PendingDocumentsCard (documentos recebidos aguardando conferência)
+  const pendingDocuments = useMemo(
+    () =>
+      (prod?.pending_documents ?? []).map((doc) => ({
+        id: doc.id,
+        clientName: doc.client_name,
+        documentType: doc.document_name,
+        daysWaiting: doc.days_waiting,
+        status: 'received' as const,
+      })),
+    [prod?.pending_documents]
+  );
 
   // Monthly closing stats for MonthlyClosingCard
   const closingStats = useMemo(() => {
@@ -202,7 +209,7 @@ export function DashboardPage() {
     return {
       completed: prod?.total_delivered ?? 0,
       inProgress: prod?.total_in_progress ?? 0,
-      blockedByClient: 0, // Not available in current data
+      blockedByClient: prod?.total_blocked ?? 0,
       overdue: prod?.total_overdue ?? 0,
       total,
       completionPercentage,

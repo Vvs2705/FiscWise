@@ -343,6 +343,15 @@ class ClientPendingStats(BaseModel):
     pending_count: int
 
 
+class PendingDocumentItem(BaseModel):
+    """Documento recebido aguardando conferência do escritório."""
+    id: UUID
+    client_name: str
+    document_name: str
+    days_waiting: int
+    status: str = "received"
+
+
 class ProductivityOverview(BaseModel):
     """Painel de produtividade do escritório (owner/admin apenas)."""
     competence_month: str           # "2026-05"
@@ -351,8 +360,10 @@ class ProductivityOverview(BaseModel):
     total_in_progress: int
     total_delivered: int
     total_overdue: int
+    total_blocked: int = 0          # fechamentos bloqueados na competência
     obligations_by_collaborator: list[CollaboratorStats]
     clients_with_most_pending: list[ClientPendingStats]
+    pending_documents: list[PendingDocumentItem] = []
     docs_awaiting_approval: int
     certificates_expiring_30d: int
     overdue_receivables_count: int

@@ -6,7 +6,9 @@
 
 ## 1. O que é o FiscWise
 
-O FiscWise é um sistema operacional completo para contadores, focado em automatizar a rotina fiscal e financeira, eliminar controles paralelos e reduzir riscos fiscais. O sistema atua de forma nativa e integrada na emissão de documentos fiscais, monitoramento de pendências na Receita Federal, cobrança de honorários e envio de guias e obrigações.
+O FiscWise é a central operacional do contador: organiza a carteira de clientes, documentos, obrigações, guias, honorários e o fechamento mensal em um único sistema, com IA fiscal de apoio. Elimina controles paralelos (planilhas) e reduz risco de perda de prazo.
+
+As **integrações governamentais** (emissão NFS-e, consulta e-CAC/Receita, Caixa Postal SERPRO, envio WhatsApp oficial) estão no roadmap e dependem de credenciais/contratos externos — o estado atual de cada módulo está marcado na tabela abaixo. O FiscWise **não** apresenta dado governamental simulado como oficial em produção.
 
 ## 2. Para quem é
 
@@ -14,16 +16,24 @@ O FiscWise é um sistema operacional completo para contadores, focado em automat
 - **Pequenos e Médios Escritórios**: Preparado para operações com controle granular de carteiras por responsáveis e isolamento total de dados.
 - **BPO Financeiro/Contábil**: Escalável para alto volume de notas, guias e fechamento de obrigações mensais.
 
-## 3. Módulos Principais
+## 3. Módulos e estado atual
 
-- **Notas Fiscais (NFS-e)**: Emissão direta, automação de honorários mensais e conciliação contábil-financeira automática.
-- **Central e-CAC / Receita Federal**: Consulta automática de Situação Fiscal, Caixa Postal, certidões e controle de procurações eletrônicas via integração oficial.
-- **Certificados Digitais (A1/A3)**: Cofre criptografado de chaves operacionais e monitoramento de validades com alertas automáticos.
-- **Obrigações Fiscais**: Motor inteligente de calendarização fiscal orientado pelo regime tributário, CNAE, município e UF de cada cliente.
-- **Guias, Impostos e Comprovantes**: Controle e conciliação de pagamentos de DAS, DARF, GPS e ISS, com verificação de pendências.
-- **Portal do Cliente**: Área exclusiva para o cliente final enviar documentos, pagar guias e baixar notas fiscais.
-- **WhatsApp e Comunicação**: Régua de cobrança e envio automático de lembretes e guias direto no canal mais utilizado pelos clientes.
-- **IA Operacional**: Processamento de documentos, extração de metadados de guias e assistência contábil baseada em dados reais.
+Legenda: ✅ operacional · 🟡 parcial (função existe, sem automação externa) · 🛠️ roadmap (requer credencial/contrato externo)
+
+| Módulo | Estado | O que faz hoje |
+|---|---|---|
+| **Clientes / Documentos / Financeiro** | ✅ | Carteira multi-tenant, upload de documentos (Supabase Storage), contas a receber e inadimplência. |
+| **Obrigações Fiscais** | ✅ | Motor de calendarização por regime/CNAE/município/UF, recorrência e prazos. |
+| **Fechamento Mensal + Dossiê PDF** | ✅ | Fechamento por competência com geração real de dossiê em PDF. |
+| **IA Operacional** | ✅ | Calculadora fiscal e assistente por IA (requer `OPENAI_API_KEY`). |
+| **Portal do Cliente** | ✅ | Área do cliente final (magic-link/convite) para documentos e guias. |
+| **Guias (DAS/DARF/GPS/ISS)** | 🟡 | Registro, conciliação de pagamento e comprovantes. **Não** gera a guia via PGDAS nem verifica pendência na Receita automaticamente. |
+| **Certificados Digitais (A1/A3)** | 🟡 | Cadastro e alerta de validade. Ainda **não** é cofre que armazena/assina com a chave. |
+| **Caixa Postal Fiscal (e-CAC/DTE)** | 🛠️ | Cliente SERPRO Integra Contador implementado, **desligado por padrão** — requer contrato SERPRO + e-CNPJ + mTLS. |
+| **Notas Fiscais (NFS-e)** | 🛠️ | Cadastro/gestão prontos; **emissão real depende de homologação** na prefeitura/Portal Nacional (hoje usa provider de simulação). |
+| **Central e-CAC / Situação Fiscal** | 🛠️ | Depende do contrato SERPRO (mesma credencial da Caixa Postal). |
+| **Monitor Fiscal** | 🛠️ | Consulta automática à Receita depende de integração oficial (SERPRO). |
+| **WhatsApp e Comunicação** | 🛠️ | Régua de cobrança modelada; envio real requer WhatsApp Business API oficial (Meta/BSP). |
 
 ---
 

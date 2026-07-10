@@ -72,6 +72,12 @@ class TenantSubscription(Base):
         comment="trialing | active | past_due | suspended | cancelled",
     )
 
+    # Ciclo de cobrança escolhido no checkout (valida o valor pago no webhook)
+    billing_cycle: Mapped[str] = mapped_column(
+        String(20), server_default="mensal", nullable=False,
+        comment="mensal | trimestral | semestral | anual",
+    )
+
     # Billing period
     current_period_start: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True

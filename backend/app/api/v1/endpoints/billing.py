@@ -20,6 +20,7 @@ from app.core.deps import get_current_user, get_db
 from app.models.billing import BillingWebhookEvent, TenantSubscription
 from app.models.plan import Plan
 from app.models.user import User
+from app.core.pricing import CICLOS_VALIDOS, get_ciclo, valores_aceitos
 from app.services.mercadopago import (
     GatewayNaoConfiguradoError,
     GatewayPagamentoError,
@@ -208,6 +209,8 @@ async def asaas_webhook(
 
 class CheckoutRequest(BaseModel):
     plan_slug: str
+    ciclo: str = "mensal"          # mensal | trimestral | semestral | anual
+    metodo: str = "cartao"         # pix | cartao (ignorado no mensal, que é recorrente no cartão)
 
 
 class CheckoutResponse(BaseModel):
@@ -265,6 +268,11 @@ async def criar_checkout(
             detail="Pagamentos em configuração — cobrança ainda não habilitada.",
         )
 
+    if body.ciclo not in CICLOS_VALIDOS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ciclo inválido: {body.ciclo}")
+    if body.metodo not in ("pix", "cartao"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Método inválido: {body.metodo}")
+
     plan = (
         await db.execute(select(Plan).where(Plan.slug == body.plan_slug))
     ).scalar_one_or_none()
@@ -288,21 +296,36 @@ async def criar_checkout(
     sub.plan_id = plan.id
     sub.billing_provider = "mercadopago"
     sub.amount = plan.price_monthly
+    sub.billing_cycle = body.ciclo
 
     try:
-        resultado = await gateway.criar_assinatura(
-            plano_nome=plan.name, preco_mensal=plan.price_monthly,
-            email_pagador=current_user.email, referencia=str(sub.id),
-        )
+        if body.ciclo == "mensal":
+            # Assinatura recorrente no cartão (preapproval).
+            resultado = await gateway.criar_assinatura(
+                plano_nome=plan.name, preco_mensal=plan.price_monthly,
+                email_pagador=current_user.email, referencia=str(sub.id),
+            )
+        else:
+            # Ciclo pré-pago: checkout único (Pix -15% ou cartão até 6x sem juros).
+            resultado = await gateway.criar_cobranca_unica(
+                plano_nome=plan.name, preco_mensal=plan.price_monthly,
+                ciclo=body.ciclo, metodo=body.metodo,
+                email_pagador=current_user.email, referencia=str(sub.id),
+            )
     except GatewayNaoConfiguradoError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GatewayPagamentoError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    if resultado.get("id"):
+    if resultado.get("id") and resultado.get("tipo") == "assinatura":
+        # Só o preapproval é uma assinatura no gateway; cobranças únicas se
+        # correlacionam pelo external_reference (= sub.id) no webhook `payment`.
         sub.provider_subscription_id = str(resultado["id"])
     await db.commit()
-    logger.info("Checkout MP criado: tenant=%s plano=%s", current_user.tenant_id, plan.slug)
+    logger.info(
+        "Checkout MP criado: tenant=%s plano=%s ciclo=%s metodo=%s",
+        current_user.tenant_id, plan.slug, body.ciclo, body.metodo,
+    )
     return CheckoutResponse(**resultado)
 
 
@@ -385,6 +408,55 @@ async def mercadopago_webhook(
                         sub.status = "suspended"
                         if pre_status == "cancelled":
                             sub.cancelled_at = agora
+            evento.processed = True
+            evento.processed_at = datetime.now(timezone.utc)
+        except GatewayPagamentoError as exc:
+            logger.warning("webhook_reconciliacao_falhou: %s", exc)
+
+    elif gateway.configurado() and tipo == "payment":
+        # Ciclos pré-pagos (trimestral/semestral/anual): pagamento único.
+        # Reconcilia no gateway; casa pelo external_reference (= sub.id) e só
+        # ativa se aprovado E valor == Pix ou cartão esperado para o ciclo.
+        try:
+            pag = await gateway.obter_pagamento(recurso_id)
+            pag_status = (pag.get("status") or "").lower()
+            external_ref = str(pag.get("external_reference") or "")
+            try:
+                sub_id = uuid.UUID(external_ref)
+            except ValueError:
+                sub_id = None
+            sub = None
+            if sub_id is not None:
+                sub = (
+                    await db.execute(
+                        select(TenantSubscription).where(TenantSubscription.id == sub_id)
+                    )
+                ).scalar_one_or_none()
+            if sub is not None:
+                agora = datetime.now(timezone.utc)
+                sub.last_event_id = event_id
+                sub.last_event_at = agora
+                pago_cent = int(round(float(pag.get("transaction_amount") or 0) * 100))
+                aceitos_cent = {
+                    int(round(v * 100))
+                    for v in valores_aceitos(sub.amount or 0, sub.billing_cycle)
+                }
+                if pag_status == "approved":
+                    if pago_cent not in aceitos_cent:
+                        # Valor divergente → NÃO ativa (revisão manual via evento).
+                        logger.warning(
+                            "webhook_valor_divergente sub=%s ciclo=%s aceitos=%s pago=%s",
+                            sub.id, sub.billing_cycle, aceitos_cent, pago_cent,
+                        )
+                    else:
+                        ciclo_info = get_ciclo(sub.billing_cycle) or {"meses": 1}
+                        sub.status = "active"
+                        sub.current_period_start = agora
+                        sub.current_period_end = agora + timedelta(days=30 * int(ciclo_info["meses"]))
+                elif pag_status in ("refunded", "charged_back"):
+                    # Estorno/chargeback → suspende (proteção de receita).
+                    if sub.status in ("active", "trialing", "past_due"):
+                        sub.status = "suspended"
             evento.processed = True
             evento.processed_at = datetime.now(timezone.utc)
         except GatewayPagamentoError as exc:

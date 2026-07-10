@@ -39,6 +39,9 @@ class PlanOut(BaseModel):
     max_ai_calls_month: Optional[int]
     max_documents_per_client: Optional[int]
     features: Optional[Dict[str, Any]]
+    # Matriz de ciclos (mensal/trimestral/semestral/anual) com Pix -15% e
+    # cartão até 6x sem juros — calculada no servidor (fonte: core/pricing.py).
+    tabela_precos: Optional[list[Dict[str, Any]]] = None
 
     class Config:
         from_attributes = True
@@ -75,10 +78,19 @@ def _usage_item(used: int, limit: Optional[int]) -> UsageItem:
 @router.get("/plans", response_model=list[PlanOut], summary="List available subscription plans")
 async def list_plans(db: AsyncSession = Depends(get_db)):
     """Return all active subscription plans (public, no auth required)."""
+    from app.core.pricing import tabela_precos
+
     result = await db.execute(
         select(Plan).where(Plan.active == True).order_by(Plan.price_monthly.nullsfirst())
     )
-    return result.scalars().all()
+    plans = result.scalars().all()
+    out = []
+    for p in plans:
+        item = PlanOut.model_validate(p)
+        if p.price_monthly and float(p.price_monthly) > 0:
+            item.tabela_precos = tabela_precos(p.price_monthly)
+        out.append(item)
+    return out
 
 
 @router.get("/usage", response_model=UsageResponse, summary="Get current usage vs plan limits")

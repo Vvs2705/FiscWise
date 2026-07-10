@@ -26,28 +26,30 @@ import { useAuth } from '@/lib/hooks/useAuth';
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
+// Preços/limites alinhados à fonte de verdade (tabela `plans` no banco +
+// backend/app/core/pricing.py). Pix e plano anual têm 15% de desconto.
 const PLANS = [
   {
     slug: 'free',
     label: 'Free',
     price: 'Grátis',
     description: 'Para organizar sua carteira desde o primeiro cliente',
-    features: ['Até 5 clientes', '1 usuário', 'Documentos básicos', 'Calculadora fiscal básica'],
+    features: ['Até 10 clientes', '2 usuários', 'Documentos básicos', 'Calculadora fiscal básica'],
   },
   {
     slug: 'intermediario',
     label: 'Intermediário',
-    price: 'R$ 49/mês',
+    price: 'R$ 149/mês',
     description: 'Para contadores autônomos com carteira em expansão',
     popular: true,
-    features: ['Até 50 clientes', '3 usuários', 'Agenda e prazos', 'Certificados digitais', 'Chat IA (20 msgs/mês)', 'Recomendações IA'],
+    features: ['Até 80 clientes', '5 usuários', 'Agenda e prazos', 'Certificados digitais', 'Chat IA (20 msgs/mês)', '15% off no Pix ou no plano anual'],
   },
   {
     slug: 'premium',
     label: 'Premium',
-    price: 'R$ 149/mês',
+    price: 'R$ 349/mês',
     description: 'Para uma operação fiscal mais completa e previsível',
-    features: ['Clientes ilimitados', '10 usuários', 'Relatórios avançados', 'Chat IA ilimitado', 'Exportação PDF', 'API access'],
+    features: ['Clientes ilimitados', 'Usuários ilimitados', 'Relatórios avançados', 'Chat IA ilimitado', 'Exportação PDF', '15% off no Pix ou no plano anual'],
   },
 ];
 

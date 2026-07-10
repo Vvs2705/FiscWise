@@ -6,21 +6,37 @@ Supports Asaas (primary) with Iugu stub for future.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_current_user, get_db
-from app.models.billing import TenantSubscription
+from app.models.billing import BillingWebhookEvent, TenantSubscription
 from app.models.plan import Plan
 from app.models.user import User
+from app.services.mercadopago import (
+    GatewayNaoConfiguradoError,
+    GatewayPagamentoError,
+    gateway,
+    valor_centavos,
+    validar_assinatura_webhook,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["Billing"])
+
+# Campos que denunciam dados de cartão chegando ao servidor (Checkout Pro NÃO
+# deve receber PAN/CVV — o cliente paga no ambiente hospedado do Mercado Pago).
+_CAMPOS_CARTAO = {
+    "card_number", "cardnumber", "numero_cartao", "cvv", "cvc", "security_code",
+    "card_cvv", "expiration", "card", "cartao",
+}
 
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -186,3 +202,193 @@ async def asaas_webhook(
         return {"status": "error_logged"}
 
     return {"status": result, "event_type": event_type}
+
+
+# ─── Mercado Pago: config + checkout + webhook ────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    plan_slug: str
+
+
+class CheckoutResponse(BaseModel):
+    tipo: str
+    id: Optional[str]
+    init_point: Optional[str]
+
+
+class PagamentoConfigResponse(BaseModel):
+    gateway: str = "mercadopago"
+    public_key: str
+    go_live: bool
+
+
+@router.get("/config", response_model=PagamentoConfigResponse)
+async def billing_config(current_user: User = Depends(get_current_user)) -> PagamentoConfigResponse:
+    """Dados públicos do gateway para o frontend (public key é seguro expor)."""
+    return PagamentoConfigResponse(
+        public_key=settings.MERCADO_PAGO_PUBLIC_KEY,
+        go_live=settings.PAGAMENTOS_GO_LIVE,
+    )
+
+
+@router.post("/checkout", response_model=CheckoutResponse, status_code=status.HTTP_201_CREATED)
+async def criar_checkout(
+    body: CheckoutRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CheckoutResponse:
+    """Cria a assinatura mensal (preapproval) no Mercado Pago e devolve o init_point.
+
+    Owner only · rejeita dados de cartão (sempre 400) · 503 enquanto
+    PAGAMENTOS_GO_LIVE desligado · valor calculado no servidor a partir do Plan.
+    """
+    # Rejeita PAN/CVV ANTES do gate de go-live (sempre 400).
+    try:
+        raw = await request.json()
+    except Exception:
+        raw = {}
+    if isinstance(raw, dict) and any(str(k).lower() in _CAMPOS_CARTAO for k in raw):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dados de cartão não são aceitos aqui (use o checkout do Mercado Pago).",
+        )
+
+    if current_user.role.value != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o proprietário pode assinar",
+        )
+    if not settings.PAGAMENTOS_GO_LIVE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Pagamentos em configuração — cobrança ainda não habilitada.",
+        )
+
+    plan = (
+        await db.execute(select(Plan).where(Plan.slug == body.plan_slug))
+    ).scalar_one_or_none()
+    if not plan or plan.price_monthly is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plano inválido")
+
+    sub = (
+        await db.execute(
+            select(TenantSubscription).where(
+                TenantSubscription.tenant_id == current_user.tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if sub is None:
+        sub = TenantSubscription(
+            tenant_id=current_user.tenant_id, plan_id=plan.id,
+            status="trialing", currency="BRL",
+        )
+        db.add(sub)
+        await db.flush()
+    sub.plan_id = plan.id
+    sub.billing_provider = "mercadopago"
+    sub.amount = plan.price_monthly
+
+    try:
+        resultado = await gateway.criar_assinatura(
+            plano_nome=plan.name, preco_mensal=plan.price_monthly,
+            email_pagador=current_user.email, referencia=str(sub.id),
+        )
+    except GatewayNaoConfiguradoError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except GatewayPagamentoError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    if resultado.get("id"):
+        sub.provider_subscription_id = str(resultado["id"])
+    await db.commit()
+    logger.info("Checkout MP criado: tenant=%s plano=%s", current_user.tenant_id, plan.slug)
+    return CheckoutResponse(**resultado)
+
+
+@router.post("/webhook/mercadopago", status_code=status.HTTP_200_OK)
+async def mercadopago_webhook(
+    request: Request,
+    x_signature: Optional[str] = Header(default=None, alias="x-signature"),
+    x_request_id: Optional[str] = Header(default=None, alias="x-request-id"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Webhook do Mercado Pago — HMAC-validado, idempotente, reconcilia no gateway.
+
+    NUNCA confia no corpo: consulta o gateway, casa pela assinatura local
+    (provider_subscription_id) e só ativa se autorizado E valor conferido.
+    Cancelamento/pausa do preapproval → suspende o acesso (proteção de receita).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    tipo = (body.get("type") or body.get("topic") or "").lower()
+    data = body.get("data") or {}
+    recurso_id = str(
+        data.get("id") or body.get("id") or request.query_params.get("data.id") or ""
+    )
+
+    if not validar_assinatura_webhook(
+        x_signature=x_signature, x_request_id=x_request_id,
+        data_id=recurso_id, max_idade_segundos=600,
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Assinatura inválida")
+
+    if not recurso_id:
+        return {"status": "ignorado"}
+
+    # Idempotência: dedup pela notificação (id do corpo, senão x-request-id).
+    event_id = str(body.get("id") or x_request_id or f"{tipo}:{recurso_id}")
+    evento = BillingWebhookEvent(
+        provider="mercadopago", event_id=event_id,
+        event_type=tipo or "desconhecido", payload=body,
+    )
+    db.add(evento)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        return {"status": "already_processed"}
+
+    if gateway.configurado() and tipo in ("preapproval", "subscription_preapproval"):
+        try:
+            pre = await gateway.obter_preapproval(recurso_id)
+            pre_status = (pre.get("status") or "").lower()
+            valor_mensal = int(
+                round(float((pre.get("auto_recurring") or {}).get("transaction_amount") or 0) * 100)
+            )
+            sub = (
+                await db.execute(
+                    select(TenantSubscription).where(
+                        TenantSubscription.provider_subscription_id == recurso_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if sub is not None:
+                agora = datetime.now(timezone.utc)
+                sub.last_event_id = event_id
+                sub.last_event_at = agora
+                if pre_status == "authorized":
+                    if valor_mensal and sub.amount is not None and valor_mensal != valor_centavos(sub.amount):
+                        logger.warning(
+                            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+                            sub.id, valor_centavos(sub.amount), valor_mensal,
+                        )
+                    else:
+                        sub.status = "active"
+                        sub.current_period_start = agora
+                        sub.current_period_end = agora + timedelta(days=30)
+                elif pre_status in ("cancelled", "paused"):
+                    if sub.status in ("active", "trialing", "past_due"):
+                        sub.status = "suspended"
+                        if pre_status == "cancelled":
+                            sub.cancelled_at = agora
+            evento.processed = True
+            evento.processed_at = datetime.now(timezone.utc)
+        except GatewayPagamentoError as exc:
+            logger.warning("webhook_reconciliacao_falhou: %s", exc)
+
+    await db.commit()
+    return {"status": "ok"}

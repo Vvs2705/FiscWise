@@ -166,6 +166,16 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SECRET_KEY: str = ""
 
+    # Mercado Pago (gateway de pagamento — assinatura mensal via preapproval).
+    # Cobrança real fica TRANCADA por PAGAMENTOS_GO_LIVE: o código fica pronto,
+    # mas /billing/checkout responde 503 até o go-live explícito + secrets no Fly.
+    MERCADO_PAGO_ACCESS_TOKEN: str = ""
+    MERCADO_PAGO_PUBLIC_KEY: str = ""
+    MERCADO_PAGO_WEBHOOK_SECRET: str = ""
+    PAGAMENTOS_GO_LIVE: bool = False
+    # URL do frontend (para as back_urls do checkout).
+    APP_URL: str = "https://www.fiscwise.com.br"
+
     # Fiscal mailbox (e-CAC / DTE) provider: "mock" | "serpro"
     # "serpro" uses the Integra Contador gateway (Caixa Postal) and requires
     # the SERPRO_* credentials below; "mock" keeps the deterministic provider.

@@ -762,10 +762,14 @@ async def update_me(
 class UpdateTenantRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     document: Optional[str] = Field(None, max_length=32)
-    plan_slug: Optional[str] = Field(None, max_length=50)
     phone: Optional[str] = Field(None, max_length=20)
     address: Optional[str] = Field(None, max_length=500)
     website: Optional[str] = Field(None, max_length=255)
+    # NOTA DE SEGURANÇA: `plan_slug` foi removido de propósito. O plano é um
+    # controle de receita/paywall e NÃO pode ser alterado por autoatendimento —
+    # antes, qualquer usuário autenticado se auto-promovia a Premium de graça
+    # (o paywall lê tenant.plan_slug). O plano só muda via webhook de pagamento
+    # (billing_service) ou pelo endpoint de admin.
 
 
 @router.patch("/tenant", summary="Update Tenant")
@@ -782,8 +786,6 @@ async def update_tenant(
         tenant.name = body.name
     if body.document is not None:
         tenant.document = body.document
-    if body.plan_slug is not None:
-        tenant.plan_slug = body.plan_slug
     if body.phone is not None:
         tenant.phone = body.phone
     if body.address is not None:

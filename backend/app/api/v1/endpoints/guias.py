@@ -94,7 +94,8 @@ async def upload_pdf(
 ):
     repo = TaxGuideRepository(db)
     service = TaxGuideService(repo)
-    return await service.save_pdf_path(id, _tenant_id(current_user), file.filename, file.content_type)
+    file_bytes = await file.read()
+    return await service.save_pdf_path(id, _tenant_id(current_user), file.filename, file.content_type, file_bytes)
 
 @router.post("/{id}/upload-comprovante", response_model=TaxGuideResponse)
 async def upload_comprovante(
@@ -105,7 +106,8 @@ async def upload_comprovante(
 ):
     repo = TaxGuideRepository(db)
     service = TaxGuideService(repo)
-    return await service.save_receipt_path(id, _tenant_id(current_user), file.filename, file.content_type)
+    file_bytes = await file.read()
+    return await service.save_receipt_path(id, _tenant_id(current_user), file.filename, file.content_type, file_bytes)
 
 @router.get("/{id}/pdf")
 async def get_pdf_url(

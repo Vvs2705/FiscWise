@@ -8,9 +8,19 @@ from app.domain.guias.models import TaxGuide
 pytestmark = pytest.mark.integration
 
 @pytest.mark.asyncio
-async def test_guias_api_workflow(client_with_auth_a, test_db):
+async def test_guias_api_workflow(client_with_auth_a, test_db, monkeypatch):
     http_client, user, client, db = client_with_auth_a
     tenant_id = user.tenant_id
+
+    # Storage real (Supabase) não está disponível em teste: substitui por fakes.
+    async def _fake_upload(bucket, path, file_bytes, content_type="application/octet-stream", *, upsert=False):
+        return path
+
+    async def _fake_signed(bucket, path, ttl=300):
+        return f"https://signed.example/{bucket}/{path}?token=test"
+
+    monkeypatch.setattr("app.domain.guias.service.upload_bytes", _fake_upload)
+    monkeypatch.setattr("app.domain.guias.service.get_signed_url", _fake_signed)
 
     # 1. Create a guide
     vencimento_futuro = date.today() + timedelta(days=20)
@@ -43,8 +53,8 @@ async def test_guias_api_workflow(client_with_auth_a, test_db):
     assert response.status_code == status.HTTP_200_OK
     assert "url" in response.json()
 
-    # 4. Upload Comprovante (marks as paga)
-    receipt_file = (io.BytesIO(b"image data"), "receipt.png")
+    # 4. Upload Comprovante (marks as paga) — PNG com magic bytes válidos
+    receipt_file = (io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"fakepngdata"), "receipt.png")
     response = http_client.post(
         f"/api/v1/guias/{guide_id}/upload-comprovante",
         files={"file": (receipt_file[1], receipt_file[0], "image/png")}

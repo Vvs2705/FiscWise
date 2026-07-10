@@ -16,6 +16,21 @@ export interface SubscriptionUsage {
   features: Record<string, boolean>;
 }
 
+// Linha da matriz de preços calculada no servidor (backend/app/core/pricing.py)
+export interface LinhaPreco {
+  ciclo: 'mensal' | 'trimestral' | 'semestral' | 'anual';
+  label: string;
+  meses: number;
+  preco_cheio: number;
+  pix_total: number;
+  desconto_pix_pct: number;
+  cartao_total: number;
+  desconto_cartao_pct: number;
+  cartao_max_parcelas: number;
+  cartao_parcela: number;
+  obs: string;
+}
+
 export interface Plan {
   id: string;
   slug: string;
@@ -26,6 +41,7 @@ export interface Plan {
   max_users: number | null;
   max_ai_calls_month: number | null;
   features: Record<string, boolean> | null;
+  tabela_precos?: LinhaPreco[] | null;
 }
 
 export function useSubscriptionUsage() {

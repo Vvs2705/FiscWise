@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface SubscriptionData {
@@ -14,11 +14,6 @@ export interface SubscriptionData {
   created_at: string;
 }
 
-export interface CreateSubscriptionRequest {
-  plan_id: string;
-  billing_provider?: string;
-}
-
 export function useSubscription() {
   return useQuery<SubscriptionData>({
     queryKey: ['subscription'],
@@ -30,16 +25,45 @@ export function useSubscription() {
   });
 }
 
-export function useCreateSubscription() {
-  const queryClient = useQueryClient();
-  return useMutation<SubscriptionData, Error, CreateSubscriptionRequest>({
-    mutationFn: async (data) => {
-      const res = await api.post<SubscriptionData>('/api/v1/billing/subscription', data);
+// ─── Mercado Pago (Checkout Pro) ─────────────────────────────────────────────
+
+export interface BillingConfig {
+  gateway: string;
+  public_key: string;
+  go_live: boolean;
+}
+
+export function useBillingConfig() {
+  return useQuery<BillingConfig>({
+    queryKey: ['billing-config'],
+    queryFn: async () => {
+      const res = await api.get('/api/v1/billing/config');
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription'] });
-      queryClient.invalidateQueries({ queryKey: ['subscription-usage'] });
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export type CicloCobranca = 'mensal' | 'trimestral' | 'semestral' | 'anual';
+export type MetodoPagamento = 'pix' | 'cartao';
+
+export interface CheckoutRequest {
+  plan_slug: string;
+  ciclo: CicloCobranca;
+  metodo: MetodoPagamento;
+}
+
+export interface CheckoutResponse {
+  tipo: string;
+  id: string | null;
+  init_point: string | null;
+}
+
+export function useCheckout() {
+  return useMutation<CheckoutResponse, Error, CheckoutRequest>({
+    mutationFn: async (data) => {
+      const res = await api.post<CheckoutResponse>('/api/v1/billing/checkout', data);
+      return res.data;
     },
   });
 }

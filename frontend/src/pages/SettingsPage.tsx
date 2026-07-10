@@ -229,9 +229,7 @@ export function SettingsPage() {
           />
         )}
         {activeTab === 'plano' && (
-          <PlanoTab currentPlan={currentPlan} tenant={tenant} onPlanChange={(slug) => {
-            setTenant((t) => t ? { ...t, plan_slug: slug } : t);
-          }} />
+          <PlanoTab currentPlan={currentPlan} tenant={tenant} />
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
         {activeTab === 'base_conhecimento' && (
@@ -496,11 +494,9 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
 function PlanoTab({
   currentPlan,
   tenant,
-  onPlanChange,
 }: {
   currentPlan: (typeof PLANS)[number];
   tenant: TenantData | null;
-  onPlanChange: (slug: string) => void;
 }) {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const { data: usage } = useSubscriptionUsage();
@@ -742,10 +738,6 @@ function PlanoTab({
         open={selectedPlan !== null}
         onClose={() => setSelectedPlan(null)}
         selectedPlan={selectedPlan}
-        onUpgradeSuccess={(slug) => {
-          onPlanChange(slug);
-          setSelectedPlan(null);
-        }}
       />
     </div>
   );

@@ -29,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.billing import BillingWebhookEvent, TenantSubscription
+from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 
 logger = logging.getLogger(__name__)
@@ -104,13 +105,18 @@ async def handle_payment_confirmed(
     sub.status = "active"
     sub.last_event_at = datetime.now(timezone.utc)
 
-    # Also update tenant's subscription_status
+    # Also update tenant's subscription_status + plan_slug (paywall lê o tenant)
     tenant_result = await db.execute(
         select(Tenant).where(Tenant.id == sub.tenant_id)
     )
     tenant = tenant_result.scalar_one_or_none()
     if tenant:
         tenant.subscription_status = SubscriptionStatus.ACTIVE
+        plan_slug = (
+            await db.execute(select(Plan.slug).where(Plan.id == sub.plan_id))
+        ).scalar_one_or_none()
+        if plan_slug:
+            tenant.plan_slug = plan_slug
 
     await db.commit()
     logger.info(

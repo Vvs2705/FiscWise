@@ -14,7 +14,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.core.plan_access import resolve_plan
+from app.core.plan_access import resolve_tenant_plan
 from app.models.operations import AccountingClient
 from app.models.plan import Plan
 from app.models.tenant import Tenant
@@ -105,7 +105,7 @@ async def get_subscription_usage(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    effective_slug = resolve_plan(tenant.plan_slug, current_user.email) or "free"
+    effective_slug = resolve_tenant_plan(tenant, current_user.email) or "free"
 
     # Load plan definition
     plan_result = await db.execute(select(Plan).where(Plan.slug == effective_slug))
@@ -191,7 +191,7 @@ async def check_limits(
     # Get usage (reuse logic from /usage)
     tenant_result = await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
-    effective_slug = resolve_plan(tenant.plan_slug if tenant else None, current_user.email) or "free"
+    effective_slug = resolve_tenant_plan(tenant, current_user.email) or "free"
 
     plan_result = await db.execute(select(Plan).where(Plan.slug == effective_slug))
     plan = plan_result.scalar_one_or_none()

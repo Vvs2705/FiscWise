@@ -16,6 +16,10 @@ import enum
 
 from app.models.base import Base
 
+# Import real (não TYPE_CHECKING): garante que o mapper de TenantSubscription
+# esteja registrado antes da configuração do relationship `subscription` abaixo.
+from app.models.billing import TenantSubscription  # noqa: F401
+
 
 class SubscriptionStatus(str, enum.Enum):
     """
@@ -143,6 +147,15 @@ class Tenant(Base):
         back_populates="tenant",
         cascade="all, delete-orphan",
         lazy="selectin"
+    )
+
+    # Assinatura de billing (tenant_subscriptions) — carregada junto com o
+    # tenant para o enforcement de plano (plan_access.effective_plan_slug).
+    # viewonly: escrita continua passando pelos endpoints/webhooks de billing.
+    subscription: Mapped[Optional["TenantSubscription"]] = relationship(
+        "TenantSubscription",
+        lazy="selectin",
+        viewonly=True,
     )
     
     def __repr__(self) -> str:

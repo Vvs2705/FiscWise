@@ -731,15 +731,13 @@ async def create_client(
 
     # ── Plan limit enforcement ────────────────────────────────────────────────
     try:
-        from app.core.plan_access import resolve_plan
+        from app.core.plan_access import resolve_tenant_plan
         from app.models.plan import Plan
         from app.models.tenant import Tenant
 
         tenant_row = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         tenant_obj = tenant_row.scalar_one_or_none()
-        effective_slug = resolve_plan(
-            tenant_obj.plan_slug if tenant_obj else None, current_user.email
-        ) or "free"
+        effective_slug = resolve_tenant_plan(tenant_obj, current_user.email) or "free"
 
         plan_row = await db.execute(select(Plan).where(Plan.slug == effective_slug))
         plan_obj = plan_row.scalar_one_or_none()

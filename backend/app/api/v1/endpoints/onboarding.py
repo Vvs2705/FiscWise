@@ -6,7 +6,7 @@ Creates tenant and owner user in a single atomic transaction.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.security import get_password_hash, create_access_token
+from app.models.billing import TenantSubscription
+from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.onboarding import TenantRegistrationRequest
@@ -23,6 +25,10 @@ from app.schemas.token import AuthResponse, UserInfo
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Trial honesto: o plano escolhido vale por 14 dias; sem pagamento, o
+# enforcement (plan_access.effective_plan_slug) degrada para free sozinho.
+TRIAL_DAYS = 14
 
 
 @router.post("/register", response_model=AuthResponse, summary="Register New Tenant")
@@ -66,7 +72,25 @@ async def register_tenant(
             detail=f"Email '{registration.owner_email}' is already registered",
             headers={"X-Error-Code": "EMAIL_ALREADY_EXISTS"}
         )
-    
+
+    # Step 1b: Resolve chosen plan (validated against active plans in DB).
+    # Paid plan = 14-day trial (TenantSubscription trialing); free = no trial,
+    # no subscription row (never degrades). NUNCA concede plano pago sem essa
+    # janela de trial — pós-trial, só webhook de pagamento/admin mantém o plano.
+    chosen_slug = (registration.plan_slug or "free").strip().lower()
+    chosen_plan = None
+    if chosen_slug != "free":
+        plan_query = await db.execute(
+            select(Plan).where(Plan.slug == chosen_slug, Plan.active.is_(True))
+        )
+        chosen_plan = plan_query.scalar_one_or_none()
+        if chosen_plan is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Plano '{chosen_slug}' inválido ou indisponível",
+                headers={"X-Error-Code": "INVALID_PLAN"},
+            )
+
     try:
         # Step 2: Create Tenant instance
         now_utc = datetime.now(timezone.utc)
@@ -74,15 +98,27 @@ async def register_tenant(
             name=registration.company_name,
             document=registration.document,
             subscription_status=SubscriptionStatus.TRIAL,
-            plan_slug="free",
+            plan_slug=chosen_slug,
             terms_accepted_at=now_utc if registration.terms_accepted else None,
             terms_version="v1.0",
         )
-        
+
         db.add(new_tenant)
-        
+
         # Flush to generate tenant.id without committing the transaction
         await db.flush()
+
+        # Step 2b: Paid plan chosen → trial subscription of 14 days.
+        if chosen_plan is not None:
+            db.add(TenantSubscription(
+                tenant_id=new_tenant.id,
+                plan_id=chosen_plan.id,
+                status="trialing",
+                trial_ends_at=now_utc + timedelta(days=TRIAL_DAYS),
+                billing_cycle="mensal",
+                amount=chosen_plan.price_monthly,
+                currency="BRL",
+            ))
         
         # Step 3: Hash the owner password
         hashed_password = get_password_hash(registration.owner_password)

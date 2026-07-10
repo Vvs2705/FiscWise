@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.pricing import linha_preco
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,74 @@ class GatewayMercadoPago:
             "status": "pending",
         }
 
+    def montar_preference(
+        self, *, plano_nome: str, preco_mensal: Decimal | float, ciclo: str,
+        metodo: str, email_pagador: str, referencia: str,
+    ) -> dict[str, Any]:
+        """Checkout Preference para ciclos pré-pagos (trimestral/semestral/anual).
+
+        metodo="pix": valor com desconto Pix (15%) embutido; cartão/boleto excluídos.
+        metodo="cartao": valor do cartão (anual tem 15%); até N parcelas SEM JUROS
+        para o cliente (nós absorvemos a taxa); Pix/boleto excluídos.
+        """
+        linha = linha_preco(preco_mensal, ciclo)
+        app_url = settings.APP_URL.rstrip("/")
+        api_url = settings.PUBLIC_URL.rstrip("/")
+        if metodo == "pix":
+            valor = linha["pix_total"]
+            payment_methods: dict[str, Any] = {
+                "excluded_payment_types": [
+                    {"id": "credit_card"}, {"id": "debit_card"}, {"id": "ticket"},
+                ],
+                "installments": 1,
+            }
+        else:
+            valor = linha["cartao_total"]
+            payment_methods = {
+                "excluded_payment_types": [{"id": "bank_transfer"}, {"id": "ticket"}],
+                "installments": linha["cartao_max_parcelas"],
+                "default_installments": 1,
+            }
+        return {
+            "items": [{
+                "title": f"FiscWise {plano_nome} — {linha['label']}",
+                "description": f"Plano {plano_nome} ({ciclo})",
+                "quantity": 1,
+                "currency_id": "BRL",
+                "unit_price": valor,
+            }],
+            "payer": {"email": email_pagador},
+            "payment_methods": payment_methods,
+            "external_reference": referencia,
+            "back_urls": {
+                "success": f"{app_url}/configuracoes?pagamento=sucesso",
+                "pending": f"{app_url}/configuracoes?pagamento=pendente",
+                "failure": f"{app_url}/configuracoes?pagamento=falha",
+            },
+            "auto_return": "approved",
+            "notification_url": f"{api_url}/api/v1/billing/webhook/mercadopago",
+        }
+
     # -- Chamadas reais (exigem token) ----------------------------------------
+    async def criar_cobranca_unica(
+        self, *, plano_nome: str, preco_mensal: Decimal | float, ciclo: str,
+        metodo: str, email_pagador: str, referencia: str,
+    ) -> dict[str, Any]:
+        """Cria a Checkout Preference (ciclos pré-pagos) e devolve o init_point."""
+        payload = self.montar_preference(
+            plano_nome=plano_nome, preco_mensal=preco_mensal, ciclo=ciclo,
+            metodo=metodo, email_pagador=email_pagador, referencia=referencia,
+        )
+        data = await self._post(
+            "/checkout/preferences", payload,
+            idempotency_key=f"{referencia}:{ciclo}:{metodo}",
+        )
+        return {
+            "tipo": "cobranca_unica",
+            "id": data.get("id"),
+            "init_point": data.get("init_point") or data.get("sandbox_init_point"),
+        }
+
     async def criar_assinatura(
         self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str
     ) -> dict[str, Any]:

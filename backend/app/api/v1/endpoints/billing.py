@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.billing import BillingWebhookEvent, TenantSubscription
 from app.models.plan import Plan
+from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User
 from app.core.pricing import CICLOS_VALIDOS, get_ciclo, valores_aceitos
 from app.services.mercadopago import (
@@ -64,6 +65,26 @@ class CreateSubscriptionRequest(BaseModel):
 
 def _fmt(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() if dt else None
+
+
+async def _refletir_plano_no_tenant(db: AsyncSession, sub: TenantSubscription) -> None:
+    """Ativação paga confirmada → tenant.plan_slug = slug do plano da assinatura.
+
+    O paywall lê tenants.plan_slug (plan_access); sem isso o cliente paga e
+    continua no plano antigo. Suspensão NÃO mexe no tenant: o enforcement em
+    plan_access.effective_plan_slug já degrada para free.
+    """
+    plan_slug = (
+        await db.execute(select(Plan.slug).where(Plan.id == sub.plan_id))
+    ).scalar_one_or_none()
+    if not plan_slug:
+        return
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == sub.tenant_id))
+    ).scalar_one_or_none()
+    if tenant is not None:
+        tenant.plan_slug = plan_slug
+        tenant.subscription_status = SubscriptionStatus.ACTIVE
 
 
 def _sub_out(sub: TenantSubscription) -> SubscriptionOut:
@@ -403,6 +424,7 @@ async def mercadopago_webhook(
                         sub.status = "active"
                         sub.current_period_start = agora
                         sub.current_period_end = agora + timedelta(days=30)
+                        await _refletir_plano_no_tenant(db, sub)
                 elif pre_status in ("cancelled", "paused"):
                     if sub.status in ("active", "trialing", "past_due"):
                         sub.status = "suspended"
@@ -453,6 +475,7 @@ async def mercadopago_webhook(
                         sub.status = "active"
                         sub.current_period_start = agora
                         sub.current_period_end = agora + timedelta(days=30 * int(ciclo_info["meses"]))
+                        await _refletir_plano_no_tenant(db, sub)
                 elif pag_status in ("refunded", "charged_back"):
                     # Estorno/chargeback → suspende (proteção de receita).
                     if sub.status in ("active", "trialing", "past_due"):

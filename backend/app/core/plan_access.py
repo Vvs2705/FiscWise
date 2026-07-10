@@ -59,11 +59,53 @@ def resolve_plan(plan_slug: Optional[str], user_email: Optional[str] = None) -> 
     return plan_slug
 
 
+def effective_plan_slug(tenant: object, subscription: object = None) -> Optional[str]:
+    """
+    Plano efetivo do tenant considerando o estado da assinatura (enforcement).
+
+    Degrada para FREE quando:
+      - subscription.status ∈ {suspended, cancelled}; OU
+      - subscription.status == trialing E trial_ends_at já passou.
+
+    Tenants SEM linha em tenant_subscriptions (legado) mantêm o plan_slug
+    gravado — nunca degradam. Se `subscription` não for passada, é lida de
+    `tenant.subscription` (relationship selectin em Tenant).
+    """
+    plan_slug = getattr(tenant, "plan_slug", None) if tenant is not None else None
+    if subscription is None:
+        subscription = getattr(tenant, "subscription", None) if tenant is not None else None
+    if subscription is None:
+        return plan_slug
+
+    sub_status = getattr(subscription, "status", None)
+    if sub_status in ("suspended", "cancelled"):
+        return PLAN_FREE
+
+    if sub_status == "trialing":
+        trial_ends_at = getattr(subscription, "trial_ends_at", None)
+        if trial_ends_at is not None:
+            if trial_ends_at.tzinfo is None:  # SQLite devolve datetimes naive
+                trial_ends_at = trial_ends_at.replace(tzinfo=timezone.utc)
+            if trial_ends_at < datetime.now(timezone.utc):
+                return PLAN_FREE
+
+    return plan_slug
+
+
+def resolve_tenant_plan(tenant: object, user_email: Optional[str] = None) -> Optional[str]:
+    """
+    Plano efetivo de um tenant: enforcement de assinatura + override de superuser.
+
+    RAIZ do paywall — todo ponto que resolve o plano a partir de um Tenant deve
+    passar por aqui (não por tenant.plan_slug direto).
+    """
+    return resolve_plan(effective_plan_slug(tenant), user_email)
+
+
 def resolve_user_plan(current_user: object) -> Optional[str]:
     """Resolve the effective plan for the current authenticated user."""
     tenant = getattr(current_user, "tenant", None)
-    raw_plan = getattr(tenant, "plan_slug", None) if tenant else None
-    return resolve_plan(raw_plan, getattr(current_user, "email", None))
+    return resolve_tenant_plan(tenant, getattr(current_user, "email", None))
 
 
 # ---------------------------------------------------------------------------

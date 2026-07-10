@@ -26,6 +26,7 @@ from app.models.operations import (
     DigitalCertificate,
 )
 from app.models.obligation import DocumentChecklistItem, ObligationInstance
+from app.domain.monthly_closing.models import MonthlyClosing
 from app.models.user import User
 from app.services.ai_fiscal import classify_fiscal_document, generate_client_operational_summary
 from app.services.document_parser import parse_document
@@ -53,6 +54,7 @@ from app.schemas.operations import (
     DocumentUpdate,
     InadimplenciaReport,
     MonthlyData,
+    PendingDocumentItem,
     ProductivityOverview,
     ReceivableCreate,
     ReceivableResponse,
@@ -457,6 +459,47 @@ async def dashboard_productivity(
         )
     )
 
+    # ── Sample list of pending documents (same source as the count above) ──────
+    pending_docs_raw = await db.execute(
+        select(
+            DocumentChecklistItem.id,
+            AccountingClient.name.label("client_name"),
+            DocumentChecklistItem.document_name,
+            DocumentChecklistItem.received_at,
+            DocumentChecklistItem.created_at,
+        )
+        .join(AccountingClient, DocumentChecklistItem.client_id == AccountingClient.id)
+        .where(
+            DocumentChecklistItem.tenant_id == tenant_id,
+            DocumentChecklistItem.competence_month == first_of_month,
+            DocumentChecklistItem.status == "received",
+        )
+        .order_by(DocumentChecklistItem.received_at.desc().nullslast())
+        .limit(5)
+    )
+    pending_documents = []
+    for row in pending_docs_raw.all():
+        ref = row.received_at or row.created_at
+        days_waiting = (today - ref.date()).days if ref else 0
+        pending_documents.append(
+            PendingDocumentItem(
+                id=row.id,
+                client_name=row.client_name,
+                document_name=row.document_name,
+                days_waiting=max(0, days_waiting),
+                status="received",
+            )
+        )
+
+    # ── Fechamentos bloqueados na competência (blocked by client) ──────────────
+    total_blocked = await count_for(
+        select(func.count()).select_from(MonthlyClosing).where(
+            MonthlyClosing.tenant_id == tenant_id,
+            MonthlyClosing.competence == competence_str,
+            MonthlyClosing.status == "blocked",
+        )
+    )
+
     # ── Certificates expiring in the next 30 days ──────────────────────────────
     limit_date = today + timedelta(days=30)
     certificates_expiring_30d = await count_for(
@@ -491,8 +534,10 @@ async def dashboard_productivity(
         total_in_progress=total_in_progress,
         total_delivered=total_delivered,
         total_overdue=total_overdue,
+        total_blocked=total_blocked,
         obligations_by_collaborator=obligations_by_collaborator,
         clients_with_most_pending=clients_with_most_pending,
+        pending_documents=pending_documents,
         docs_awaiting_approval=docs_awaiting_approval,
         certificates_expiring_30d=certificates_expiring_30d,
         overdue_receivables_count=overdue_receivables_count,

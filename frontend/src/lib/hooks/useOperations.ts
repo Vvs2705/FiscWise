@@ -240,6 +240,14 @@ export interface ClientPendingStats {
   pending_count: number;
 }
 
+export interface PendingDocumentDto {
+  id: string;
+  client_name: string;
+  document_name: string;
+  days_waiting: number;
+  status: string;
+}
+
 export interface ProductivityOverview {
   competence_month: string; // "2026-05"
   compliance_rate: number;
@@ -247,8 +255,10 @@ export interface ProductivityOverview {
   total_in_progress: number;
   total_delivered: number;
   total_overdue: number;
+  total_blocked: number;
   obligations_by_collaborator: CollaboratorStats[];
   clients_with_most_pending: ClientPendingStats[];
+  pending_documents: PendingDocumentDto[];
   docs_awaiting_approval: number;
   certificates_expiring_30d: number;
   overdue_receivables_count: number;

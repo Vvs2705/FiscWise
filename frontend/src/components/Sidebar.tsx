@@ -22,6 +22,8 @@ import {
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchFocusItems } from '@/features/focus/api';
 
 type NavItem = {
   name: string;
@@ -42,7 +44,7 @@ const navGroups: NavGroup[] = [
     label: 'Operação diária',
     items: [
       { name: 'Painel',        href: '/painel',    icon: LayoutDashboard },
-      { name: 'Foco de Hoje',  href: '/foco',      icon: Target, badge: '3', badgeVariant: 'danger' },
+      { name: 'Foco de Hoje',  href: '/foco',      icon: Target },
     ],
   },
   {
@@ -60,7 +62,7 @@ const navGroups: NavGroup[] = [
       { name: 'Notas Fiscais',       href: '/notas-fiscais',      icon: FileText },
       { name: 'Central e-CAC',       href: '/ecac',               icon: ShieldCheck },
       { name: 'Guias e Pagamentos',  href: '/guias',              icon: Coins },
-      { name: 'Caixa Postal Fiscal', href: '/caixa-postal-fiscal',icon: Mail, badge: '5', badgeVariant: 'warning' },
+      { name: 'Caixa Postal Fiscal', href: '/caixa-postal-fiscal',icon: Mail },
       { name: 'Procurações',         href: '/procuracoes',        icon: FileText },
       { name: 'Certificados',        href: '/certificados',       icon: Fingerprint },
     ],
@@ -93,6 +95,17 @@ const BADGE_CLASSES = {
 export function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // Badge real do "Foco de Hoje": itens urgentes (críticos + de hoje).
+  const { data: focusItems } = useQuery({
+    queryKey: ['focus-items'],
+    queryFn: fetchFocusItems,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const focusCount = (focusItems ?? []).filter(
+    (i) => i.group === 'critical' || i.group === 'today'
+  ).length;
 
   const isActive = (href: string) =>
     location.pathname === href || location.pathname.startsWith(`${href}/`);
@@ -150,6 +163,12 @@ export function Sidebar() {
               {(!group.collapsible || !isCollapsed) &&
                 group.items.map((item, i) => {
                   const active = isActive(item.href);
+                  const badge =
+                    item.href === '/foco' && focusCount > 0
+                      ? String(focusCount)
+                      : item.badge;
+                  const badgeVariant =
+                    item.href === '/foco' ? 'danger' : item.badgeVariant;
                   return (
                     <Link
                       key={item.name}
@@ -182,23 +201,23 @@ export function Sidebar() {
                       <span className="hidden flex-1 truncate md:inline">{item.name}</span>
 
                       {/* Badge */}
-                      {item.badge && (
+                      {badge && (
                         <span
                           className={cn(
                             'hidden md:flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
-                            BADGE_CLASSES[item.badgeVariant ?? 'primary'],
+                            BADGE_CLASSES[badgeVariant ?? 'primary'],
                           )}
                         >
-                          {item.badge}
+                          {badge}
                         </span>
                       )}
 
                       {/* Tooltip mobile */}
                       <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-token-sm group-hover:block md:hidden">
                         {item.name}
-                        {item.badge && (
-                          <span className={cn('ml-1.5 rounded-full px-1 text-[9px]', BADGE_CLASSES[item.badgeVariant ?? 'primary'])}>
-                            {item.badge}
+                        {badge && (
+                          <span className={cn('ml-1.5 rounded-full px-1 text-[9px]', BADGE_CLASSES[badgeVariant ?? 'primary'])}>
+                            {badge}
                           </span>
                         )}
                       </span>

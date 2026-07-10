@@ -183,11 +183,8 @@ class Settings(BaseSettings):
     SERPRO_CERT_KEY_PATH: str = ""
     SERPRO_TIMEOUT_SECONDS: float = 30.0
 
-    # AI Services (optional — RAG engine removed in Phase 5)
-    ANTHROPIC_API_KEY: str = ""
-    VOYAGE_API_KEY: str = ""
-
-    # OpenAI (Feature #7 — Calculadora Fiscal com IA)
+    # OpenAI — único provider de IA em uso (Calculadora Fiscal + assistente).
+    # (ANTHROPIC/VOYAGE removidos: eram do RAG desativado na Phase 5.)
     OPENAI_API_KEY: str = ""
 
     # Observability

@@ -142,6 +142,16 @@ temp/
 *_KEYS.md
 *_keys.md
 
+# Certificados fiscais (A1/A3) e chaves privadas — NUNCA versionar (dado sensível LGPD)
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+certificados/
+certs/
+
 # Test artifacts (local only)
 .coverage
 coverage.xml

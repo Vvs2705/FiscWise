@@ -14,6 +14,7 @@ Two-Factor Authentication (2FA) setup and verification.
 
 import io
 import os
+import uuid
 import base64
 import logging
 import secrets
@@ -47,6 +48,7 @@ from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
 from app.services.audit import log_audit_event
+from app.services.email_service import send_email, render_otp_email
 
 logger = logging.getLogger(__name__)
 
@@ -204,9 +206,12 @@ async def login(
         # For email OTP, generate and send the code now
         if method == "email":
             otp_code = _generate_email_otp(str(user.id))
-            # TODO: integrate with email provider (Resend / SMTP)
-            # For now log it — replace with real send when email provider is configured
-            logger.info("EMAIL OTP for %s: %s", user.email, otp_code)
+            sent = await send_email(
+                to=user.email,
+                subject="Seu código de acesso FiscWise",
+                html=render_otp_email(otp_code),
+            )
+            logger.info("EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
 
         mfa_token = create_mfa_token(user_id=str(user.id))
         return MfaChallengeResponse(
@@ -279,8 +284,12 @@ async def resend_2fa_code(
         )
 
     otp_code = _generate_email_otp(str(user.id))
-    # TODO: integrate with email provider — replace log with real email send
-    logger.info("RESEND EMAIL OTP for %s: %s", user.email, otp_code)
+    sent = await send_email(
+        to=user.email,
+        subject="Seu código de acesso FiscWise",
+        html=render_otp_email(otp_code),
+    )
+    logger.info("RESEND EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
 
     return Resend2FAResponse(
         sent=True,
@@ -422,7 +431,12 @@ async def google_auth(
             method = getattr(existing_user, "two_factor_method", "totp")
             if method == "email":
                 otp_code = _generate_email_otp(str(existing_user.id))
-                logger.info("EMAIL OTP for %s: %s", existing_user.email, otp_code)
+                sent = await send_email(
+                    to=existing_user.email,
+                    subject="Seu código de acesso FiscWise",
+                    html=render_otp_email(otp_code),
+                )
+                logger.info("EMAIL OTP for %s [code redacted] sent=%s", existing_user.email, sent)
             mfa_token = create_mfa_token(user_id=str(existing_user.id))
             return MfaChallengeResponse(
                 status="requires_2fa",
@@ -552,7 +566,12 @@ async def enable_2fa(
     elif body.method == "email":
         # Generate and send email OTP
         code = _generate_email_otp(str(current_user.id))
-        logger.info("2FA EMAIL SETUP OTP for %s: %s", current_user.email, code)
+        sent = await send_email(
+            to=current_user.email,
+            subject="Ative a verificação em duas etapas — FiscWise",
+            html=render_otp_email(code),
+        )
+        logger.info("2FA EMAIL SETUP OTP for %s [code redacted] sent=%s", current_user.email, sent)
         return {"message": "Código enviado para seu e-mail. Confirme com /auth/2fa/confirm-email."}
 
     raise HTTPException(status_code=400, detail="Método inválido. Use 'totp' ou 'email'.")

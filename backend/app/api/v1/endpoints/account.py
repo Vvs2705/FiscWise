@@ -149,7 +149,12 @@ async def request_account_deletion(
         tenant.id, current_user.email
     )
 
-    # TODO: when email provider is configured, send confirmation email to current_user.email
+    from app.services.email_service import send_email, render_lgpd_deletion_email
+    await send_email(
+        to=current_user.email,
+        subject="Recebemos sua solicitação de exclusão de dados — FiscWise",
+        html=render_lgpd_deletion_email(),
+    )
 
     return {
         "status": "request_received",

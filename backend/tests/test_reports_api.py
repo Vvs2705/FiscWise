@@ -21,6 +21,10 @@ pytestmark = pytest.mark.integration
 
 TODAY = date.today()
 FIRST = date(TODAY.year, TODAY.month, 1)
+# Último dia do mês corrente: sempre >= TODAY e dentro da competência, então a
+# conta "pendente" nunca vira vencida conforme o mês avança (teste era frágil
+# com dia 15 fixo: quebrava do dia 16 em diante).
+LAST = (FIRST + timedelta(days=32)).replace(day=1) - timedelta(days=1)
 COMPETENCE = f"{TODAY.year:04d}-{TODAY.month:02d}"
 
 
@@ -42,7 +46,7 @@ async def _seed_tenant_a(db, tenant_id, client_id):
         AccountReceivable(
             id=uuid.uuid4(), tenant_id=tenant_id, client_id=client_id,
             description="Honorários pendentes", amount=Decimal("1000.00"),
-            due_date=date(TODAY.year, TODAY.month, 15), status="pending",
+            due_date=LAST, status="pending",
         ),
         AccountReceivable(
             id=uuid.uuid4(), tenant_id=tenant_id, client_id=client_id,

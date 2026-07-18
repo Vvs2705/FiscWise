@@ -173,6 +173,12 @@ class Settings(BaseSettings):
     MERCADO_PAGO_PUBLIC_KEY: str = ""
     MERCADO_PAGO_WEBHOOK_SECRET: str = ""
     PAGAMENTOS_GO_LIVE: bool = False
+
+    # Resend (e-mail transacional: OTP 2FA, confirmação LGPD).
+    # Sem RESEND_ENABLED+RESEND_API_KEY o serviço cai em fallback (só loga).
+    RESEND_API_KEY: str = ""
+    RESEND_FROM: str = "FiscWise <nao-responda@fiscwise.com.br>"
+    RESEND_ENABLED: bool = False
     # URL do frontend (para as back_urls do checkout).
     APP_URL: str = "https://www.fiscwise.com.br"
 

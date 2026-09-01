@@ -163,9 +163,12 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SECRET_KEY: str = ""
 
-    # AI Services (optional — RAG engine removed in Phase 5)
+    # AI Services
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
+    # OpenAI — used by Feature #7 Calculadora Fiscal com IA
+    # Set via: flyctl secrets set OPENAI_API_KEY=<sua-chave>
+    OPENAI_API_KEY: str = ""
     
     @field_validator("DEBUG", mode="before")
     @classmethod

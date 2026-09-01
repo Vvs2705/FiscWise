@@ -28,6 +28,8 @@ requests==2.32.3
 httpx==0.27.2
 python-dotenv==1.0.1
 
+# Feature #7 — Calculadora Fiscal com IA (OpenAI via httpx, no SDK needed)
+
 # Redis (Cache & Rate Limiting)
 redis==5.1.1
 hiredis==3.0.0

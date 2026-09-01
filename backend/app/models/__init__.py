@@ -15,6 +15,15 @@ from app.models.operations import (
     DeadlineItem,
     DigitalCertificate,
 )
+from app.models.calculator import (
+    CalculatorSimulation,
+    TaxScenario,
+    FiscalAssistantMessage,
+    FiscalBenefit,
+    SimulationType,
+    TaxRegime,
+    AssistantRole,
+)
 
 # Export all models and enums for easy importing
 __all__ = [
@@ -29,4 +38,12 @@ __all__ = [
     "ClientDocument",
     "DigitalCertificate",
     "AccountReceivable",
+    # Feature #7 — Calculadora Fiscal
+    "CalculatorSimulation",
+    "TaxScenario",
+    "FiscalAssistantMessage",
+    "FiscalBenefit",
+    "SimulationType",
+    "TaxRegime",
+    "AssistantRole",
 ]

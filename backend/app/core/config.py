@@ -166,6 +166,9 @@ class Settings(BaseSettings):
     # AI Services (optional — RAG engine removed in Phase 5)
     ANTHROPIC_API_KEY: str = ""
     VOYAGE_API_KEY: str = ""
+
+    # OpenAI (Feature #7 — Calculadora Fiscal com IA)
+    OPENAI_API_KEY: str = ""
     
     @field_validator("DEBUG", mode="before")
     @classmethod

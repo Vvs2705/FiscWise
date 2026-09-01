@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, calculator
 
 
 # Create main API router for v1
@@ -50,4 +50,11 @@ api_router.include_router(
     admin.router,
     prefix="/admin",
     tags=["Admin"]
+)
+
+# Include Feature #7 — Calculadora Fiscal com IA
+api_router.include_router(
+    calculator.router,
+    prefix="/calculator",
+    tags=["Calculator"]
 )

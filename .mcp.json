@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@henkey/postgres-mcp-server",
+        "--connection-string",
+        "postgresql://mcp_readonly:yL7m8GDpkZoGNnzPLf1ZZJs3MxwsPlS@db.lkgmgbieottygodrdubi.supabase.co:5432/postgres"
+      ]
+    }
+  }
+}

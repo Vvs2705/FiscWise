@@ -19,8 +19,11 @@ from app.core.config import settings
 from app.models.user import User, UserRole
 
 
+_CLIENT_PORTAL_PATHS = frozenset({"/api/v1/portal/my-data", "/api/v1/portal/my-overview"})
+
+
 def _client_path_allowed(path: str) -> bool:
-    return path.startswith("/api/v1/auth/") or path.rstrip("/") == "/api/v1/portal/my-data"
+    return path.startswith("/api/v1/auth/") or path.rstrip("/") in _CLIENT_PORTAL_PATHS
 
 logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { CommandMenu } from '@/components/ui/CommandMenu';
 import { RouteTitle } from '@/lib/RouteTitle';
+import { useAuthStore } from '@/stores/authStore';
 
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -39,6 +40,7 @@ const MonthlyClosingsPage       = lazy(() => import('@/pages/MonthlyClosingsPage
 const MonthlyClosingDetailPage  = lazy(() => import('@/pages/MonthlyClosingDetailPage').then(m => ({ default: m.MonthlyClosingDetailPage })));
 const PowersOfAttorneyPage      = lazy(() => import('@/pages/PowersOfAttorneyPage').then(m => ({ default: m.PowersOfAttorneyPage })));
 const ReportsPage               = lazy(() => import('@/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const PortalDashboardPage       = lazy(() => import('@/pages/PortalDashboardPage').then(m => ({ default: m.PortalDashboardPage })));
 const PortalClientePage         = lazy(() => import('@/pages/PortalClientePage').then(m => ({ default: m.PortalClientePage })));
 
 // ─── Feature module pages ───────────────────────────────────────────────────
@@ -49,6 +51,13 @@ const InvoiceEmitPage   = lazy(() => import('@/features/invoices/pages/InvoiceEm
 const EcacCentralPage   = lazy(() => import('@/features/ecac/pages/EcacCentralPage').then(m => ({ default: m.EcacCentralPage })));
 const GuiasListPage     = lazy(() => import('@/features/guias/pages/GuiasListPage').then(m => ({ default: m.GuiasListPage })));
 const GuiaDetailPage    = lazy(() => import('@/features/guias/pages/GuiaDetailPage').then(m => ({ default: m.GuiaDetailPage })));
+
+// Busca global (Ctrl+K) lista clientes e rotas da equipe: não existe para o
+// cliente do portal, que levaria 403 e cairia em telas que não pode abrir.
+function StaffCommandMenu() {
+  const role = useAuthStore((state) => state.user?.role);
+  return role === 'client' ? null : <CommandMenu />;
+}
 
 // Full-screen spinner shown while a lazy chunk is loading
 function PageLoader() {
@@ -114,7 +123,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <RouteTitle />
-          <CommandMenu />
+          <StaffCommandMenu />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public routes */}
@@ -123,6 +132,16 @@ function App() {
               <Route path="/portal/login" element={<PortalLoginPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
+
+              {/* Portal do cliente final (role client) — fora do layout da equipe */}
+              <Route
+                path="/portal/dashboard"
+                element={
+                  <ProtectedRoute area="portal">
+                    <PortalDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected app routes */}
               <Route

@@ -7,7 +7,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   setUser: (user: AuthUser | null) => void;
   updateUser: (partial: Partial<AuthUser>) => void;
-  logout: () => void;
+  logout: (redirectTo?: string) => void;
   checkAuth: () => void;
 }
 
@@ -25,8 +25,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.setItem('user', JSON.stringify(updated));
   },
 
-  logout: () => {
-    authLogout();
+  logout: (redirectTo) => {
+    authLogout(redirectTo);
     set({ user: null, isAuthenticated: false });
   },
 

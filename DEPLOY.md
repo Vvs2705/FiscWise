@@ -113,11 +113,10 @@ printf '%s' 'postgresql://...pooler.supabase.com:5432/postgres' | gcloud secrets
 openssl rand -hex 64 | tr -d '\n' | gcloud secrets create JWT_SECRET_KEY --data-file=-
 printf '%s' 'CHAVE_SERVICE_ROLE'  | gcloud secrets create SUPABASE_SECRET_KEY --data-file=-
 openssl rand -hex 32 | tr -d '\n' | gcloud secrets create CRON_SECRET --data-file=-
-printf '%s' 'rediss://...upstash.io:6379' | gcloud secrets create REDIS_URL --data-file=-
 ```
 
 Opcionais (crie quando for usar e liste em `CLOUD_RUN_EXTRA_SECRETS`, passo 6):
-`OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `MERCADO_PAGO_ACCESS_TOKEN`,
+`REDIS_URL` (sem ele o rate limit por Redis fica desligado e vale só o limite em memória do login), `OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `MERCADO_PAGO_ACCESS_TOKEN`,
 `MERCADO_PAGO_WEBHOOK_SECRET`, `WHATSAPP_WEBHOOK_SECRET`.
 
 Nunca coloque esses valores em `.env` versionado, `.mcp.json`, README ou chat.

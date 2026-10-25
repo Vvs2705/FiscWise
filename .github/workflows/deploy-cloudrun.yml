@@ -39,8 +39,8 @@ jobs:
       IMAGE: southamerica-east1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/fiscwise/fiscwise-api:${{ github.sha }}
       RUNTIME_SA: fiscwise-api@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
       # Segredos obrigatórios (precisam existir no Secret Manager).
-      REQUIRED_SECRETS: DATABASE_URL=DATABASE_URL:latest,JWT_SECRET_KEY=JWT_SECRET_KEY:latest,SUPABASE_SECRET_KEY=SUPABASE_SECRET_KEY:latest,CRON_SECRET=CRON_SECRET:latest,REDIS_URL=REDIS_URL:latest
-      # Opcionais, conforme forem criados (ex.: OPENAI_API_KEY=OPENAI_API_KEY:latest,SENTRY_DSN=SENTRY_DSN:latest).
+      REQUIRED_SECRETS: DATABASE_URL=DATABASE_URL:latest,JWT_SECRET_KEY=JWT_SECRET_KEY:latest,SUPABASE_SECRET_KEY=SUPABASE_SECRET_KEY:latest,CRON_SECRET=CRON_SECRET:latest
+      # Opcionais, conforme forem criados (ex.: REDIS_URL=REDIS_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest).
       EXTRA_SECRETS: ${{ vars.CLOUD_RUN_EXTRA_SECRETS }}
 
     steps:

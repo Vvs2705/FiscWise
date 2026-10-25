@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 import { useNavigate } from 'react-router-dom';
 import { useInvoices, useIssuers } from '../hooks/useInvoices';
 import { InvoiceStatusBadge } from '../components/InvoiceStatusBadge';
@@ -66,6 +67,10 @@ export function InvoicesListPage() {
 
   return (
     <div className="space-y-6">
+      <SimulationNotice>
+        A emissão de NFS-e ainda não está conectada à prefeitura. Notas "emitidas" aqui são simuladas
+        e não têm validade fiscal.
+      </SimulationNotice>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">

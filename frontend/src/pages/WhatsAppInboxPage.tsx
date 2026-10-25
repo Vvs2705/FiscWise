@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 import {
   useWhatsAppInboxes,
   useWhatsAppMessages,
@@ -154,7 +155,12 @@ export function WhatsAppInboxPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
+    <div className="space-y-3">
+      <SimulationNotice>
+        O envio pelo WhatsApp ainda não está conectado a um provedor. Mensagens marcadas como enviadas
+        não chegam ao cliente.
+      </SimulationNotice>
+    <div className="flex h-[calc(100vh-12rem)] gap-5 overflow-hidden">
       {/* LEFT COLUMN: INBOX THREADS */}
       <Card className="flex w-80 shrink-0 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
         <div className="border-b border-white/5 p-4 space-y-3">
@@ -565,6 +571,7 @@ export function WhatsAppInboxPage() {
           </div>
         </div>
       </Dialog>
+    </div>
     </div>
   );
 }

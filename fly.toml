@@ -40,7 +40,7 @@ type = "http"
 # Secrets — set via: flyctl secrets set KEY=value
 # JWT_SECRET_KEY       (required)
 # DATABASE_URL         (required)
-# SUPABASE_SERVICE_KEY (required)
+# SUPABASE_SECRET_KEY  (required — nome lido por config.py/storage.py)
 # OPENAI_API_KEY       (required — for fiscal calculator AI features)
 
 [[vm]]

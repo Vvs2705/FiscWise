@@ -40,7 +40,7 @@ Legenda: ✅ operacional · 🟡 parcial (função existe, sem automação exter
 ## 4. Stack Tecnológica
 
 ### Backend
-- **Python 3.14+**
+- **Python 3.12** (versão do CI e do Dockerfile; o `hiredis` fixado ainda não instala no 3.14)
 - **FastAPI** — Framework web assíncrono de alta performance
 - **SQLAlchemy 2.x (async)** & **asyncpg** — ORM assíncrono para PostgreSQL
 - **Alembic** — Gerenciamento e versionamento de migrações do banco
@@ -151,4 +151,4 @@ vercel --prod
 
 ## 9. Segurança e Isolamento Multi-Tenant
 
-O FiscWise foi arquitetado com isolamento rígido multi-tenant, garantindo que usuários de diferentes empresas contábeis nunca compartilhem ou acessem dados de terceiros. Para detalhes das políticas de segurança, histórico de auditoria e configurações de segurança de produção, acesse [docs/SECURITY_CORRECTIONS.md](file:///c:/Users/VINICIUS/Videos/MEUS%20PROJETOS/FiscWise/docs/SECURITY_CORRECTIONS.md).
+O FiscWise foi arquitetado com isolamento rígido multi-tenant, garantindo que usuários de diferentes empresas contábeis nunca compartilhem ou acessem dados de terceiros. Para detalhes das políticas de segurança, histórico de auditoria e configurações de segurança de produção, veja [docs/audit/AUDIT_FINDINGS.md](docs/audit/AUDIT_FINDINGS.md) e [docs/audit/RELEASE_READINESS.md](docs/audit/RELEASE_READINESS.md).

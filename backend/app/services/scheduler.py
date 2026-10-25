@@ -11,6 +11,13 @@ import pytz
 
 logger = logging.getLogger(__name__)
 
+# Competência, "dia 1" e D-n são datas de Brasília: em UTC o job do dia 1
+# às 02:00 caía às 23:00 do último dia do mês anterior.
+TZ_BR = pytz.timezone("America/Sao_Paulo")
+
+# Rotina que vale em toda máquina (memória do próprio processo).
+_PER_PROCESS_JOBS = {"cleanup_auth_rate_limiter"}
+
 scheduler: AsyncIOScheduler = None
 
 
@@ -24,31 +31,31 @@ def init_scheduler():
 def _job_definitions():
     """Rotinas agendadas (fonte única para os dois modos de execução).
 
-    Horários em UTC. Usado pelo APScheduler (SCHEDULER_MODE=internal) e pelo
+    Horários de negócio no fuso de Brasília. Usado pelo APScheduler (SCHEDULER_MODE=internal) e pelo
     tick externo do Cloud Scheduler (SCHEDULER_MODE=external).
     """
     return [
-        # Monthly billing generation on the 1st of each month at 2:00 AM UTC
+        # Monthly billing generation on the 1st of each month at 2:00 (Brasília)
         ("generate_monthly_billing", "Generate Monthly Billing",
          generate_monthly_billing_scheduled,
-         CronTrigger(day=1, hour=2, minute=0, timezone=pytz.UTC)),
-        # Obligation engine on the 1st of each month at 3:00 AM UTC
+         CronTrigger(day=1, hour=2, minute=0, timezone=TZ_BR)),
+        # Obligation engine on the 1st of each month at 3:00 (Brasília)
         # Runs after billing (2:00 AM) to avoid DB contention
         ("generate_obligations", "Generate Monthly Fiscal Obligations",
          generate_obligations_scheduled,
-         CronTrigger(day=1, hour=3, minute=0, timezone=pytz.UTC)),
-        # Weekly document pending notifications — every Monday at 09:00 AM UTC
+         CronTrigger(day=1, hour=3, minute=0, timezone=TZ_BR)),
+        # Weekly document pending notifications — every Monday at 09:00 (Brasília)
         ("notify_pending_documents", "Weekly Pending Document Notifications",
          notify_pending_documents_scheduled,
-         CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=pytz.UTC)),
+         CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=TZ_BR)),
         # Limpa entradas expiradas do rate limiter a cada hora (evita memory leak)
         ("cleanup_auth_rate_limiter", "Auth Rate Limiter Cleanup",
          cleanup_auth_rate_limiter,
          CronTrigger(minute=0, timezone=pytz.UTC)),
-        # Payment reminders daily at 8:00 AM UTC
+        # Payment reminders daily at 8:00 (Brasília)
         ("send_payment_reminders", "Send Payment Reminders",
          send_payment_reminders_scheduled,
-         CronTrigger(hour=8, minute=0, timezone=pytz.UTC)),
+         CronTrigger(hour=8, minute=0, timezone=TZ_BR)),
     ]
 
 
@@ -67,7 +74,13 @@ async def start_scheduler():
 
     init_scheduler()
 
+    # RUN_SCHEDULER=false (modo internal com 2+ máquinas): só a limpeza local roda
+    # aqui, senão cobrança e lembretes saem em dobro.
+    if not settings.RUN_SCHEDULER:
+        logger.info("RUN_SCHEDULER=false: jobs de negócio desligados nesta máquina")
     for job_id, name, func, trigger in _job_definitions():
+        if not settings.RUN_SCHEDULER and job_id not in _PER_PROCESS_JOBS:
+            continue
         scheduler.add_job(func, trigger, id=job_id, name=name, replace_existing=True)
 
     if not scheduler.running:
@@ -115,13 +128,13 @@ async def run_due_jobs(now: datetime | None = None) -> dict:
 async def generate_obligations_scheduled():
     """
     Scheduled task to generate monthly fiscal obligations.
-    Runs on the 1st of each month at 3:00 AM UTC.
+    Runs on the 1st of each month at 3:00 (Brasília).
     """
     from app.core.deps import get_sessionmaker
     from app.services.obligation_engine import generate_obligations_for_month
 
     try:
-        now = datetime.utcnow()
+        now = datetime.now(TZ_BR)
         # Generate for PREVIOUS month (we're on day 1 of the new month)
         if now.month == 1:
             year, month = now.year - 1, 12
@@ -192,7 +205,7 @@ async def generate_monthly_billing_scheduled():
 
         async with async_session() as db:
             # Get current month
-            now = datetime.utcnow()
+            now = datetime.now(TZ_BR)
             year, month = now.year, now.month
 
             # Get all tenants
@@ -277,7 +290,7 @@ async def send_payment_reminders_scheduled():
     try:
         async_session = get_sessionmaker()
         async with async_session() as db:
-            today = date.today()
+            today = datetime.now(TZ_BR).date()
             target_dates = [
                 today + timedelta(days=7),   # D-7
                 today + timedelta(days=3),   # D-3
@@ -297,7 +310,10 @@ async def send_payment_reminders_scheduled():
             result = await db.execute(stmt)
             receivables = result.scalars().all()
 
-            reminders_sent = 0
+            # ponytail: ainda não envia nada ao cliente; só registra o evento
+            # payment.reminder em audit_events. Envio real fica para o
+            # notification_engine quando houver e-mail/WhatsApp de produção.
+            reminders_logged = 0
             for receivable in receivables:
                 await audit_log(
                     action="payment.reminder",
@@ -310,11 +326,11 @@ async def send_payment_reminders_scheduled():
                         "status": receivable.status,
                     }
                 )
-                reminders_sent += 1
+                reminders_logged += 1
 
             logger.info(
                 f"Payment reminders scheduled task completed: "
-                f"emitted {reminders_sent} reminders."
+                f"{reminders_logged} lembretes registrados (envio ao cliente não implementado)."
             )
     except Exception as e:
         logger.error(f"Error in scheduled payment reminders: {str(e)}")

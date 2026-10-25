@@ -13,7 +13,7 @@ O produto não pode ser vendido ainda. Os dois riscos críticos de código (clie
 | Auth | Rate limit distribuído, OTP compartilhado, revogação de token | Limiter e OTP em memória | **Falha** | Redis ou equivalente |
 | CI | Gates de segurança bloqueiam | `ci.yml` alterado | OK após merge | — |
 | Funcionalidades honestas | Nada simulado apresentado como real | Avisos em e-CAC, NFS-e, WhatsApp | OK na tela | Integrações reais ou remover do plano |
-| Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Jobs no fuso de Brasília (leva 2); motor sem feriado | **Falha** | Correção + validação profissional |
+| Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Jobs e prioridade no fuso de Brasília; motor com dia útil e feriados nacionais/estaduais/capitais | **Parcial** | Validação profissional das regras |
 | Auditoria de ações | Ações financeiras registradas | `audit_log` grava em `audit_events` (leva 2) | OK | — |
 | Backup e restore | Restore testado | Sem acesso | **Não verificado** | Stack nova |
 | Hospedagem | Plano permite uso comercial; domínio canônico definido | Vercel Hobby não permite uso comercial; domínios divergentes | **Falha** | Decisão de stack |

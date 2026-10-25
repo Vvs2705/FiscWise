@@ -11,7 +11,7 @@ Entry points:
 import calendar
 import logging
 from datetime import date
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -27,6 +27,7 @@ from app.models.operations import AccountingClient
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.core.deps import _set_current_tenant_context
 from app.domain.obligations.rules import das, pgdas, dctfweb, efd_reinf, iss_municipal
+from app.domain.obligations.business_days import adjust_to_business_day, policy_for, today_br
 
 logger = logging.getLogger(__name__)
 
@@ -99,23 +100,41 @@ def get_applicable_rules(
     return result
 
 
-def compute_due_date(rule: ObligationRule, year: int, month: int) -> date:
-    """Calculate the due date for a rule in a given competence month."""
+def compute_due_date(
+    rule: ObligationRule,
+    year: int,
+    month: int,
+    uf: Optional[str] = None,
+    municipio_ibge: Optional[str] = None,
+) -> date:
+    """Calculate the due date for a rule in a given competence month.
+
+    The nominal day is moved to a business day (weekends and holidays) using
+    the rule's anticipate/postpone policy. Federal rules use the national
+    calendar; state and municipal rules add the client's UF/municipality.
+    """
     due_day = rule.due_day or 20
 
     # For yearly rules due in January, due date is in the same month
     if rule.recurrence == "yearly":
-        max_day = calendar.monthrange(year, month)[1]
-        return date(year, month, min(due_day, max_day))
-
+        next_year, next_month = year, month
     # Monthly / quarterly: due date is in the FOLLOWING month to give time
-    if month == 12:
+    elif month == 12:
         next_year, next_month = year + 1, 1
     else:
         next_year, next_month = year, month + 1
 
     max_day = calendar.monthrange(next_year, next_month)[1]
-    return date(next_year, next_month, min(due_day, max_day))
+    nominal = date(next_year, next_month, min(due_day, max_day))
+
+    jurisdiction = (rule.jurisdiction or "federal").lower()
+    if jurisdiction == "federal":
+        uf = municipio_ibge = None
+    elif jurisdiction != "municipal":
+        municipio_ibge = None
+    return adjust_to_business_day(
+        nominal, policy_for(rule.code), uf=uf or rule.state, municipio_ibge=municipio_ibge
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +280,11 @@ async def generate_obligations_for_month(
                         total_skipped += 1
                         continue
 
-                    due_date = compute_due_date(rule, year, month)
+                    due_date = compute_due_date(
+                        rule, year, month,
+                        uf=client_profile["uf"],
+                        municipio_ibge=client_profile["municipio_ibge"],
+                    )
 
                     instance = ObligationInstance(
                         tenant_id=tenant.id,
@@ -300,7 +323,7 @@ async def generate_obligations_for_month(
 
 def _compute_priority(rule: ObligationRule, due_date: date) -> str:
     """Compute initial priority based on rule jurisdiction and due date proximity."""
-    today = date.today()
+    today = today_br()
     days_until_due = (due_date - today).days
 
     if days_until_due <= 3:

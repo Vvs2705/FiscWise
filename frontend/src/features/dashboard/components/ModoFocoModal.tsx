@@ -157,8 +157,8 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
         });
         toast.success('Honorário marcado como pago!');
       } else if (currentTask.type === 'certificate') {
-        // Mock certificate notification/renewal trigger
-        toast.success('Lembrete enviado ao cliente!');
+        // ponytail: ainda não há envio real de lembrete de certificado; só marca a tarefa como vista.
+        toast.info('Tarefa marcada. O lembrete ao cliente ainda precisa ser enviado por você.');
       }
       setResolvedCount((prev) => prev + 1);
       handleNext();

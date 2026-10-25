@@ -221,3 +221,17 @@ export function WarningPanel({ title, description, children, variant = 'warning'
     </div>
   );
 }
+
+// ─── SimulationNotice ───────────────────────────────────────────────────────
+
+/** Aviso fixo para telas cujo provedor externo ainda é simulado. */
+export function SimulationNotice({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="note"
+      className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+    >
+      <strong className="font-semibold">Modo de demonstração.</strong> {children}
+    </div>
+  );
+}

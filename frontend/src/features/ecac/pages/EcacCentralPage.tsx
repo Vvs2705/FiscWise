@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 import { ProxiesListPage } from './ProxiesListPage';
 import { FiscalSituationPage } from './FiscalSituationPage';
 import { ShieldCheck, FileText, ClipboardList } from 'lucide-react';
@@ -8,6 +9,10 @@ export function EcacCentralPage() {
 
   return (
     <div className="space-y-6">
+      <SimulationNotice>
+        A consulta à Receita Federal ainda não está conectada. Situação fiscal, certidões e pendências
+        exibidas aqui são dados simulados e não valem como consulta oficial.
+      </SimulationNotice>
       <div className="border-b border-border/40 pb-2">
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />

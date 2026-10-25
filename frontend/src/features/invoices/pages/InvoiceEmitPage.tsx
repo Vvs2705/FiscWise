@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { PageSpinner, EmptyState } from '@/components/ui/StateViews';
 import { ArrowLeft, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 
 export function InvoiceEmitPage() {
   const { id = '' } = useParams();
@@ -47,6 +48,10 @@ export function InvoiceEmitPage() {
 
   return (
     <div className="space-y-6">
+      <SimulationNotice>
+        A emissão de NFS-e ainda não está conectada à prefeitura. Notas "emitidas" aqui são simuladas
+        e não têm validade fiscal.
+      </SimulationNotice>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/notas-fiscais/${id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />

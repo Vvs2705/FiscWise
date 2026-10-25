@@ -89,14 +89,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.PROTECTED_PATHS)
 
     def _get_client_ip(self, request: Request) -> str:
-        """Extract client IP from request, considering X-Forwarded-For header."""
-        # Check X-Forwarded-For header first (for proxy/load balancer)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
+        """Extract client IP from request (same trusted-proxy rule as auth)."""
+        from app.core.auth_rate_limiter import get_client_ip
 
-        # Fall back to direct client IP
-        return request.client.host if request.client else "unknown"
+        return get_client_ip(request)
 
     async def dispatch(self, request: Request, call_next):
         """Process request with rate limiting."""

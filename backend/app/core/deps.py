@@ -16,7 +16,11 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User, UserRole
+
+# Usuário CLIENT (portal) só alcança a própria conta e os próprios dados do
+# portal; todo o resto é rota de equipe do escritório.
+_CLIENT_ALLOWED_PREFIXES = ("/api/v1/auth/", "/api/v1/portal/my-data")
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +232,12 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user account"
+        )
+
+    if user.role == UserRole.CLIENT and not request.url.path.startswith(_CLIENT_ALLOWED_PREFIXES):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client portal users cannot access office routes"
         )
 
     return user

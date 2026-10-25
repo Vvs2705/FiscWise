@@ -108,7 +108,7 @@ export function Header() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={logout}
+          onClick={() => logout()}
           aria-label="Sair da conta"
           className="text-muted-foreground hover:text-foreground"
         >

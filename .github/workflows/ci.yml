@@ -105,6 +105,9 @@ jobs:
       - name: TypeScript check
         run: npm run type-check
 
+      - name: Vitest
+        run: npm test
+
       - name: Vite build
         run: npm run build
 

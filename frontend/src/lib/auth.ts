@@ -130,11 +130,11 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   return response.data;
 }
 
-export function logout(): void {
+export function logout(redirectTo = '/login'): void {
   localStorage.removeItem('access_token');
   localStorage.removeItem('tenant_id');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  window.location.href = redirectTo;
 }
 
 export function isAuthenticated(): boolean {

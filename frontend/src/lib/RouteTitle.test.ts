@@ -23,6 +23,11 @@ describe('resolveTitle', () => {
     expect(resolveTitle('/notas-fiscais')).toBe('Notas Fiscais · FiscWise');
   });
 
+  it('separa o portal do cliente final da prévia da equipe', () => {
+    expect(resolveTitle('/portal/dashboard')).toBe('Meu Portal · FiscWise');
+    expect(resolveTitle('/portal')).toBe('Portal do Cliente · FiscWise');
+  });
+
   it('falls back to the brand title for unmapped routes', () => {
     expect(resolveTitle('/rota-inexistente')).toBe('FiscWise — Gestão Contábil Inteligente');
   });

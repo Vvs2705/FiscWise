@@ -327,46 +327,24 @@ async def get_my_data(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/preview/{client_id}")
-async def get_portal_preview(
-    client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Aggregated portal view for one client, as office staff sees it.
+async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: AccountingClient) -> dict:
+    """Agrega o que o portal mostra de UM cliente.
 
-    Powers the internal /portal page ("Modo preview"): client identity, latest
-    monthly closing, requested documents, tax guides and open pendencies.
-    CLIENT-role users must use /portal/my-data instead.
+    Toda consulta filtra por client.id E tenant_id: quem chama já resolveu
+    `client` dentro do escritório certo, e aqui nada vaza de outro cliente.
     """
     from app.models.operations import ClientDocument, DeadlineItem
     from app.domain.guias.models import TaxGuide
     from app.domain.monthly_closing.models import MonthlyClosing
 
-    if current_user.role == UserRole.CLIENT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Use /portal/my-data for client accounts",
-        )
-
-    result = await db.execute(
-        select(AccountingClient).where(
-            and_(
-                AccountingClient.id == client_id,
-                AccountingClient.tenant_id == current_user.tenant_id,
-            )
-        )
-    )
-    client = result.scalar_one_or_none()
-    if not client:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    client_id = client.id
 
     closing_result = await db.execute(
         select(MonthlyClosing)
         .where(
             and_(
                 MonthlyClosing.client_id == client_id,
-                MonthlyClosing.tenant_id == current_user.tenant_id,
+                MonthlyClosing.tenant_id == tenant_id,
             )
         )
         .order_by(MonthlyClosing.competence.desc())
@@ -379,7 +357,7 @@ async def get_portal_preview(
         .where(
             and_(
                 ClientDocument.client_id == client_id,
-                ClientDocument.tenant_id == current_user.tenant_id,
+                ClientDocument.tenant_id == tenant_id,
             )
         )
         .order_by(ClientDocument.created_at.desc())
@@ -392,7 +370,7 @@ async def get_portal_preview(
         .where(
             and_(
                 TaxGuide.client_id == client_id,
-                TaxGuide.tenant_id == current_user.tenant_id,
+                TaxGuide.tenant_id == tenant_id,
             )
         )
         .order_by(TaxGuide.vencimento.desc())
@@ -405,7 +383,7 @@ async def get_portal_preview(
         .where(
             and_(
                 DeadlineItem.client_id == client_id,
-                DeadlineItem.tenant_id == current_user.tenant_id,
+                DeadlineItem.tenant_id == tenant_id,
                 DeadlineItem.status == "pending",
             )
         )
@@ -460,6 +438,73 @@ async def get_portal_preview(
             for p in pendencies
         ],
     }
+
+
+@router.get("/preview/{client_id}")
+async def get_portal_preview(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated portal view for one client, as office staff sees it.
+
+    Powers the internal /portal page ("Modo preview"): client identity, latest
+    monthly closing, requested documents, tax guides and open pendencies.
+    CLIENT-role users must use /portal/my-overview instead.
+    """
+    if current_user.role == UserRole.CLIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Use /portal/my-overview for client accounts",
+        )
+
+    result = await db.execute(
+        select(AccountingClient).where(
+            and_(
+                AccountingClient.id == client_id,
+                AccountingClient.tenant_id == current_user.tenant_id,
+            )
+        )
+    )
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+    return await _portal_payload(db, current_user.tenant_id, client)
+
+
+@router.get("/my-overview")
+async def get_my_overview(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Portal do cliente final: o mesmo agregado do preview, só do próprio cliente.
+
+    Não recebe client_id: o cliente é resolvido pelo portal_user_id do usuário
+    logado, então não há como pedir dados de outro cliente do escritório.
+    """
+    if current_user.role != UserRole.CLIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is only for client users",
+        )
+
+    result = await db.execute(
+        select(AccountingClient).where(
+            and_(
+                AccountingClient.portal_user_id == current_user.id,
+                AccountingClient.tenant_id == current_user.tenant_id,
+            )
+        )
+    )
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No client data found for this user",
+        )
+
+    return await _portal_payload(db, current_user.tenant_id, client)
 
 
 # ---------------------------------------------------------------------------

@@ -40,7 +40,7 @@ export interface PortalPreview {
   pendencies: PortalPreviewPendency[];
 }
 
-interface ApiPortalPreview {
+export interface ApiPortalPreview {
   client: { id: string; name: string; document: string | null };
   closing: PortalPreviewClosing | null;
   documents: { id: string; name: string; status: string; requested_at: string | null }[];
@@ -48,8 +48,7 @@ interface ApiPortalPreview {
   pendencies: PortalPreviewPendency[];
 }
 
-export async function fetchPortalPreview(clientId: string): Promise<PortalPreview> {
-  const { data } = await api.get<ApiPortalPreview>(`/api/v1/portal/preview/${clientId}`);
+export function mapPortalPreview(data: ApiPortalPreview): PortalPreview {
   return {
     client: data.client,
     closing: data.closing,
@@ -62,4 +61,15 @@ export async function fetchPortalPreview(clientId: string): Promise<PortalPrevie
     guides: data.guides,
     pendencies: data.pendencies,
   };
+}
+
+export async function fetchPortalPreview(clientId: string): Promise<PortalPreview> {
+  const { data } = await api.get<ApiPortalPreview>(`/api/v1/portal/preview/${clientId}`);
+  return mapPortalPreview(data);
+}
+
+/** Portal do cliente final: o backend resolve o cliente pelo usuário logado. */
+export async function fetchMyPortal(): Promise<PortalPreview> {
+  const { data } = await api.get<ApiPortalPreview>('/api/v1/portal/my-overview');
+  return mapPortalPreview(data);
 }

@@ -75,13 +75,20 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
+      let wasPortalClient = false;
+      try {
+        wasPortalClient = JSON.parse(localStorage.getItem('user') ?? 'null')?.role === 'client';
+      } catch {
+        // user corrompido no storage: trata como equipe
+      }
+
       // Clear auth data
       localStorage.removeItem('access_token');
       localStorage.removeItem('tenant_id');
       localStorage.removeItem('user');
       
-      // Redirect to login
-      window.location.href = '/login';
+      // Cliente do portal entra por link mágico, não pela tela da equipe
+      window.location.href = wasPortalClient ? '/portal/login' : '/login';
     }
     
     return Promise.reject(error);

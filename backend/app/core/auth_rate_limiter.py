@@ -214,9 +214,103 @@ class _AuthRateLimiter:
         return removed
 
 
+# ─── Versão compartilhada (Redis) ─────────────────────────────────────────────
+
+class _RedisAuthRateLimiter(_AuthRateLimiter):
+    """Mesma interface, contadores no Redis: o limite vale somado entre todas as
+    instâncias do Cloud Run (em memória, cada instância nova zerava a conta).
+
+    Se o Redis falhar, cai para a memória do processo (nunca trava o login de
+    todo mundo por causa do cache).
+    ponytail: cliente síncrono — poucos ms por chamada só nas rotas de auth;
+    trocar por redis.asyncio se o volume de login crescer.
+    """
+
+    def __init__(self, client):
+        super().__init__()
+        self._r = client
+
+    def _check(self, kind: str, key: str, fallback, detail: str) -> None:
+        try:
+            secs = self._r.ttl(f"rl:{kind}:{key}:lock")
+        except Exception as exc:
+            logger.warning("Redis indisponível no rate limit (%s); usando memória", exc)
+            return fallback(key)
+        if secs and secs > 0:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=detail.format(min=secs // 60 + 1),
+                headers={"Retry-After": str(secs)},
+            )
+
+    def _fail(self, kind: str, key: str, fallback, max_attempts: int, window: int, lockout: int) -> None:
+        try:
+            n = self._r.incr(f"rl:{kind}:{key}:n")
+            if n == 1:
+                self._r.expire(f"rl:{kind}:{key}:n", window * 60)
+            if n >= max_attempts:
+                self._r.set(f"rl:{kind}:{key}:lock", "1", ex=lockout * 60)
+                self._r.delete(f"rl:{kind}:{key}:n")
+                logger.warning("%s=%s BLOQUEADO por %d min (Redis)", kind, key, lockout)
+        except Exception as exc:
+            logger.warning("Redis indisponível no rate limit (%s); usando memória", exc)
+            fallback(key)
+
+    def _reset(self, kind: str, key: str, fallback) -> None:
+        try:
+            self._r.delete(f"rl:{kind}:{key}:n", f"rl:{kind}:{key}:lock")
+        except Exception:
+            fallback(key)
+
+    def check_login_ip(self, ip: str) -> None:
+        self._check("login", ip, super().check_login_ip,
+                    "Muitas tentativas de login. Tente novamente em {min} minuto(s).")
+
+    def record_login_failure(self, ip: str) -> None:
+        self._fail("login", ip, super().record_login_failure,
+                   LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MINUTES, LOGIN_LOCKOUT_MINUTES)
+
+    def record_login_success(self, ip: str) -> None:
+        self._reset("login", ip, super().record_login_success)
+
+    def check_otp_user(self, user_id: str) -> None:
+        self._check("otp", user_id, super().check_otp_user,
+                    "Muitas tentativas incorretas. Por segurança, sua conta foi temporariamente "
+                    "bloqueada. Tente novamente em {min} minuto(s).")
+
+    def record_otp_failure(self, user_id: str) -> None:
+        self._fail("otp", user_id, super().record_otp_failure,
+                   OTP_MAX_ATTEMPTS, OTP_WINDOW_MINUTES, OTP_LOCKOUT_MINUTES)
+
+    def record_otp_success(self, user_id: str) -> None:
+        self._reset("otp", user_id, super().record_otp_success)
+
+    def get_otp_remaining_attempts(self, user_id: str) -> int:
+        try:
+            if (self._r.ttl(f"rl:otp:{user_id}:lock") or 0) > 0:
+                return 0
+            return max(0, OTP_MAX_ATTEMPTS - int(self._r.get(f"rl:otp:{user_id}:n") or 0))
+        except Exception:
+            return super().get_otp_remaining_attempts(user_id)
+
+
+def _redis_client():
+    """Cliente Redis síncrono se REDIS_URL estiver definido; senão None."""
+    from app.core.config import settings
+
+    if not settings.REDIS_URL:
+        return None
+    import redis
+
+    return redis.Redis.from_url(
+        settings.REDIS_URL, decode_responses=True, socket_timeout=2, socket_connect_timeout=2
+    )
+
+
 # ─── Singleton global ─────────────────────────────────────────────────────────
 
-auth_rate_limiter = _AuthRateLimiter()
+_redis = _redis_client()
+auth_rate_limiter = _RedisAuthRateLimiter(_redis) if _redis else _AuthRateLimiter()
 
 
 # ─── Helpers para uso nos endpoints ───────────────────────────────────────────

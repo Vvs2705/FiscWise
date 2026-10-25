@@ -192,12 +192,12 @@ async def generate_monthly_billing_scheduled():
     Scheduled task to generate monthly billing.
     Runs on the 1st of each month.
     """
-    from sqlalchemy import select, and_
+    from sqlalchemy import select, and_, or_
     import calendar
 
     from app.core.deps import _set_current_tenant_context, get_sessionmaker
     from app.models.operations import AccountingClient, AccountReceivable
-    from app.models.tenant import Tenant
+    from app.models.tenant import SubscriptionStatus, Tenant
 
     try:
         # Get shared database sessionmaker
@@ -209,7 +209,13 @@ async def generate_monthly_billing_scheduled():
             year, month = now.year, now.month
 
             # Get all tenants
-            result = await db.execute(select(Tenant).where(Tenant.is_active == True))
+            # Tenant.is_active é um MÉTODO: `Tenant.is_active == True` virava where(False)
+            # e a cobrança mensal nunca gerava nada, sem erro nenhum.
+            result = await db.execute(
+                select(Tenant).where(
+                    Tenant.subscription_status.in_([SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE])
+                )
+            )
             tenants = result.scalars().all()
 
             total_created = 0
@@ -230,34 +236,38 @@ async def generate_monthly_billing_scheduled():
                 clients = result.scalars().all()
 
                 for client in clients:
-                    # Check if invoice already exists for this month
+                    # Idempotência pela competência (índice único no banco); o
+                    # LIKE na descrição segue para honorários gerados antes da coluna.
+                    competence = f"{year:04d}-{month:02d}"
                     existing = await db.execute(
-                        select(AccountReceivable).where(
+                        select(AccountReceivable.id).where(
                             and_(
                                 AccountReceivable.tenant_id == tenant.id,
                                 AccountReceivable.client_id == client.id,
-                                AccountReceivable.description.like(
-                                    f"Honorários - {year:04d}-{month:02d}%"
-                                )
+                                or_(
+                                    AccountReceivable.competence == competence,
+                                    AccountReceivable.description.like(f"Honorários - {competence}%"),
+                                ),
                             )
-                        )
+                        ).limit(1)
                     )
 
-                    if existing.scalar_one_or_none():
+                    if existing.scalar_one_or_none() is not None:
                         total_skipped += 1
                         continue
 
                     # Calculate due date
                     from datetime import date
                     max_day = calendar.monthrange(year, month)[1]
-                    due_day = min(client.billing_day, max_day)
+                    due_day = min(client.billing_day or max_day, max_day)
                     due_date = date(year, month, due_day)
 
                     # Create receivable
                     receivable = AccountReceivable(
                         tenant_id=tenant.id,
                         client_id=client.id,
-                        description=f"Honorários - {year:04d}-{month:02d}",
+                        description=f"Honorários - {competence}",
+                        competence=competence,
                         amount=client.monthly_fee,
                         due_date=due_date,
                         status="pending",

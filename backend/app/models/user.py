@@ -11,10 +11,11 @@ Each user belongs to a single tenant and has a specific role within that organiz
 """
 
 import uuid
+from datetime import datetime
 from typing import Optional
 import enum
 
-from sqlalchemy import String, UUID as SQLUUID, ForeignKey, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy import DateTime, String, UUID as SQLUUID, ForeignKey, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TenantBase
@@ -111,6 +112,10 @@ class User(Base, TenantBase):
     )
 
     # ── Two-Factor Authentication (2FA) ──────────────────────────────────────
+    # Tokens com iat anterior a este instante são recusados (troca de senha).
+    tokens_valid_after: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     two_factor_enabled: Mapped[bool] = mapped_column(
         nullable=False,
         default=False,

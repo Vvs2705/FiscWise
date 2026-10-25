@@ -870,5 +870,15 @@ async def change_password(
     if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Senha atual incorreta")
     current_user.hashed_password = get_password_hash(body.new_password)
+    # Derruba sessões abertas com a senha antiga (token roubado deixa de valer);
+    # esta sessão recebe um token novo.
+    current_user.tokens_valid_after = datetime.now(timezone.utc).replace(microsecond=0)
     await db.commit()
-    return {"message": "Senha alterada com sucesso"}
+    return {
+        "message": "Senha alterada com sucesso",
+        "access_token": create_access_token(
+            user_id=str(current_user.id),
+            tenant_id=str(current_user.tenant_id),
+            role=current_user.role.value,
+        ),
+    }

@@ -39,7 +39,7 @@ Nenhum vazamento entre escritórios diferentes (A lendo B) foi encontrado: todas
 | SEC-2 | Webhook do WhatsApp público sem autenticação: quem sabe o UUID do escritório injeta mensagens e tarefas | `endpoints/whatsapp.py` | **Corrigido**: exige `X-Webhook-Secret` (`WHATSAPP_WEBHOOK_SECRET`); sem segredo responde 503 em produção. Teste `test_webhook_fail_closed.py` |
 | SEC-3 | Webhook Mercado Pago aceitava tudo sem secret, inclusive em produção | `services/mercadopago.py` | **Corrigido**: fail-closed fora de dev, igual ao Asaas |
 | SEC-5 | Falha na consulta ao MP gravava o evento; o reenvio caía em `already_processed` e o plano nunca ativava | `endpoints/billing.py` | **Corrigido**: rollback + 503 para o MP reenviar. Teste `test_mp_webhook_retry.py` |
-| SEC-4 | Rate limit de login por IP driblável trocando o `X-Forwarded-For` | `core/auth_rate_limiter.py` | **Corrigido** (usa a última entrada do XFF, que o Cloud Run acrescenta; `Fly-Client-IP` ignorado). Teste `tests/unit/test_client_ip.py`. **Pendente**: limiter é em memória (não vale com 2+ máquinas) e não cobre `/onboarding/register`, `/auth/google`, `resend-2fa`, `2fa/confirm-email` |
+| SEC-4 | Rate limit de login por IP driblável trocando o `X-Forwarded-For` | `core/auth_rate_limiter.py` | **Corrigido (leva 3)**: IP confiável do Cloud Run; contadores no Redis quando há `REDIS_URL` (somam entre instâncias, caem para memória se o Redis falhar); cadastro limitado por IP. Testes `unit/test_client_ip.py`, `unit/test_redis_auth_limits.py`, `test_register_rate_limit.py` |
 | SEC-14 | Gates de segurança do CI com `continue-on-error` (por isso o SEC-1 passou) | `.github/workflows/ci.yml` | **Corrigido**: Gitleaks e pip-audit bloqueiam; npm audit bloqueia em critical; Bandit rotulado informativo; `permissions: contents: read` |
 | DEP-1 | `python-multipart` 0.0.12 (14 avisos, parsing de upload), `python-jose` 3.3.0, `python-dotenv` 1.0.1, 12 avisos high no npm | `requirements.txt`, `package-lock.json` | **Corrigido** (atualizações sem quebra, suíte verde) |
 | UX-4 | WhatsApp marca mensagem como enviada sem provedor | `services/whatsapp_service.py:99` | **Corrigido na tela** (aviso). Status "enviada" no backend pendente |
@@ -50,23 +50,23 @@ Nenhum vazamento entre escritórios diferentes (A lendo B) foi encontrado: todas
 | DB-1 | `audit_log()` dos domínios financeiros é stub (só `logger.debug`): guias, notas, fechamento não são auditados | `app/core/audit.py` | **Corrigido (leva 2)**: grava em `audit_events` em sessão própria. Teste `test_domain_audit_log.py` |
 | DB-2 | Scheduler sem trava entre máquinas: com 2+ instâncias, cobrança e lembretes rodam em dobro | `services/scheduler.py` | **Corrigido (leva 2)**: `RUN_SCHEDULER=false` desliga os jobs de negócio numa máquina. Teste `unit/test_scheduler_config.py` |
 | DB-3 | Lembretes de cobrança não enviam nada e contam como enviados | `services/scheduler.py:239` | **Corrigido em parte (leva 2)**: o evento fica registrado e o log não diz mais "enviados". Envio real pendente |
-| DB-4 | CNPJ/CPF sem unicidade por escritório | `models/operations.py:54` | Pendente (precisa deduplicar antes da constraint) |
+| DB-4 | CNPJ/CPF sem unicidade por escritório | `models/operations.py:54` | **Corrigido (leva 3)**: índice único parcial (migration `l7f489e16dh3`) e 409 em vez de 500. Teste `test_client_document_unique.py` |
 
 ## P2
 
 | ID | Achado | Evidência | Estado |
 |---|---|---|---|
-| SEC-6 | Boot em produção só falha se `DATABASE_URL`/`JWT_SECRET_KEY` faltarem; valor fraco/placeholder só gera log | `main.py:65`, `config.py:142` | Pendente (`ENVIRONMENT=production` está no `fly.toml`) |
-| SEC-7 | OTP de e-mail em memória por processo; `/2fa/confirm-email` sem limite de tentativas | `endpoints/auth.py:59,634` | **Corrigido em parte (leva 2)**: `/2fa/confirm-email` com limite (teste `test_confirm_email_2fa_rate_limit.py`). OTP em memória pendente |
+| SEC-6 | Boot em produção só falha se `DATABASE_URL`/`JWT_SECRET_KEY` faltarem; valor fraco/placeholder só gera log | `main.py:65`, `config.py:142` | **Corrigido (leva 3)**: JWT curto ou de exemplo aborta o boot em produção. Teste `unit/test_weak_secrets.py` |
+| SEC-7 | OTP de e-mail em memória por processo; `/2fa/confirm-email` sem limite de tentativas | `endpoints/auth.py:59,634` | **Corrigido (levas 2 e 3)**: limite no `/2fa/confirm-email`; OTP no Redis com TTL e consumo atômico |
 | SEC-8 | JWT sem `iss`/`aud`/revogação; logout no-op; troca de senha não invalida token | `core/security.py` | Pendente |
-| SEC-12 | Cadastro revela se o e-mail já existe | `endpoints/onboarding.py:63` | Pendente |
+| SEC-12 | Cadastro revela se o e-mail já existe | `endpoints/onboarding.py:63` | **Mitigado (leva 3)**: cadastro limitado a 10 por IP a cada 15 min. Resposta ainda revela e-mail existente (mudar exige confirmação por e-mail) |
 | SEC-13 | Convite do portal usa só o UUID como segredo; aceite não atômico; `portal_user_id` lido antes do flush | `endpoints/portal.py:134-264` | **Corrigido em parte (leva 2)**: `POST /invites` dava 500 e o aceite não vinculava o cliente; os dois corrigidos (teste `test_portal_invite_accept.py`). Token aleatório no convite pendente |
 | TEN-4 | Contexto de RLS (`set_config` local) some após `commit`; policies com `OR … IS NULL` liberam tudo nesse intervalo | `deps.py:131`, `20260525j` | Pendente |
 | TEN-5 | Upload de documentos sem limite de tamanho/MIME e com URL pública do bucket | `endpoints/operations.py:1071` | **Corrigido em parte (leva 2)**: allowlist de tipo, teto de 20 MB, `.pfx/.p12` fora (teste `test_document_upload_limits.py`). Bucket privado + URL assinada pendente |
 | TEN-6 | `POST /clients/{id}/documents` grava URL placeholder e não guarda o arquivo | `operations.py:1609` | Pendente |
 | TEN-7 | `client_id` do payload não validado contra o escritório em guias, e-CAC, notas, obrigações | vários `domain/*/service.py` | **Corrigido (leva 2)**: `ensure_client_in_tenant` nos cadastros. Teste `test_cross_tenant_client_ref.py` |
 | DB-5/6/7 | Idempotência de cobrança por `LIKE`; datas em UTC/naive (job do dia 1 roda dia 30/31 no horário de Brasília); prazos sem dia útil/feriado | `scheduler.py`, `obligation_engine.py` | Fuso **corrigido (leva 2)**: jobs no horário de Brasília. Idempotência por `LIKE` e dia útil/feriado pendentes — **validar com contador** |
-| DB-8 | Preço de plano e conversão para centavos em `float` | `core/pricing.py:47`, `mercadopago.py` | Pendente (models usam `Numeric`) |
+| DB-8 | Preço de plano e conversão para centavos em `float` | `core/pricing.py:47`, `mercadopago.py` | **Aceito**: `_round2` já evita o arredondamento meio-par e o selfcheck cobre os preços atuais; migrar para `Decimal` se surgir preço com fração de centavo |
 | OPS-1 | Domínios divergentes: `api.fiscwise.com.br` no código, `fiscwise.fly.dev` no frontend; CORS inclui `frontend-v-stack-solution.vercel.app` | `config.py:160`, `api.ts:5`, `fly.toml:20` | Pendente (depende da stack nova) |
 | OPS-3/4 | README dizia Python 3.14+ e linkava arquivo local `file:///` | `README.md` | **Corrigido** |
 | UX-5/6 | URL inventada `fiscwise.storage` na CND; toast "Lembrete enviado" sem envio | `ClientDetailCockpit.tsx:1599`, `ModoFocoModal.tsx:161` | Toast **corrigido**; URL pendente |

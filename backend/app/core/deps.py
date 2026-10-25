@@ -7,6 +7,7 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 import logging
 import re
 import uuid
+from datetime import timezone
 from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -201,6 +202,7 @@ async def get_current_user(
             token_tenant_id = uuid.UUID(token_tenant_id_str)
         except ValueError:
             raise credentials_exception
+        token_iat = payload.get("iat")
             
     except JWTError:
         raise credentials_exception
@@ -217,6 +219,14 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     
+    # Token emitido antes da última troca de senha não vale mais.
+    valid_after = getattr(user, "tokens_valid_after", None)
+    if valid_after is not None:
+        if valid_after.tzinfo is None:  # SQLite devolve sem fuso
+            valid_after = valid_after.replace(tzinfo=timezone.utc)
+        if token_iat is None or token_iat < int(valid_after.timestamp()):
+            raise credentials_exception
+
     # Ensure token tenant_id matches user tenant ownership
     if token_tenant_id != user.tenant_id:
         raise credentials_exception

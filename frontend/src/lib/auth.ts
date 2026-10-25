@@ -250,5 +250,7 @@ export async function updateTenant(data: UpdateTenantData): Promise<TenantData> 
 }
 
 export async function changePassword(data: ChangePasswordData): Promise<void> {
-  await api.post('/api/v1/auth/change-password', data);
+  // A troca de senha invalida os tokens antigos; o backend devolve um novo.
+  const { data: res } = await api.post<{ access_token?: string }>('/api/v1/auth/change-password', data);
+  if (res.access_token) localStorage.setItem('access_token', res.access_token);
 }

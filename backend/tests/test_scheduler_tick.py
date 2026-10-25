@@ -16,14 +16,15 @@ def _utc(*args):
 @pytest.mark.parametrize(
     "now, expected",
     [
+        # Horários de negócio em Brasília (UTC-3): 02h BRT = 05h UTC.
         # 1º do mês, 02h: cobrança mensal + limpeza
-        (_utc(2026, 11, 1, 2, 0), {"generate_monthly_billing", "cleanup_auth_rate_limiter"}),
+        (_utc(2026, 11, 1, 5, 0), {"generate_monthly_billing", "cleanup_auth_rate_limiter"}),
         # 1º do mês, 03h17 (tick atrasado ainda pega a hora): obrigações
-        (_utc(2026, 11, 1, 3, 17), {"generate_obligations", "cleanup_auth_rate_limiter"}),
+        (_utc(2026, 11, 1, 6, 17), {"generate_obligations", "cleanup_auth_rate_limiter"}),
         # segunda-feira 09h: documentos pendentes
-        (_utc(2026, 11, 2, 9, 0), {"notify_pending_documents", "cleanup_auth_rate_limiter"}),
+        (_utc(2026, 11, 2, 12, 0), {"notify_pending_documents", "cleanup_auth_rate_limiter"}),
         # todo dia 08h: lembretes de pagamento
-        (_utc(2026, 11, 4, 8, 0), {"send_payment_reminders", "cleanup_auth_rate_limiter"}),
+        (_utc(2026, 11, 4, 11, 0), {"send_payment_reminders", "cleanup_auth_rate_limiter"}),
         # hora comum: só a limpeza
         (_utc(2026, 11, 4, 15, 0), {"cleanup_auth_rate_limiter"}),
     ],
@@ -33,7 +34,7 @@ def test_due_job_ids_matches_cron_definitions(now, expected):
 
 
 def test_due_job_ids_treats_naive_datetime_as_utc():
-    assert "send_payment_reminders" in scheduler.due_job_ids(datetime(2026, 11, 4, 8, 30))
+    assert "send_payment_reminders" in scheduler.due_job_ids(datetime(2026, 11, 4, 11, 30))
 
 
 @pytest.mark.asyncio
@@ -57,7 +58,7 @@ async def test_run_due_jobs_runs_only_due_jobs_and_survives_errors(monkeypatch):
 
     monkeypatch.setattr(scheduler, "_job_definitions", fake_definitions)
 
-    result = await scheduler.run_due_jobs(_utc(2026, 11, 4, 8, 0))
+    result = await scheduler.run_due_jobs(_utc(2026, 11, 4, 11, 0))
 
     assert result["jobs"] == {"send_payment_reminders": "error", "cleanup_auth_rate_limiter": "ok"}
     assert calls == ["ok"]

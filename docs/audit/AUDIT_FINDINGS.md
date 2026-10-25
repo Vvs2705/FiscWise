@@ -15,7 +15,7 @@ Decisão de lançamento: [RELEASE_READINESS.md](RELEASE_READINESS.md).
 | `npm audit` | 21 avisos (12 high) → 6 (1 high: `zod` 3) |
 | `pip-audit` | 26 avisos → 3, todos sem correção disponível ou só de teste (ver `ci.yml`) |
 | Banco | Testes usam SQLite: RLS do PostgreSQL **nunca é exercida** pela suíte |
-| Produção | Não auditada. Só a configuração versionada (sem acesso a Fly, Vercel, Supabase) |
+| Produção | Não auditada. Só a configuração versionada (sem acesso a Cloud Run, Cloudflare, Supabase) |
 
 Método: leitura estática por domínio (auth/segredos, multi-tenant, banco/regras, deploy/frontend), cada achado conferido no código; os corrigidos ganharam teste que falha antes e passa depois.
 
@@ -39,11 +39,11 @@ Nenhum vazamento entre escritórios diferentes (A lendo B) foi encontrado: todas
 | SEC-2 | Webhook do WhatsApp público sem autenticação: quem sabe o UUID do escritório injeta mensagens e tarefas | `endpoints/whatsapp.py` | **Corrigido**: exige `X-Webhook-Secret` (`WHATSAPP_WEBHOOK_SECRET`); sem segredo responde 503 em produção. Teste `test_webhook_fail_closed.py` |
 | SEC-3 | Webhook Mercado Pago aceitava tudo sem secret, inclusive em produção | `services/mercadopago.py` | **Corrigido**: fail-closed fora de dev, igual ao Asaas |
 | SEC-5 | Falha na consulta ao MP gravava o evento; o reenvio caía em `already_processed` e o plano nunca ativava | `endpoints/billing.py` | **Corrigido**: rollback + 503 para o MP reenviar. Teste `test_mp_webhook_retry.py` |
-| SEC-4 | Rate limit de login por IP driblável trocando o `X-Forwarded-For` | `core/auth_rate_limiter.py` | **Corrigido** (usa `Fly-Client-IP` / última entrada do XFF). Teste `tests/unit/test_client_ip.py`. **Pendente**: limiter é em memória (não vale com 2+ máquinas) e não cobre `/onboarding/register`, `/auth/google`, `resend-2fa`, `2fa/confirm-email` |
+| SEC-4 | Rate limit de login por IP driblável trocando o `X-Forwarded-For` | `core/auth_rate_limiter.py` | **Corrigido** (usa a última entrada do XFF, que o Cloud Run acrescenta; `Fly-Client-IP` ignorado). Teste `tests/unit/test_client_ip.py`. **Pendente**: limiter é em memória (não vale com 2+ máquinas) e não cobre `/onboarding/register`, `/auth/google`, `resend-2fa`, `2fa/confirm-email` |
 | SEC-14 | Gates de segurança do CI com `continue-on-error` (por isso o SEC-1 passou) | `.github/workflows/ci.yml` | **Corrigido**: Gitleaks e pip-audit bloqueiam; npm audit bloqueia em critical; Bandit rotulado informativo; `permissions: contents: read` |
 | DEP-1 | `python-multipart` 0.0.12 (14 avisos, parsing de upload), `python-jose` 3.3.0, `python-dotenv` 1.0.1, 12 avisos high no npm | `requirements.txt`, `package-lock.json` | **Corrigido** (atualizações sem quebra, suíte verde) |
 | UX-4 | WhatsApp marca mensagem como enviada sem provedor | `services/whatsapp_service.py:99` | **Corrigido na tela** (aviso). Status "enviada" no backend pendente |
-| OPS-2 | `fly.toml` documentava `SUPABASE_SERVICE_KEY`; o código lê `SUPABASE_SECRET_KEY` (upload ficaria desligado) | `fly.toml:43` | **Corrigido** |
+| OPS-2 | `fly.toml` documentava `SUPABASE_SERVICE_KEY`; o código lê `SUPABASE_SECRET_KEY` (upload ficaria desligado) | `fly.toml:43` | **Encerrado**: o `fly.toml` saiu com a stack nova (PR #54); `DEPLOY.md` usa `SUPABASE_SECRET_KEY` |
 | OPS-5 | Frontend sem headers de segurança | `vercel.json` | **Corrigido parcialmente**: HSTS, `X-Frame-Options`, nosniff, Referrer-Policy, Permissions-Policy. **Pendente**: CSP (precisa testar com a URL final da API) |
 | TEN-3 | RLS provavelmente inócua: sem `FORCE ROW LEVEL SECURITY` e a app tende a conectar como `postgres` (BYPASSRLS) | `alembic/versions/20260525i/j` | **Não verificado** (sem banco). Isolamento hoje depende só dos filtros da aplicação |
 | UX-1 | JWT em `localStorage`: qualquer XSS rouba a sessão | `frontend/src/lib/auth.ts` | Pendente (mitigar com CSP; depois cookie httpOnly) |

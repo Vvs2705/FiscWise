@@ -434,6 +434,14 @@ async def mercadopago_webhook(
             evento.processed_at = datetime.now(timezone.utc)
         except GatewayPagamentoError as exc:
             logger.warning("webhook_reconciliacao_falhou: %s", exc)
+            # Não grava o evento: com 503 o Mercado Pago reenvia e a
+            # reconciliação roda de novo (antes o retry caía em already_processed
+            # e o pagamento nunca ativava o plano).
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Reconciliação indisponível, tente novamente",
+            )
 
     elif gateway.configurado() and tipo == "payment":
         # Ciclos pré-pagos (trimestral/semestral/anual): pagamento único.
@@ -484,6 +492,14 @@ async def mercadopago_webhook(
             evento.processed_at = datetime.now(timezone.utc)
         except GatewayPagamentoError as exc:
             logger.warning("webhook_reconciliacao_falhou: %s", exc)
+            # Não grava o evento: com 503 o Mercado Pago reenvia e a
+            # reconciliação roda de novo (antes o retry caía em already_processed
+            # e o pagamento nunca ativava o plano).
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Reconciliação indisponível, tente novamente",
+            )
 
     await db.commit()
     return {"status": "ok"}

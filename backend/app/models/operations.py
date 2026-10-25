@@ -203,6 +203,13 @@ class AccountReceivable(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_receivables_tenant_due_status", "tenant_id", "due_date", "status"),
+        # Um honorário automático por cliente e competência (migration n9h6ab38fj5)
+        Index(
+            "uq_receivables_tenant_client_competence", "tenant_id", "client_id", "competence",
+            unique=True,
+            postgresql_where=text("competence IS NOT NULL"),
+            sqlite_where=text("competence IS NOT NULL"),
+        ),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -226,6 +233,8 @@ class AccountReceivable(Base, TenantBase):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     invoice_id: Mapped[Optional[uuid.UUID]] = mapped_column(SQLUUID(as_uuid=True), nullable=True)
     nfse_emitida: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # AAAA-MM do honorário mensal gerado pelo scheduler; nulo em lançamentos manuais.
+    competence: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
 
 
 class ClientPortalInvite(Base, TenantBase):

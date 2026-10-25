@@ -43,7 +43,7 @@ from app.core.security import (
     verify_mfa_token,
     get_password_hash,
 )
-from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
+from app.core.auth_rate_limiter import _redis as _otp_redis, auth_rate_limiter, get_client_ip
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
@@ -61,14 +61,34 @@ _EMAIL_OTP_TTL_MINUTES = 10
 
 
 def _generate_email_otp(user_id: str) -> str:
-    """Generate and cache a 6-digit OTP for email verification."""
+    """Generate and cache a 6-digit OTP for email verification.
+
+    Com REDIS_URL o código fica no Redis (TTL), visível para todas as
+    instâncias: em memória, o login caía noutra instância e o código "sumia".
+    """
     code = "".join(secrets.choice(string.digits) for _ in range(6))
+    if _otp_redis is not None:
+        try:
+            _otp_redis.set(f"otp:email:{user_id}", code, ex=_EMAIL_OTP_TTL_MINUTES * 60)
+            return code
+        except Exception as exc:
+            logger.warning("Redis indisponível para OTP (%s); usando memória", exc)
     _EMAIL_OTP_STORE[user_id] = (code, datetime.now(timezone.utc))
     return code
 
 
 def _verify_email_otp(user_id: str, code: str) -> bool:
     """Verify cached email OTP. Returns True if valid and not expired."""
+    if _otp_redis is not None:
+        try:
+            key = f"otp:email:{user_id}"
+            stored = _otp_redis.get(key)
+            if stored is not None:
+                # delete()==1 só para quem consumiu primeiro: uso único mesmo
+                # com duas requisições simultâneas.
+                return secrets.compare_digest(stored, code) and _otp_redis.delete(key) == 1
+        except Exception as exc:
+            logger.warning("Redis indisponível para OTP (%s); usando memória", exc)
     entry = _EMAIL_OTP_STORE.get(user_id)
     if not entry:
         return False

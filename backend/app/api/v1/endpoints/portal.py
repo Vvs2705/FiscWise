@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import AliasChoices, BaseModel, EmailStr, Field
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +37,8 @@ class InviteClientRequest(BaseModel):
 
 class InviteClientResponse(BaseModel):
     """Response after inviting a client."""
-    invite_id: uuid.UUID
+    # O model tem `id`; sem o alias o from_orm falhava e POST /invites dava 500.
+    invite_id: uuid.UUID = Field(validation_alias=AliasChoices("invite_id", "id"))
     client_id: uuid.UUID
     email: str
     status: str
@@ -237,8 +238,20 @@ async def accept_invite(
         is_active=True
     )
 
+    # flush antes de ler o id: o default uuid só é aplicado no flush, e sem isso
+    # portal_user_id ficava None e o /portal/my-data não achava o cliente.
+    db.add(client_user)
+    await db.flush()
+
     # Update client with portal_user_id
-    client = await db.get(AccountingClient, invite.client_id)
+    client = (
+        await db.execute(
+            select(AccountingClient).where(
+                AccountingClient.id == invite.client_id,
+                AccountingClient.tenant_id == invite.tenant_id,
+            )
+        )
+    ).scalar_one()
     client.portal_user_id = client_user.id
 
     # Mark invitation as accepted

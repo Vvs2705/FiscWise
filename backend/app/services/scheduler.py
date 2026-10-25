@@ -4,7 +4,7 @@ Manages scheduled tasks like automatic monthly billing generation.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
@@ -21,59 +21,95 @@ def init_scheduler():
         scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
 
+def _job_definitions():
+    """Rotinas agendadas (fonte única para os dois modos de execução).
+
+    Horários em UTC. Usado pelo APScheduler (SCHEDULER_MODE=internal) e pelo
+    tick externo do Cloud Scheduler (SCHEDULER_MODE=external).
+    """
+    return [
+        # Monthly billing generation on the 1st of each month at 2:00 AM UTC
+        ("generate_monthly_billing", "Generate Monthly Billing",
+         generate_monthly_billing_scheduled,
+         CronTrigger(day=1, hour=2, minute=0, timezone=pytz.UTC)),
+        # Obligation engine on the 1st of each month at 3:00 AM UTC
+        # Runs after billing (2:00 AM) to avoid DB contention
+        ("generate_obligations", "Generate Monthly Fiscal Obligations",
+         generate_obligations_scheduled,
+         CronTrigger(day=1, hour=3, minute=0, timezone=pytz.UTC)),
+        # Weekly document pending notifications — every Monday at 09:00 AM UTC
+        ("notify_pending_documents", "Weekly Pending Document Notifications",
+         notify_pending_documents_scheduled,
+         CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=pytz.UTC)),
+        # Limpa entradas expiradas do rate limiter a cada hora (evita memory leak)
+        ("cleanup_auth_rate_limiter", "Auth Rate Limiter Cleanup",
+         cleanup_auth_rate_limiter,
+         CronTrigger(minute=0, timezone=pytz.UTC)),
+        # Payment reminders daily at 8:00 AM UTC
+        ("send_payment_reminders", "Send Payment Reminders",
+         send_payment_reminders_scheduled,
+         CronTrigger(hour=8, minute=0, timezone=pytz.UTC)),
+    ]
+
+
 async def start_scheduler():
-    """Start the scheduler."""
+    """Start the in-process scheduler (SCHEDULER_MODE=internal only).
+
+    Em SCHEDULER_MODE=external (Cloud Run com scale-to-zero) o processo pode
+    ser desligado a qualquer momento, então as rotinas são disparadas pelo
+    Cloud Scheduler via POST /api/v1/internal/tick (ver run_due_jobs).
+    """
+    from app.core.config import settings
+
+    if settings.SCHEDULER_MODE == "external":
+        logger.info("SCHEDULER_MODE=external — APScheduler desligado; rotinas via /api/v1/internal/tick")
+        return
+
     init_scheduler()
 
-    # Schedule monthly billing generation on the 1st of each month at 2:00 AM UTC
-    scheduler.add_job(
-        generate_monthly_billing_scheduled,
-        CronTrigger(day=1, hour=2, minute=0),
-        id="generate_monthly_billing",
-        name="Generate Monthly Billing",
-        replace_existing=True,
-    )
-
-    # Schedule obligation engine on the 1st of each month at 3:00 AM UTC
-    # Runs after billing (2:00 AM) to avoid DB contention
-    scheduler.add_job(
-        generate_obligations_scheduled,
-        CronTrigger(day=1, hour=3, minute=0),
-        id="generate_obligations",
-        name="Generate Monthly Fiscal Obligations",
-        replace_existing=True,
-    )
-
-    # Schedule weekly document pending notifications — every Monday at 09:00 AM UTC
-    scheduler.add_job(
-        notify_pending_documents_scheduled,
-        CronTrigger(day_of_week="mon", hour=9, minute=0),
-        id="notify_pending_documents",
-        name="Weekly Pending Document Notifications",
-        replace_existing=True,
-    )
-
-    # Limpa entradas expiradas do rate limiter a cada hora (evita memory leak)
-    scheduler.add_job(
-        cleanup_auth_rate_limiter,
-        CronTrigger(minute=0),  # todo hora cheia
-        id="cleanup_auth_rate_limiter",
-        name="Auth Rate Limiter Cleanup",
-        replace_existing=True,
-    )
-
-    # Schedule payment reminders daily at 8:00 AM UTC
-    scheduler.add_job(
-        send_payment_reminders_scheduled,
-        CronTrigger(hour=8, minute=0),
-        id="send_payment_reminders",
-        name="Send Payment Reminders",
-        replace_existing=True,
-    )
+    for job_id, name, func, trigger in _job_definitions():
+        scheduler.add_job(func, trigger, id=job_id, name=name, replace_existing=True)
 
     if not scheduler.running:
         scheduler.start()
         logger.info("Scheduler started successfully")
+
+
+def due_job_ids(now: datetime) -> list[str]:
+    """IDs das rotinas cujo horário cai na hora cheia de `now` (UTC)."""
+    if now.tzinfo is None:
+        now = pytz.UTC.localize(now)
+    window_start = now.astimezone(pytz.UTC).replace(minute=0, second=0, microsecond=0)
+    window_end = window_start + timedelta(hours=1)
+    due = []
+    for job_id, _name, _func, trigger in _job_definitions():
+        next_fire = trigger.get_next_fire_time(None, window_start)
+        if next_fire is not None and next_fire < window_end:
+            due.append(job_id)
+    return due
+
+
+async def run_due_jobs(now: datetime | None = None) -> dict:
+    """Executa, em sequência, as rotinas devidas nesta hora.
+
+    Chamado de hora em hora pelo Cloud Scheduler. Roda dentro da requisição
+    (e não em background) porque no Cloud Run a CPU só fica alocada enquanto
+    a requisição está aberta.
+    """
+    now = now or datetime.now(pytz.UTC)
+    due = set(due_job_ids(now))
+    results: dict[str, str] = {}
+    for job_id, _name, func, _trigger in _job_definitions():
+        if job_id not in due:
+            continue
+        try:
+            await func()
+            results[job_id] = "ok"
+        except Exception as exc:  # each job already logs; never abort the tick
+            logger.error("Scheduled job %s failed: %s", job_id, exc, exc_info=True)
+            results[job_id] = "error"
+    logger.info("Scheduler tick at %s ran: %s", now.isoformat(), results or "nothing due")
+    return {"at": now.isoformat(), "jobs": results}
 
 
 async def generate_obligations_scheduled():

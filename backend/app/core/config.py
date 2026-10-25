@@ -109,6 +109,13 @@ class Settings(BaseSettings):
     REDIS_URL: str = ""
     RATE_LIMIT_STRICT: bool = False
 
+    # Rotinas agendadas: "internal" = APScheduler no próprio processo (dev,
+    # servidor sempre ligado); "external" = Cloud Scheduler chama
+    # POST /api/v1/internal/tick de hora em hora (Cloud Run com scale-to-zero).
+    SCHEDULER_MODE: str = "internal"
+    # Segredo exigido no header X-Cron-Secret do tick. Vazio = tick desligado.
+    CRON_SECRET: str = ""
+
     # Internal diagnostics expose database details and are disabled by default.
     DIAGNOSTICS_ENABLED: bool = False
     

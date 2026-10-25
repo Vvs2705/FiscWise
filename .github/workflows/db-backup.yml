@@ -1,0 +1,53 @@
+name: Database backup
+
+# pg_dump diário, criptografado com age e enviado ao Cloudflare R2 — fora do
+# provedor do banco, para sobreviver até à exclusão do projeto no Supabase.
+# A chave PRIVADA do age fica só no cofre de senhas; aqui vai apenas a pública.
+# Retenção: regra de ciclo de vida de 30 dias configurada no bucket do R2.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 03:00 em Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: pg_dump → R2
+    if: vars.BACKUP_AGE_RECIPIENT != ''
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Install PostgreSQL 17 client and age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age
+
+      - name: Dump and encrypt
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          FILE="fiscwise-$(date -u +%Y%m%dT%H%MZ).dump.age"
+          /usr/lib/postgresql/17/bin/pg_dump "$BACKUP_DATABASE_URL" \
+            --format=custom --schema=public --no-owner --no-privileges \
+            | age -r "$AGE_RECIPIENT" > "$FILE"
+          test -s "$FILE"
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws s3 cp "$FILE" "s3://${{ vars.R2_BUCKET }}/postgres/$FILE" \
+            --endpoint-url "https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"

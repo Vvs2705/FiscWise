@@ -135,17 +135,16 @@ npm run build
 
 ## 8. Deploy
 
-### Backend (Fly.io)
-O deploy é realizado via CLI do Fly.io, utilizando o arquivo de configuração `fly.toml`. As migrações do Alembic são aplicadas de forma totalmente automatizada antes do startup das máquinas através do comando de release configurado.
-```bash
-fly deploy
-```
+Guia completo de configuração das contas e do primeiro deploy: [DEPLOY.md](DEPLOY.md).
 
-### Frontend (Vercel)
-O frontend está integrado à Vercel para deploys contínuos. Para subir builds manuais:
-```bash
-vercel --prod
-```
+### Backend (Google Cloud Run, São Paulo)
+Todo merge na `main` que altera `backend/` dispara o workflow `.github/workflows/deploy-cloudrun.yml`: build da imagem, migrations do Alembic num Cloud Run Job e deploy do serviço. Variáveis não secretas ficam em `cloudrun.env.yaml`; segredos no Google Secret Manager. As rotinas agendadas rodam via Cloud Scheduler (`POST /api/v1/internal/tick`, `SCHEDULER_MODE=external`).
+
+### Frontend (Cloudflare Pages)
+Deploy contínuo pelo GitHub (diretório `frontend`, build `npm run build`, saída `dist`), com `VITE_API_URL` apontando para o backend.
+
+### Backup
+Backup diário criptografado do banco para o Cloudflare R2 (`.github/workflows/db-backup.yml`).
 
 ---
 

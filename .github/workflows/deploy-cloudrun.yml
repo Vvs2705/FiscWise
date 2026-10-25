@@ -1,0 +1,106 @@
+name: Deploy backend (Cloud Run)
+
+# Build da imagem, migrations (Cloud Run Job) e deploy do serviço em São Paulo.
+# Só roda depois que o projeto no Google Cloud estiver configurado
+# (variável GCP_PROJECT_ID no repositório) — ver DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'cloudrun.env.yaml'
+      - '.github/workflows/deploy-cloudrun.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudrun
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation (sem chave JSON no GitHub)
+
+env:
+  REGION: southamerica-east1
+  SERVICE: fiscwise-api
+  MIGRATE_JOB: fiscwise-migrate
+  REPOSITORY: fiscwise
+
+jobs:
+  deploy:
+    name: Build, migrate and deploy
+    if: vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      IMAGE: southamerica-east1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/fiscwise/fiscwise-api:${{ github.sha }}
+      RUNTIME_SA: fiscwise-api@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+      # Segredos obrigatórios (precisam existir no Secret Manager).
+      REQUIRED_SECRETS: DATABASE_URL=DATABASE_URL:latest,JWT_SECRET_KEY=JWT_SECRET_KEY:latest,SUPABASE_SECRET_KEY=SUPABASE_SECRET_KEY:latest,CRON_SECRET=CRON_SECRET:latest,REDIS_URL=REDIS_URL:latest
+      # Opcionais, conforme forem criados (ex.: OPENAI_API_KEY=OPENAI_API_KEY:latest,SENTRY_DSN=SENTRY_DSN:latest).
+      EXTRA_SECRETS: ${{ vars.CLOUD_RUN_EXTRA_SECRETS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -f backend/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Prepare runtime config
+        run: |
+          cp cloudrun.env.yaml /tmp/env.yaml
+          echo "SUPABASE_URL: \"${{ vars.SUPABASE_URL }}\"" >> /tmp/env.yaml
+          echo "GOOGLE_CLIENT_ID: \"${{ vars.GOOGLE_CLIENT_ID }}\"" >> /tmp/env.yaml
+          SECRETS="$REQUIRED_SECRETS"
+          if [ -n "$EXTRA_SECRETS" ]; then SECRETS="$SECRETS,$EXTRA_SECRETS"; fi
+          echo "SECRETS=$SECRETS" >> "$GITHUB_ENV"
+
+      - name: Run database migrations (Cloud Run Job)
+        run: |
+          gcloud run jobs deploy "$MIGRATE_JOB" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --image "$IMAGE" \
+            --command python --args run_migrations.py \
+            --service-account "$RUNTIME_SA" \
+            --env-vars-file /tmp/env.yaml \
+            --set-secrets "$SECRETS" \
+            --max-retries 0 --task-timeout 600s \
+            --memory 1Gi --cpu 1 --quiet
+          gcloud run jobs execute "$MIGRATE_JOB" \
+            --project "$PROJECT_ID" --region "$REGION" --wait
+
+      - name: Deploy service
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --image "$IMAGE" \
+            --port 8000 \
+            --service-account "$RUNTIME_SA" \
+            --env-vars-file /tmp/env.yaml \
+            --set-secrets "$SECRETS" \
+            --min-instances 0 --max-instances 1 \
+            --cpu 1 --memory 1Gi --concurrency 80 --timeout 900 \
+            --cpu-boost \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')
+          curl --fail --retry 5 --retry-delay 5 --retry-all-errors "$URL/ready"

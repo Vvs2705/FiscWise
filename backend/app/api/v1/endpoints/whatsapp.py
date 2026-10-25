@@ -4,15 +4,17 @@ Provides access to unified messaging threads, inboxes, webhook triggers,
 client isolation, and converting messages to tasks.
 """
 
+import hmac
 import uuid
 from datetime import date
 from typing import Optional, List
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status, BackgroundTasks
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
@@ -271,13 +273,21 @@ async def receive_incoming_webhook(
     payload: WhatsAppWebhookPayload,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    x_webhook_secret: Optional[str] = Header(default=None),
 ):
     """
     Endpoint público (excluído do middleware de Tenant e Auth) para receber
     mensagens enviadas por clientes via Evolution API / Zapi.
     
-    Identifica o tenant pelo path parameter '{tenant_id}'.
+    Identifica o tenant pelo path parameter '{tenant_id}'. Exige o header
+    X-Webhook-Secret igual a WHATSAPP_WEBHOOK_SECRET (fail-closed fora de dev).
     """
+    secret = settings.WHATSAPP_WEBHOOK_SECRET
+    if secret:
+        if not x_webhook_secret or not hmac.compare_digest(x_webhook_secret, secret):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook secret")
+    elif settings.ENVIRONMENT in ("production", "prod", "staging"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Webhook not configured")
     logger.info("WhatsApp webhook received for tenant %s: %s", tenant_id, payload.sender_phone)
     
     try:

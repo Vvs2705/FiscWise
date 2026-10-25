@@ -174,6 +174,10 @@ class Settings(BaseSettings):
     MERCADO_PAGO_WEBHOOK_SECRET: str = ""
     PAGAMENTOS_GO_LIVE: bool = False
 
+    # Segredo do webhook de entrada do WhatsApp (header X-Webhook-Secret).
+    # Vazio: aceito só em dev; em produção/staging o webhook é rejeitado.
+    WHATSAPP_WEBHOOK_SECRET: str = ""
+
     # Resend (e-mail transacional: OTP 2FA, confirmação LGPD).
     # Sem RESEND_ENABLED+RESEND_API_KEY o serviço cai em fallback (só loga).
     RESEND_API_KEY: str = ""

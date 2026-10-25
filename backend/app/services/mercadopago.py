@@ -214,12 +214,13 @@ def validar_assinatura_webhook(
 
     Manifesto: `id:{data.id};request-id:{x-request-id};ts:{ts};`
     `x-signature` traz `ts=<unix>,v1=<hmac sha256 hex>`.
-    Sem secret configurado → True (modo permissivo em dev; o go-live exige o secret).
+    Sem secret configurado → True só em dev; em produção/staging rejeita
+    (fail-closed, igual ao webhook Asaas).
     `max_idade_segundos` (anti-replay): rejeita `ts` fora da janela.
     """
     secret = secret if secret is not None else settings.MERCADO_PAGO_WEBHOOK_SECRET
     if not secret:
-        return True
+        return settings.ENVIRONMENT not in ("production", "prod", "staging")
     if not x_signature:
         return False
 

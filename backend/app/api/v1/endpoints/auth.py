@@ -631,7 +631,11 @@ async def confirm_email_2fa(
     """
     Confirm email OTP and activate email-based 2FA.
     """
+    # Mesmo limite de tentativas do login 2FA: sem ele o código de 6 dígitos
+    # podia ser testado à força enquanto valesse.
+    auth_rate_limiter.check_otp_user(str(current_user.id))
     if not _verify_email_otp(str(current_user.id), body.otp_code.strip()):
+        auth_rate_limiter.record_otp_failure(str(current_user.id))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Código inválido ou expirado. Solicite um novo código.",

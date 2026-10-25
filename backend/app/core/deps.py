@@ -13,7 +13,8 @@ from typing import AsyncGenerator, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from sqlalchemy import select, text
+from sqlalchemy import event, select, text
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.config import settings
@@ -142,10 +143,24 @@ async def _set_current_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) ->
         if dialect_name and dialect_name != "postgresql":
             return
 
+    # Guarda na sessão para reaplicar a cada transação nova: set_config(..., true)
+    # vale só até o commit, e depois dele as policies com "OR tenant IS NULL"
+    # liberavam tudo no resto da requisição (TEN-4).
+    db.info["tenant_id"] = str(tenant_id)
     await db.execute(
         text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
         {"tenant_id": str(tenant_id)},
     )
+
+
+@event.listens_for(Session, "after_begin")
+def _reapply_tenant_context(session, transaction, connection) -> None:
+    tenant_id = session.info.get("tenant_id")
+    if tenant_id and connection.dialect.name == "postgresql":
+        connection.execute(
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            {"tenant_id": tenant_id},
+        )
 
 
 async def get_current_user(

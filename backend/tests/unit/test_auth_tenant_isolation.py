@@ -23,6 +23,7 @@ class FakeUserSession:
     def __init__(self, user):
         self.user = user
         self.statements = []
+        self.info = {}
 
     async def execute(self, statement, parameters=None):
         self.statements.append((statement, parameters))
@@ -32,6 +33,7 @@ class FakeUserSession:
 class FakeSQLiteSession:
     def __init__(self):
         self.statements = []
+        self.info = {}
 
     def get_bind(self):
         return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
@@ -99,3 +101,14 @@ async def test_rls_tenant_context_is_skipped_for_non_postgresql_sessions():
     await _set_current_tenant_context(db, uuid.uuid4())
 
     assert db.statements == []
+
+
+def test_contexto_reaplicado_a_cada_transacao_postgres():
+    """TEN-4: depois de um commit a transação nova recebe o tenant de novo."""
+    from app.core.deps import _reapply_tenant_context
+
+    calls = []
+    conn = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), execute=lambda st, p: calls.append(p))
+    _reapply_tenant_context(SimpleNamespace(info={"tenant_id": "t-1"}), None, conn)
+    _reapply_tenant_context(SimpleNamespace(info={}), None, conn)
+    assert calls == [{"tenant_id": "t-1"}]

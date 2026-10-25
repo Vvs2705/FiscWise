@@ -47,9 +47,9 @@ Nenhum vazamento entre escritórios diferentes (A lendo B) foi encontrado: todas
 | OPS-5 | Frontend sem headers de segurança | `vercel.json` | **Corrigido parcialmente**: HSTS, `X-Frame-Options`, nosniff, Referrer-Policy, Permissions-Policy. **Pendente**: CSP (precisa testar com a URL final da API) |
 | TEN-3 | RLS provavelmente inócua: sem `FORCE ROW LEVEL SECURITY` e a app tende a conectar como `postgres` (BYPASSRLS) | `alembic/versions/20260525i/j` | **Não verificado** (sem banco). Isolamento hoje depende só dos filtros da aplicação |
 | UX-1 | JWT em `localStorage`: qualquer XSS rouba a sessão | `frontend/src/lib/auth.ts` | Pendente (mitigar com CSP; depois cookie httpOnly) |
-| DB-1 | `audit_log()` dos domínios financeiros é stub (só `logger.debug`): guias, notas, fechamento não são auditados | `app/core/audit.py` | Pendente |
-| DB-2 | Scheduler sem trava entre máquinas: com 2+ instâncias, cobrança e lembretes rodam em dobro | `services/scheduler.py` | Pendente (hoje 1 máquina, não duplica) |
-| DB-3 | Lembretes de cobrança não enviam nada e contam como enviados | `services/scheduler.py:239` | Pendente |
+| DB-1 | `audit_log()` dos domínios financeiros é stub (só `logger.debug`): guias, notas, fechamento não são auditados | `app/core/audit.py` | **Corrigido (leva 2)**: grava em `audit_events` em sessão própria. Teste `test_domain_audit_log.py` |
+| DB-2 | Scheduler sem trava entre máquinas: com 2+ instâncias, cobrança e lembretes rodam em dobro | `services/scheduler.py` | **Corrigido (leva 2)**: `RUN_SCHEDULER=false` desliga os jobs de negócio numa máquina. Teste `unit/test_scheduler_config.py` |
+| DB-3 | Lembretes de cobrança não enviam nada e contam como enviados | `services/scheduler.py:239` | **Corrigido em parte (leva 2)**: o evento fica registrado e o log não diz mais "enviados". Envio real pendente |
 | DB-4 | CNPJ/CPF sem unicidade por escritório | `models/operations.py:54` | Pendente (precisa deduplicar antes da constraint) |
 
 ## P2
@@ -57,21 +57,21 @@ Nenhum vazamento entre escritórios diferentes (A lendo B) foi encontrado: todas
 | ID | Achado | Evidência | Estado |
 |---|---|---|---|
 | SEC-6 | Boot em produção só falha se `DATABASE_URL`/`JWT_SECRET_KEY` faltarem; valor fraco/placeholder só gera log | `main.py:65`, `config.py:142` | Pendente (`ENVIRONMENT=production` está no `fly.toml`) |
-| SEC-7 | OTP de e-mail em memória por processo; `/2fa/confirm-email` sem limite de tentativas | `endpoints/auth.py:59,634` | Pendente |
+| SEC-7 | OTP de e-mail em memória por processo; `/2fa/confirm-email` sem limite de tentativas | `endpoints/auth.py:59,634` | **Corrigido em parte (leva 2)**: `/2fa/confirm-email` com limite (teste `test_confirm_email_2fa_rate_limit.py`). OTP em memória pendente |
 | SEC-8 | JWT sem `iss`/`aud`/revogação; logout no-op; troca de senha não invalida token | `core/security.py` | Pendente |
 | SEC-12 | Cadastro revela se o e-mail já existe | `endpoints/onboarding.py:63` | Pendente |
-| SEC-13 | Convite do portal usa só o UUID como segredo; aceite não atômico; `portal_user_id` lido antes do flush | `endpoints/portal.py:134-264` | Pendente |
+| SEC-13 | Convite do portal usa só o UUID como segredo; aceite não atômico; `portal_user_id` lido antes do flush | `endpoints/portal.py:134-264` | **Corrigido em parte (leva 2)**: `POST /invites` dava 500 e o aceite não vinculava o cliente; os dois corrigidos (teste `test_portal_invite_accept.py`). Token aleatório no convite pendente |
 | TEN-4 | Contexto de RLS (`set_config` local) some após `commit`; policies com `OR … IS NULL` liberam tudo nesse intervalo | `deps.py:131`, `20260525j` | Pendente |
-| TEN-5 | Upload de documentos sem limite de tamanho/MIME e com URL pública do bucket | `endpoints/operations.py:1071` | Pendente |
+| TEN-5 | Upload de documentos sem limite de tamanho/MIME e com URL pública do bucket | `endpoints/operations.py:1071` | **Corrigido em parte (leva 2)**: allowlist de tipo, teto de 20 MB, `.pfx/.p12` fora (teste `test_document_upload_limits.py`). Bucket privado + URL assinada pendente |
 | TEN-6 | `POST /clients/{id}/documents` grava URL placeholder e não guarda o arquivo | `operations.py:1609` | Pendente |
-| TEN-7 | `client_id` do payload não validado contra o escritório em guias, e-CAC, notas, obrigações | vários `domain/*/service.py` | Pendente (UUID v4 torna exploração impraticável) |
-| DB-5/6/7 | Idempotência de cobrança por `LIKE`; datas em UTC/naive (job do dia 1 roda dia 30/31 no horário de Brasília); prazos sem dia útil/feriado | `scheduler.py`, `obligation_engine.py` | Pendente — **validar com contador** |
+| TEN-7 | `client_id` do payload não validado contra o escritório em guias, e-CAC, notas, obrigações | vários `domain/*/service.py` | **Corrigido (leva 2)**: `ensure_client_in_tenant` nos cadastros. Teste `test_cross_tenant_client_ref.py` |
+| DB-5/6/7 | Idempotência de cobrança por `LIKE`; datas em UTC/naive (job do dia 1 roda dia 30/31 no horário de Brasília); prazos sem dia útil/feriado | `scheduler.py`, `obligation_engine.py` | Fuso **corrigido (leva 2)**: jobs no horário de Brasília. Idempotência por `LIKE` e dia útil/feriado pendentes — **validar com contador** |
 | DB-8 | Preço de plano e conversão para centavos em `float` | `core/pricing.py:47`, `mercadopago.py` | Pendente (models usam `Numeric`) |
 | OPS-1 | Domínios divergentes: `api.fiscwise.com.br` no código, `fiscwise.fly.dev` no frontend; CORS inclui `frontend-v-stack-solution.vercel.app` | `config.py:160`, `api.ts:5`, `fly.toml:20` | Pendente (depende da stack nova) |
 | OPS-3/4 | README dizia Python 3.14+ e linkava arquivo local `file:///` | `README.md` | **Corrigido** |
 | UX-5/6 | URL inventada `fiscwise.storage` na CND; toast "Lembrete enviado" sem envio | `ClientDetailCockpit.tsx:1599`, `ModoFocoModal.tsx:161` | Toast **corrigido**; URL pendente |
 
-P3 e observações: `backend/create_gisele.py` com e-mails pessoais versionado; Google OAuth não exige `email_verified`; migration `0f0c2c42addb` apaga 4 colunas de certificados no `upgrade`; `print` em `ecac.py`; grafo Alembic linear com 1 head (ok).
+P3 e observações: `backend/create_gisele.py` com e-mails pessoais versionado; Google OAuth não exigia `email_verified` (**corrigido na leva 2**, teste `test_google_email_verified.py`); o login do portal navega para `/portal/dashboard`, rota que não existe no frontend (portal do cliente sem tela própria); migration `0f0c2c42addb` apaga 4 colunas de certificados no `upgrade`; `print` em `ecac.py`; grafo Alembic linear com 1 head (ok).
 
 ## Não verificado (falta de acesso)
 

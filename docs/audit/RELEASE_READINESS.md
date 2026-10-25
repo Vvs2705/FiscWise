@@ -13,8 +13,8 @@ O produto não pode ser vendido ainda. Os dois riscos críticos de código (clie
 | Auth | Rate limit distribuído, OTP compartilhado, revogação de token | Limiter e OTP em memória | **Falha** | Redis ou equivalente |
 | CI | Gates de segurança bloqueiam | `ci.yml` alterado | OK após merge | — |
 | Funcionalidades honestas | Nada simulado apresentado como real | Avisos em e-CAC, NFS-e, WhatsApp | OK na tela | Integrações reais ou remover do plano |
-| Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Motor sem feriado; datas em UTC | **Falha** | Correção + validação profissional |
-| Auditoria de ações | Ações financeiras registradas | `audit_log` é stub | **Falha** | Correção DB-1 |
+| Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Jobs no fuso de Brasília (leva 2); motor sem feriado | **Falha** | Correção + validação profissional |
+| Auditoria de ações | Ações financeiras registradas | `audit_log` grava em `audit_events` (leva 2) | OK | — |
 | Backup e restore | Restore testado | Sem acesso | **Não verificado** | Stack nova |
 | Hospedagem | Plano permite uso comercial; domínio canônico definido | Vercel Hobby não permite uso comercial; domínios divergentes | **Falha** | Decisão de stack |
 | Privacidade/LGPD | Mapa de dados, termos, resposta a incidente revisados | Não feito nesta rodada | **Não verificado** | Próxima rodada + jurídico |
@@ -34,6 +34,6 @@ Consulta e-CAC/Receita, emissão de NFS-e, envio por WhatsApp, caixa postal fisc
 2. Definir a stack nova (banco, backend, frontend com plano comercial, Redis, e-mail, monitoramento) — conversa separada.
 3. No banco novo: role da aplicação sem BYPASSRLS, `FORCE ROW LEVEL SECURITY` e testes de RLS em PostgreSQL real no CI.
 4. Rate limit e OTP em armazenamento compartilhado; limite em cadastro e reenvio de código.
-5. `audit_log` real, trava do scheduler, lembretes reais, unicidade de CNPJ por escritório.
-6. Datas no fuso de Brasília, dia útil e feriados no motor de obrigações, revisado por contador.
+5. Lembretes de cobrança com envio real, unicidade de CNPJ por escritório, idempotência da cobrança mensal (o `audit_log` real, o `RUN_SCHEDULER` e o fuso de Brasília entraram na leva 2).
+6. Dia útil e feriados no motor de obrigações, revisado por contador.
 7. LGPD, termos, plano de incidente, catálogo comercial e marketing.

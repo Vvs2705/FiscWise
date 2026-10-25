@@ -1637,14 +1637,34 @@ async def upload_client_document(
     # Validar cliente
     await _get_client_or_404(db, tenant_id, client_id)
 
-    # Simular armazenamento em arquivo temporário
-    file_ext = Path(file.filename).suffix if file.filename else ".bin"
-    storage_path = f"{tenant_id}/{uuid.uuid4()}{file_ext}"
-    file_url = f"https://storage.example.com/documents/{storage_path}"
+    # Antes gravava uma URL de exemplo (storage.example.com) e nunca guardava o
+    # arquivo, mas marcava o documento como disponível (TEN-6). Agora sobe de
+    # verdade, com as mesmas regras do /documents/upload.
+    from app.core.config import settings
+    from app.core.storage import upload_bytes
+
+    file_ext = Path(file.filename).suffix.lower() if file.filename else ""
+    if file_ext not in _DOC_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo não aceito. Use: {', '.join(sorted(_DOC_UPLOAD_EXTS))}",
+        )
+    content = await file.read(_DOC_UPLOAD_MAX_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Arquivo vazio")
+    if len(content) > _DOC_UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Arquivo maior que {_DOC_UPLOAD_MAX_BYTES // (1024 * 1024)} MB",
+        )
+    storage_path = f"{tenant_id}/{uuid.uuid4().hex}{file_ext}"
+    await upload_bytes(
+        "documents", storage_path, content, file.content_type or "application/octet-stream"
+    )
+    file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/documents/{storage_path}"
 
     # Salvar arquivo temporário para parsing
     with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
 

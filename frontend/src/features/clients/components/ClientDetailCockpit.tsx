@@ -1596,8 +1596,12 @@ FiscWise`,
                       onClick={() => {
                         const doc = parsedClientDocs.find((d) => d.id === monitorSummary.last_cnd_document_id) || 
                                     companyDocs.find((d) => d.id === monitorSummary.last_cnd_document_id);
-                        const url = doc?.file_url || `https://fiscwise.storage/cnd/federal-cnd.pdf`;
-                        window.open(url, '_blank');
+                        // Antes caía num endereço inventado (fiscwise.storage) quando o arquivo não existia.
+                        if (!doc?.file_url) {
+                          toast.error('Arquivo da CND não encontrado nos documentos do cliente.');
+                          return;
+                        }
+                        window.open(doc.file_url, '_blank', 'noopener');
                       }}
                       className="gap-1.5 text-xs h-8"
                     >

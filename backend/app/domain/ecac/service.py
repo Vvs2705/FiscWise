@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.domain.ecac.models import EcacProxy, EcacFiscalSituation
 from app.domain.ecac.repository import EcacRepository
+from app.core.tenant_guard import ensure_client_in_tenant
 from app.domain.ecac.schemas import EcacProxyCreate
 from app.domain.ecac.integrations.base import EcacIntegrationProvider
 from app.core.audit import audit_log
@@ -18,6 +19,7 @@ class EcacService:
         self.repo = repo
 
     async def create_proxy(self, payload: EcacProxyCreate, tenant_id: uuid.UUID) -> EcacProxy:
+        await ensure_client_in_tenant(self.repo.db, tenant_id, payload.client_id)
         proxy = EcacProxy(
             tenant_id=tenant_id,
             client_id=payload.client_id,

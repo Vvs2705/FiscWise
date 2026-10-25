@@ -5,6 +5,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.tenant_guard import ensure_client_in_tenant
 from app.domain.invoices.models import Invoice, InvoiceIssuer, InvoiceEvent, InvoiceRejection
 from app.domain.invoices.repository import InvoiceRepository
 from app.domain.invoices.schemas import InvoiceIssuerCreate, InvoiceCreate
@@ -68,6 +69,8 @@ class InvoiceService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Competência cannot be a future month."
             )
+
+        await ensure_client_in_tenant(self.repo.db, tenant_id, payload.client_id)
 
         # 4. Confirm issuer exists
         issuer = await self.repo.get_issuer_by_id(payload.issuer_id, tenant_id)

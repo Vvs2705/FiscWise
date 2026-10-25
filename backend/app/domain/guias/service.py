@@ -10,6 +10,7 @@ from app.domain.guias.schemas import TaxGuideCreate, TaxGuideUpdate
 from app.core.file_validator import validate_file_mime
 from app.core.storage import get_signed_url, upload_bytes
 from app.core.audit import audit_log
+from app.core.tenant_guard import ensure_client_in_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class TaxGuideService:
         return False
 
     async def create_guide(self, payload: TaxGuideCreate, tenant_id: uuid.UUID) -> TaxGuide:
+        await ensure_client_in_tenant(self.repo.db, tenant_id, payload.client_id)
         guide = TaxGuide(
             tenant_id=tenant_id,
             client_id=payload.client_id,

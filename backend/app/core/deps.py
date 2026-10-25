@@ -66,8 +66,10 @@ def _sanitize_database_url(url: str) -> str:
         base = url
         params = []
 
-    params.append('ssl=require')
-    return f"{base}?{'&'.join(params)}"
+    # Banco local (CI, docker-compose) não fala SSL; fora dele o SSL segue obrigatório.
+    if not re.search(r'@(localhost|127\.0\.0\.1|postgres|db)(:\d+)?/', base):
+        params.append('ssl=require')
+    return f"{base}?{'&'.join(params)}" if params else base
 
 
 def _get_engine():

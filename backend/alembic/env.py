@@ -65,12 +65,14 @@ def _sanitize_database_url(url: str) -> str:
         base = url
         params = []
 
-    params.append('ssl=require')
+    # Banco local (CI, docker-compose) não fala SSL; fora dele o SSL segue obrigatório.
+    if not re.search(r'@(localhost|127\.0\.0\.1|postgres|db)(:\d+)?/', base):
+        params.append('ssl=require')
     # statement_cache_size must NOT be in the URL — asyncpg receives it as a
     # string from query params and fails with TypeError when comparing to int.
     # It is passed as connect_args in run_async_migrations() instead.
 
-    return f"{base}?{'&'.join(params)}"
+    return f"{base}?{'&'.join(params)}" if params else base
 
 
 def get_url():

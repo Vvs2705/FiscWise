@@ -18,6 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from app.core.config import settings
 from app.models.user import User, UserRole
 
+
+def _client_path_allowed(path: str) -> bool:
+    return path.startswith("/api/v1/auth/") or path.rstrip("/") == "/api/v1/portal/my-data"
+
 logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
@@ -230,9 +234,7 @@ async def get_current_user(
             detail="Inactive user account"
         )
 
-    path = request.url.path
-    client_allowed = path.startswith("/api/v1/auth/") or path.rstrip("/") == "/api/v1/portal/my-data"
-    if user.role == UserRole.CLIENT and not client_allowed:
+    if user.role == UserRole.CLIENT and not _client_path_allowed(request.url.path):
         # Usuário CLIENT (portal) só alcança a própria conta e os próprios
         # dados do portal; todo o resto é rota de equipe do escritório.
         raise HTTPException(

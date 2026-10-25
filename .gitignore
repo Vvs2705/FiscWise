@@ -206,3 +206,6 @@ COMO-FAZER*.md
 # Memória de agentes (local, não é código) — nunca versionar
 .claude/agent-memory/
 
+
+# Config local de MCP: pode conter connection string com senha. Nunca versionar.
+.mcp.json

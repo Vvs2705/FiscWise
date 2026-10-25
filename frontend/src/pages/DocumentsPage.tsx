@@ -280,7 +280,7 @@ function FileDropZone({ file, onChange, uploading }: FileDropZoneProps) {
         ref={inputRef}
         type="file"
         className="hidden"
-        accept=".pdf,.xml,.xlsx,.xls,.zip,.png,.jpg,.jpeg,.pfx,.p12"
+        accept=".pdf,.xml,.xlsx,.xls,.zip,.png,.jpg,.jpeg"
         onChange={(e) => e.target.files?.[0] && onChange(e.target.files[0])}
       />
     </div>

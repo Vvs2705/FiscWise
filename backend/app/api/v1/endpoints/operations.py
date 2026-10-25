@@ -1068,6 +1068,13 @@ async def delete_document(
     )
 
 
+_DOC_UPLOAD_MAX_BYTES = 20 * 1024 * 1024  # mesmo teto anunciado na tela de Documentos
+_DOC_UPLOAD_EXTS = {
+    ".pdf", ".png", ".jpg", ".jpeg", ".xml", ".csv", ".txt", ".ofx",
+    ".xls", ".xlsx", ".doc", ".docx", ".zip",
+}
+
+
 @router.post("/documents/upload")
 async def upload_document_file(
     file: UploadFile = File(...),
@@ -1090,10 +1097,27 @@ async def upload_document_file(
     if file.filename and "." in file.filename:
         file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
 
+    # Antes aceitava qualquer tipo e tamanho (lido inteiro na memória de uma
+    # máquina de 512 MB). Certificado .pfx/.p12 fica de fora: com chave privada,
+    # não pode ir para bucket com URL pública. ponytail: allowlist por extensão + teto de tamanho;
+    # checagem por assinatura (validate_file_mime) quando os tipos estabilizarem.
+    if file_ext not in _DOC_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo não aceito. Use: {', '.join(sorted(_DOC_UPLOAD_EXTS))}",
+        )
+
     unique_name = f"{tenant_id}/{_uuid.uuid4().hex}{file_ext}"
     bucket = "documents"
 
-    file_bytes = await file.read()
+    file_bytes = await file.read(_DOC_UPLOAD_MAX_BYTES + 1)
+    if not file_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Arquivo vazio")
+    if len(file_bytes) > _DOC_UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Arquivo maior que {_DOC_UPLOAD_MAX_BYTES // (1024 * 1024)} MB",
+        )
     content_type = file.content_type or "application/octet-stream"
 
     # Upload para Supabase Storage via REST

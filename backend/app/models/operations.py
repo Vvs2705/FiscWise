@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 import enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum
+from sqlalchemy import Date, DateTime, ForeignKey, Index, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -41,6 +41,12 @@ class AccountingClient(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_clients_tenant_status", "tenant_id", "status"),
+        # CNPJ/CPF único por escritório (migration l7f489e16dh3)
+        Index(
+            "uq_clients_tenant_document", "tenant_id", "document", unique=True,
+            postgresql_where=text("document IS NOT NULL"),
+            sqlite_where=text("document IS NOT NULL"),
+        ),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(

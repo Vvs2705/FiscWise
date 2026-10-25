@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import Date as SADate, cast, func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -126,7 +127,15 @@ async def _get_item_or_404(
 
 
 async def _commit_refresh(db: AsyncSession, instance: Any) -> Any:
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Violação de unicidade (ex.: mesmo CNPJ no escritório) vira 409, não 500.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um registro com esses dados (ex.: mesmo CNPJ/CPF).",
+        )
     await db.refresh(instance)
     return instance
 

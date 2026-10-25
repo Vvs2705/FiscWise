@@ -21,7 +21,7 @@ async def test_aceite_vincula_cliente_e_libera_my_data(client_with_auth_a):
         f"/api/v1/portal/invites/{invite_id}/accept",
         json={
             "invite_id": invite_id,
-            "password": "senha-forte-123",
+            "password": "senha-forte-123",  # gitleaks:allow (senha de teste)
             "full_name": "Cliente A",
         },
     )

@@ -418,6 +418,13 @@ async def google_auth(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Não foi possível obter o e-mail da conta Google",
         )
+    # O login casa pela conta existente com o mesmo e-mail: sem e-mail
+    # verificado no Google, alguém entraria na conta de outra pessoa.
+    if id_info.get("email_verified") is not True:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Confirme o e-mail da sua conta Google antes de entrar",
+        )
 
     result = await db.execute(select(User).where(User.email == google_email))
     existing_user = result.scalar_one_or_none()

@@ -275,3 +275,13 @@ async def client_with_auth_b(test_db: AsyncSession, user_b: User, client_b: Acco
     yield http_client, user_b, client_b, test_db
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_rate_limiter():
+    """Todos os testes usam o mesmo IP do TestClient: zera os contadores."""
+    from app.core.auth_rate_limiter import auth_rate_limiter
+
+    auth_rate_limiter._login_store.clear()
+    auth_rate_limiter._otp_store.clear()
+    yield

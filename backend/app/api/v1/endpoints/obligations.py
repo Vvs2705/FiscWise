@@ -24,6 +24,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.tenant_guard import ensure_client_in_tenant
 from app.models.obligation import (
     ClientObligationProfile,
     DocumentChecklistItem,
@@ -232,6 +233,7 @@ async def create_obligation_instance(
     if body.priority not in VALID_PRIORITIES:
         raise HTTPException(422, f"Invalid priority. Valid: {sorted(VALID_PRIORITIES)}")
 
+    await ensure_client_in_tenant(db, current_user.tenant_id, body.client_id)
     instance = ObligationInstance(
         tenant_id=current_user.tenant_id,
         client_id=body.client_id,
@@ -399,6 +401,7 @@ async def create_checklist_item(
     """Add a document checklist item for a client."""
     _require_owner_or_admin(current_user)
 
+    await ensure_client_in_tenant(db, current_user.tenant_id, body.client_id)
     item = DocumentChecklistItem(
         tenant_id=current_user.tenant_id,
         client_id=body.client_id,

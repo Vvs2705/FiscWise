@@ -15,6 +15,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.tenant_guard import ensure_client_in_tenant
 from app.models.notification import NotificationMessage
 from app.models.user import User
 
@@ -240,6 +241,8 @@ async def send_cert_expiry_warning(
     from app.models.notification import NotificationMessage
 
     _require_admin_or_owner(current_user)
+
+    await ensure_client_in_tenant(db, current_user.tenant_id, body.client_id)
 
     # Record the notification attempt
     notif = NotificationMessage(

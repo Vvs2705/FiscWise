@@ -1,5 +1,5 @@
 # FiscWise Backend Dockerfile
-# Build context: project root (fly.toml is at root, dockerfile at ./backend/Dockerfile)
+# Build context: project root (dockerfile at ./backend/Dockerfile)
 # Python 3.12 for compatibility with asyncpg, psycopg, and pydantic-core
 
 FROM python:3.12-slim
@@ -46,7 +46,6 @@ HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/live || exit 1
 
 # Startup: uvicorn starts immediately.
-# Database migrations are run via Fly.io release_command (fly.toml [deploy])
-# BEFORE this container starts, so the port is available instantly and
-# the "app not listening" smoke-check warning is eliminated.
+# Database migrations run in a separate Cloud Run Job (python run_migrations.py)
+# BEFORE each deploy — see .github/workflows/deploy-cloudrun.yml.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]

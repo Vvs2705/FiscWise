@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://fiscwise.fly.dev');
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.fiscwise.com.br');
 
 export const api = axios.create({
   baseURL: API_URL,

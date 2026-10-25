@@ -21,6 +21,7 @@ _EXCLUDED_PREFIXES: Set[str] = {
     "/api/v1/diagnostic",    # Diagnostic endpoints (debugging)
     "/api/v1/admin",         # Admin endpoints (emergency fixes)
     "/api/v1/widget",        # Public embeddable widget (no auth required)
+    "/api/v1/internal",      # Cloud Scheduler tick (auth via X-Cron-Secret)
     "/docs",
     "/redoc",
     "/openapi.json",

@@ -178,6 +178,10 @@ class Settings(BaseSettings):
     # Vazio: aceito só em dev; em produção/staging o webhook é rejeitado.
     WHATSAPP_WEBHOOK_SECRET: str = ""
 
+    # Jobs agendados de negócio (cobrança, obrigações, lembretes) rodam só onde
+    # RUN_SCHEDULER=true. Com 2+ máquinas, deixe true em UMA só, senão tudo roda em dobro.
+    RUN_SCHEDULER: bool = True
+
     # Resend (e-mail transacional: OTP 2FA, confirmação LGPD).
     # Sem RESEND_ENABLED+RESEND_API_KEY o serviço cai em fallback (só loga).
     RESEND_API_KEY: str = ""

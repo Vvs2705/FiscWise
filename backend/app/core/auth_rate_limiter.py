@@ -222,8 +222,16 @@ auth_rate_limiter = _AuthRateLimiter()
 # ─── Helpers para uso nos endpoints ───────────────────────────────────────────
 
 def get_client_ip(request: Request) -> str:
-    """Extrai IP do cliente, respeitando X-Forwarded-For (Fly.io proxy)."""
+    """Extrai IP do cliente atrás do proxy do Fly.io.
+
+    Fly-Client-IP é gravado pelo proxy (o cliente não consegue forjar). No
+    X-Forwarded-For só a ÚLTIMA entrada vem do proxy; a primeira é do cliente
+    e servia para driblar o bloqueio por IP trocando o header a cada tentativa.
+    """
+    fly_ip = request.headers.get("Fly-Client-IP")
+    if fly_ip:
+        return fly_ip.strip()
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        return forwarded_for.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"

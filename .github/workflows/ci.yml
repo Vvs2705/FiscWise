@@ -70,8 +70,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      # Migra um PostgreSQL vazio até o head: prova que a base sobe do zero e
+      # deixa o banco pronto para o teste de RLS com role sem bypass.
+      - name: Migrations on fresh PostgreSQL
+        working-directory: backend
+        run: python run_migrations.py
+
       - name: Pytest
         working-directory: backend
+        env:
+          RUN_PG_RLS: "1"
         run: pytest
 
       - name: Backend Docker build

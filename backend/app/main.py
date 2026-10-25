@@ -50,6 +50,24 @@ if settings.SENTRY_DSN:
     logger.info("Sentry initialized for backend environment=%s", settings.ENVIRONMENT)
 
 
+_PLACEHOLDER_MARKERS = ("dev_secret", "changeme", "change_me", "your-", "example", "placeholder")
+
+
+def weak_production_secrets() -> list[str]:
+    """Segredos presentes porém fracos/placeholder em production/staging.
+
+    Antes só a AUSÊNCIA abortava o boot; um JWT_SECRET_KEY de exemplo subia com
+    log CRITICAL e permitia forjar tokens.
+    """
+    if settings.ENVIRONMENT not in {"production", "staging"}:
+        return []
+    weak = []
+    jwt = settings.JWT_SECRET_KEY or ""
+    if jwt and (len(jwt) < 32 or any(m in jwt.lower() for m in _PLACEHOLDER_MARKERS)):
+        weak.append("JWT_SECRET_KEY (fraco ou de exemplo; use openssl rand -hex 64)")
+    return weak
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -83,6 +101,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         missing_secrets.append("JWT_SECRET_KEY")
     else:
         logger.info("JWT_SECRET_KEY: configured")
+
+    missing_secrets += weak_production_secrets()
 
     if missing_secrets:
         message = f"STARTUP CRITICAL: Required secrets are missing: {', '.join(missing_secrets)}"

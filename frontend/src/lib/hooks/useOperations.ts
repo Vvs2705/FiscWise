@@ -218,7 +218,8 @@ export function useDashboardOverview() {
       const { data } = await api.get<DashboardOverview>('/api/v1/dashboard/overview');
       return data;
     },
-    refetchInterval: 60_000, // auto-refresh every 60 s for real-time feel
+    // 5 min: uma aba esquecida aberta não pode manter API e banco acordados.
+    refetchInterval: 5 * 60_000,
   });
 }
 

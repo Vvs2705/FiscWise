@@ -3,8 +3,9 @@ Endpoints internos, chamados por infraestrutura (não pelo frontend).
 
 POST /internal/tick — disparado de hora em hora pelo Google Cloud Scheduler
 quando SCHEDULER_MODE=external. Executa as rotinas agendadas devidas naquela
-hora (ver app.services.scheduler). Também mantém o banco ativo, evitando a
-pausa por inatividade do plano gratuito do Supabase.
+hora (ver app.services.scheduler). Só toca no banco quando alguma rotina está
+devida (no mínimo a diária das 08:00), o que já basta para o Supabase Free não
+pausar por 7 dias sem uso — sem manter o banco ocupado nas outras horas.
 """
 
 import hmac

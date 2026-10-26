@@ -86,6 +86,10 @@ jobs:
             --project "$PROJECT_ID" --region "$REGION" --wait
 
       - name: Deploy service
+        # min-instances 0 e nenhum probe periódico em /ready: no Fly.io a máquina
+        # sempre ligada + health check em /ready (SELECT 1 a cada 15 s) impedia o
+        # Neon de suspender e consumia a cota sem ninguém usar. Probe, se um dia
+        # for preciso, vai em /live (não toca no banco).
         run: |
           gcloud run deploy "$SERVICE" \
             --project "$PROJECT_ID" --region "$REGION" \

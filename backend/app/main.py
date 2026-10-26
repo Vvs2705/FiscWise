@@ -214,6 +214,8 @@ async def ready_check():
     Readiness probe.
     
     Verifies that the service is ready to accept requests by querying database.
+    Só para checagem pontual (smoke test do deploy). Nunca use como health check
+    periódico: cada chamada acorda o banco.
     """
     try:
         session_factory = get_sessionmaker()

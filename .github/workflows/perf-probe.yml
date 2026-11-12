@@ -67,7 +67,7 @@ jobs:
             echo
             echo "| Endpoint | Status | Fria (ms) | p50 (ms) | p95 (ms) | max (ms) |"
             echo "|---|---|---|---|---|---|"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           for ep in /live /health /api/v1/health /api/v1/clients; do
             extra=()
             [ "$ep" = /api/v1/clients ] && extra=(-H "$NULL_TENANT")
@@ -81,10 +81,10 @@ jobs:
             read -r p50 p95 max < <(stats < warm.txt)
             uniq_codes=$(echo "$cold_code $codes" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
             cold_ms=$(awk -v t="$cold_t" 'BEGIN{printf "%.0f", t*1000}')
-            echo "| \`GET $ep\` | $uniq_codes | $cold_ms | $p50 | $p95 | $max |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`GET $ep\` | $uniq_codes | $cold_ms | $p50 | $p95 | $max |" | tee -a "$GITHUB_STEP_SUMMARY"
           done
           echo >> "$GITHUB_STEP_SUMMARY"
-          echo "Esperado: 200 nos três primeiros e 401 em \`/api/v1/clients\` (sem token)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Esperado: 200 nos três primeiros e 401 em \`/api/v1/clients\` (sem token)." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Probe front
         run: |
@@ -95,7 +95,7 @@ jobs:
             echo
             echo "| Medida | Valor |"
             echo "|---|---|"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           out=$(curl -sS -o /dev/null --compressed --max-time 60 \
             -w '%{http_code} %{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total} %{size_download}' \
             "$FRONT_URL")
@@ -109,4 +109,4 @@ jobs:
             echo "| TTFB | $(ms "$ttfb") ms |"
             echo "| Total | $(ms "$total") ms |"
             echo "| Tamanho do HTML (transferido) | $size bytes |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -226,6 +226,37 @@ Workers & Pages → Create → Pages → conectar o repositório:
 O Pages já serve `index.html` para as rotas do SPA. Depois, apontar
 `fiscwise.com.br` e `www` para o projeto do Pages.
 
+**Cloudflare Web Analytics (grátis, inclui Core Web Vitals: LCP, INP, CLS):**
+
+1. Painel do Cloudflare → **Analytics & Logs → Web Analytics → Add a site**.
+   Informe `fiscwise.com.br` e escolha a instalação manual (snippet JS).
+2. Copie o valor de `token` do snippet (`data-cf-beacon='{"token": "..."}'`,
+   32 caracteres hexadecimais).
+3. Workers & Pages → projeto `fiscwise` → Settings → Environment variables →
+   **Production**: `VITE_CF_BEACON_TOKEN` = o token. Refaça o deploy.
+
+O `vite.config.ts` injeta o beacon (`static.cloudflareinsights.com/beacon.min.js`,
+`defer`) no `index.html` só quando a variável existe e tem formato válido; sem
+ela o HTML não muda. Não ative também o "Enable Web Analytics" automático do
+Pages, senão as visitas contam em dobro.
+
+Privacidade/LGPD: o beacon do Cloudflare não usa cookies nem localStorage,
+não faz fingerprinting e não exige banner de consentimento; envia URL da
+página, referrer, user agent e tempos de carregamento. A página `/privacidade`
+pode citar o Cloudflare como operador de métricas de desempenho.
+
+**Web Vitals próprios (opcional):** `src/lib/vitals.ts` mede LCP, CLS, INP,
+FCP e TTFB e, se `VITE_VITALS_ENDPOINT` estiver definido no build, envia um
+JSON por `navigator.sendBeacon` quando a aba fica oculta. Sem a variável o
+código nem entra no bundle de produção. Não há coletor hoje: o Cloudflare Web
+Analytics acima já cobre os Core Web Vitals.
+
+**E2E (Playwright):** `npm run e2e` (desktop, Pixel 5 e Pixel 5 + Slow 4G) e
+`npm run e2e:mobile`. Primeira vez: `npx playwright install chromium` (ou
+`PW_CHROMIUM_PATH=/caminho/do/chromium`). Os testes sobem `vite build` +
+`vite preview` na porta 4173 sozinhos. `E2E_BASE_URL` testa outra URL (ex.: um
+preview do Pages); `E2E_API_URL` habilita os specs que dependem de API real.
+
 ### 10. Domínio da API (opcional, depois)
 
 O mapeamento de domínio nativo do Cloud Run não existe em São Paulo. Enquanto
@@ -261,7 +292,45 @@ pg_restore --no-owner --no-privileges -d "postgresql://..." fiscwise.dump
 
 ### 12. Monitoramento
 
-- Sentry: criar projeto Python e React; `SENTRY_DSN` no Secret Manager.
+- Sentry (plano Developer, grátis): criar projeto Python e React;
+  `SENTRY_DSN` no Secret Manager e `VITE_SENTRY_DSN` no Pages. **Pendente**:
+  hoje os dois estão vazios e nenhum erro é capturado.
+- Log por requisição: em production/staging a API escreve uma linha JSON por
+  requisição no stdout (`app/core/request_log.py`), que o Cloud Logging lê como
+  log estruturado: `httpRequest` (método, rota, status, latência), `route`
+  (template, ex. `/api/v1/clients/{client_id}`), `duration_ms`, `tenant_id` e o
+  trace. Nunca grava token, query string, corpo, e-mail, IP ou CPF/CNPJ. Toda
+  resposta traz `Server-Timing: app;dur=<ms>` (aparece no DevTools → Network →
+  Timing). Em dev: `REQUEST_LOG_JSON=true`.
+
+  Ver p50/p95 no **Logs Explorer** (projeto do Cloud Run), consulta:
+
+  ```
+  resource.type="cloud_run_revision"
+  resource.labels.service_name="fiscwise-api"
+  jsonPayload.message="request"
+  ```
+
+  Para percentis: no resultado, **Create metric** (tipo *Distribution*, campo
+  `jsonPayload.duration_ms`, label `jsonPayload.route`) e abra no Metrics
+  Explorer com agregação 50th/95th percentile, ou use o Log Analytics (grátis):
+
+  ```sql
+  SELECT JSON_VALUE(json_payload.route) AS route,
+         COUNT(*) AS n,
+         APPROX_QUANTILES(CAST(JSON_VALUE(json_payload.duration_ms) AS FLOAT64), 100)[OFFSET(50)] AS p50_ms,
+         APPROX_QUANTILES(CAST(JSON_VALUE(json_payload.duration_ms) AS FLOAT64), 100)[OFFSET(95)] AS p95_ms
+  FROM `<projeto>.global._Default._AllLogs`
+  WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+    AND JSON_VALUE(json_payload.message) = 'request'
+  GROUP BY route ORDER BY n DESC
+  ```
+
+  Filtro rápido de lentas: `jsonPayload.duration_ms > 1000`.
+- Perf probe: Actions → **Perf probe** → Run workflow. Mede p50/p95/max de
+  `/live`, `/health`, `/api/v1/health` e `/api/v1/clients` (401 sem token,
+  passa por todos os middlewares sem tocar no banco), mais TTFB e tamanho do
+  HTML do front. Para ver o cold start, rode depois de ~15 min sem tráfego.
 - Better Stack: monitor HTTP em `<URL do Cloud Run>/ready`. Com a instância
   desligando sem uso, o primeiro acesso leva alguns segundos; configure o
   timeout do monitor para 30 s.

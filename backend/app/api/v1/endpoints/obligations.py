@@ -180,12 +180,10 @@ async def list_obligation_rules(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all available global obligation rules."""
-    stmt = select(ObligationRule)
-    if active_only:
-        stmt = stmt.where(ObligationRule.active == True)
-    result = await db.execute(stmt.order_by(ObligationRule.jurisdiction, ObligationRule.code))
-    return result.scalars().all()
+    """List all available global obligation rules (catálogo global, cache de 5 min)."""
+    from app.services.catalog_cache import get_obligation_rules
+
+    return await get_obligation_rules(db, active_only)
 
 
 # ---------------------------------------------------------------------------

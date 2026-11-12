@@ -287,6 +287,16 @@ def _no_job_queue_kick(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_catalog_cache():
+    """Cache de planos/regras é global: cada teste começa com ele vazio."""
+    from app.core.ttl_cache import invalidate_all
+
+    invalidate_all()
+    yield
+    invalidate_all()
+
+
+@pytest.fixture(autouse=True)
 def _reset_auth_rate_limiter():
     """Todos os testes usam o mesmo IP do TestClient: zera os contadores."""
     from app.core.auth_rate_limiter import auth_rate_limiter

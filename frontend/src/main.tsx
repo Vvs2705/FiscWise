@@ -19,6 +19,17 @@ if (SENTRY_DSN) {
   })
 }
 
+// Web Vitals (RUM): chunk separado, baixado só depois do `load` para não
+// competir com o caminho crítico. Sem VITE_VITALS_ENDPOINT no build de
+// produção o bloco é removido (nenhum byte a mais).
+if (import.meta.env.VITE_VITALS_ENDPOINT || import.meta.env.DEV) {
+  const loadVitals = () => {
+    import('./lib/vitals').then((m) => m.startVitals()).catch(() => {})
+  }
+  if (document.readyState === 'complete') loadVitals()
+  else addEventListener('load', loadVitals, { once: true })
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>

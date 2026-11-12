@@ -844,6 +844,18 @@ async def update_client(
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="client.updated",
+        data={
+            "id": str(client.id),
+            "name": client.name,
+            "document": client.document,
+            "status": client.status,
+            "changed_fields": sorted(payload.model_dump(exclude_unset=True).keys()),
+        },
+    )
     return client
 
 
@@ -1693,6 +1705,17 @@ async def upload_client_document(
         after_data={"name": document.name, "document_type": document.document_type},
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="document.uploaded",
+        data={
+            "id": str(document.id),
+            "name": document.name,
+            "client_id": str(client_id),
+            "document_type": document.document_type,
+        },
     )
 
     # Agendar parsing em background

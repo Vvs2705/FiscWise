@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_principal, get_current_user, get_db
 from app.core.tenant_guard import ensure_client_in_tenant
+from app.services import webhook_service as _webhook_svc
 from app.models.obligation import (
     ClientObligationProfile,
     DocumentChecklistItem,
@@ -272,9 +273,11 @@ async def update_obligation_instance(
     if not instance:
         raise HTTPException(status_code=404, detail="Obligation instance not found")
 
+    became_delivered = False
     if body.status is not None:
         if body.status not in VALID_INSTANCE_STATUSES:
             raise HTTPException(422, f"Invalid status. Valid: {sorted(VALID_INSTANCE_STATUSES)}")
+        became_delivered = body.status == "delivered" and instance.status != "delivered"
         instance.status = body.status
         if body.status == "delivered" and not instance.completed_at:
             instance.completed_at = datetime.utcnow()
@@ -293,6 +296,20 @@ async def update_obligation_instance(
 
     await db.commit()
     await db.refresh(instance)
+    if became_delivered:
+        await _webhook_svc.dispatch_event(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            event="obligation.completed",
+            data={
+                "id": str(instance.id),
+                "client_id": str(instance.client_id),
+                "rule_id": str(instance.rule_id) if instance.rule_id else None,
+                "competence_month": instance.competence_month,
+                "status": instance.status,
+                "completed_at": instance.completed_at.isoformat() if instance.completed_at else None,
+            },
+        )
     return instance
 
 

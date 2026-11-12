@@ -99,6 +99,14 @@ async def create_webhook(
     """
     Cria uma nova assinatura de webhook.
     O segredo de assinatura é retornado UMA VEZ. Use-o para verificar payloads recebidos.
+
+    Como verificar cada entrega (esquema `hmac-sha256-v1`):
+      1. Leia o cabeçalho `X-FiscWise-Signature: t=<ts>,v1=<hex>`.
+      2. Calcule `HMAC-SHA256(chave=signing_secret, msg=f"{t}." + corpo_bruto)` em hex.
+      3. Compare com `v1` em tempo constante e rejeite `t` com mais de 5 min.
+    `X-FiscWise-Event` traz o evento e `X-FiscWise-Delivery` o id da entrega
+    (igual em todas as tentativas: use para descartar duplicatas). Falhas de
+    rede, 408, 429 e 5xx são reenviadas após 1 s, 5 s e 25 s.
     """
     try:
         sub, signing_secret = await webhook_service.create_webhook_subscription(
@@ -113,6 +121,7 @@ async def create_webhook(
         events=sub.events,
         is_active=sub.is_active,
         created_at=sub.created_at,
+        signature_scheme=sub.signature_scheme,
         signing_secret=signing_secret,
     )
 
@@ -134,6 +143,28 @@ async def update_webhook(
     if not sub:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook não encontrado.")
     return sub
+
+
+@router.post("/webhooks/{sub_id}/rotate-secret", response_model=WebhookSubscriptionCreatedResponse)
+async def rotate_webhook_secret(
+    sub_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gera um novo segredo de assinatura (retornado UMA VEZ); o anterior deixa de valer."""
+    result = await webhook_service.rotate_webhook_secret(db, sub_id, current_user.tenant_id)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Webhook não encontrado.")
+    sub, signing_secret = result
+    return WebhookSubscriptionCreatedResponse(
+        id=sub.id,
+        url=sub.url,
+        events=sub.events,
+        is_active=sub.is_active,
+        created_at=sub.created_at,
+        signature_scheme=sub.signature_scheme,
+        signing_secret=signing_secret,
+    )
 
 
 @router.delete("/webhooks/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -62,6 +62,7 @@ import {
   initiateEmail2FA,
   confirmEmail2FA,
   disable2FA,
+  getTenantId,
   type TenantData,
   type TwoFAStatus,
   type Setup2FAResponse,
@@ -89,6 +90,8 @@ import {
   useCreateWebhook,
   useUpdateWebhook,
   useDeleteWebhook,
+  useRotateWebhookSecret,
+  apiBaseUrl,
   useWebhookDeliveryLogs,
   useAvailableWebhookEvents,
   type ApiKeyCreated,
@@ -1915,6 +1918,47 @@ function BaseConhecimentoTab({
 
 // ─── Desenvolvedor tab ────────────────────────────────────────────────────────
 
+/** Rotas que aceitam X-API-Key (espelha get_current_principal no backend). */
+const API_KEY_ROUTES: { method: string; path: string }[] = [
+  { method: 'GET, POST', path: '/api/v1/clients' },
+  { method: 'GET, PATCH, PUT', path: '/api/v1/clients/{id}' },
+  { method: 'GET', path: '/api/v1/clients/{id}/documents' },
+  { method: 'GET, POST', path: '/api/v1/deadlines' },
+  { method: 'GET, PATCH', path: '/api/v1/deadlines/{id}' },
+  { method: 'GET, POST', path: '/api/v1/documents' },
+  { method: 'GET, PATCH', path: '/api/v1/documents/{id}' },
+  { method: 'GET, POST', path: '/api/v1/receivables' },
+  { method: 'GET, PATCH', path: '/api/v1/receivables/{id}' },
+  { method: 'GET, POST', path: '/api/v1/obligations/instances' },
+  { method: 'PATCH', path: '/api/v1/obligations/instances/{id}' },
+  { method: 'GET, POST', path: '/api/v1/invoices' },
+  { method: 'GET', path: '/api/v1/invoices/{id}' },
+  { method: 'GET, POST', path: '/api/v1/guias' },
+  { method: 'GET', path: '/api/v1/guias/pending-receipt' },
+  { method: 'GET, PUT', path: '/api/v1/guias/{id}' },
+];
+
+const VERIFY_PYTHON = `import hmac, hashlib, time
+
+def verificar(segredo: str, corpo: bytes, cabecalho: str) -> bool:
+    partes = dict(p.split("=", 1) for p in cabecalho.split(","))
+    if abs(time.time() - int(partes["t"])) > 300:
+        return False
+    esperado = hmac.new(segredo.encode(), f"{partes['t']}.".encode() + corpo,
+                        hashlib.sha256).hexdigest()
+    return hmac.compare_digest(esperado, partes["v1"])`;
+
+const VERIFY_NODE = `const crypto = require('crypto');
+
+function verificar(segredo, corpoBruto, cabecalho) {
+  const p = Object.fromEntries(cabecalho.split(',').map((x) => x.split('=')));
+  if (Math.abs(Date.now() / 1000 - Number(p.t)) > 300) return false;
+  const esperado = crypto.createHmac('sha256', segredo)
+    .update(\`\${p.t}.\`).update(corpoBruto).digest('hex');
+  const v1 = Buffer.from(p.v1 || '');
+  return v1.length === esperado.length && crypto.timingSafeEqual(Buffer.from(esperado), v1);
+}`;
+
 function DesenvolvedorTab() {
   const { data: apiKeys = [], isLoading: loadingKeys } = useApiKeys();
   const { data: webhooks = [], isLoading: loadingWebhooks } = useWebhooks();
@@ -1926,6 +1970,9 @@ function DesenvolvedorTab() {
   const createWebhook = useCreateWebhook();
   const updateWebhook = useUpdateWebhook();
   const deleteWebhook = useDeleteWebhook();
+  const rotateSecret = useRotateWebhookSecret();
+  const tenantId = getTenantId() ?? '<seu-tenant-id>';
+  const curlExample = `curl ${apiBaseUrl()}/api/v1/clients \\\n  -H "X-API-Key: fw_live_..." \\\n  -H "X-Tenant-ID: ${tenantId}"`;
 
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null);
@@ -1983,6 +2030,16 @@ function DesenvolvedorTab() {
     setSelectedEvents((prev) =>
       prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event]
     );
+  }
+
+  async function handleRotateSecret(subId: string) {
+    try {
+      const result = await rotateSecret.mutateAsync(subId);
+      setCreatedWebhook(result);
+      toast.success('Novo segredo gerado. O anterior deixou de valer.');
+    } catch {
+      toast.error('Erro ao gerar novo segredo');
+    }
   }
 
   function handleCopySecret() {
@@ -2111,6 +2168,33 @@ function DesenvolvedorTab() {
         </Card>
       </section>
 
+      {/* ── Como usar a chave ── */}
+      <Card>
+        <CardContent className="space-y-3 pt-6 text-sm">
+          <p className="font-semibold text-foreground">Como usar a chave</p>
+          <p className="text-muted-foreground">
+            Envie a chave no cabeçalho <code className="font-mono text-xs">X-API-Key</code> junto com{' '}
+            <code className="font-mono text-xs">X-Tenant-ID</code>. A chave age em nome do proprietário do
+            escritório, tem acesso de leitura e escrita às rotas abaixo e limite de 120 requisições por minuto.
+            Conta, cobrança, usuários e esta área continuam exigindo login.
+          </p>
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs font-mono">{curlExample}</pre>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-primary">
+              Rotas liberadas para chave de API ({API_KEY_ROUTES.length})
+            </summary>
+            <ul className="mt-2 space-y-1">
+              {API_KEY_ROUTES.map((r) => (
+                <li key={r.path} className="flex gap-2 text-xs font-mono">
+                  <span className="w-28 shrink-0 text-muted-foreground">{r.method}</span>
+                  <span className="break-all">{r.path}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </CardContent>
+      </Card>
+
       {/* ── Webhooks Section ── */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
@@ -2212,9 +2296,22 @@ function DesenvolvedorTab() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-medium font-mono truncate flex-1">{wh.url}</p>
                       <div className="flex items-center gap-2 shrink-0">
+                        {wh.signature_scheme === 'legacy' && (
+                          <Badge variant="warning" title="Criado antes da assinatura verificável: gere um novo segredo">
+                            Segredo antigo
+                          </Badge>
+                        )}
                         <Badge variant={wh.is_active ? 'success' : 'default'}>
                           {wh.is_active ? 'Ativo' : 'Inativo'}
                         </Badge>
+                        <button
+                          onClick={() => handleRotateSecret(wh.id)}
+                          disabled={rotateSecret.isPending}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title="Gerar novo segredo de assinatura"
+                        >
+                          <Key className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => updateWebhook.mutate({ id: wh.id, payload: { is_active: !wh.is_active } })}
                           className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -2248,6 +2345,31 @@ function DesenvolvedorTab() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ── Verificação da assinatura ── */}
+      <Card>
+        <CardContent className="space-y-3 pt-6 text-sm">
+          <p className="font-semibold text-foreground">Verificar a assinatura do webhook</p>
+          <p className="text-muted-foreground">
+            Cada entrega traz <code className="font-mono text-xs">X-FiscWise-Signature: t=&lt;ts&gt;,v1=&lt;hex&gt;</code>,
+            onde <code className="font-mono text-xs">v1</code> é o HMAC-SHA256 do segredo{' '}
+            <code className="font-mono text-xs">whsec_...</code> sobre{' '}
+            <code className="font-mono text-xs">{'"<ts>." + corpo bruto'}</code>. Também vêm{' '}
+            <code className="font-mono text-xs">X-FiscWise-Event</code> e{' '}
+            <code className="font-mono text-xs">X-FiscWise-Delivery</code> (igual em todas as tentativas — use
+            para ignorar repetições). Falhas de rede, 408, 429 e 5xx são reenviadas após 1 s, 5 s e 25 s; o
+            tempo limite de cada envio é 10 s.
+          </p>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-primary">Exemplo em Python</summary>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs font-mono">{VERIFY_PYTHON}</pre>
+          </details>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-primary">Exemplo em Node.js</summary>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs font-mono">{VERIFY_NODE}</pre>
+          </details>
+        </CardContent>
+      </Card>
 
       {/* ── Delivery Logs Section ── */}
       {logs.length > 0 && (
@@ -2298,7 +2420,7 @@ function DesenvolvedorTab() {
             <a href="/docs" target="_blank" rel="noopener" className="text-primary hover:underline font-medium">
               documentação da API
             </a>{' '}
-            para exemplos de integração, verificação de assinatura HMAC, e referência de todos os campos disponíveis.
+            para a referência de todos os campos disponíveis.
           </p>
         </CardContent>
       </Card>

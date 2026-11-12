@@ -122,12 +122,12 @@ export function CertificatesPage() {
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Excluir certificado "${label}"?`)) return;
+    if (!confirm(`Excluir o certificado "${label}"? Ele será marcado como Revogado.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Certificado removido');
+      toast.success('Certificado revogado');
     } catch {
-      toast.error('Erro ao remover certificado');
+      toast.error('Erro ao revogar certificado');
     }
   }
 
@@ -347,7 +347,8 @@ export function CertificatesPage() {
             const client = clients?.find((c) => c.id === cert.client_id);
             const clientName = client?.name || 'Cliente Desconhecido';
             const days = daysUntil(cert.valid_until);
-            const displayLabel = `${clientName} - ${cert.label}`;
+            const isRevoked = cert.status === 'revoked';
+            const displayLabel = `${clientName} - ${cert.label}${isRevoked ? ' (revogado)' : ''}`;
 
             return (
               <div key={cert.id} className="relative group">
@@ -358,14 +359,16 @@ export function CertificatesPage() {
                   daysRemaining={days}
                   onWarnClient={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                 />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(cert.id, cert.label)}
-                  className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  aria-label={`Excluir certificado ${cert.label}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!isRevoked && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cert.id, cert.label)}
+                    className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    aria-label={`Excluir certificado ${cert.label}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -430,15 +433,17 @@ export function CertificatesPage() {
                           <span>Notificar</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(cert.id, cert.label)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir certificado"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {cert.status !== 'revoked' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(cert.id, cert.label)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir certificado"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

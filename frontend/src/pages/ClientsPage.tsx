@@ -330,7 +330,10 @@ interface ClientItemProps {
 }
 
 function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
-  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+  const clientDeadlines = useMemo(
+    () => deadlines.filter((d) => d.client_id === client.id && d.status !== 'cancelled'),
+    [deadlines, client.id],
+  );
   const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
   
   const lastAction = useMemo(() => {
@@ -432,7 +435,10 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
 }
 
 function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
-  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+  const clientDeadlines = useMemo(
+    () => deadlines.filter((d) => d.client_id === client.id && d.status !== 'cancelled'),
+    [deadlines, client.id],
+  );
   const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
 
   const lastAction = useMemo(() => {

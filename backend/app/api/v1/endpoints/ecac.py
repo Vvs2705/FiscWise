@@ -90,7 +90,17 @@ async def update_proxy(
     proxy = await repo.get_proxy_by_id(id, _tenant_id(current_user))
     if not proxy:
         raise HTTPException(status_code=404, detail="Proxy not found")
-    
+
+    # Revogação é terminal: revogar de novo é idempotente; nada mais muda a procuração.
+    if proxy.status == "revogada":
+        changes = payload.model_dump(exclude_unset=True)
+        if changes and changes != {"status": "revogada"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Procuração revogada não pode ser alterada. Cadastre uma nova.",
+            )
+        return proxy
+
     for field, val in payload.model_dump(exclude_unset=True).items():
         setattr(proxy, field, val)
         

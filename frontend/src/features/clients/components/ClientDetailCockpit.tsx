@@ -220,7 +220,8 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   const updateReceivableMutation = useUpdateReceivable();
 
   const clientDeadlines = useMemo(() => {
-    return deadlines.filter((d) => d.client_id === clientId);
+    // Prazo excluído vira `cancelled` (exclusão lógica) e sai da lista do cliente.
+    return deadlines.filter((d) => d.client_id === clientId && d.status !== 'cancelled');
   }, [deadlines, clientId]);
 
   const clientCertificates = useMemo(() => {
@@ -1211,9 +1212,11 @@ FiscWise`,
                         Categoria: {dl.category} · Vencimento: {dateBR(dl.due_date)}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDeadline(dl.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {dl.status !== 'completed' && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDeadline(dl.id)} title="Excluir prazo">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

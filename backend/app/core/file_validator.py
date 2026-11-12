@@ -44,6 +44,11 @@ def _matches(file_bytes: bytes, mime: str) -> bool:
     return any(head.startswith(sig) for sig in sigs)
 
 
+def matches_mime(file_bytes: bytes, mime: str) -> bool:
+    """Como validate_file_mime para um MIME só, sem log (para detectar o tipo)."""
+    return bool(file_bytes) and _matches(file_bytes, mime)
+
+
 def validate_file_mime(file_bytes: bytes, allowed_mimes: list[str]) -> bool:
     """True se os bytes casarem com pelo menos um dos MIME permitidos.
 

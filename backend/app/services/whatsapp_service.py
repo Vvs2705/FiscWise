@@ -209,7 +209,12 @@ async def process_incoming_webhook(
         elif message_type == "image" and not doc_name.lower().endswith((".jpg", ".jpeg", ".png")):
             doc_name += ".png"
 
-        # Create ClientDocument
+        # Create ClientDocument. A mídia ainda está no provedor: o arquivo só
+        # passa a ser nosso depois de baixado e salvo no storage (ver
+        # ingest_whatsapp_media); até lá file_url guarda a URL de origem.
+        from app.core import storage as _storage
+
+        can_ingest = bool(background_tasks) and _storage._storage_configured()
         document = ClientDocument(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
@@ -218,7 +223,8 @@ async def process_incoming_webhook(
             document_type="other",
             status="available",
             file_url=media_url,
-            parse_status="pending"
+            parse_status="processing" if can_ingest else "skipped",
+            parse_error=None if can_ingest else MEDIA_SKIP_NO_STORAGE,
         )
         db.add(document)
         await db.flush()
@@ -228,17 +234,11 @@ async def process_incoming_webhook(
             doc_name, inbox.client_id
         )
 
-        # Trigger background document parser if background tasks are provided
-        if background_tasks:
-            from app.api.v1.endpoints.operations import _parse_document_background
-            # Create a mock local file representing the downloaded media
-            mock_local_path = f"/tmp/{document.id}_{doc_name}"
-            # Write a dummy text or download simulation (for tests/mock purposes)
+        if can_ingest:
             background_tasks.add_task(
-                _parse_document_background,
+                ingest_whatsapp_media,
                 document_id=document.id,
-                file_path=mock_local_path,
-                file_name=doc_name,
+                media_url=media_url,
                 tenant_id=tenant_id,
             )
 
@@ -344,3 +344,201 @@ async def convert_message_to_task(
     await db.commit()
     await db.refresh(task)
     return task
+
+
+# ---------------------------------------------------------------------------
+# Mídia recebida: download seguro → storage → parser
+# ---------------------------------------------------------------------------
+# Antes o documento apontava para a URL do provedor e o parser tentava ler
+# /tmp/{id}_{nome}, que nunca era baixado (parse sempre falhava).
+
+MEDIA_MAX_BYTES = 20 * 1024 * 1024
+MEDIA_TIMEOUT_S = 15.0
+MEDIA_MAX_REDIRECTS = 3
+MEDIA_SKIP_NO_STORAGE = "storage não configurado: mídia do WhatsApp não foi baixada"
+_MEDIA_TRANSPORT = None  # testes injetam httpx.MockTransport aqui
+_BLOCKED_HOST_SUFFIXES = (".local", ".localhost", ".internal", ".lan", ".home.arpa")
+
+# Mesma ideia do core/file_validator: tipo decidido pelos bytes, não pelo header.
+_BINARY_MEDIA = (
+    ("application/pdf", ".pdf"),
+    ("image/png", ".png"),
+    ("image/jpeg", ".jpg"),
+    ("image/gif", ".gif"),
+    ("image/webp", ".webp"),
+    ("application/zip", ".zip"),
+)
+
+
+class MediaRejected(Exception):
+    """Mídia recusada (host, tamanho, tipo ou rede). Mensagem vai para parse_error."""
+
+
+def _ip_is_public(ip_text: str) -> bool:
+    import ipaddress
+
+    ip = ipaddress.ip_address(ip_text)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+async def _resolve_host(host: str) -> list[str]:
+    import asyncio
+    import socket
+
+    infos = await asyncio.get_running_loop().getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    return [info[4][0] for info in infos]
+
+
+async def _check_media_url(url: str) -> None:
+    """Anti-SSRF: só https, sem credencial/porta estranha, host público."""
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    if parts.scheme != "https":
+        raise MediaRejected("mídia recusada: só https é aceito")
+    host = (parts.hostname or "").rstrip(".").lower()
+    if not host or parts.username or parts.password:
+        raise MediaRejected("mídia recusada: URL inválida")
+    if parts.port not in (None, 443):
+        raise MediaRejected("mídia recusada: porta não permitida")
+    if host == "localhost" or host.endswith(_BLOCKED_HOST_SUFFIXES) or "." not in host.strip("[]"):
+        raise MediaRejected("mídia recusada: host interno")
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+        addrs = [host.strip("[]")]
+    except ValueError:
+        try:
+            addrs = await _resolve_host(host)
+        except OSError:
+            raise MediaRejected("mídia recusada: host não resolve")
+    if not addrs or not all(_ip_is_public(a) for a in addrs):
+        raise MediaRejected("mídia recusada: endereço privado ou de metadados")
+
+
+async def download_media(url: str) -> tuple[bytes, str]:
+    """Baixa a mídia com timeout, teto de tamanho e redirects revalidados."""
+    import httpx
+
+    async with httpx.AsyncClient(
+        timeout=MEDIA_TIMEOUT_S, follow_redirects=False, transport=_MEDIA_TRANSPORT
+    ) as client:
+        for _ in range(MEDIA_MAX_REDIRECTS + 1):
+            await _check_media_url(url)
+            try:
+                async with client.stream("GET", url) as resp:
+                    if resp.is_redirect:
+                        location = resp.headers.get("location")
+                        if not location:
+                            raise MediaRejected("mídia recusada: redirect sem destino")
+                        url = str(resp.url.join(location))
+                        continue
+                    if resp.status_code != 200:
+                        raise MediaRejected(f"falha ao baixar mídia (HTTP {resp.status_code})")
+                    declared = resp.headers.get("content-length")
+                    if declared and declared.isdigit() and int(declared) > MEDIA_MAX_BYTES:
+                        raise MediaRejected("mídia recusada: maior que 20 MB")
+                    chunks: list[bytes] = []
+                    size = 0
+                    async for chunk in resp.aiter_bytes():
+                        size += len(chunk)
+                        if size > MEDIA_MAX_BYTES:
+                            raise MediaRejected("mídia recusada: maior que 20 MB")
+                        chunks.append(chunk)
+                    return b"".join(chunks), resp.headers.get("content-type", "")
+            except httpx.HTTPError as exc:
+                raise MediaRejected(f"falha ao baixar mídia ({type(exc).__name__})")
+    raise MediaRejected("mídia recusada: redirects demais")
+
+
+def detect_media_type(data: bytes, name: str, declared: str = "") -> tuple[str, str] | None:
+    """(mime, extensão) a partir dos bytes; None se não estiver na allowlist."""
+    from pathlib import Path
+
+    from app.core.file_validator import matches_mime
+
+    for mime, ext in _BINARY_MEDIA:
+        if matches_mime(data, mime):
+            if ext == ".zip":
+                name_ext = Path(name).suffix.lower()
+                if name_ext in (".xlsx", ".docx"):
+                    return mime, name_ext
+            return mime, ext
+    if not matches_mime(data, "text/plain"):
+        return None
+    head = data[:2048].lstrip(b"\xef\xbb\xbf \t\r\n")
+    if b"<OFX>" in data[:65536].upper():
+        return "application/x-ofx", ".ofx"
+    if head.startswith(b"<"):
+        return "application/xml", ".xml"
+    if "csv" in declared.lower() or Path(name).suffix.lower() == ".csv":
+        return "text/csv", ".csv"
+    return "text/plain", ".txt"
+
+
+async def ingest_whatsapp_media(document_id: uuid.UUID, media_url: str, tenant_id: uuid.UUID) -> None:
+    """Background: baixa a mídia, sobe para documents/<tenant>/..., agenda o parser."""
+    import tempfile
+    from pathlib import Path
+
+    from app.core import storage as _storage
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
+    from app.core.document_links import DOCUMENTS_BUCKET, storage_ref
+
+    async def _finish(**fields: Any) -> Optional[ClientDocument]:
+        async with get_sessionmaker()() as db:
+            await _set_current_tenant_context(db, tenant_id)
+            res = await db.execute(
+                select(ClientDocument).where(
+                    (ClientDocument.id == document_id) & (ClientDocument.tenant_id == tenant_id)
+                )
+            )
+            doc = res.scalar_one_or_none()
+            if doc is None:
+                return None
+            for key, value in fields.items():
+                setattr(doc, key, value)
+            await db.commit()
+            await db.refresh(doc)
+            return doc
+
+    async with get_sessionmaker()() as db:
+        await _set_current_tenant_context(db, tenant_id)
+        res = await db.execute(
+            select(ClientDocument.name).where(
+                (ClientDocument.id == document_id) & (ClientDocument.tenant_id == tenant_id)
+            )
+        )
+        name = res.scalar_one_or_none()
+    if name is None:
+        return
+
+    try:
+        data, declared = await download_media(media_url)
+        detected = detect_media_type(data, name, declared)
+        if detected is None:
+            raise MediaRejected("mídia recusada: tipo de arquivo não permitido")
+        mime, ext = detected
+        path = f"{tenant_id}/{uuid.uuid4().hex}{ext}"
+        await _storage.upload_bytes(DOCUMENTS_BUCKET, path, data, mime)
+    except MediaRejected as exc:
+        logger.warning("Mídia do WhatsApp recusada (doc %s): %s", document_id, exc)
+        await _finish(parse_status="failed", parse_error=str(exc))
+        return
+    except Exception:  # noqa: BLE001 — storage fora: registra e não derruba o worker
+        logger.exception("Falha ao salvar mídia do WhatsApp (doc %s)", document_id)
+        await _finish(parse_status="failed", parse_error="falha ao salvar mídia no storage")
+        return
+
+    if Path(name).suffix.lower() != ext:
+        name = f"{Path(name).stem}{ext}"
+    await _finish(file_url=storage_ref(path), name=name, parse_status="processing", parse_error=None)
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    from app.api.v1.endpoints.operations import _parse_document_background
+
+    await _parse_document_background(document_id, tmp_path, name, tenant_id)

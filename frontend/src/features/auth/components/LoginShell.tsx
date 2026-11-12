@@ -14,25 +14,27 @@ export function LoginLogo({ size = 28 }: { size?: number }) {
   );
 }
 
-/** Barra superior do login: marca à esquerda, cadastro à direita. */
+/** Barra superior do login: marca (link para a página inicial) e cadastro. */
 export function LoginTopBar() {
   return (
     <header className="w-full lg:border-b lg:border-border">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
-        <LoginLogo />
+        <Link to="/" aria-label="FiscWise, página inicial" className={`shrink-0 rounded-md ${FOCUS_RING}`}>
+          <LoginLogo />
+        </Link>
 
         <div className="flex items-center gap-3 text-sm">
           <span className="hidden text-muted-foreground sm:inline">Ainda não tem conta?</span>
           <Link
             to="/register"
             className={[
-              'rounded-md font-semibold text-primary underline-offset-4 hover:underline',
-              'lg:inline-flex lg:h-10 lg:items-center lg:border lg:border-input lg:bg-card lg:px-4 lg:font-medium lg:text-foreground lg:no-underline',
-              'lg:transition-colors lg:duration-100 lg:hover:border-muted-foreground/30 lg:hover:bg-muted lg:hover:no-underline',
+              'inline-flex h-10 select-none items-center justify-center whitespace-nowrap rounded-md px-3 font-medium sm:px-4',
+              'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+              'transition-[background-color,transform] duration-100 ease-out active:scale-[0.98]',
               FOCUS_RING,
             ].join(' ')}
           >
-            Criar conta<span className="hidden sm:inline">{'\u00a0'}grátis</span>
+            Criar conta grátis
           </Link>
         </div>
       </div>

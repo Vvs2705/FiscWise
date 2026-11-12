@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { passwordResetAvailable } from '@/lib/auth';
-import { LoginHowItWorks } from '@/features/auth/components/LoginHowItWorks';
+import { LoginPitch } from '@/features/auth/components/LoginPitch';
 import { LoginFooter, LoginTopBar } from '@/features/auth/components/LoginShell';
 import { OtpInput } from '@/features/auth/components/OtpInput';
 
@@ -202,7 +202,7 @@ function LoginForm({
       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
         Entrar no FiscWise
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">Acesse suas notas, clientes e prazos.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Acesse seus clientes, prazos e documentos.</p>
 
       {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
         <>
@@ -347,7 +347,7 @@ export function LoginPage() {
           )}
         </div>
 
-        <LoginHowItWorks />
+        <LoginPitch />
       </main>
 
       <LoginFooter />

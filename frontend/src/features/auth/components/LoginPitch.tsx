@@ -1,44 +1,42 @@
-import { Server, Users } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
+import { Link } from 'react-router-dom';
+import { ArrowRight, CalendarClock, FileStack, Server, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/* Conteúdo oficial (Frente D — posicionamento). Sem números inventados. */
-const AUDIENCE = 'Para pequenas empresas, MEIs e escritórios contábeis';
-const HEADLINE = 'Emita notas fiscais sem complicação, mesmo sem internet.';
+/*
+ * Painel de posicionamento do login (direita em ≥ lg, compacto abaixo do
+ * formulário em < lg). Só o que funciona hoje (README: ✅/🟡). Sem números
+ * inventados, sem promessas de emissão de nota.
+ */
+const AUDIENCE = 'Para contadores e escritórios contábeis';
+const HEADLINE = 'A central do contador: prazos, documentos e fechamento em um só lugar.';
 
-type Step = {
-  title: string;
-  description: string;
-  status?: { label: string; tone: 'warning' | 'success' };
-};
+type Item = { icon: LucideIcon; title: string; description: string };
 
-const steps: Step[] = [
+const items: Item[] = [
   {
-    title: 'Emita a nota',
-    description: 'NF-e, NFS-e e NFC-e em poucos cliques.',
+    icon: CalendarClock,
+    title: 'Obrigações',
+    description: 'Calendário de cada cliente por regime, CNAE, município e UF, com prazos.',
   },
   {
-    title: 'Sem internet? Ela entra na fila',
-    description: 'A nota fica salva como pendente de transmissão.',
-    status: { label: 'Pendente de transmissão', tone: 'warning' },
+    icon: Users,
+    title: 'Portal do cliente',
+    description: 'O cliente envia documentos e acessa as guias sem depender de e-mail.',
   },
   {
-    title: 'A conexão voltou, enviamos',
-    description: 'Transmitimos para a SEFAZ e avisamos você.',
-    status: { label: 'Enviada à SEFAZ', tone: 'success' },
+    icon: FileStack,
+    title: 'Fechamento com dossiê PDF',
+    description: 'Fechamento por competência e dossiê em PDF pronto para entregar.',
   },
 ];
 
-/**
- * Painel "Como funciona" do login.
- * ≥ lg: coluna da direita, ocupando a altura útil.
- * < lg: versão compacta abaixo do formulário (sem o rodapé de confiança
- * duplicado e com tipografia menor).
- */
-export function LoginHowItWorks({ className }: { className?: string }) {
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
+export function LoginPitch({ className }: { className?: string }) {
   return (
     <aside
-      aria-labelledby="login-how-title"
+      aria-labelledby="login-pitch-title"
       className={cn(
         'flex flex-col rounded-lg border border-primary/15 bg-accent/50 p-5 text-foreground sm:p-6',
         'animate-fade-in-up [animation-delay:40ms] [animation-duration:200ms]',
@@ -49,65 +47,41 @@ export function LoginHowItWorks({ className }: { className?: string }) {
       <div>
         <p className="text-xs font-medium text-muted-foreground lg:text-sm">{AUDIENCE}</p>
         <h2
-          id="login-how-title"
+          id="login-pitch-title"
           className="mt-2 max-w-2xl text-xl font-semibold leading-tight tracking-tight lg:mt-3 lg:text-3xl 2xl:text-4xl"
         >
           {HEADLINE}
         </h2>
+
+        <ul className="mt-6 space-y-4 lg:mt-10 lg:space-y-5">
+          {items.map(({ icon: Icon, title, description }) => (
+            <li key={title} className="flex gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-card text-primary"
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 pt-0.5">
+                <p className="text-sm font-semibold text-foreground">{title}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
-      <section aria-labelledby="login-steps-title" className="mt-6 lg:mt-8">
-        <h3 id="login-steps-title" className="text-sm font-semibold text-foreground">
-          Como funciona
-        </h3>
-
-        <ol className="mt-4">
-          {steps.map((step, i) => {
-            const last = i === steps.length - 1;
-            return (
-              <li key={step.title} className="relative flex gap-4 pb-5 last:pb-0 lg:pb-6">
-                {!last && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute bottom-0 left-4 top-8 w-px -translate-x-1/2 bg-primary/25"
-                  />
-                )}
-                <span
-                  aria-hidden="true"
-                  className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-card font-mono text-xs font-medium tabular-nums text-primary"
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <div className="min-w-0 pt-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    <span className="sr-only">Passo {i + 1}: </span>
-                    {step.title}
-                  </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{step.description}</p>
-                  {step.status && (
-                    <Badge variant={step.status.tone} className="mt-2">
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full',
-                          step.status.tone === 'warning' ? 'bg-warning' : 'bg-success',
-                        )}
-                      />
-                      {step.status.label}
-                    </Badge>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
       <div className="mt-6 flex flex-col gap-3 border-t border-primary/15 pt-4 sm:flex-row sm:items-center sm:justify-between lg:mt-8 lg:pt-5">
-        <p className="flex min-w-0 items-start gap-2 text-sm text-muted-foreground">
-          <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          Seu contador acompanha tudo pelo mesmo sistema.
-        </p>
+        <Link
+          to="/"
+          className={cn(
+            'inline-flex w-fit items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline',
+            FOCUS_RING,
+          )}
+        >
+          Conheça o FiscWise
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
         <p className="inline-flex w-fit shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm border border-border bg-card px-2 py-1 text-xs font-medium text-foreground">
           <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           Dados em servidores no Brasil

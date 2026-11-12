@@ -1,159 +1,529 @@
 {
   "cadastrar-cliente": {
-    "duration": 38.6,
+    "duration": 69.8,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "Abra Clientes no menu e clique em Novo cliente"
+        "t": 3.6,
+        "label": "Abra Clientes e clique em Novo cliente"
       },
       {
-        "t": 8.9,
-        "label": "Digite o CNPJ: a razão social e o contato vêm da Receita"
+        "t": 10.3,
+        "label": "Digite o CNPJ: os dados vêm da Receita"
       },
       {
-        "t": 16.5,
-        "label": "Confira o tipo e escolha o regime tributário"
+        "t": 20.2,
+        "label": "Escolha o regime tributário"
       },
       {
-        "t": 19,
-        "label": "Complete os dados que faltarem"
+        "t": 26.8,
+        "label": "Complete e clique em Salvar cliente"
       },
       {
-        "t": 26.1,
-        "label": "Clique em Salvar cliente"
+        "t": 36.9,
+        "label": "O cliente já aparece na carteira"
       },
       {
-        "t": 30.1,
-        "label": "O cliente já aparece na carteira. Busque pelo nome ou CNPJ"
+        "t": 44,
+        "label": "Vários clientes? Importe uma planilha Excel ou CSV"
+      },
+      {
+        "t": 54,
+        "label": "Todos entram de uma vez, com relatório"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 7.2,
+        "text": "Nesta aula, você cadastra um cliente em menos de um minuto."
+      },
+      {
+        "start": 7,
+        "end": 9.9,
+        "text": "Abra Clientes no menu e clique em Novo cliente."
+      },
+      {
+        "start": 10.3,
+        "end": 12.3,
+        "text": "Não precisa digitar tudo."
+      },
+      {
+        "start": 12.1,
+        "end": 18.7,
+        "text": "Digite só o CNPJ: a razão social, o e-mail e o telefone chegam direto da Receita Federal."
+      },
+      {
+        "start": 20.2,
+        "end": 22,
+        "text": "Escolha o regime tributário."
+      },
+      {
+        "start": 21.7,
+        "end": 26.4,
+        "text": "É com ele que o FiscWise gera, todo mês, as obrigações certas para este cliente."
+      },
+      {
+        "start": 26.8,
+        "end": 31.3,
+        "text": "Complete o telefone, deixe uma observação para a equipe e clique em Salvar cliente."
+      },
+      {
+        "start": 36.9,
+        "end": 37.6,
+        "text": "Pronto!"
+      },
+      {
+        "start": 37.3,
+        "end": 43.6,
+        "text": "O cliente já aparece na carteira, e você encontra qualquer um pelo nome, CNPJ ou e-mail."
+      },
+      {
+        "start": 44,
+        "end": 46.7,
+        "text": "Tem vários clientes para cadastrar?"
+      },
+      {
+        "start": 46.4,
+        "end": 48.2,
+        "text": "Use Importar planilha."
+      },
+      {
+        "start": 47.9,
+        "end": 53.6,
+        "text": "Vale o nosso modelo em Excel ou um arquivo CSV exportado do seu sistema antigo."
+      },
+      {
+        "start": 54,
+        "end": 59.6,
+        "text": "Em segundos, todos entram na carteira de uma vez, e um relatório mostra cada linha importada."
       }
     ]
   },
   "certificados": {
-    "duration": 30.8,
+    "duration": 44.3,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "Certificados mostra a validade de cada certificado dos clientes"
+        "t": 3.6,
+        "label": "A validade de todos os certificados"
       },
       {
-        "t": 6.3,
-        "label": "Clique em Novo certificado"
+        "t": 10.5,
+        "label": "Alerta 30 dias antes de vencer"
       },
       {
-        "t": 10,
-        "label": "Escolha o cliente e dê um nome ao certificado"
+        "t": 18.3,
+        "label": "Novo certificado: cliente e nome"
       },
       {
-        "t": 15.5,
-        "label": "Informe o tipo e a data de vencimento"
+        "t": 27,
+        "label": "Tipo, vencimento e Salvar"
       },
       {
-        "t": 20,
-        "label": "Clique em Salvar certificado"
+        "t": 35.3,
+        "label": "Avise o cliente com um clique"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 5.9,
+        "text": "Certificado vencido trava o escritório."
       },
       {
-        "t": 24.3,
-        "label": "Vencendo em até 30 dias? Clique em Avisar cliente"
+        "start": 5.7,
+        "end": 10.1,
+        "text": "Aqui você acompanha a validade dos certificados digitais de todos os clientes."
+      },
+      {
+        "start": 10.5,
+        "end": 12.9,
+        "text": "A barra mostra quanto tempo falta."
+      },
+      {
+        "start": 12.6,
+        "end": 17.9,
+        "text": "Com menos de trinta dias, o cartão fica laranja e o alerta aparece no Foco de hoje."
+      },
+      {
+        "start": 18.3,
+        "end": 23.5,
+        "text": "Para cadastrar, clique em Novo certificado, escolha o cliente e dê um nome fácil de reconhecer."
+      },
+      {
+        "start": 27,
+        "end": 30.8,
+        "text": "Informe o tipo, A1 ou A3, e a data de vencimento."
+      },
+      {
+        "start": 30.6,
+        "end": 32.3,
+        "text": "Depois, é só salvar."
+      },
+      {
+        "start": 35.3,
+        "end": 39.3,
+        "text": "Para pedir a renovação ao cliente, basta um clique em Avisar cliente."
       }
     ]
   },
   "fechamento-mensal": {
-    "duration": 26.9,
+    "duration": 42.9,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "Cada cliente tem o fechamento da competência, com score e bloqueios"
+        "t": 3.6,
+        "label": "A esteira de fechamento de todos os clientes"
       },
       {
-        "t": 7.6,
-        "label": "Clique em Abrir no cliente que você vai fechar"
+        "t": 11.6,
+        "label": "Bloqueios mostram o que está faltando"
       },
       {
-        "t": 11.8,
-        "label": "Marque como feita cada etapa do checklist"
+        "t": 18.3,
+        "label": "Abra o fechamento do cliente"
       },
       {
-        "t": 18.8,
-        "label": "Com tudo pronto, clique em Gerar dossiê"
+        "t": 25.1,
+        "label": "Marque cada etapa do checklist"
+      },
+      {
+        "t": 31.8,
+        "label": "Com 100%, gere o dossiê em PDF"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 8.6,
+        "text": "O fechamento mensal mostra a esteira de todos os clientes na competência,"
+      },
+      {
+        "start": 8.4,
+        "end": 11.2,
+        "text": "com um score de zero a cem para cada um."
+      },
+      {
+        "start": 11.6,
+        "end": 15.1,
+        "text": "Quando falta alguma coisa, como o extrato bancário do cliente,"
+      },
+      {
+        "start": 14.9,
+        "end": 17.9,
+        "text": "o fechamento fica bloqueado e o motivo aparece aqui."
+      },
+      {
+        "start": 18.3,
+        "end": 20.6,
+        "text": "Abra o cliente que você vai fechar."
+      },
+      {
+        "start": 20.3,
+        "end": 24.7,
+        "text": "Notas, guias, obrigações e documentos aparecem resumidos logo no topo."
+      },
+      {
+        "start": 25.1,
+        "end": 28,
+        "text": "Marque cada etapa do checklist conforme avança."
+      },
+      {
+        "start": 27.7,
+        "end": 29,
+        "text": "O score sobe junto."
+      },
+      {
+        "start": 31.8,
+        "end": 33.5,
+        "text": "Chegou a cem por cento?"
+      },
+      {
+        "start": 33.2,
+        "end": 34.9,
+        "text": "Clique em Gerar dossiê."
+      },
+      {
+        "start": 34.6,
+        "end": 37.9,
+        "text": "O PDF reúne o mês do cliente, pronto para enviar."
       }
     ]
   },
   "obrigacoes": {
-    "duration": 33,
+    "duration": 48.4,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "Obrigações mostra tudo que vence na competência escolhida"
+        "t": 3.6,
+        "label": "O resumo das obrigações da competência"
       },
       {
-        "t": 8.1,
-        "label": "Filtre por status ou prioridade para focar no urgente"
+        "t": 11.5,
+        "label": "As obrigações são geradas pelo regime do cliente"
       },
       {
-        "t": 13.6,
-        "label": "Busque pela obrigação ou pelo cliente"
+        "t": 23.3,
+        "label": "Filtre por prioridade para focar no urgente"
       },
       {
-        "t": 18.1,
-        "label": "Clique em Iniciar quando começar a trabalhar nela"
+        "t": 27.2,
+        "label": "Busque pelo cliente ou pela obrigação"
       },
       {
-        "t": 22.2,
-        "label": "Entregou? Clique no ✓ para dar baixa"
+        "t": 31.1,
+        "label": "Clique em Iniciar quando começar"
+      },
+      {
+        "t": 36.1,
+        "label": "Entregou? Clique no visto para dar baixa"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 6.7,
+        "text": "Em Obrigações, você vê tudo o que vence na competência:"
+      },
+      {
+        "start": 6.5,
+        "end": 9.7,
+        "text": "o que está pendente, o que já foi entregue e o que venceu."
+      },
+      {
+        "start": 11.5,
+        "end": 14.1,
+        "text": "As obrigações nascem sozinhas."
+      },
+      {
+        "start": 13.8,
+        "end": 18.9,
+        "text": "O FiscWise lê o regime de cada cliente e cria o DAS, a DCTFWeb,"
+      },
+      {
+        "start": 18.7,
+        "end": 22.9,
+        "text": "a EFD-Reinf e as demais, já com o vencimento certo."
+      },
+      {
+        "start": 23.3,
+        "end": 25.8,
+        "text": "Para focar no urgente, filtre por prioridade."
+      },
+      {
+        "start": 25.5,
+        "end": 26.8,
+        "text": "Aqui, só as críticas."
+      },
+      {
+        "start": 27.2,
+        "end": 28.8,
+        "text": "Ou busque direto pelo cliente."
+      },
+      {
+        "start": 31.1,
+        "end": 32.4,
+        "text": "Começou a trabalhar?"
+      },
+      {
+        "start": 32.1,
+        "end": 35.7,
+        "text": "Clique em Iniciar, e a equipe sabe que essa obrigação está com você."
+      },
+      {
+        "start": 36.1,
+        "end": 36.9,
+        "text": "Entregou?"
+      },
+      {
+        "start": 36.7,
+        "end": 37.9,
+        "text": "Clique no visto."
+      },
+      {
+        "start": 37.6,
+        "end": 41.5,
+        "text": "A obrigação vai para Entregues e o painel atualiza na hora."
       }
     ]
   },
   "portal-cliente": {
-    "duration": 23.6,
+    "duration": 30.4,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "Escolha o cliente para ver o portal como ele vê"
+        "t": 3.6,
+        "label": "Escolha o cliente e veja o portal como ele vê"
       },
       {
-        "t": 6.9,
-        "label": "Confira guias e pendências que o cliente vai ver"
+        "t": 8.7,
+        "label": "Fechamento, guias e pendências para o cliente"
       },
       {
-        "t": 13.2,
+        "t": 16,
         "label": "Clique em Enviar link de acesso ao portal"
       },
       {
-        "t": 16.2,
-        "label": "Confira o e-mail e clique em Enviar link"
+        "t": 20.2,
+        "label": "Confira o e-mail e envie o link"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 6.8,
+        "text": "O portal do cliente mostra exatamente o que o seu cliente vê."
+      },
+      {
+        "start": 6.6,
+        "end": 8.3,
+        "text": "Escolha o cliente aqui em cima."
+      },
+      {
+        "start": 8.7,
+        "end": 11.3,
+        "text": "Ele acompanha o andamento do fechamento,"
+      },
+      {
+        "start": 11,
+        "end": 15.6,
+        "text": "as guias para pagar e as pendências, sem precisar ligar nem mandar e-mail."
+      },
+      {
+        "start": 16,
+        "end": 19.8,
+        "text": "Para dar acesso, clique em Enviar link de acesso ao portal."
+      },
+      {
+        "start": 20.2,
+        "end": 22,
+        "text": "Confira o e-mail e envie."
+      },
+      {
+        "start": 21.8,
+        "end": 25.3,
+        "text": "O cliente entra pelo link, sem precisar criar senha."
       }
     ]
   },
   "primeiros-passos": {
-    "duration": 76.7,
+    "duration": 87.6,
     "chapters": [
       {
-        "t": 3.2,
-        "label": "No primeiro acesso, um tour mostra as partes mais importantes"
+        "t": 3.6,
+        "label": "O tour de boas-vindas no primeiro acesso"
       },
       {
-        "t": 9,
-        "label": "Painel, Foco de hoje, Clientes, Obrigações e Fechamento ficam no menu"
+        "t": 11.7,
+        "label": "Painel, Foco de hoje, Clientes, Obrigações e Fechamento no menu"
       },
       {
-        "t": 37.8,
-        "label": "O botão Ajuda mostra o passo a passo da tela em que você está"
+        "t": 39.6,
+        "label": "O botão Ajuda acompanha você em todas as telas"
       },
       {
-        "t": 47.8,
-        "label": "O painel resume o dia: o que vence, o que está atrasado e quem precisa de atenção"
+        "t": 49.4,
+        "label": "O painel resume o dia do escritório"
       },
       {
-        "t": 54.2,
-        "label": "Clique em Foco de hoje para ver tudo que pede ação, por prioridade"
+        "t": 58.4,
+        "label": "Foco de hoje: tudo que pede ação, por prioridade"
       },
       {
-        "t": 59.3,
-        "label": "Em qualquer tela, clique em Ajuda para ver como fazer cada tarefa"
+        "t": 66.5,
+        "label": "Ajuda: o passo a passo de cada página"
       },
       {
-        "t": 68.5,
-        "label": "As aulas em vídeo ficam no Minicurso, no fim do menu"
+        "t": 76.4,
+        "label": "Todas as aulas ficam no Minicurso"
+      }
+    ],
+    "cues": [
+      {
+        "start": 3.6,
+        "end": 4.1,
+        "text": "Olá!"
+      },
+      {
+        "start": 3.9,
+        "end": 7.2,
+        "text": "Boas-vindas ao FiscWise, a central do contador."
+      },
+      {
+        "start": 6.9,
+        "end": 11.3,
+        "text": "No primeiro acesso, um tour rápido mostra onde fica cada coisa."
+      },
+      {
+        "start": 11.7,
+        "end": 14.8,
+        "text": "No menu da esquerda ficam o Painel, o Foco de hoje,"
+      },
+      {
+        "start": 14.6,
+        "end": 18.2,
+        "text": "a carteira de clientes, as obrigações e o fechamento mensal."
+      },
+      {
+        "start": 17.9,
+        "end": 20.6,
+        "text": "É tudo o que o escritório faz no dia a dia."
+      },
+      {
+        "start": 39.6,
+        "end": 41.6,
+        "text": "Repare no botão Ajuda, lá no topo."
+      },
+      {
+        "start": 41.4,
+        "end": 43.6,
+        "text": "Ele acompanha você em todas as telas."
+      },
+      {
+        "start": 49.4,
+        "end": 50.5,
+        "text": "Este é o painel."
+      },
+      {
+        "start": 50.3,
+        "end": 55.5,
+        "text": "Num só lugar, você vê o que vence, o que está atrasado e quais clientes precisam de atenção."
+      },
+      {
+        "start": 55.2,
+        "end": 58,
+        "text": "Cada número é um atalho direto para o assunto."
+      },
+      {
+        "start": 58.4,
+        "end": 62.5,
+        "text": "O Foco de hoje junta tudo o que pede ação, em ordem de prioridade:"
+      },
+      {
+        "start": 62.2,
+        "end": 66.1,
+        "text": "primeiro o que é crítico, depois o que vence hoje e na semana."
+      },
+      {
+        "start": 66.5,
+        "end": 68.8,
+        "text": "Ficou com dúvida em alguma tela?"
+      },
+      {
+        "start": 68.5,
+        "end": 69.8,
+        "text": "Clique em Ajuda."
+      },
+      {
+        "start": 69.6,
+        "end": 74.4,
+        "text": "Aparece o passo a passo daquela página e o atalho para a aula em vídeo."
+      },
+      {
+        "start": 76.4,
+        "end": 79.4,
+        "text": "E todas as aulas ficam aqui, no Minicurso."
+      },
+      {
+        "start": 79.1,
+        "end": 82.5,
+        "text": "Na próxima, você cadastra o seu primeiro cliente."
       }
     ]
   }

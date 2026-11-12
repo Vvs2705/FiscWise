@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Circle, Clock, GraduationCap, PlayCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Circle, Clock, GraduationCap, Maximize, PlayCircle, Subtitles } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { LESSONS, formatDuration, type Lesson } from '@/lib/minicurso';
+import { LESSONS, cueAt, formatDuration, type Lesson } from '@/lib/minicurso';
 
 const WATCHED_KEY = 'fiscwise:minicurso:assistidas';
 
@@ -26,6 +26,40 @@ function saveWatched(ids: string[]) {
   }
 }
 
+const CAPTION_KEY = 'fiscwise:minicurso:legenda';
+
+/** Tamanhos da legenda: crescem com o player, com um mínimo legível no celular. */
+const CAPTION_SIZES = [
+  { id: 'p', label: 'A', name: 'pequena', css: 'max(14px, 1.9cqw)' },
+  { id: 'm', label: 'A', name: 'média', css: 'max(16px, 2.5cqw)' },
+  { id: 'g', label: 'A', name: 'grande', css: 'max(20px, 3.3cqw)' },
+  { id: 'gg', label: 'A', name: 'extra grande', css: 'max(24px, 4.4cqw)' },
+] as const;
+type CaptionSize = (typeof CAPTION_SIZES)[number]['id'];
+
+interface CaptionPrefs {
+  on: boolean;
+  size: CaptionSize;
+}
+
+function readCaptionPrefs(): CaptionPrefs {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CAPTION_KEY) ?? 'null') as Partial<CaptionPrefs> | null;
+    const size = CAPTION_SIZES.some((s) => s.id === raw?.size) ? (raw!.size as CaptionSize) : 'm';
+    return { on: raw?.on ?? true, size };
+  } catch {
+    return { on: true, size: 'm' };
+  }
+}
+
+function saveCaptionPrefs(prefs: CaptionPrefs) {
+  try {
+    localStorage.setItem(CAPTION_KEY, JSON.stringify(prefs));
+  } catch {
+    /* sem storage: vale só nesta visita */
+  }
+}
+
 export function MinicursoPage() {
   const [params, setParams] = useSearchParams();
   const current: Lesson = LESSONS.find((l) => l.id === params.get('aula')) ?? LESSONS[0];
@@ -35,6 +69,25 @@ export function MinicursoPage() {
   const [watched, setWatched] = useState<string[]>(readWatched);
   const [time, setTime] = useState(0);
   const [ended, setEnded] = useState(false);
+  const [captions, setCaptions] = useState<CaptionPrefs>(readCaptionPrefs);
+  const playerRef = useRef<HTMLDivElement>(null);
+
+  const updateCaptions = (patch: Partial<CaptionPrefs>) => {
+    setCaptions((prev) => {
+      const updated = { ...prev, ...patch };
+      saveCaptionPrefs(updated);
+      return updated;
+    });
+  };
+
+  // Tela cheia no contêiner (vídeo + legenda), para a legenda continuar visível.
+  const toggleFullscreen = () => {
+    const el = playerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    else if (el.requestFullscreen) void el.requestFullscreen().catch(() => undefined);
+    else videoRef.current?.requestFullscreen?.().catch(() => undefined);
+  };
 
   useEffect(() => {
     setTime(0);
@@ -70,6 +123,9 @@ export function MinicursoPage() {
     return active;
   }, [current.chapters, time]);
 
+  const cue = captions.on ? cueAt(current.cues, time) : undefined;
+  const captionCss = CAPTION_SIZES.find((c) => c.id === captions.size)?.css;
+
   const totalMinutes = Math.max(1, Math.round(LESSONS.reduce((s, l) => s + l.duration, 0) / 60));
   const doneCount = LESSONS.filter((l) => watched.includes(l.id)).length;
 
@@ -83,8 +139,9 @@ export function MinicursoPage() {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">Minicurso FiscWise</h1>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Aulas curtas em vídeo mostrando cada tarefa sendo feita na tela: onde clicar, o que preencher e o que
-            acontece quando você salva. Os dados dos vídeos são de demonstração.
+            Aulas curtas em vídeo, narradas e com legenda, mostrando cada tarefa sendo feita na tela: onde clicar, o que
+            preencher e o que acontece quando você salva. A legenda pode ser aumentada logo abaixo do vídeo. Os dados
+            dos vídeos são de demonstração.
           </p>
         </div>
         <div className="w-full max-w-xs space-y-1.5 md:w-64" aria-label="Seu progresso no minicurso">
@@ -103,13 +160,19 @@ export function MinicursoPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Player */}
         <section id="minicurso-player" aria-label="Aula atual" className="min-w-0 space-y-4 scroll-mt-4">
-          <div className="overflow-hidden rounded-lg border border-border bg-foreground/5 shadow-token-sm">
+          <div
+            ref={playerRef}
+            data-testid="minicurso-player"
+            className="relative overflow-hidden rounded-lg border border-border bg-black shadow-token-sm [&:fullscreen]:flex [&:fullscreen]:items-center [&:fullscreen]:rounded-none [&:fullscreen]:border-0"
+            style={{ containerType: 'inline-size' }}
+          >
             <video
               key={current.id}
               ref={videoRef}
               data-testid="minicurso-video"
               className="aspect-video w-full bg-black"
               controls
+              controlsList="nofullscreen"
               playsInline
               preload="metadata"
               poster={current.poster}
@@ -127,6 +190,71 @@ export function MinicursoPage() {
               <source src={current.video} type="video/mp4" />
               Seu navegador não reproduz vídeos. Use a versão mais recente do Chrome, Edge, Firefox ou Safari.
             </video>
+            {cue && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-[13%] flex justify-center px-[4%]">
+                <p
+                  data-testid="minicurso-legenda"
+                  className="max-w-[92%] rounded-md bg-black/85 px-[0.6em] py-[0.25em] text-center font-medium leading-snug text-white shadow-lg"
+                  style={{ fontSize: captionCss }}
+                >
+                  {cue.text}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-3 py-2"
+            role="group"
+            aria-label="Opções de legenda"
+          >
+            <button
+              type="button"
+              onClick={() => updateCaptions({ on: !captions.on })}
+              aria-pressed={captions.on}
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                captions.on ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Subtitles className="h-4 w-4" aria-hidden="true" />
+              {captions.on ? 'Legenda ligada' : 'Legenda desligada'}
+            </button>
+            <div className="flex items-center gap-2">
+              <span id="tamanho-legenda" className="text-sm text-muted-foreground">
+                Tamanho da letra
+              </span>
+              <div role="radiogroup" aria-labelledby="tamanho-legenda" className="flex items-end gap-1">
+                {CAPTION_SIZES.map((size, i) => (
+                  <button
+                    key={size.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={captions.size === size.id}
+                    aria-label={`Legenda ${size.name}`}
+                    title={`Legenda ${size.name}`}
+                    onClick={() => updateCaptions({ size: size.id, on: true })}
+                    className={cn(
+                      'inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-2 font-semibold leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      captions.size === size.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border text-foreground hover:bg-muted',
+                    )}
+                    style={{ fontSize: `${13 + i * 3}px` }}
+                  >
+                    {size.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Maximize className="h-4 w-4" aria-hidden="true" />
+              Tela cheia
+            </button>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -193,6 +321,33 @@ export function MinicursoPage() {
               </ul>
             </Card>
           </div>
+
+          {current.cues.length > 0 && (
+            <details className="group rounded-lg border border-border bg-card p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground">Transcrição da aula</summary>
+              <div className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
+                {current.chapters.map((c, i) => {
+                  const nextT = current.chapters[i + 1]?.t ?? Infinity;
+                  const text = current.cues
+                    .filter((q) => q.start >= c.t - 0.05 && q.start < nextT - 0.05)
+                    .map((q) => q.text)
+                    .join(' ');
+                  return (
+                    <p key={`${c.t}-${c.label}`}>
+                      <button
+                        type="button"
+                        onClick={() => seek(c.t)}
+                        className="mr-2 font-mono text-xs text-primary hover:underline"
+                      >
+                        {formatDuration(c.t)}
+                      </button>
+                      {text}
+                    </p>
+                  );
+                })}
+              </div>
+            </details>
+          )}
         </section>
 
         {/* Lista de aulas */}

@@ -86,9 +86,17 @@ export const PAGE_GUIDES: PageGuide[] = [
       {
         title: 'Importar vários clientes de uma vez',
         steps: [
-          'Clique em "Modelo XLSX" para baixar a planilha modelo.',
-          'Preencha uma linha por cliente e salve o arquivo.',
+          'Use o modelo (botão "Modelo XLSX") ou um arquivo CSV exportado do seu sistema antigo, uma linha por cliente.',
+          'O FiscWise reconhece colunas como "Razão Social", "CNPJ", "Regime", "E-mail" e "Telefone", com ou sem acento. CSV pode ser separado por ponto e vírgula ou vírgula.',
           'Clique em "Importar planilha" e escolha o arquivo.',
+          'Confira o relatório: cada linha aparece como cadastrada ou com o motivo do erro, e as linhas boas entram mesmo que outras falhem.',
+        ],
+      },
+      {
+        title: 'Preencher o cadastro a partir de um arquivo',
+        steps: [
+          'Em "Novo cliente", arraste a planilha ou o CSV para a área "Preencher com planilha ou CSV".',
+          'Os campos são preenchidos com a primeira linha do arquivo. Revise e clique em "Salvar cliente".',
         ],
       },
       {
@@ -342,7 +350,7 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: '/minicurso',
     title: 'Minicurso FiscWise',
-    summary: 'Aulas em vídeo curtas mostrando cada tarefa sendo feita na tela, do começo ao fim.',
+    summary: 'Aulas curtas em vídeo, narradas e com legenda, mostrando cada tarefa sendo feita na tela, do começo ao fim.',
     tasks: [
       {
         title: 'Assistir às aulas',
@@ -350,6 +358,15 @@ export const PAGE_GUIDES: PageGuide[] = [
           'Escolha uma aula na lista.',
           'Use os capítulos abaixo do vídeo para pular direto para um passo.',
           'A aula fica marcada como assistida quando você chega ao fim.',
+        ],
+      },
+      {
+        title: 'Ajustar a legenda',
+        steps: [
+          'Abaixo do vídeo, ligue ou desligue a legenda.',
+          'Em "Tamanho da letra", escolha entre quatro tamanhos. A escolha fica salva para as próximas aulas.',
+          'Use "Tela cheia" para ver o vídeo grande com a legenda.',
+          'Prefere ler? Abra "Transcrição da aula" para ver toda a narração.',
         ],
       },
     ],

@@ -292,7 +292,7 @@ async def test_export_pdf_premium_success(client_with_auth_a, test_db):
     )
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "application/pdf"
-    assert b"%PDF-1.4" in response.content
+    assert response.content.startswith(b"%PDF-")
 
 @pytest.mark.asyncio
 async def test_export_pdf_denied_on_free_and_intermediario(client_with_auth_a, test_db):

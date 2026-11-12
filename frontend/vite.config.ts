@@ -36,12 +36,11 @@ export default defineConfig({
           // Data fetching
           'vendor-query': ['@tanstack/react-query'],
           // Heavy UI libraries
-          'vendor-charts': ['recharts'],
           'vendor-motion': ['framer-motion'],
           // Form handling
           'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // Utilities
-          'vendor-utils': ['axios', 'zustand', 'date-fns', 'react-hot-toast', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'vendor-utils': ['axios', 'zustand', 'class-variance-authority', 'clsx', 'tailwind-merge'],
         },
       },
     },

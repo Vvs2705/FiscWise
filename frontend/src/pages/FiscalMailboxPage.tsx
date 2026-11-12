@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Search, RefreshCw, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -77,11 +78,15 @@ export function FiscalMailboxPage() {
     onError: (err) => toast.error(getApiErrorMessage(err, 'Erro ao sincronizar a caixa postal')),
   });
 
-  const filtered = (messages ?? []).filter(m =>
-    !search ||
-    m.subject.toLowerCase().includes(search.toLowerCase()) ||
-    m.clientName.toLowerCase().includes(search.toLowerCase())
-  );
+  const debouncedSearch = useDebouncedValue(search);
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return (messages ?? []).filter(m =>
+      !debouncedSearch ||
+      m.subject.toLowerCase().includes(q) ||
+      m.clientName.toLowerCase().includes(q)
+    );
+  }, [messages, debouncedSearch]);
 
   const unreadCount = (messages ?? []).filter(m => m.status === 'unread').length;
   const criticalCount = (messages ?? []).filter(m => m.risk === 'critical').length;

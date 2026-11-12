@@ -17,6 +17,7 @@ export function CommandMenu() {
         e.preventDefault();
         setOpen((open) => !open);
       }
+      if (e.key === 'Escape') setOpen(false);
     };
 
     document.addEventListener('keydown', down);
@@ -66,14 +67,14 @@ export function CommandMenu() {
 
           <Command.Group heading="Ações rápidas" className="px-1 py-1.5 text-xs font-medium text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1">
             <Command.Item
-              onSelect={() => runCommand(() => navigate('/clientes'))}
+              onSelect={() => runCommand(() => navigate('/clientes', { state: { openCreate: true } }))}
               className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <Plus className="w-4 h-4" />
               <span>Cadastrar novo cliente</span>
             </Command.Item>
             <Command.Item
-              onSelect={() => runCommand(() => navigate('/documentos'))}
+              onSelect={() => runCommand(() => navigate('/documentos', { state: { openCreate: true } }))}
               className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <FileText className="w-4 h-4" />

@@ -7,6 +7,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.document_links import sign_file_urls
 from app.core.pagination import Page, page_params, paginate
 from app.models.user import User
 from app.models.operations import CompanyDocument, AccountingClient
@@ -18,6 +19,12 @@ from app.schemas.company_documents import (
 )
 
 router = APIRouter(prefix="/clients/{client_id}/company-documents", tags=["Company Documents"])
+
+
+async def _signed(items, tenant_id):
+    """Troca a referência do bucket privado por URL assinada (ver core/document_links)."""
+    await sign_file_urls(items, tenant_id)
+    return items
 
 
 @router.post("", response_model=CompanyDocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -46,7 +53,7 @@ async def upload_company_document(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
-    return CompanyDocumentResponse.model_validate(doc)
+    return (await _signed([CompanyDocumentResponse.model_validate(doc)], current_user.tenant_id))[0]
 
 
 @router.get("", response_model=list[CompanyDocumentListResponse])
@@ -77,7 +84,7 @@ async def list_company_documents(
         .order_by(CompanyDocument.created_at.asc(), CompanyDocument.id.asc()),
         page,
     )
-    return [CompanyDocumentListResponse.model_validate(d) for d in docs]
+    return await _signed([CompanyDocumentListResponse.model_validate(d) for d in docs], current_user.tenant_id)
 
 
 @router.get("/expiring-soon", response_model=list[CompanyDocumentListResponse])
@@ -117,7 +124,7 @@ async def get_expiring_documents(
         .order_by(CompanyDocument.expiration_date.asc(), CompanyDocument.id.asc()),
         page,
     )
-    return [CompanyDocumentListResponse.model_validate(d) for d in docs]
+    return await _signed([CompanyDocumentListResponse.model_validate(d) for d in docs], current_user.tenant_id)
 
 
 @router.get("/{doc_id}", response_model=CompanyDocumentResponse)
@@ -138,7 +145,7 @@ async def get_company_document(
     if not (doc_obj := doc.scalar_one_or_none()):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    return CompanyDocumentResponse.model_validate(doc_obj)
+    return (await _signed([CompanyDocumentResponse.model_validate(doc_obj)], current_user.tenant_id))[0]
 
 
 @router.put("/{doc_id}", response_model=CompanyDocumentResponse)
@@ -166,7 +173,7 @@ async def update_company_document(
 
     await db.commit()
     await db.refresh(doc_obj)
-    return CompanyDocumentResponse.model_validate(doc_obj)
+    return (await _signed([CompanyDocumentResponse.model_validate(doc_obj)], current_user.tenant_id))[0]
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)

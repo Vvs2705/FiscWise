@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -65,6 +66,8 @@ interface ObligationInstance {
   priority: 'low' | 'medium' | 'high' | 'critical';
   assigned_to: string | null;
   notes: string | null;
+  /** Nome da obrigação avulsa (rule_id nulo). */
+  custom_name?: string | null;
   completed_at: string | null;
   created_at: string;
 }
@@ -469,7 +472,6 @@ export function ObrigacoesPage() {
 
   // Filters + Views
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
@@ -482,13 +484,8 @@ export function ObrigacoesPage() {
     }
   }, [location.state]);
 
-  // Search Debouncing
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Debounce da busca (300 ms) — o filtro usa o valor atrasado
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   const clientMap = useMemo(() => {
     const m = new Map<string, Client>();
@@ -515,7 +512,8 @@ export function ObrigacoesPage() {
         const matchesRuleCode = rule ? rule.code.toLowerCase().includes(q) : false;
         const matchesRuleName = rule ? rule.name.toLowerCase().includes(q) : false;
         const matchesNotes = (inst.notes ?? '').toLowerCase().includes(q);
-        if (!matchesClient && !matchesRuleCode && !matchesRuleName && !matchesNotes) return false;
+        const matchesCustomName = (inst.custom_name ?? '').toLowerCase().includes(q);
+        if (!matchesClient && !matchesRuleCode && !matchesRuleName && !matchesNotes && !matchesCustomName) return false;
       }
       if (priorityFilter && inst.priority !== priorityFilter) return false;
       if (statusFilter && inst.status !== statusFilter) return false;
@@ -527,7 +525,6 @@ export function ObrigacoesPage() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setPriorityFilter('');
     setStatusFilter('');
   };
@@ -565,10 +562,10 @@ export function ObrigacoesPage() {
   };
 
   const handleDeleteInstance = async (id: string) => {
-    if (!confirm('Excluir esta obrigação da carteira?')) return;
+    if (!confirm('Excluir esta obrigação? Ela continua no histórico com status Cancelado.')) return;
     try {
       await deleteInstance.mutateAsync(id);
-      toast.success('Obrigação excluída com sucesso');
+      toast.success('Obrigação cancelada');
       refetch();
     } catch {
       toast.error('Erro ao excluir obrigação.');
@@ -861,7 +858,7 @@ export function ObrigacoesPage() {
                         ) : (
                           <div>
                             <span className="font-bold text-foreground">Avulsa</span>
-                            <p className="text-xs text-muted-foreground">{inst.notes || 'Sem descrição'}</p>
+                            <p className="text-xs text-muted-foreground">{inst.custom_name || inst.notes || 'Sem descrição'}</p>
                           </div>
                         )}
                       </TableCell>
@@ -907,15 +904,17 @@ export function ObrigacoesPage() {
                               <span>Iniciar</span>
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteInstance(inst.id)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Excluir Obrigação"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!isDelivered && !isCancelled && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteInstance(inst.id)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Excluir Obrigação"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -945,8 +944,8 @@ export function ObrigacoesPage() {
                         ) : (
                           <>
                             <span className="font-bold text-xs text-muted-foreground">Avulsa</span>
-                            <h4 className="font-bold text-foreground text-sm leading-snug mt-1 truncate" title={inst.notes || 'Sem descrição'}>
-                              {inst.notes || 'Sem descrição'}
+                            <h4 className="font-bold text-foreground text-sm leading-snug mt-1 truncate" title={inst.custom_name || inst.notes || 'Sem descrição'}>
+                              {inst.custom_name || inst.notes || 'Sem descrição'}
                             </h4>
                           </>
                         )}
@@ -983,14 +982,17 @@ export function ObrigacoesPage() {
                             Entregar
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteInstance(inst.id)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {!isDelivered && inst.status !== 'cancelled' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteInstance(inst.id)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Excluir Obrigação"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </CardFooter>
                   </Card>

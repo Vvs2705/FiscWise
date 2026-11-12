@@ -132,6 +132,30 @@ class TestDasPayments:
         assert data["paid_at"] is not None
 
     @pytest.mark.asyncio
+    async def test_patch_das_payment_alias(self, client_with_auth_a, test_db):
+        """PATCH /api/v1/das/{das_id} (usado pelo frontend) atualiza parcialmente."""
+        client, user_a, client_a, _ = client_with_auth_a
+        das = DasPayment(
+            tenant_id=user_a.tenant_id,
+            client_id=client_a.id,
+            period="2026-03",
+            revenue=Decimal("10000.00"),
+            tax_amount=Decimal("600.00"),
+            due_date=date(2026, 4, 20),
+            status="pending",
+        )
+        test_db.add(das)
+        await test_db.commit()
+        await test_db.refresh(das)
+
+        response = client.patch(f"/api/v1/das/{das.id}", json={"tax_amount": "650.00"})
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert Decimal(data["tax_amount"]) == Decimal("650.00")
+        assert Decimal(data["revenue"]) == Decimal("10000.00")
+        assert data["status"] == "pending"
+
+    @pytest.mark.asyncio
     async def test_mark_das_as_paid(self, client_with_auth_a, test_db):
         """PATCH /api/v1/das/{das_id}/pay marks DAS as paid."""
         client, user_a, client_a, _ = client_with_auth_a

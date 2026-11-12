@@ -11,15 +11,34 @@ from app.domain.fiscal_mailbox.service import FiscalMailboxService
 from app.domain.fiscal_mailbox.schemas import (
     FiscalMailboxMessageResponse,
     FiscalMailboxSyncResult,
+    FiscalMailboxProviderStatus,
 )
+from app.core.integration_mode import is_production_like
 from app.domain.fiscal_mailbox.integrations.base import ProviderNotConfiguredError
-from app.domain.fiscal_mailbox.integrations.factory import build_fiscal_mailbox_provider
+from app.domain.fiscal_mailbox.integrations.factory import (
+    build_fiscal_mailbox_provider,
+    current_provider_name,
+)
 
 router = APIRouter(prefix="/fiscal-mailbox", tags=["Fiscal Mailbox"])
 
 
 def _service(db: AsyncSession) -> FiscalMailboxService:
     return FiscalMailboxService(FiscalMailboxRepository(db))
+
+
+@router.get("/provider-status", response_model=FiscalMailboxProviderStatus)
+async def provider_status(current_user: User = Depends(get_current_user)):
+    """Diz à UI se a caixa postal é simulada e se o sync está disponível."""
+    name = current_provider_name()
+    simulated = name == "mock"
+    blocked = simulated and is_production_like()
+    return FiscalMailboxProviderStatus(
+        provider=name,
+        simulated=simulated,
+        sync_available=not blocked,
+        message="Caixa postal exige SERPRO (não configurado)" if blocked else None,
+    )
 
 
 @router.get("/messages", response_model=List[FiscalMailboxMessageResponse])
@@ -88,6 +107,7 @@ async def sync_messages(
     except ProviderNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Fiscal mailbox provider misconfigured: {exc}",
+            detail=str(exc) if "SERPRO (não configurado)" in str(exc)
+            else f"Fiscal mailbox provider misconfigured: {exc}",
         )
     return await _service(db).sync_messages(current_user.tenant_id, provider)

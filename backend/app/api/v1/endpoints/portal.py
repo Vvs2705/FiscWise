@@ -5,28 +5,48 @@ Handles client portal invitations, magic link authentication, and client data.
 
 import hashlib
 import logging
-import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import AliasChoices, BaseModel, EmailStr, Field
-from sqlalchemy import select, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user
 from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
+from app.services import email_service
+from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
+from app.core.config import settings
 from app.core.security import create_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["Client Portal"])
 
-# Frontend portal URL — override via PORTAL_URL env var in production
-_PORTAL_URL = os.getenv("PORTAL_URL", "https://fiscwise.com.br/portal")
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normaliza para UTC com fuso: o Postgres devolve aware, o SQLite naive.
+
+    Comparar naive com aware levanta TypeError (era o 500 dos convites no PG).
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _is_expired(dt: Optional[datetime]) -> bool:
+    exp = _as_utc(dt)
+    return exp is not None and _now() > exp
 
 
 class InviteClientRequest(BaseModel):
@@ -122,7 +142,7 @@ async def invite_client(
         email=request.email,
         status=InviteStatus.PENDING,
         invited_by=current_user.id,
-        expires_at=datetime.utcnow() + timedelta(days=30)
+        expires_at=_now() + timedelta(days=30)
     )
 
     db.add(invite)
@@ -152,7 +172,7 @@ async def get_invite(
         )
 
     # Check if expired
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if _is_expired(invite.expires_at):
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -202,7 +222,7 @@ async def accept_invite(
             detail=f"Invitation has been {invite.status}"
         )
 
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if _is_expired(invite.expires_at):
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -256,7 +276,7 @@ async def accept_invite(
 
     # Mark invitation as accepted
     invite.status = InviteStatus.ACCEPTED
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = _now()
 
     db.add(client_user)
     db.add(client)
@@ -512,7 +532,18 @@ async def get_my_overview(
 # ---------------------------------------------------------------------------
 
 class MagicLinkRequestSchema(BaseModel):
-    """Request a magic link for a client portal user."""
+    """Pedido do escritório: link de acesso ao portal para um cliente.
+
+    Com client_id ("Dar acesso ao portal"): garante o usuário CLIENT do cliente
+    (cria sem senha utilizável, ou vincula um existente) e envia o link.
+    Sem client_id: exige um usuário CLIENT já existente com esse e-mail.
+    """
+    email: Optional[EmailStr] = None
+    client_id: Optional[uuid.UUID] = None
+
+
+class MagicLinkSelfRequestSchema(BaseModel):
+    """Pedido público do cliente final na tela de login do portal."""
     email: EmailStr
 
 
@@ -521,99 +552,287 @@ class MagicLinkVerifySchema(BaseModel):
     token: str
 
 
+_MAGIC_LINK_SUBJECT = "Seu link de acesso ao portal do cliente"
+_SELF_REQUEST_MESSAGE = "Se o e-mail estiver cadastrado, você receberá o link de acesso em instantes."
+_EMAIL_NOT_CONFIGURED = (
+    "Envio de e-mail não configurado neste ambiente. "
+    "Peça o link de acesso diretamente ao seu escritório contábil."
+)
+
+
 def _hash_token(raw_token: str) -> str:
     """SHA-256 hash of the raw token for safe storage."""
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
-@router.post("/magic-link/request", summary="Request magic link for portal login")
+async def _issue_magic_token(
+    db: AsyncSession, client_user: User, ip: Optional[str]
+) -> tuple[str, PortalMagicToken]:
+    """Invalida os links abertos do usuário e cria um novo (sem commit).
+
+    Devolve o link com o token cru; no banco fica só o hash.
+    """
+    raw_token = secrets.token_urlsafe(32)
+    existing = await db.execute(
+        select(PortalMagicToken).where(
+            and_(PortalMagicToken.user_id == client_user.id, PortalMagicToken.used == False)  # noqa: E712
+        )
+    )
+    for old_token in existing.scalars().all():
+        old_token.used = True
+
+    magic = PortalMagicToken(
+        tenant_id=client_user.tenant_id,
+        user_id=client_user.id,
+        token_hash=_hash_token(raw_token),
+        email=client_user.email,
+        # Explícito: o model só tem server_default, que o SQLite lê como texto truthy.
+        used=False,
+        expires_at=_now() + timedelta(hours=24),
+        ip_address=ip,
+    )
+    db.add(magic)
+    return f"{settings.portal_url}/login?token={raw_token}", magic
+
+
+async def _ensure_portal_user(
+    db: AsyncSession, tenant_id: uuid.UUID, client: AccountingClient, email: Optional[str]
+) -> User:
+    """Garante o usuário CLIENT ligado ao cliente (sem commit).
+
+    Usuário novo recebe senha aleatória descartada: o acesso é só por link mágico.
+    """
+    from app.core.security import get_password_hash
+
+    if client.portal_user_id:
+        user = (
+            await db.execute(
+                select(User).where(and_(User.id == client.portal_user_id, User.tenant_id == tenant_id))
+            )
+        ).scalar_one_or_none()
+        if user:
+            if user.role != UserRole.CLIENT:
+                raise HTTPException(status.HTTP_409_CONFLICT, "Vínculo de portal inválido para este cliente")
+            if not user.is_active:
+                raise HTTPException(status.HTTP_409_CONFLICT, "O acesso deste cliente ao portal está desativado")
+            if email and email.lower() != user.email.lower():
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"Este cliente já acessa o portal com o e-mail {user.email}",
+                )
+            return user
+
+    if not email:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Informe o e-mail do cliente para dar acesso ao portal",
+        )
+
+    user = (
+        await db.execute(
+            select(User).where(and_(User.tenant_id == tenant_id, func.lower(User.email) == email.lower()))
+        )
+    ).scalar_one_or_none()
+    if user:
+        if user.role != UserRole.CLIENT:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Este e-mail pertence a um usuário da equipe do escritório",
+            )
+        if not user.is_active:
+            raise HTTPException(status.HTTP_409_CONFLICT, "O acesso deste e-mail ao portal está desativado")
+        other = (
+            await db.execute(
+                select(AccountingClient.id).where(
+                    and_(
+                        AccountingClient.portal_user_id == user.id,
+                        AccountingClient.tenant_id == tenant_id,
+                        AccountingClient.id != client.id,
+                    )
+                )
+            )
+        ).first()
+        if other:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Este e-mail já dá acesso ao portal de outro cliente",
+            )
+    else:
+        user = User(
+            tenant_id=tenant_id,
+            email=email,
+            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+            full_name=client.name,
+            role=UserRole.CLIENT,
+            is_active=True,
+        )
+        db.add(user)
+        await db.flush()
+
+    client.portal_user_id = user.id
+    client.updated_at = _now()
+    db.add(client)
+    return user
+
+
+@router.post("/magic-link/request", summary="Escritório envia link de acesso ao portal")
 async def request_magic_link(
     body: MagicLinkRequestSchema,
     request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Generate a one-time magic link for a client portal user.
+    """Gera um link de uso único (24 h) e o envia por e-mail ao cliente.
 
-    The office staff calls this endpoint to send a login link to a client.
-    The link is valid for 24 hours and can only be used once.
-
-    NOTE: In production, the link should be emailed to the client.
-    Currently returns the link in the response for integration/testing.
-    When an email provider (Resend/SendGrid) is configured, the link will
-    be sent automatically and the response will only confirm the request.
+    Resposta: {sent, delivery, email, expires_at, reason?, portal_link?}.
+    O link só volta no JSON quando o envio de e-mail não está configurado
+    (delivery="manual"), para o escritório copiar e repassar.
     """
-    if current_user.role.value not in ("owner", "admin"):
+    if not current_user.is_admin_or_owner():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only owners and admins can issue magic links",
         )
+    if body.client_id is None and body.email is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Informe client_id ou email")
 
-    # Find the CLIENT user with this email in this tenant
-    user_result = await db.execute(
-        select(User).where(
-            and_(
-                User.email == body.email,
-                User.tenant_id == current_user.tenant_id,
-                User.role == UserRole.CLIENT,
-                User.is_active == True,
+    if body.client_id is not None:
+        client = (
+            await db.execute(
+                select(AccountingClient).where(
+                    and_(
+                        AccountingClient.id == body.client_id,
+                        AccountingClient.tenant_id == current_user.tenant_id,
+                    )
+                )
             )
+        ).scalar_one_or_none()
+        if not client:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+        client_user = await _ensure_portal_user(
+            db, current_user.tenant_id, client, body.email or client.email
         )
-    )
-    client_user = user_result.scalar_one_or_none()
-    if not client_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No active client portal user found with email '{body.email}'",
-        )
-
-    # Generate a cryptographically secure token (32 bytes = 64 hex chars)
-    raw_token = secrets.token_urlsafe(32)
-    token_hash = _hash_token(raw_token)
-
-    # Invalidate any existing unused tokens for this user
-    existing_result = await db.execute(
-        select(PortalMagicToken).where(
-            and_(
-                PortalMagicToken.user_id == client_user.id,
-                PortalMagicToken.used == False,
+    else:
+        client_user = (
+            await db.execute(
+                select(User).where(
+                    and_(
+                        func.lower(User.email) == str(body.email).lower(),
+                        User.tenant_id == current_user.tenant_id,
+                        User.role == UserRole.CLIENT,
+                        User.is_active == True,  # noqa: E712
+                    )
+                )
             )
-        )
-    )
-    for old_token in existing_result.scalars().all():
-        old_token.used = True
+        ).scalar_one_or_none()
+        if not client_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nenhum usuário ativo do portal com este e-mail",
+            )
 
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
-    ip = request.client.host if request and request.client else None
-
-    magic_token = PortalMagicToken(
-        tenant_id=current_user.tenant_id,
-        user_id=client_user.id,
-        token_hash=token_hash,
-        email=body.email,
-        expires_at=expires_at,
-        ip_address=ip,
-    )
-    db.add(magic_token)
+    portal_link, magic = await _issue_magic_token(db, client_user, get_client_ip(request))
     await db.commit()
 
-    portal_link = f"{_PORTAL_URL}/login?token={raw_token}"
-
-    logger.info(
-        "Magic link issued for client user %s by %s (tenant %s)",
-        body.email, current_user.email, current_user.tenant_id
-    )
-
-    # TODO: when email provider is configured, send portal_link to body.email
-    # For now, return it in the response so integrators can use it directly.
-    return {
-        "status": "issued",
-        "email": body.email,
-        "expires_at": expires_at.isoformat(),
-        "portal_link": portal_link,
-        "note": "In production, this link will be sent via email. Store it securely.",
+    response: dict = {
+        "email": client_user.email,
+        "expires_at": magic.expires_at.isoformat(),
     }
+
+    if not email_service.is_configured():
+        logger.info(
+            "Magic link emitido em modo manual (e-mail não configurado) para %s por %s",
+            client_user.email, current_user.email,
+        )
+        return {
+            **response,
+            "sent": False,
+            "delivery": "manual",
+            "reason": "Envio de e-mail não configurado. Copie o link e envie ao cliente.",
+            "portal_link": portal_link,
+        }
+
+    sent = await email_service.send_email(
+        to=client_user.email,
+        subject=_MAGIC_LINK_SUBJECT,
+        html=email_service.render_portal_magic_link_email(portal_link),
+    )
+    if not sent:
+        # Ninguém recebeu o link: inutiliza o token em vez de deixá-lo válido.
+        magic.used = True
+        await db.commit()
+        return {
+            **response,
+            "sent": False,
+            "delivery": "email",
+            "reason": "O provedor de e-mail recusou o envio. Tente novamente em instantes.",
+        }
+
+    logger.info("Magic link enviado por e-mail para %s por %s", client_user.email, current_user.email)
+    return {**response, "sent": True, "delivery": "email"}
+
+
+@router.post("/magic-link/self-request", summary="Cliente pede o próprio link de acesso")
+async def self_request_magic_link(
+    body: MagicLinkSelfRequestSchema,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Endpoint público da tela de login do portal.
+
+    Resposta sempre igual (não revela se o e-mail existe). Limites: por IP
+    (mesmo teto do login, chave própria) e, em silêncio, por e-mail (evita
+    bombardear a caixa de alguém). O envio roda em background para o tempo
+    de resposta não denunciar e-mail cadastrado.
+    """
+    ip = get_client_ip(request)
+    rl_key = f"portal-link:{ip}"
+    auth_rate_limiter.check_login_ip(rl_key)
+    auth_rate_limiter.record_login_failure(rl_key)
+
+    if not email_service.is_configured():
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, _EMAIL_NOT_CONFIGURED)
+
+    generic = {"status": "accepted", "message": _SELF_REQUEST_MESSAGE}
+    email = str(body.email).lower()
+
+    email_key = f"portal-link:{email}"
+    try:
+        auth_rate_limiter.check_otp_user(email_key)
+    except HTTPException:
+        logger.info("Pedido de link do portal ignorado (limite por e-mail)")
+        return generic
+    auth_rate_limiter.record_otp_failure(email_key)
+
+    users = (
+        await db.execute(
+            select(User)
+            .where(
+                and_(
+                    func.lower(User.email) == email,
+                    User.role == UserRole.CLIENT,
+                    User.is_active == True,  # noqa: E712
+                )
+            )
+            .limit(5)
+        )
+    ).scalars().all()
+
+    links = []
+    for user in users:
+        link, _ = await _issue_magic_token(db, user, ip)
+        links.append((user.email, link))
+    if links:
+        await db.commit()
+    for to, link in links:
+        background_tasks.add_task(
+            email_service.send_email,
+            to=to,
+            subject=_MAGIC_LINK_SUBJECT,
+            html=email_service.render_portal_magic_link_email(link),
+        )
+    return generic
 
 
 @router.post("/magic-link/verify", summary="Verify magic link token and get JWT")
@@ -646,13 +865,13 @@ async def verify_magic_link(
     if magic.used:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Este link já foi utilizado. Solicite um novo link ao seu escritório.",
+            detail="Este link já foi utilizado. Peça um novo link na página de acesso do portal.",
         )
 
-    if now > magic.expires_at:
+    if now > _as_utc(magic.expires_at):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Link expirado. Solicite um novo link ao seu escritório.",
+            detail="Link expirado. Peça um novo link na página de acesso do portal.",
         )
 
     # Fetch the associated user

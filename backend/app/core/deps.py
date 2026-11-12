@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# Mesma origem, mas sem 401 automático: usado por get_current_principal, que
+# ainda pode autenticar pela chave de API.
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+API_KEY_HEADER = "X-API-Key"
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +214,11 @@ async def get_current_user(
             algorithms=[settings.JWT_ALGORITHM]
         )
         
+        # Só access token entra nas rotas normais: token de propósito único
+        # (reset de senha) ou de desafio 2FA (type=mfa) é recusado aqui.
+        if payload.get("purpose", "access") != "access" or payload.get("type") not in (None, "access"):
+            raise credentials_exception
+
         # Extract user_id from token payload
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
@@ -282,3 +292,79 @@ async def get_current_user(
         )
 
     return user
+
+
+async def _authenticate_api_key(request: Request, raw_key: str, db: AsyncSession) -> User:
+    """Autentica uma integração pela chave de API do tenant.
+
+    A chave age em nome do OWNER ativo mais antigo do tenant (os endpoints
+    usam current_user.tenant_id/role/id). O jeito de saber que veio de chave é
+    request.state.auth_method == "api_key" (e request.state.api_key_id); o
+    objeto User não é alterado.
+    """
+    from app.core.auth_rate_limiter import check_api_key_rate
+    from app.services.api_key_service import verify_api_key
+
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid API key",
+        headers={"WWW-Authenticate": "ApiKey"},
+    )
+    key = await verify_api_key(db, raw_key.strip())
+    if key is None:
+        raise invalid
+
+    check_api_key_rate(str(key.id))
+
+    request_tenant_id = getattr(request.state, "tenant_id", None)
+    if request_tenant_id is not None and request_tenant_id != str(key.tenant_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant header does not match API key",
+        )
+
+    await _set_current_tenant_context(db, key.tenant_id)
+    result = await db.execute(
+        select(User)
+        .where(
+            User.tenant_id == key.tenant_id,
+            User.role == UserRole.OWNER,
+            User.is_active == True,  # noqa: E712
+        )
+        .order_by(User.created_at)
+        .limit(1)
+    )
+    owner = result.scalar_one_or_none()
+    if owner is None:
+        raise invalid
+
+    request.state.auth_method = "api_key"
+    request.state.api_key_id = str(key.id)
+    return owner
+
+
+async def get_current_principal(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """JWT (Authorization: Bearer) ou chave de API (X-API-Key).
+
+    Só as rotas de operação liberadas para integração usam esta dependência;
+    auth/*, account/*, billing/*, developer/*, admin/* e o resto continuam em
+    get_current_user (JWT apenas). Com os dois cabeçalhos, vale o JWT.
+    """
+    if token:
+        user = await get_current_user(request, token, db)
+        request.state.auth_method = "jwt"
+        return user
+
+    raw_key = request.headers.get(API_KEY_HEADER)
+    if raw_key:
+        return await _authenticate_api_key(request, raw_key, db)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

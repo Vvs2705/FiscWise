@@ -14,23 +14,22 @@ function LockedFeature({ feature }: { feature: string }) {
     feature_public_api: 'API Pública',
     feature_teams: 'Times e Carteiras',
     feature_advanced_audit: 'Auditoria Avançada',
+    feature_monthly_closing: 'Fechamento mensal',
+    feature_portal_client: 'Portal do cliente',
   };
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
         <Lock className="h-5 w-5 text-muted-foreground" />
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">
-          {labels[feature] ?? 'Funcionalidade'} não disponível no seu plano
+          {labels[feature] ?? 'Este recurso'} ainda não está disponível
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Faça upgrade para desbloquear este recurso.
+          Estamos preparando esta parte do FiscWise. Ela aparece aqui assim que for liberada.
         </p>
       </div>
-      <button className="mt-1 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity">
-        Ver planos
-      </button>
     </div>
   );
 }

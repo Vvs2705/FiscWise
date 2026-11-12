@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileDown, ChevronDown, ChevronUp, AlertCircle, History } from 'lucide-react';
-import { Simulation } from '../lib/types/calculator';
-import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { toast } from 'sonner';
+import { CalculatorPlan, Simulation } from '../lib/types/calculator';
+import { calculatorAPI, canExportPdf } from '../lib/fiscwise-calculator-api';
 
 function moneyBRL(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function SimulationHistory() {
+interface Props {
+  userPlan?: CalculatorPlan;
+}
+
+export function SimulationHistory({ userPlan = 'FREE' }: Props = {}) {
+  const pdfAllowed = canExportPdf(userPlan);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,10 +57,10 @@ export function SimulationHistory() {
       const err = rawErr as { response?: { status?: number } };
       const status = err?.response?.status;
       if (status === 403) {
-        alert('Exportação de PDF disponível apenas no plano Premium.');
+        toast.error('Exportação de PDF disponível apenas no plano Premium.');
       } else {
         console.error('Erro ao exportar PDF:', err);
-        alert('Não foi possível exportar o PDF. Tente novamente.');
+        toast.error('Não foi possível exportar o PDF. Tente novamente.');
       }
     } finally {
       setExportingId(null);
@@ -159,10 +165,11 @@ export function SimulationHistory() {
                 </div>
               )}
               <div className="flex items-center gap-1 shrink-0">
+                {pdfAllowed && (
                 <button
                   onClick={() => handleExportPDF(sim.id)}
                   disabled={isExporting}
-                  title="Exportar PDF (requer plano Premium)"
+                  title="Exportar PDF"
                   className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition"
                 >
                   {isExporting ? (
@@ -175,6 +182,7 @@ export function SimulationHistory() {
                   )}
                   PDF
                 </button>
+                )}
                 <button
                   onClick={() => toggleExpand(sim.id)}
                   title={isExpanded ? 'Fechar detalhes' : 'Ver detalhes'}

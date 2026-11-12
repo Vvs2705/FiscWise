@@ -40,6 +40,8 @@ export interface InvoiceResponse extends InvoiceCreate {
   provider_protocol?: string;
   pdf_storage_path?: string;
   xml_storage_path?: string;
+  /** Emitida/cancelada pelo provider simulado: sem valor fiscal. */
+  simulated?: boolean;
   issued_at?: string;
   cancelled_at?: string;
   created_at: string;
@@ -60,6 +62,33 @@ export interface InvoiceRejectionResponse {
   codigo_rejeicao?: string;
   descricao: string;
   created_at: string;
+}
+
+/** Os endpoints exigem os headers de autenticação, então um <a href> simples não serve. */
+async function downloadInvoiceFile(path: string, fileName: string): Promise<void> {
+  const { data } = await api.get<Blob>(path, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+/** Erro de download vem como Blob: extrai o "detail" do JSON para a mensagem. */
+export async function downloadErrorMessage(err: unknown, fallback: string): Promise<string> {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text()) as { detail?: unknown };
+      if (typeof parsed.detail === 'string') return parsed.detail;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
 }
 
 export const invoicesService = {
@@ -98,14 +127,14 @@ export const invoicesService = {
     return res.data;
   },
 
-  getPdfUrl: async (id: string): Promise<{ url: string }> => {
-    const res = await api.get<{ url: string }>(`/api/v1/invoices/${id}/pdf`);
-    return res.data;
+  /** Baixa o DANFSe (PDF gerado pelo backend) pelo cliente autenticado. */
+  downloadPdf: async (id: string, numero?: string): Promise<void> => {
+    await downloadInvoiceFile(`/api/v1/invoices/${id}/pdf`, `nfse-${numero || id}.pdf`);
   },
 
-  getXmlUrl: async (id: string): Promise<{ url: string }> => {
-    const res = await api.get<{ url: string }>(`/api/v1/invoices/${id}/xml`);
-    return res.data;
+  /** Baixa o XML da nota guardado no banco. */
+  downloadXml: async (id: string, numero?: string): Promise<void> => {
+    await downloadInvoiceFile(`/api/v1/invoices/${id}/xml`, `nfse-${numero || id}.xml`);
   },
 
   listEvents: async (id: string): Promise<InvoiceEventResponse[]> => {

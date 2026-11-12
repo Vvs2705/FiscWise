@@ -74,7 +74,13 @@ export function getApiErrorMessage(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    // 401 nas rotas de entrada (senha errada, código 2FA inválido, token do
+    // Google recusado) é resposta normal do formulário: a tela mostra a
+    // mensagem. Só sessão expirada em chamada autenticada redireciona.
+    const requestUrl: string = error.config?.url ?? '';
+    const isAuthEntrypoint = /\/api\/v1\/auth\/(login|google)(\/|$)/.test(requestUrl);
+
+    if (error.response?.status === 401 && !isAuthEntrypoint) {
       let wasPortalClient = false;
       try {
         wasPortalClient = JSON.parse(localStorage.getItem('user') ?? 'null')?.role === 'client';

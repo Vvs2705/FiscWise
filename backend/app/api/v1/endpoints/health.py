@@ -5,13 +5,18 @@ This module provides health and readiness check endpoints for load balancers
 and monitoring systems.
 """
 
-from fastapi import APIRouter, Depends, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_db
+from app.api.v1.endpoints.diagnostic import ensure_diagnostics_enabled
+from app.core.deps import get_current_user, get_db
+from app.models.user import User
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -70,24 +75,34 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
             "database": "connected",
             "service": "fiscwise-api"
         }
-    except Exception as e:
+    except Exception:
+        # Detalhe do erro (host, usuário, driver) só no log — a rota é pública.
+        logger.exception("Readiness: banco indisponível")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "not_ready",
-                "database": "disconnected",
-                "error": str(e),
-                "service": "fiscwise-api"
-            }
+            content={"status": "not_ready"},
         )
 
 
-@router.get("/db-test", summary="Database Table Test")
-async def db_test(db: AsyncSession = Depends(get_db)):
-    """Test access to users table for diagnosing migration issues."""
+@router.get(
+    "/db-test",
+    summary="Database Table Test",
+    dependencies=[Depends(ensure_diagnostics_enabled)],
+)
+async def db_test(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Diagnóstico de migration: conta usuários. 404 se DIAGNOSTICS_ENABLED=false.
+
+    Antes era público e devolvia o texto da exceção do banco. Agora: atrás da
+    flag, só owner autenticado, e erro detalhado vai só para o log.
+    """
+    if current_user.role.value != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner only")
     try:
         result = await db.execute(text("SELECT COUNT(*) FROM users"))
-        count = result.scalar()
-        return {"status": "success", "users_count": count}
-    except Exception as e:
-        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+        return {"status": "success", "users_count": result.scalar()}
+    except Exception:
+        logger.exception("db-test falhou")
+        return {"status": "error"}

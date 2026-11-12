@@ -2,6 +2,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/Button';
 import { Download, ExternalLink, FileText, Sparkles } from 'lucide-react';
 import { buildDocumentAiView } from '@/lib/aiDocuments';
+import { isImageUrl, isPdfUrl } from '@/lib/fileUrl';
 import { Badge } from '@/components/ui/Badge';
 import { dateBR, type ClientDocument } from '@/lib/hooks/useOperations';
 
@@ -14,13 +15,8 @@ interface DocumentPreviewDrawerProps {
 export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPreviewDrawerProps) {
   if (!document) return null;
 
-  const isPdf = document.file_url?.toLowerCase().endsWith('.pdf');
-  const isImage =
-    document.file_url?.toLowerCase().endsWith('.png') ||
-    document.file_url?.toLowerCase().endsWith('.jpg') ||
-    document.file_url?.toLowerCase().endsWith('.jpeg') ||
-    document.file_url?.toLowerCase().endsWith('.gif') ||
-    document.file_url?.toLowerCase().endsWith('.webp');
+  const isPdf = isPdfUrl(document.file_url);
+  const isImage = isImageUrl(document.file_url);
 
   const aiView = buildDocumentAiView(document);
 
@@ -77,6 +73,8 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
                     src={document.file_url}
                     className="max-h-full max-w-full object-contain rounded shadow-sm"
                     alt={document.name}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               ) : (

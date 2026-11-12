@@ -27,6 +27,7 @@ from app.core.plan_access import (
     PLAN_PREMIUM,
     check_chat_quota,
     has_plan,
+    require_ai_configured,
     require_plan,
     resolve_user_plan,
 )
@@ -63,6 +64,7 @@ from app.services.ai_fiscal import (
     generate_pis_cofins_analysis,
     generate_regime_recommendation,
 )
+from app.services.calculator_pdf import render_simulation_pdf
 from app.services.fiscal_calculator import (
     calculate_fator_r,
     calculate_icms,
@@ -434,6 +436,8 @@ async def chat(
 
     # Enforce plan access
     require_plan(plan, PLAN_INTERMEDIARIO, "Chat com assistente fiscal")
+    # Sem chave de IA: 503 antes de qualquer gravação, para não consumir cota.
+    require_ai_configured()
 
     # Check monthly quota
     has_quota, remaining = await check_chat_quota(tenant_id, plan, db)
@@ -652,7 +656,7 @@ async def export_pdf(
         )
 
     # Generate PDF
-    pdf_bytes = _generate_pdf(simulation, payload.include_ai_recommendation)
+    pdf_bytes = render_simulation_pdf(simulation, payload.include_ai_recommendation)
 
     return Response(
         content=pdf_bytes,
@@ -664,147 +668,3 @@ async def export_pdf(
         },
     )
 
-
-def _generate_pdf(simulation: CalculatorSimulation, include_ai: bool) -> bytes:
-    """
-    Generate a basic PDF report for a simulation.
-
-    Uses only the standard library (no reportlab/weasyprint dependency for MVP).
-    Generates a minimal valid PDF manually.
-
-    For production quality, replace with reportlab or WeasyPrint.
-    """
-    import io
-
-    sim_type_labels = {
-        "regime": "Comparação de Regimes Tributários",
-        "icms": "Simulação de ICMS",
-        "pis_cofins": "Simulação de PIS/COFINS",
-    }
-    type_label = sim_type_labels.get(simulation.simulation_type.value, "Simulação Fiscal")
-
-    lines = [
-        "FiscWise — Relatório de Simulação Fiscal",
-        "=" * 48,
-        f"Tipo: {type_label}",
-        f"Título: {simulation.title or 'N/A'}",
-        f"Data: {simulation.created_at.strftime('%d/%m/%Y %H:%M')}",
-        f"Plano: {simulation.plan_slug or 'free'}",
-        "",
-        "DADOS DE ENTRADA",
-        "-" * 48,
-    ]
-
-    for k, v in (simulation.input_data or {}).items():
-        lines.append(f"  {k}: {v}")
-
-    lines += [
-        "",
-        "RESULTADO",
-        "-" * 48,
-    ]
-
-    result = simulation.result_data or {}
-    scenarios = result.get("scenarios", [])
-    if scenarios:
-        for s in scenarios:
-            regime = s.get("regime", "N/A").upper()
-            rate = s.get("effective_rate", 0)
-            total = s.get("total_tax", 0)
-            rec = " ← RECOMENDADO" if s.get("is_recommended") else ""
-            lines.append(f"  {regime}: alíquota {rate*100:.2f}% | imposto R$ {total:,.2f}{rec}")
-    else:
-        for k, v in result.items():
-            lines.append(f"  {k}: {v}")
-
-    if include_ai and simulation.ai_recommendation:
-        lines += [
-            "",
-            "RECOMENDAÇÃO DA IA",
-            "-" * 48,
-            simulation.ai_recommendation,
-        ]
-
-    lines += [
-        "",
-        "-" * 48,
-        "Relatório gerado pelo FiscWise (fiscwise.com.br)",
-        "Este relatório é informativo. Consulte um contador para decisões definitivas.",
-    ]
-
-    # Build minimal PDF structure
-    objects: list[bytes] = []
-
-    def add_obj(content: bytes) -> int:
-        objects.append(content)
-        return len(objects)
-
-    # Object 1: Catalog
-    add_obj(b"<< /Type /Catalog /Pages 2 0 R >>")
-
-    # Object 2: Pages
-    add_obj(b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
-
-    # Object 3: Page
-    add_obj(
-        b"<< /Type /Page /Parent 2 0 R "
-        b"/MediaBox [0 0 595 842] "
-        b"/Contents 4 0 R "
-        b"/Resources << /Font << /F1 5 0 R >> >> >>"
-    )
-
-    # Object 4: Content stream
-    # Split into lines and render with simple text positioning
-    stream_lines = []
-    y = 800
-    stream_lines.append(b"BT")
-    stream_lines.append(b"/F1 10 Tf")
-    for line in lines:
-        safe_line = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-        safe_bytes = safe_line.encode("latin-1", errors="replace")
-        stream_lines.append(f"40 {y} Td".encode())
-        stream_lines.append(b"0 0 Td")
-        stream_lines.append(b"(" + safe_bytes + b") Tj")
-        y -= 14
-        if y < 40:
-            # Simple page overflow prevention — stop rendering
-            break
-    stream_lines.append(b"ET")
-
-    stream_content = b"\n".join(stream_lines)
-    add_obj(
-        b"<< /Length " + str(len(stream_content)).encode() + b" >>\n"
-        b"stream\n" + stream_content + b"\nendstream"
-    )
-
-    # Object 5: Font
-    add_obj(
-        b"<< /Type /Font /Subtype /Type1 "
-        b"/BaseFont /Courier /Encoding /WinAnsiEncoding >>"
-    )
-
-    # Build PDF bytes
-    buf = io.BytesIO()
-    buf.write(b"%PDF-1.4\n")
-
-    offsets: list[int] = []
-    for i, obj_content in enumerate(objects, start=1):
-        offsets.append(buf.tell())
-        buf.write(f"{i} 0 obj\n".encode())
-        buf.write(obj_content)
-        buf.write(b"\nendobj\n")
-
-    xref_offset = buf.tell()
-    buf.write(b"xref\n")
-    buf.write(f"0 {len(objects) + 1}\n".encode())
-    buf.write(b"0000000000 65535 f \n")
-    for offset in offsets:
-        buf.write(f"{offset:010d} 00000 n \n".encode())
-
-    buf.write(b"trailer\n")
-    buf.write(f"<< /Size {len(objects) + 1} /Root 1 0 R >>\n".encode())
-    buf.write(b"startxref\n")
-    buf.write(f"{xref_offset}\n".encode())
-    buf.write(b"%%EOF\n")
-
-    return buf.getvalue()

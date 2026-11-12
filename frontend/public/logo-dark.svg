@@ -1,29 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="176" height="48" viewBox="0 0 176 48" fill="none">
   <defs>
-    <linearGradient id="bgd" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"  stop-color="#5B6FEE"/>
-      <stop offset="100%" stop-color="#3A52C9"/>
+    <linearGradient id="fw-bg-dark" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e05e18"/>
+      <stop offset="100%" stop-color="#f07028"/>
     </linearGradient>
   </defs>
 
-  <!-- Ícone -->
-  <rect width="48" height="48" rx="12" fill="url(#bgd)"/>
-  <rect x="7"  y="30" width="8" height="12" rx="2" fill="white" opacity="0.55"/>
-  <rect x="20" y="22" width="8" height="20" rx="2" fill="white" opacity="0.78"/>
-  <rect x="33" y="13" width="8" height="29" rx="2" fill="white"/>
-  <path d="M11 30 L24 22 L37 13" stroke="white" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
-  <path d="M34 8 L41 8 L41 15" stroke="white" stroke-width="2.2"
-        stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
-  <path d="M33 14 L41 8" stroke="white" stroke-width="2.2"
-        stroke-linecap="round" fill="none" opacity="0.9"/>
+  <!-- Ícone: mesma geometria de src/components/Logo.tsx (lado 48) -->
+  <rect width="48" height="48" rx="12" fill="url(#fw-bg-dark)"/>
+  <rect x="6.96" y="30" width="8.02" height="12" rx="2.02" fill="white" opacity="0.55"/>
+  <rect x="20.02" y="21.98" width="8.02" height="20.02" rx="2.02" fill="white" opacity="0.78"/>
+  <rect x="33.02" y="13.01" width="8.02" height="28.99" rx="2.02" fill="white"/>
+  <path d="M10.99 30 L24 21.98 L37.01 13.01" stroke="white" stroke-width="2.02"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+  <path d="M33.98 8.02 L40.99 8.02 L40.99 15.02" stroke="white" stroke-width="2.21"
+        stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.88"/>
+  <path d="M33.02 14.02 L40.99 8.02" stroke="white" stroke-width="2.21"
+        stroke-linecap="round" fill="none" opacity="0.88"/>
 
-  <!-- Wordmark branco para fundo escuro -->
-  <text x="60" y="28" font-family="Inter, system-ui, sans-serif"
-        font-size="20" font-weight="700" letter-spacing="-0.4"
+  <!-- Wordmark: Geist 600, tracking -0.02em, sem tagline (SISTEMA_DE_DESIGN.md §12) -->
+  <text x="62.4" y="24" dominant-baseline="central"
+        font-family="Geist Variable, Geist, system-ui, sans-serif"
+        font-size="26.88" font-weight="600" letter-spacing="-0.02em"
         fill="#EEF1FA">FiscWise</text>
-
-  <text x="61" y="41" font-family="Inter, system-ui, sans-serif"
-        font-size="9" font-weight="500" letter-spacing="1.8"
-        fill="#8B9ABF" text-anchor="start">GESTÃO CONTÁBIL</text>
 </svg>

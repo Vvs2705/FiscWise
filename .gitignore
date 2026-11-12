@@ -67,6 +67,10 @@ lib-cov
 coverage
 *.lcov
 .nyc_output
+# Playwright (saídas do E2E)
+playwright-report/
+test-results/
+blob-report/
 .grunt
 bower_components
 .lock-wscript
@@ -209,3 +213,4 @@ COMO-FAZER*.md
 
 # Config local de MCP: pode conter connection string com senha. Nunca versionar.
 .mcp.json
+!docs/marketing/PLANO_MARKETING_FISCWISE.md

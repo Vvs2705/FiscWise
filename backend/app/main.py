@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.core.http_client import ExternalServiceError
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.request_log import RequestLogMiddleware, request_log_enabled
 from app.core.deps import get_sessionmaker
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -178,6 +179,16 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Total-Count"],
 )
+
+# Request log (JSON no stdout → Cloud Logging) + Server-Timing — added AFTER
+# CORS, so it is the OUTERMOST custom layer:
+#   RequestLog → CORS → RateLimit → Tenant → route
+# Being outermost, the measured duration covers the whole middleware stack and
+# every response is logged, including CORS preflights, 429 and 400 errors.
+# It never produces a response itself, so it does not interfere with CORS
+# being the outermost layer that *answers*. Pure ASGI: no body buffering.
+if request_log_enabled(settings.ENVIRONMENT, str(settings.REQUEST_LOG_JSON)):
+    app.add_middleware(RequestLogMiddleware)
 
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")

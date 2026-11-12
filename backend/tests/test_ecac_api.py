@@ -68,3 +68,45 @@ async def test_ecac_api_workflow(client_with_auth_a, test_db):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status_geral"] == "regular"
+
+
+@pytest.mark.asyncio
+async def test_ecac_refresh_mock_in_production_returns_503_without_writing(
+    client_with_auth_a, test_db, monkeypatch
+):
+    from sqlalchemy import select
+    from app.core.config import settings
+
+    http_client, _, client, _ = client_with_auth_a
+    client.document = "12345678000101"
+    test_db.add(client)
+    await test_db.commit()
+    monkeypatch.setattr(settings, "ECAC_PROVIDER", "mock")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+    response = http_client.post(f"/api/v1/ecac/fiscal-situation/{client.id}/refresh")
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert "SERPRO" in response.json()["detail"]
+    assert (await test_db.execute(select(EcacFiscalSituation))).scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_ecac_integra_contador_stub_returns_503(client_with_auth_a, monkeypatch):
+    from app.core.config import settings
+
+    http_client, _, client, _ = client_with_auth_a
+    monkeypatch.setattr(settings, "ECAC_PROVIDER", "integra_contador")
+    response = http_client.post(f"/api/v1/ecac/fiscal-situation/{client.id}/refresh")
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_ecac_situation_flags_simulated_in_dev(client_with_auth_a, test_db):
+    http_client, _, client, _ = client_with_auth_a
+    client.document = "12345678000101"
+    test_db.add(client)
+    await test_db.commit()
+    assert http_client.post(f"/api/v1/ecac/fiscal-situation/{client.id}/refresh").status_code == 200
+    data = http_client.get(f"/api/v1/ecac/fiscal-situation/{client.id}").json()
+    assert data["simulated"] is True
+    assert "raw_response" not in data

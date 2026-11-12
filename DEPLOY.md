@@ -31,6 +31,53 @@ dentro do processo não serve. Com `SCHEDULER_MODE=external`:
 
 Em desenvolvimento e no `docker-compose`, o padrão continua `SCHEDULER_MODE=internal`.
 
+## Fila de trabalho em segundo plano (`background_jobs`)
+
+Trabalho que não cabe na requisição (parse de documento, emissão de NFS-e) vai
+para a tabela `background_jobs` no Postgres, não para o `BackgroundTasks` do
+FastAPI (que morre quando o Cloud Run desliga a instância). Sem Redis, sem
+worker fixo, custo zero. Código: `backend/app/services/job_queue.py`.
+
+- **Disparo:** logo após o commit do `enqueue`, a API tenta processar numa task
+  própria (best-effort). O que sobrar é processado pela rotina
+  `process_job_queue` em todo tick horário (orçamento de 5 min; o deadline do
+  Scheduler é 900 s).
+- **Concorrência:** `SELECT ... FOR UPDATE SKIP LOCKED`; job `running` há mais de
+  15 min é considerado abandonado e volta a rodar.
+- **Status:** `GET /api/v1/jobs/{id}` e `GET /api/v1/jobs?status=&limit=` (só do
+  escritório do usuário). Front: `useJob(id)` / `useJobs()` em
+  `frontend/src/lib/hooks/useJobs.ts`.
+
+Contrato para registrar um novo tipo de job:
+
+```python
+from app.services.job_queue import JobContext, job_handler
+
+@job_handler("dominio.acao")
+async def handler(ctx: JobContext) -> dict | None:
+    ...  # ctx.db já tem o contexto RLS de ctx.tenant_id
+```
+
+| Regra | Valor |
+|---|---|
+| `kind` | `"<domínio>.<ação>"`; o módulo do handler entra em `HANDLER_MODULES` |
+| `payload` | JSON pequeno, só IDs |
+| `idempotency_key` | `"<kind>:<id>"`; repetir o `enqueue` devolve o mesmo job |
+| Retry | exceção → nova tentativa em 1 min, 5 min, 25 min (`max_attempts` = 3); `JobRetry(delay_s)` escolhe o atraso; `PermanentJobError` falha sem retry |
+| Idempotência do handler | obrigatória: o job pode rodar de novo se a instância morrer no meio |
+
+Kinds existentes:
+
+| kind | payload | chave | o que faz |
+|---|---|---|---|
+| `document.parse` | `{"document_id", "storage_path", "file_name", "tmp_path"}` | `document.parse:<document_id>` | parse do upload em `POST /clients/{id}/documents` (a resposta traz `job_id`) |
+| `invoice.emit` | `{"invoice_id", "tenant_id"}` | `invoice.emit:<invoice_id>` | emite a nota que está em status **`queued`** pelo `InvoiceService.process_emission_sync` (provedor atual: simulação). Nota fora de `queued` é ignorada. Falha de conexão com o provedor devolve a nota para `queued` (evento `emit_retry`) e agenda retry; rejeição segue o domínio (`invoice_rejections` + evento) |
+
+Varredor: em todo tick, `drain_queued_invoices` enfileira `invoice.emit` para
+toda nota em `queued` há mais de 10 min sem job pendente (a chave impede
+duplicar). Quem põe a nota em `queued` (ex.: `/sync/push` offline) não precisa
+enfileirar: basta deixá-la em `queued`. Offline nunca autoriza a emissão.
+
 ## Passo a passo
 
 Os comandos abaixo usam o `gcloud` (Cloud Shell no navegador já vem com ele).
@@ -179,6 +226,37 @@ Workers & Pages → Create → Pages → conectar o repositório:
 O Pages já serve `index.html` para as rotas do SPA. Depois, apontar
 `fiscwise.com.br` e `www` para o projeto do Pages.
 
+**Cloudflare Web Analytics (grátis, inclui Core Web Vitals: LCP, INP, CLS):**
+
+1. Painel do Cloudflare → **Analytics & Logs → Web Analytics → Add a site**.
+   Informe `fiscwise.com.br` e escolha a instalação manual (snippet JS).
+2. Copie o valor de `token` do snippet (`data-cf-beacon='{"token": "..."}'`,
+   32 caracteres hexadecimais).
+3. Workers & Pages → projeto `fiscwise` → Settings → Environment variables →
+   **Production**: `VITE_CF_BEACON_TOKEN` = o token. Refaça o deploy.
+
+O `vite.config.ts` injeta o beacon (`static.cloudflareinsights.com/beacon.min.js`,
+`defer`) no `index.html` só quando a variável existe e tem formato válido; sem
+ela o HTML não muda. Não ative também o "Enable Web Analytics" automático do
+Pages, senão as visitas contam em dobro.
+
+Privacidade/LGPD: o beacon do Cloudflare não usa cookies nem localStorage,
+não faz fingerprinting e não exige banner de consentimento; envia URL da
+página, referrer, user agent e tempos de carregamento. A página `/privacidade`
+pode citar o Cloudflare como operador de métricas de desempenho.
+
+**Web Vitals próprios (opcional):** `src/lib/vitals.ts` mede LCP, CLS, INP,
+FCP e TTFB e, se `VITE_VITALS_ENDPOINT` estiver definido no build, envia um
+JSON por `navigator.sendBeacon` quando a aba fica oculta. Sem a variável o
+código nem entra no bundle de produção. Não há coletor hoje: o Cloudflare Web
+Analytics acima já cobre os Core Web Vitals.
+
+**E2E (Playwright):** `npm run e2e` (desktop, Pixel 5 e Pixel 5 + Slow 4G) e
+`npm run e2e:mobile`. Primeira vez: `npx playwright install chromium` (ou
+`PW_CHROMIUM_PATH=/caminho/do/chromium`). Os testes sobem `vite build` +
+`vite preview` na porta 4173 sozinhos. `E2E_BASE_URL` testa outra URL (ex.: um
+preview do Pages); `E2E_API_URL` habilita os specs que dependem de API real.
+
 ### 10. Domínio da API (opcional, depois)
 
 O mapeamento de domínio nativo do Cloud Run não existe em São Paulo. Enquanto
@@ -214,7 +292,45 @@ pg_restore --no-owner --no-privileges -d "postgresql://..." fiscwise.dump
 
 ### 12. Monitoramento
 
-- Sentry: criar projeto Python e React; `SENTRY_DSN` no Secret Manager.
+- Sentry (plano Developer, grátis): criar projeto Python e React;
+  `SENTRY_DSN` no Secret Manager e `VITE_SENTRY_DSN` no Pages. **Pendente**:
+  hoje os dois estão vazios e nenhum erro é capturado.
+- Log por requisição: em production/staging a API escreve uma linha JSON por
+  requisição no stdout (`app/core/request_log.py`), que o Cloud Logging lê como
+  log estruturado: `httpRequest` (método, rota, status, latência), `route`
+  (template, ex. `/api/v1/clients/{client_id}`), `duration_ms`, `tenant_id` e o
+  trace. Nunca grava token, query string, corpo, e-mail, IP ou CPF/CNPJ. Toda
+  resposta traz `Server-Timing: app;dur=<ms>` (aparece no DevTools → Network →
+  Timing). Em dev: `REQUEST_LOG_JSON=true`.
+
+  Ver p50/p95 no **Logs Explorer** (projeto do Cloud Run), consulta:
+
+  ```
+  resource.type="cloud_run_revision"
+  resource.labels.service_name="fiscwise-api"
+  jsonPayload.message="request"
+  ```
+
+  Para percentis: no resultado, **Create metric** (tipo *Distribution*, campo
+  `jsonPayload.duration_ms`, label `jsonPayload.route`) e abra no Metrics
+  Explorer com agregação 50th/95th percentile, ou use o Log Analytics (grátis):
+
+  ```sql
+  SELECT JSON_VALUE(json_payload.route) AS route,
+         COUNT(*) AS n,
+         APPROX_QUANTILES(CAST(JSON_VALUE(json_payload.duration_ms) AS FLOAT64), 100)[OFFSET(50)] AS p50_ms,
+         APPROX_QUANTILES(CAST(JSON_VALUE(json_payload.duration_ms) AS FLOAT64), 100)[OFFSET(95)] AS p95_ms
+  FROM `<projeto>.global._Default._AllLogs`
+  WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+    AND JSON_VALUE(json_payload.message) = 'request'
+  GROUP BY route ORDER BY n DESC
+  ```
+
+  Filtro rápido de lentas: `jsonPayload.duration_ms > 1000`.
+- Perf probe: Actions → **Perf probe** → Run workflow. Mede p50/p95/max de
+  `/live`, `/health`, `/api/v1/health` e `/api/v1/clients` (401 sem token,
+  passa por todos os middlewares sem tocar no banco), mais TTFB e tamanho do
+  HTML do front. Para ver o cold start, rode depois de ~15 min sem tráfego.
 - Better Stack: monitor HTTP em `<URL do Cloud Run>/ready`. Com a instância
   desligando sem uso, o primeiro acesso leva alguns segundos; configure o
   timeout do monitor para 30 s.

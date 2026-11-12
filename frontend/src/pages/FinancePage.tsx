@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +21,7 @@ import {
   Calendar,
   User,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, MetricCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -46,11 +48,14 @@ import {
   useUpdateReceivable,
   useDeleteReceivable,
   useInadimplenciaReport,
+  useGenerateMonthlyReceivables,
   type ReceivableCreate,
   type ReceivableStatus,
 } from '@/lib/hooks/useOperations';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api';
+import { competenceLabel, toCompetence } from '@/lib/dates';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -107,6 +112,31 @@ export function FinancePage() {
   const createMutation = useCreateReceivable();
   const updateMutation = useUpdateReceivable();
   const deleteMutation = useDeleteReceivable();
+  const generateMonthly = useGenerateMonthlyReceivables();
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateMonth, setGenerateMonth] = useState(() => toCompetence(new Date()));
+  const generateMonthOptions = (() => {
+    const now = new Date();
+    return [1, 0, -1].map((offset) => toCompetence(new Date(now.getFullYear(), now.getMonth() + offset, 1)));
+  })();
+  const billableClients = (clients ?? []).filter(
+    (c) => c.status === 'active' && Number(c.monthly_fee ?? 0) > 0,
+  ).length;
+
+  async function handleGenerateMonthly() {
+    try {
+      const r = await generateMonthly.mutateAsync(generateMonth);
+      toast.success(
+        r.created > 0
+          ? `${r.created} mensalidade${r.created === 1 ? '' : 's'} gerada${r.created === 1 ? '' : 's'} para ${competenceLabel(r.year_month)}` +
+              (r.skipped_duplicates > 0 ? ` (${r.skipped_duplicates} já existia${r.skipped_duplicates === 1 ? '' : 'm'})` : '')
+          : `Nenhuma mensalidade nova: ${r.skipped_duplicates} cliente${r.skipped_duplicates === 1 ? '' : 's'} já tinha${r.skipped_duplicates === 1 ? '' : 'm'} cobrança em ${competenceLabel(r.year_month)}.`,
+      );
+      setGenerateOpen(false);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível gerar as mensalidades.'));
+    }
+  }
 
   const {
     register,
@@ -146,12 +176,12 @@ export function FinancePage() {
   }
 
   async function handleDelete(id: string, description: string) {
-    if (!confirm(`Excluir cobranca "${description}"?`)) return;
+    if (!confirm(`Excluir a cobrança "${description}"? Ela fica no histórico como Cancelada.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Cobranca removida');
+      toast.success('Cobrança cancelada');
     } catch {
-      toast.error('Erro ao remover cobranca');
+      toast.error('Erro ao cancelar cobrança');
     }
   }
 
@@ -172,19 +202,22 @@ export function FinancePage() {
     ? paidList.reduce((sum, r) => sum + Number(r.amount), 0) / paidList.length
     : 0;
 
-  const filteredReceivables = (receivables ?? []).filter((r) => {
-    const client = clients?.find((c) => c.id === r.client_id);
-    const clientName = client?.name?.toLowerCase() || '';
-    const desc = r.description?.toLowerCase() || '';
-    const notes = r.notes?.toLowerCase() || '';
-    const query = search.toLowerCase();
+  const debouncedSearch = useDebouncedValue(search);
+  const filteredReceivables = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    return (receivables ?? []).filter((r) => {
+      const client = clients?.find((c) => c.id === r.client_id);
+      const clientName = client?.name?.toLowerCase() || '';
+      const desc = r.description?.toLowerCase() || '';
+      const notes = r.notes?.toLowerCase() || '';
 
-    const matchesSearch = clientName.includes(query) || desc.includes(query) || notes.includes(query);
-    const matchesClient = !selectedClient || r.client_id === selectedClient;
-    const matchesStatus = !selectedStatus || r.status === selectedStatus;
+      const matchesSearch = clientName.includes(query) || desc.includes(query) || notes.includes(query);
+      const matchesClient = !selectedClient || r.client_id === selectedClient;
+      const matchesStatus = !selectedStatus || r.status === selectedStatus;
 
-    return matchesSearch && matchesClient && matchesStatus;
-  });
+      return matchesSearch && matchesClient && matchesStatus;
+    });
+  }, [receivables, clients, debouncedSearch, selectedClient, selectedStatus]);
 
   return (
     <div className="space-y-6">
@@ -208,12 +241,51 @@ export function FinancePage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
+          {isAdminOrOwner && (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setGenerateOpen(true)}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              Gerar mensalidades do mês
+            </Button>
+          )}
           <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Nova cobranca
           </Button>
         </div>
       </div>
+
+      <Dialog
+        open={generateOpen}
+        onClose={() => setGenerateOpen(false)}
+        title="Gerar mensalidades do mês"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generateMonthly.isPending}>
+              Cancelar
+            </Button>
+            <Button onClick={handleGenerateMonthly} disabled={generateMonthly.isPending}>
+              {generateMonthly.isPending ? 'Gerando...' : 'Confirmar'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <FormField label="Competência" htmlFor="generate_month">
+            <Select id="generate_month" value={generateMonth} onChange={(e) => setGenerateMonth(e.target.value)}>
+              {generateMonthOptions.map((ym) => (
+                <option key={ym} value={ym}>
+                  {competenceLabel(ym)}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <p className="text-muted-foreground">
+            Cria uma cobrança "Honorários - {generateMonth}" para cada cliente ativo com honorário mensal
+            cadastrado ({billableClients} cliente{billableClients === 1 ? '' : 's'}), com vencimento no dia de
+            cobrança de cada um. Clientes que já têm a cobrança da competência são pulados — repetir não duplica.
+          </p>
+        </div>
+      </Dialog>
 
       {isError && <ErrorState message="Nao foi possivel carregar as cobranças." />}
 
@@ -383,14 +455,16 @@ export function FinancePage() {
                       Pago
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(r.id, r.description)}
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {(r.status === 'pending' || r.status === 'overdue') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(r.id, r.description)}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </Card>
             );
@@ -451,15 +525,17 @@ export function FinancePage() {
                           <span>Pago</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(r.id, r.description)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir cobrança"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {(r.status === 'pending' || r.status === 'overdue') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(r.id, r.description)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir cobrança"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

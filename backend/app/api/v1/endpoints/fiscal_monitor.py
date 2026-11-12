@@ -10,7 +10,7 @@ from typing import List, Optional
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
@@ -49,32 +49,40 @@ async def sync_client_status(
     db: AsyncSession = Depends(get_db),
 ) -> FiscalMonitorSyncResponse:
     """
-    Sincroniza manualmente a situação fiscal do cliente na Receita Federal.
-    Realiza download da CND e busca novas NF-es.
+    Atualiza a situação cadastral real do CNPJ (BrasilAPI).
+    Débitos, CND e NF-e não são consultados: exigem integração SERPRO.
     """
     try:
-        summary, nfes_count = await fiscal_monitor_service.sync_client_fiscal_status(
+        summary, error = await fiscal_monitor_service.sync_client_fiscal_status(
             db=db,
             client_id=client_id,
             tenant_id=current_user.tenant_id,
         )
-        return FiscalMonitorSyncResponse(
-            status="success",
-            message="Sincronização concluída com sucesso.",
-            summary=FiscalMonitorSummaryResponse.model_validate(summary),
-            nfes_fetched=nfes_count,
+    except fiscal_monitor_service.FiscalMonitorNotConfiguredError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Integração não configurada: o Monitor Fiscal está em modo simulado neste ambiente.",
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error("Erro ao sincronizar monitor fiscal para o cliente %s: %s", client_id, str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao sincronizar monitor fiscal para o cliente %s", client_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno ao sincronizar dados com o parceiro."
+            detail="Erro interno ao sincronizar a situação cadastral.",
         )
+
+    if error:
+        return FiscalMonitorSyncResponse(
+            status="error",
+            message=f"Não foi possível consultar a situação cadastral: {error}",
+            summary=FiscalMonitorSummaryResponse.model_validate(summary),
+        )
+    return FiscalMonitorSyncResponse(
+        status="success",
+        message="Situação cadastral atualizada.",
+        summary=FiscalMonitorSummaryResponse.model_validate(summary),
+    )
 
 
 @router.get("/status/{client_id}", response_model=FiscalMonitorSummaryResponse)
@@ -115,11 +123,7 @@ async def get_client_status(
             tenant_id=current_user.tenant_id,
             client_id=client_id,
             cnpj_status="PENDENTE",
-            cnd_status="PENDENTE",
-            has_debts=False,
-            debt_count=0,
-            total_debt_value=Decimal("0.00"),
-            debts_list={"debts": []}
+            cnd_status=fiscal_monitor_service.NOT_CONSULTED,
         )
 
     return FiscalMonitorSummaryResponse.model_validate(summary)
@@ -152,7 +156,12 @@ async def list_client_nfes(
     # 2. Query NF-es
     stmt = select(FiscalNFe).where(
         (FiscalNFe.client_id == client_id) &
-        (FiscalNFe.tenant_id == current_user.tenant_id)
+        (FiscalNFe.tenant_id == current_user.tenant_id) &
+        # Linhas com URL inventada vieram do simulador antigo: não são NF-e reais.
+        or_(
+            FiscalNFe.xml_url.is_(None),
+            ~FiscalNFe.xml_url.like(f"{fiscal_monitor_service.LEGACY_FAKE_URL_PREFIX}%"),
+        )
     ).order_by(desc(FiscalNFe.issued_at))
 
     if nfe_type:
@@ -165,47 +174,13 @@ async def list_client_nfes(
     return [FiscalNFeResponse.model_validate(n) for n in nfes]
 
 
-@router.post("/nfes/import", response_model=FiscalNFeResponse)
+@router.post("/nfes/import", status_code=status.HTTP_501_NOT_IMPLEMENTED)
 async def import_nfe(
     payload: ExternalNFeImportRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> FiscalNFeResponse:
-    """
-    Simula uma importação externa de nota fiscal (por exemplo, via webhook de parceiro).
-    """
-    # Verifica se o cliente existe
-    stmt_client = select(AccountingClient).where(
-        (AccountingClient.id == payload.client_id) &
-        (AccountingClient.tenant_id == current_user.tenant_id)
+) -> None:
+    """Importação de NF-e por parceiro ainda não existe: responde 501 sem gravar."""
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Importação de NF-e não implementada: exige integração com a Receita (SERPRO) ou parceiro.",
     )
-    res_client = await db.execute(stmt_client)
-    client = res_client.scalar_one_or_none()
-    if not client:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente não encontrado."
-        )
-
-    try:
-        nfe = await fiscal_monitor_service.import_external_nfe(
-            db=db,
-            tenant_id=current_user.tenant_id,
-            client_id=payload.client_id,
-            access_key=payload.access_key,
-            nfe_number=payload.nfe_number,
-            nfe_type=payload.nfe_type,
-            issuer_name=payload.issuer_name,
-            issuer_document=payload.issuer_document,
-            recipient_name=payload.recipient_name,
-            recipient_document=payload.recipient_document,
-            value=payload.value,
-            issued_at=payload.issued_at,
-        )
-        return FiscalNFeResponse.model_validate(nfe)
-    except Exception as e:
-        logger.error("Erro ao importar NF-e externa: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao importar nota fiscal."
-        )

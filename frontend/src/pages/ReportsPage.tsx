@@ -148,7 +148,7 @@ export function ReportsPage() {
   const { hasRole } = usePermission();
   const isAdmin = hasRole('admin');
 
-  const { data: op, isLoading, isError } = useReportsOperational(competence);
+  const { data: op, isLoading, isError, refetch } = useReportsOperational(competence);
   const { data: summary } = useReportsSummary(competence, isAdmin);
 
   const options = useMemo(competenceOptions, []);
@@ -221,7 +221,7 @@ export function ReportsPage() {
           {isLoading ? (
             <LoadingCards count={6} />
           ) : isError ? (
-            <ErrorState message="Não foi possível carregar os relatórios. Tente novamente." />
+            <ErrorState message="Não foi possível carregar os relatórios. Tente novamente." onRetry={() => refetch()} />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {reports.map(report => (

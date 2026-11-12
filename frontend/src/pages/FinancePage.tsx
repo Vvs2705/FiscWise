@@ -94,7 +94,7 @@ export function FinancePage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  const { data: receivables, isLoading, isError } = useReceivables();
+  const { data: receivables, isLoading, isError, refetch } = useReceivables();
   const { data: clients } = useClients();
   const { hasRole } = usePermission();
   const isAdminOrOwner = hasRole('admin');
@@ -287,7 +287,7 @@ export function FinancePage() {
         </div>
       </Dialog>
 
-      {isError && <ErrorState message="Nao foi possivel carregar as cobranças." />}
+      {isError && <ErrorState message="Nao foi possivel carregar as cobranças." onRetry={() => refetch()} />}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -587,7 +587,7 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const { data: clients, isLoading, isError } = useClients();
+  const { data: clients, isLoading, isError, refetch } = useClients();
   const { data: deadlines = [] } = useDeadlines();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -822,7 +822,7 @@ export function ClientsPage() {
       </div>
 
       {isError && (
-        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." />
+        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." onRetry={() => refetch()} />
       )}
 
       {/* Summary cards */}

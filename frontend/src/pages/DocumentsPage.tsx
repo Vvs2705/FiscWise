@@ -444,7 +444,7 @@ export function DocumentsPage() {
   const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<ClientDocument | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
-  const { data: documents, isLoading, isError } = useDocuments();
+  const { data: documents, isLoading, isError, refetch } = useDocuments();
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
@@ -627,7 +627,7 @@ export function DocumentsPage() {
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os documentos." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os documentos." onRetry={() => refetch()} />}
 
       {/* Contadores */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">

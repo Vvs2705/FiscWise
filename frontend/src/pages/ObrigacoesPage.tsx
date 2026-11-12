@@ -810,7 +810,7 @@ export function ObrigacoesPage() {
           {instancesLoading ? (
             <PageSpinner />
           ) : instancesError ? (
-            <ErrorState message="Não foi possível carregar as obrigações." />
+            <ErrorState message="Não foi possível carregar as obrigações." onRetry={() => refetch()} />
           ) : filteredInstances.length === 0 ? (
             <EmptyState
               title="Nenhuma obrigação encontrada"

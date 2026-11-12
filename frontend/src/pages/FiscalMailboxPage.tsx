@@ -190,11 +190,7 @@ export function FiscalMailboxPage() {
         {isLoading ? (
           <SkeletonTable rows={5} cols={5} />
         ) : error ? (
-          <ErrorState description="Não foi possível carregar as mensagens. Verifique a conexão." action={
-            <button onClick={() => refetch()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-              Tentar novamente
-            </button>
-          } />
+          <ErrorState description="Não foi possível carregar as mensagens. Verifique a conexão." onRetry={() => refetch()} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<Mail className="h-6 w-6" />}

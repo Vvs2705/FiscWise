@@ -92,7 +92,7 @@ export function CertificatesPage() {
   const [selectedType, setSelectedType] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const { data: certificates, isLoading, isError } = useCertificates();
+  const { data: certificates, isLoading, isError, refetch } = useCertificates();
   const { data: clients } = useClients();
   const createMutation = useCreateCertificate();
   const deleteMutation = useDeleteCertificate();
@@ -206,7 +206,7 @@ export function CertificatesPage() {
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os certificados." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os certificados." onRetry={() => refetch()} />}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

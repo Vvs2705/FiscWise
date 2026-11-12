@@ -269,7 +269,7 @@ export function FiscalMailboxPage() {
         {selected && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onClick={() => setSelected(null)}>
             <div
-              className="w-full max-w-2xl rounded-t-2xl sm:rounded-2xl border border-border bg-card p-6 shadow-token max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-t-lg sm:rounded-lg border border-border bg-card p-6 shadow-token max-h-[85vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-4">

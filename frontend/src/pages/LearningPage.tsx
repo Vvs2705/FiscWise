@@ -121,7 +121,7 @@ export function LearningPage() {
   return (
     <div className="space-y-6">
       {/* Header section with premium design */}
-      <div className="relative overflow-hidden rounded-[24px] border border-border bg-card p-6 md:p-8 shadow-token-sm">
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card p-6 md:p-8 shadow-token-sm">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-widest dark:text-primary">
             <Sparkles className="h-4 w-4" />

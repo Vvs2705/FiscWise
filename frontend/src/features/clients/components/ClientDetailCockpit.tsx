@@ -704,7 +704,7 @@ FiscWise`,
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
       {/* Client Header Info */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/80 px-6 py-5 bg-card/40 shrink-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/80 px-6 py-5 bg-card shrink-0">
         <div className="flex items-center gap-3">
           <ProgressRing score={healthScore} size={48} strokeWidth={3} />
           <div>
@@ -1436,7 +1436,7 @@ FiscWise`,
                 <ClientWhatsAppWidget clientId={client.id} clientPhone={client.phone || null} />
                 
                 {/* Dynamically resolved variables card */}
-                <Card className="p-4 space-y-2 text-xs leading-relaxed text-muted-foreground border border-border bg-card/10">
+                <Card className="p-4 space-y-2 text-xs leading-relaxed text-muted-foreground border border-border bg-card">
                   <h4 className="font-bold text-foreground uppercase text-[9px] tracking-wider">Variáveis Dinâmicas Resolvidas</h4>
                   <ul className="list-disc pl-4 space-y-1 font-mono text-[9px] text-muted-foreground">
                     <li>{`{cliente}`} = {client.name}</li>
@@ -1525,7 +1525,7 @@ FiscWise`,
               const situationDate = formatRegistryDate(details?.data_situacao_cadastral);
               const openedAt = formatRegistryDate(details?.data_inicio_atividade);
               return (
-                <Card className="p-5 space-y-4 border border-border/80 bg-card/20 relative overflow-hidden">
+                <Card className="p-5 space-y-4 border border-border/80 bg-card relative overflow-hidden">
                   <div className="flex justify-between items-start gap-3">
                     <div>
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">

@@ -750,7 +750,7 @@ export function DocumentsPage() {
             </div>
 
             {/* List vs Card Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}

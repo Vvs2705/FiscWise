@@ -121,7 +121,7 @@ export function LearningPage() {
   return (
     <div className="space-y-6">
       {/* Header section with premium design */}
-      <div className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card/45 p-6 md:p-8 shadow-token-sm">
+      <div className="relative overflow-hidden rounded-[24px] border border-border bg-card p-6 md:p-8 shadow-token-sm">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-widest dark:text-primary">
             <Sparkles className="h-4 w-4" />
@@ -174,7 +174,7 @@ export function LearningPage() {
       {activeTab === 'checklist' && (
         <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
           {/* Progress Widget */}
-          <Card className="bg-card/45 border-border/50 h-fit">
+          <Card className="h-fit">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Seu Progresso</CardTitle>
               <CardDescription>
@@ -212,7 +212,7 @@ export function LearningPage() {
             {checklistItems.map((item) => (
               <Card
                 key={item.id}
-                className={`transition-all border-border/50 bg-card/40 ${
+                className={`transition-all border-border ${
                   item.completed
                     ? 'border-success/25 bg-success/5'
                     : 'hover:border-primary/30'
@@ -260,7 +260,7 @@ export function LearningPage() {
             </h3>
 
             <div className="grid gap-4">
-              <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <Building className="h-4 w-4" />
@@ -272,7 +272,7 @@ export function LearningPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <FolderOpen className="h-4 w-4" />
@@ -284,7 +284,7 @@ export function LearningPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <CreditCard className="h-4 w-4" />
@@ -311,7 +311,7 @@ export function LearningPage() {
                 return (
                   <Card
                     key={index}
-                    className="bg-card/45 border-border/50 overflow-hidden"
+                    className="overflow-hidden"
                   >
                     <button
                       onClick={() => setExpandedFAQ(isExpanded ? null : index)}
@@ -351,7 +351,7 @@ export function LearningPage() {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 1</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour do Painel Cockpit</h4>
@@ -369,7 +369,7 @@ export function LearningPage() {
               </Button>
             </Card>
 
-            <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 2</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Carteira de Clientes</h4>
@@ -387,7 +387,7 @@ export function LearningPage() {
               </Button>
             </Card>
 
-            <Card className="bg-card/45 border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
                 <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 3</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Esteira Documental</h4>

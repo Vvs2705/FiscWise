@@ -295,30 +295,28 @@ export function FinancePage() {
           title="A receber"
           value={isLoading ? '...' : moneyBRL(openTotal)}
           icon={CreditCard}
-          className="bg-card/45 border-border/50"
         />
         <MetricCard
           title="Recebido"
           value={isLoading ? '...' : moneyBRL(paidTotal)}
           icon={DollarSign}
-          className="bg-card/45 border-border/50 text-success"
+          className="text-success"
         />
         <MetricCard
           title="Em atraso"
           value={isLoading ? '...' : moneyBRL(overdueTotal)}
           icon={AlertTriangle}
-          className="bg-card/45 border-border/50 text-destructive"
+          className="text-destructive"
         />
         <MetricCard
           title="Ticket Médio"
           value={isLoading ? '...' : moneyBRL(ticketMedio)}
           icon={BarChart3}
-          className="bg-card/45 border-border/50"
         />
       </div>
 
       {/* Filters Toolbar */}
-      <Card className="p-4 bg-card/40 border-border/50">
+      <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
           <div className="flex flex-1 flex-col sm:flex-row gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -388,7 +386,7 @@ export function FinancePage() {
       {isLoading ? (
         <PageSpinner />
       ) : filteredReceivables.length === 0 ? (
-        <Card className="bg-card/45 border-border/50">
+        <Card>
           <CardContent className="pt-6">
             <EmptyState
               title="Nenhuma cobrança encontrada"
@@ -408,7 +406,7 @@ export function FinancePage() {
             const clientName = client?.name || 'Cliente Desconhecido';
 
             return (
-              <Card key={r.id} className="relative group border border-border/50 hover:border-primary/30 p-5 bg-card/45 flex flex-col justify-between">
+              <Card key={r.id} className="relative group hover:border-primary/30 p-5 flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <h4 className="font-bold text-foreground text-base leading-snug line-clamp-2">{r.description}</h4>
@@ -612,7 +610,7 @@ export function FinancePage() {
 
       {/* ── Inadimplência Report (owner/admin) ── */}
       {isAdminOrOwner && inadimplencia && inadimplencia.total_clients > 0 && (
-        <Card className="mt-8 border-destructive/20 dark:border-destructive/40 bg-card/45">
+        <Card className="mt-8 border-destructive/20 dark:border-destructive/40 bg-card">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 border border-destructive/20">

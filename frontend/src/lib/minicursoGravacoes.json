@@ -1,0 +1,160 @@
+{
+  "cadastrar-cliente": {
+    "duration": 38.6,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "Abra Clientes no menu e clique em Novo cliente"
+      },
+      {
+        "t": 8.9,
+        "label": "Digite o CNPJ: a razão social e o contato vêm da Receita"
+      },
+      {
+        "t": 16.5,
+        "label": "Confira o tipo e escolha o regime tributário"
+      },
+      {
+        "t": 19,
+        "label": "Complete os dados que faltarem"
+      },
+      {
+        "t": 26.1,
+        "label": "Clique em Salvar cliente"
+      },
+      {
+        "t": 30.1,
+        "label": "O cliente já aparece na carteira. Busque pelo nome ou CNPJ"
+      }
+    ]
+  },
+  "certificados": {
+    "duration": 30.8,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "Certificados mostra a validade de cada certificado dos clientes"
+      },
+      {
+        "t": 6.3,
+        "label": "Clique em Novo certificado"
+      },
+      {
+        "t": 10,
+        "label": "Escolha o cliente e dê um nome ao certificado"
+      },
+      {
+        "t": 15.5,
+        "label": "Informe o tipo e a data de vencimento"
+      },
+      {
+        "t": 20,
+        "label": "Clique em Salvar certificado"
+      },
+      {
+        "t": 24.3,
+        "label": "Vencendo em até 30 dias? Clique em Avisar cliente"
+      }
+    ]
+  },
+  "fechamento-mensal": {
+    "duration": 26.9,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "Cada cliente tem o fechamento da competência, com score e bloqueios"
+      },
+      {
+        "t": 7.6,
+        "label": "Clique em Abrir no cliente que você vai fechar"
+      },
+      {
+        "t": 11.8,
+        "label": "Marque como feita cada etapa do checklist"
+      },
+      {
+        "t": 18.8,
+        "label": "Com tudo pronto, clique em Gerar dossiê"
+      }
+    ]
+  },
+  "obrigacoes": {
+    "duration": 33,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "Obrigações mostra tudo que vence na competência escolhida"
+      },
+      {
+        "t": 8.1,
+        "label": "Filtre por status ou prioridade para focar no urgente"
+      },
+      {
+        "t": 13.6,
+        "label": "Busque pela obrigação ou pelo cliente"
+      },
+      {
+        "t": 18.1,
+        "label": "Clique em Iniciar quando começar a trabalhar nela"
+      },
+      {
+        "t": 22.2,
+        "label": "Entregou? Clique no ✓ para dar baixa"
+      }
+    ]
+  },
+  "portal-cliente": {
+    "duration": 23.6,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "Escolha o cliente para ver o portal como ele vê"
+      },
+      {
+        "t": 6.9,
+        "label": "Confira guias e pendências que o cliente vai ver"
+      },
+      {
+        "t": 13.2,
+        "label": "Clique em Enviar link de acesso ao portal"
+      },
+      {
+        "t": 16.2,
+        "label": "Confira o e-mail e clique em Enviar link"
+      }
+    ]
+  },
+  "primeiros-passos": {
+    "duration": 76.7,
+    "chapters": [
+      {
+        "t": 3.2,
+        "label": "No primeiro acesso, um tour mostra as partes mais importantes"
+      },
+      {
+        "t": 9,
+        "label": "Painel, Foco de hoje, Clientes, Obrigações e Fechamento ficam no menu"
+      },
+      {
+        "t": 37.8,
+        "label": "O botão Ajuda mostra o passo a passo da tela em que você está"
+      },
+      {
+        "t": 47.8,
+        "label": "O painel resume o dia: o que vence, o que está atrasado e quem precisa de atenção"
+      },
+      {
+        "t": 54.2,
+        "label": "Clique em Foco de hoje para ver tudo que pede ação, por prioridade"
+      },
+      {
+        "t": 59.3,
+        "label": "Em qualquer tela, clique em Ajuda para ver como fazer cada tarefa"
+      },
+      {
+        "t": 68.5,
+        "label": "As aulas em vídeo ficam no Minicurso, no fim do menu"
+      }
+    ]
+  }
+}

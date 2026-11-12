@@ -58,6 +58,7 @@ const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
 
   // Sistema
   ['/aprender', 'Aprender'],
+  ['/minicurso', 'Minicurso FiscWise'],
   ['/configuracoes', 'Configurações'],
   ['/sincronizacao', 'Sincronização'],
   ['/calculadora', 'Calculadora Fiscal'],

@@ -2,9 +2,18 @@ import type { NavigateFunction } from 'react-router-dom';
 
 // driver.js (JS + CSS) só é baixado quando o usuário inicia um tour:
 // o import dinâmico tira a biblioteca do chunk das páginas que só exibem o botão.
-async function loadDriver() {
+export async function loadDriver() {
   const [mod] = await Promise.all([import('driver.js'), import('driver.js/dist/driver.css')]);
-  return mod.driver;
+  // Textos dos botões em português em todos os tours.
+  return (config: Parameters<typeof mod.driver>[0] = {}) =>
+    mod.driver({
+      nextBtnText: 'Próximo',
+      prevBtnText: 'Voltar',
+      doneBtnText: 'Concluir',
+      progressText: 'Passo {{current}} de {{total}}',
+      popoverClass: 'fiscwise-tour',
+      ...config,
+    });
 }
 
 export async function runDashboardTour() {

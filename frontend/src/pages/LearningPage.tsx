@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   CheckCircle2,
@@ -13,6 +13,7 @@ import {
   Building,
   CreditCard,
   FolderOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -133,6 +134,13 @@ export function LearningPage() {
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
             Domine as ferramentas do FiscWise, acompanhe o progresso de configuração do seu ambiente e aprenda a otimizar sua rotina contábil.
           </p>
+          <Link
+            to="/minicurso"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <GraduationCap className="h-4 w-4" aria-hidden="true" />
+            Assistir ao Minicurso FiscWise
+          </Link>
         </div>
       </div>
 

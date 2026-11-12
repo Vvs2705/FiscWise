@@ -19,6 +19,7 @@ import {
   Settings,
   RefreshCw,
   ChevronDown,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -81,6 +82,7 @@ const navGroups: NavGroup[] = [
     label: 'Sistema',
     collapsible: true,
     items: [
+      { name: 'Minicurso',      href: '/minicurso',     icon: GraduationCap },
       { name: 'Aprender',       href: '/aprender',      icon: BookOpen },
       { name: 'Configurações',  href: '/configuracoes', icon: Settings },
       { name: 'Sincronização',  href: '/sincronizacao', icon: RefreshCw },
@@ -176,6 +178,7 @@ export function Sidebar() {
                       key={item.name}
                       to={item.href}
                       aria-label={item.name}
+                      data-tour={`nav-${item.href}`}
                       aria-current={active ? 'page' : undefined}
                       title={item.name}
                       className={cn(

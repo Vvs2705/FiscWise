@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { PageHelp } from '@/components/PageHelp';
 import { Button } from './ui/Button';
 import { SyncIndicator } from './SyncIndicator';
 import { useSyncStore } from '@/lib/offline/status';
@@ -26,6 +27,7 @@ const sectionTitles: ReadonlyArray<readonly [string, string]> = [
   ['/portal', 'Portal do cliente'],
   ['/relatorios', 'Relatórios'],
   ['/aprender', 'Aprender'],
+  ['/minicurso', 'Minicurso FiscWise'],
   ['/configuracoes', 'Configurações'],
   ['/sincronizacao', 'Sincronização'],
   ['/calculadora', 'Calculadora fiscal'],
@@ -79,6 +81,8 @@ export function Header() {
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {/* Indicador permanente de sincronização (offline-first) */}
         <SyncIndicator />
+
+        <PageHelp />
 
         <ThemeToggle />
 

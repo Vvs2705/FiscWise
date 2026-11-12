@@ -741,15 +741,14 @@ async def create_client(
     # ── Plan limit enforcement ────────────────────────────────────────────────
     try:
         from app.core.plan_access import resolve_tenant_plan
-        from app.models.plan import Plan
         from app.models.tenant import Tenant
+        from app.services.catalog_cache import get_plan_by_slug
 
         tenant_row = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         tenant_obj = tenant_row.scalar_one_or_none()
         effective_slug = resolve_tenant_plan(tenant_obj, current_user.email) or "free"
 
-        plan_row = await db.execute(select(Plan).where(Plan.slug == effective_slug))
-        plan_obj = plan_row.scalar_one_or_none()
+        plan_obj = await get_plan_by_slug(db, effective_slug)
 
         if plan_obj and plan_obj.max_clients is not None:
             count_result = await db.execute(
@@ -1091,8 +1090,8 @@ async def upload_document_file(
 ):
     """Faz upload de arquivo para Supabase Storage e retorna a URL publica."""
     import uuid as _uuid
-    import httpx
     from app.core.config import settings
+    from app.core.http_client import request_with_retry
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         raise HTTPException(
@@ -1134,17 +1133,22 @@ async def upload_document_file(
 
     # Supabase Storage aceita tanto o JWT service role quanto as novas chaves
     # sb_secret_* — ambos os headers sao necessarios para compatibilidade
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(
-            storage_url,
-            content=file_bytes,
-            headers={
-                "apikey": settings.SUPABASE_SECRET_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
-                "Content-Type": content_type,
-                "x-upsert": "false",
-            },
-        )
+    # Não idempotente (x-upsert=false): só repete se a conexão nem abriu.
+    # Falha de rede vira ExternalServiceError → 503 com mensagem clara.
+    resp = await request_with_retry(
+        "POST",
+        storage_url,
+        service="supabase_storage",
+        idempotent=False,
+        read_timeout=30.0,
+        content=file_bytes,
+        headers={
+            "apikey": settings.SUPABASE_SECRET_KEY,
+            "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
+            "Content-Type": content_type,
+            "x-upsert": "false",
+        },
+    )
 
     if resp.status_code not in (200, 201):
         logger.error("Supabase Storage upload failed: %s %s", resp.status_code, resp.text)

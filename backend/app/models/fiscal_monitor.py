@@ -94,7 +94,7 @@ class FiscalMonitorSummary(Base, TenantBase):
     last_cnd_document_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("client_documents.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
         comment="Documento correspondente à última CND baixada no dossiê",
     )
 

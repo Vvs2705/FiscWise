@@ -49,7 +49,7 @@ class TenantSubscription(Base):
     plan_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("plans.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=False, index=True,
     )
 
     # Payment provider

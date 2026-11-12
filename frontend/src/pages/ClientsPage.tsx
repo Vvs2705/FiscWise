@@ -417,7 +417,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
             title="Gerenciar Empresa"
           >
             <Briefcase className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Gerenciar</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Gerenciar</span>
           </Button>
           <Button
             variant="ghost"
@@ -427,7 +427,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
             title="Notas seguras"
           >
             <Lock className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Notas</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Notas</span>
           </Button>
           {client.status !== 'inactive' && (
             <Button
@@ -438,7 +438,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
               title="Desativar cliente"
             >
               <Archive className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Desativar</span>
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Desativar</span>
             </Button>
           )}
           {client.status === 'inactive' && (
@@ -450,7 +450,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
               title="Reativar cliente"
             >
               <RotateCcw className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Reativar</span>
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Reativar</span>
             </Button>
           )}
         </div>
@@ -829,7 +829,7 @@ export function ClientsPage() {
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Total de clientes
             </CardTitle>
           </CardHeader>
@@ -839,7 +839,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Carteira operacional
             </CardTitle>
           </CardHeader>
@@ -849,7 +849,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Em onboarding
             </CardTitle>
           </CardHeader>
@@ -859,7 +859,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Desativados
             </CardTitle>
           </CardHeader>

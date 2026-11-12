@@ -311,7 +311,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-            <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">Modo Foco</h2>
+            <h2 className="text-lg font-bold text-foreground">Modo Foco</h2>
           </div>
           <button
             onClick={onClose}
@@ -402,7 +402,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               {/* Stepper info */}
               <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
                 <span>TAREFA {queue.position} DE {totalTasks}</span>
-                <span className="px-2 py-0.5 rounded bg-muted border border-border uppercase tracking-wider text-primary">
+                <span className="px-2 py-0.5 rounded bg-muted border border-border text-primary">
                   {taskTypeConfig[currentTask.type].label}
                 </span>
               </div>

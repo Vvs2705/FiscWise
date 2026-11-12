@@ -256,7 +256,7 @@ function RulesPanel({ rules }: { rules: ObligationRule[] }) {
           <div className="space-y-4">
             {Object.entries(groups).map(([jurisdiction, jRules]) => (
               <div key={jurisdiction} className="border-b last:border-0 pb-3 last:pb-0">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-2 text-[10px] font-bold text-muted-foreground">
                   {JURISDICTION_LABEL[jurisdiction] ?? jurisdiction}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -644,7 +644,7 @@ export function ObrigacoesPage() {
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Total</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground font-mono">Total</CardTitle>
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -655,7 +655,7 @@ export function ObrigacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Pendentes</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground font-mono">Pendentes</CardTitle>
             <Clock className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
@@ -666,7 +666,7 @@ export function ObrigacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Entregues</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground font-mono">Entregues</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
@@ -677,7 +677,7 @@ export function ObrigacoesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">Vencidas</CardTitle>
+            <CardTitle className="text-xs font-semibold text-muted-foreground font-mono">Vencidas</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -896,7 +896,7 @@ export function ObrigacoesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 gap-1 text-primary hover:bg-primary/10 hover:text-primary px-2 text-[10px] font-bold uppercase tracking-wider"
+                              className="h-8 gap-1 text-primary hover:bg-primary/10 hover:text-primary px-2 text-[10px] font-bold"
                               title="Iniciar"
                               onClick={() => handleStatusChange(inst.id, 'in_progress')}
                             >
@@ -976,7 +976,7 @@ export function ObrigacoesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleStatusChange(inst.id, 'delivered')}
-                            className="h-8 gap-1 text-success hover:bg-success/10 hover:text-success text-[10px] font-bold uppercase tracking-wider"
+                            className="h-8 gap-1 text-success hover:bg-success/10 hover:text-success text-[10px] font-bold"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Entregar

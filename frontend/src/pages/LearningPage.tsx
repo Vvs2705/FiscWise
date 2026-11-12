@@ -353,7 +353,7 @@ export function LearningPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 1</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 1</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour do Painel Cockpit</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda o Foco de Hoje, o indicador de Saúde da Carteira e a lista de prioridades diárias.
@@ -371,7 +371,7 @@ export function LearningPage() {
 
             <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 2</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 2</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Carteira de Clientes</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Aprenda a buscar, filtrar regimes tributários e abrir a cockpit de detalhe de um cliente.
@@ -389,7 +389,7 @@ export function LearningPage() {
 
             <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 3</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 3</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Esteira Documental</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda onde enviar arquivos, onde ver a classificação da IA e o preview lateral.

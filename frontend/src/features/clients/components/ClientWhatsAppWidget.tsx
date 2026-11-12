@@ -130,7 +130,7 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
       {/* HEADER */}
       <div className="bg-card px-4 py-2 border-b border-border flex items-center justify-between">
         <span
-          className="text-[10px] font-bold text-warning uppercase tracking-wider flex items-center gap-1.5"
+          className="text-[10px] font-bold text-warning flex items-center gap-1.5"
           title="O envio pelo WhatsApp ainda não está conectado a um provedor. Mensagens marcadas como enviadas não chegam ao cliente."
         >
           <span className="h-2 w-2 rounded-full bg-warning" />

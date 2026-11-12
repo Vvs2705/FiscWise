@@ -132,7 +132,7 @@ export function GuiasListPage() {
       <Card className="border-border/60 bg-card">
         <CardContent className="p-4 flex flex-wrap gap-4">
           <div className="min-w-[200px] flex-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+            <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">
               Filtrar por Cliente
             </label>
             <Select
@@ -150,7 +150,7 @@ export function GuiasListPage() {
           </div>
 
           <div className="min-w-[150px]">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+            <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">
               Filtrar por Status
             </label>
             <Select
@@ -180,7 +180,7 @@ export function GuiasListPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold text-muted-foreground">
                     <th className="px-5 py-3">Tipo da Guia</th>
                     <th className="px-5 py-3">Cliente</th>
                     <th className="px-5 py-3 text-right">Valor (R$)</th>

@@ -159,7 +159,7 @@ export function InvoiceDetailPage() {
         <div className="space-y-6 md:col-span-2">
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">
                 Dados do Tomador (Cliente)
               </CardTitle>
             </CardHeader>
@@ -188,7 +188,7 @@ export function InvoiceDetailPage() {
 
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">
                 Discriminação dos Serviços
               </CardTitle>
             </CardHeader>
@@ -201,7 +201,7 @@ export function InvoiceDetailPage() {
 
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">
                 Valores e Alíquotas
               </CardTitle>
             </CardHeader>

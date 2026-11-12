@@ -685,7 +685,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex items-center justify-between gap-4 pt-6">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Plano atual</p>
+            <p className="text-xs font-medium text-muted-foreground">Plano atual</p>
             <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
             {activeDbPlan && (
               <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
@@ -733,7 +733,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             )}
           </div>
           <div className="rounded-xl border bg-muted/30 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fluxo do upgrade</p>
+            <p className="text-xs font-medium text-muted-foreground">Fluxo do upgrade</p>
             <div className="mt-3 space-y-3 text-sm text-muted-foreground">
               <p>1. Escolha o plano com base em capacidade e recursos.</p>
               <p>2. Revise o impacto comercial antes de confirmar.</p>

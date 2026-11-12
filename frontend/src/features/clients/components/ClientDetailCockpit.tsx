@@ -766,7 +766,7 @@ FiscWise`,
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4.5 w-4.5 text-primary" />
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                  <h3 className="text-sm font-bold text-foreground">
                     Resumo Operacional IA
                   </h3>
                 </div>
@@ -795,7 +795,7 @@ FiscWise`,
             {/* Profile Forms */}
             <form onSubmit={handleSubmitClient(onClientSubmit)} className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+                <h3 className="text-xs font-bold text-foreground border-b pb-1">
                   Ficha da Empresa
                 </h3>
                 <FormField label="Nome / Razão Social" htmlFor="name" error={clientErrors.name?.message} required>
@@ -842,7 +842,7 @@ FiscWise`,
 
               {/* Responsible Person Form */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+                <h3 className="text-xs font-bold text-foreground border-b pb-1">
                   Responsável Legal
                 </h3>
                 <FormField label="Nome do Responsável" htmlFor="responsible_name">
@@ -882,7 +882,7 @@ FiscWise`,
         {activeTab === 'socios' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-foreground">
                 Quadro de Sócios (QSA)
               </h3>
               {!showPartnerForm && (
@@ -1026,7 +1026,7 @@ FiscWise`,
 
             {/* AI Document Parser List */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+              <h3 className="text-xs font-bold text-foreground border-b pb-1">
                 Documentos Analisados por IA
               </h3>
               {isLoadingParsedDocs ? (
@@ -1071,7 +1071,7 @@ FiscWise`,
 
             {/* Upload Document */}
             <div className="fiscwise-surface border rounded-xl p-5 space-y-4">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-foreground">
                 Upload de Documento Oficial
               </h3>
               <div className="grid grid-cols-2 gap-4">
@@ -1104,7 +1104,7 @@ FiscWise`,
 
             {/* Uploaded List */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+              <h3 className="text-xs font-bold text-foreground border-b pb-1">
                 Documentos Arquivados
               </h3>
               {companyDocs.length === 0 ? (
@@ -1150,7 +1150,7 @@ FiscWise`,
         {/* OBRIGAÇÕES / PRAZOS */}
         {activeTab === 'obrigacoes' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Agenda de Compromissos Fiscais
             </h3>
             {(() => {
@@ -1212,7 +1212,7 @@ FiscWise`,
         {/* GUIAS & DAS */}
         {activeTab === 'guias' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Guia DAS & Receitas
             </h3>
             {dasPayments.length === 0 ? (
@@ -1249,7 +1249,7 @@ FiscWise`,
         {/* CERTIFICADOS */}
         {activeTab === 'certificados' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Certificados Digitais
             </h3>
             {(() => {
@@ -1323,7 +1323,7 @@ FiscWise`,
         {activeTab === 'financeiro' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+              <h3 className="text-sm font-bold text-foreground">
                 Configuração de Honorários
               </h3>
               {!editBilling ? (
@@ -1362,7 +1362,7 @@ FiscWise`,
             )}
 
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
+              <h3 className="text-xs font-bold text-foreground border-b pb-1">
                 Histórico de Recebimentos
               </h3>
               {billingHistory.length === 0 ? (
@@ -1392,7 +1392,7 @@ FiscWise`,
         {/* COMUNICAÇÃO */}
         {activeTab === 'comunicacao' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Comunicação com o Cliente
             </h3>
 
@@ -1437,7 +1437,7 @@ FiscWise`,
                 
                 {/* Dynamically resolved variables card */}
                 <Card className="p-4 space-y-2 text-xs leading-relaxed text-muted-foreground border border-border bg-card">
-                  <h4 className="font-bold text-foreground uppercase text-[9px] tracking-wider">Variáveis Dinâmicas Resolvidas</h4>
+                  <h4 className="font-bold text-foreground text-[9px]">Variáveis Dinâmicas Resolvidas</h4>
                   <ul className="list-disc pl-4 space-y-1 font-mono text-[9px] text-muted-foreground">
                     <li>{`{cliente}`} = {client.name}</li>
                     <li>{`{documentos_pendentes}`} = {missingDocsList.join(', ') || 'Nenhum pendente'}</li>
@@ -1465,7 +1465,7 @@ FiscWise`,
         {/* HISTÓRICO / TIMELINE */}
         {activeTab === 'historico' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Timeline de Atividades
             </h3>
             <FiscalTimeline items={timelineItems} />
@@ -1478,7 +1478,7 @@ FiscWise`,
             {/* Header com Ações e Sincronização */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
               <div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Monitor Fiscal
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -1528,7 +1528,7 @@ FiscWise`,
                 <Card className="p-5 space-y-4 border border-border/80 bg-card relative overflow-hidden">
                   <div className="flex justify-between items-start gap-3">
                     <div>
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      <h4 className="text-xs font-bold text-muted-foreground">
                         Situação cadastral do CNPJ
                       </h4>
                       <p className="text-sm font-bold text-foreground mt-1">
@@ -1608,7 +1608,7 @@ FiscWise`,
         {/* NOTAS INTERNAS */}
         {activeTab === 'notas' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b pb-2">
+            <h3 className="text-sm font-bold text-foreground border-b pb-2">
               Anotações Internas Privadas
             </h3>
             <div className="space-y-4">

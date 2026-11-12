@@ -212,7 +212,7 @@ export function CertificatesPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Total Gerenciado
             </CardTitle>
           </CardHeader>
@@ -222,7 +222,7 @@ export function CertificatesPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-warning uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-warning">
               Vencendo em 30 dias
             </CardTitle>
           </CardHeader>
@@ -234,7 +234,7 @@ export function CertificatesPage() {
         </Card>
         <Card className="sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Tipo A1
             </CardTitle>
           </CardHeader>

@@ -11,11 +11,12 @@ from typing import Any, TypeVar
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
-from sqlalchemy import Date as SADate, cast, func, or_, select, text
+from sqlalchemy import Date as SADate, and_, cast, func, or_, select, text, true
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_user_plan
 from app.services.audit import log_audit_event
 from app.models.calculator import AssistantRole, FiscalAssistantMessage
@@ -168,64 +169,74 @@ async def dashboard_overview(
     today = date.today()
     limit_date = today + timedelta(days=30)
 
-    async def count_for(statement):
-        result = await db.execute(statement)
-        return int(result.scalar_one() or 0)
+    # Contagens e somas dos quatro cadastros numa consulta só (antes eram 9
+    # idas ao banco). Cada subconsulta agrega uma tabela e devolve uma linha;
+    # FILTER é SQL padrão (PostgreSQL e SQLite).
+    first_of_month = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
+    clients_agg = (
+        select(
+            func.count().filter(AccountingClient.status == "active").label("active_clients"),
+        )
+        .where(AccountingClient.tenant_id == tenant_id)
+        .subquery()
+    )
+    deadlines_agg = (
+        select(
+            func.count().filter(DeadlineItem.status == "pending").label("pending_deadlines"),
+            func.count()
+            .filter(DeadlineItem.status != "completed", DeadlineItem.due_date < today)
+            .label("overdue_deadlines"),
+        )
+        .where(DeadlineItem.tenant_id == tenant_id)
+        .subquery()
+    )
+    certificates_agg = (
+        select(
+            func.count()
+            .filter(
+                DigitalCertificate.status == "valid",
+                DigitalCertificate.valid_until >= today,
+                DigitalCertificate.valid_until <= limit_date,
+            )
+            .label("certificates_expiring_30d"),
+        )
+        .where(DigitalCertificate.tenant_id == tenant_id)
+        .subquery()
+    )
+    is_open = AccountReceivable.status == "pending"
+    is_overdue = and_(AccountReceivable.status != "paid", AccountReceivable.due_date < today)
+    is_received_month = and_(
+        AccountReceivable.status == "paid", AccountReceivable.paid_at >= first_of_month
+    )
+    receivables_agg = (
+        select(
+            func.count().filter(is_open).label("open_receivables"),
+            func.count().filter(is_overdue).label("overdue_receivables"),
+            func.coalesce(func.sum(AccountReceivable.amount).filter(is_open), 0).label("amount_open"),
+            func.coalesce(func.sum(AccountReceivable.amount).filter(is_overdue), 0).label("amount_overdue"),
+            func.coalesce(func.sum(AccountReceivable.amount).filter(is_received_month), 0).label(
+                "received_month"
+            ),
+        )
+        .where(AccountReceivable.tenant_id == tenant_id)
+        .subquery()
+    )
+    totals = (
+        await db.execute(
+            select(clients_agg, deadlines_agg, certificates_agg, receivables_agg).select_from(
+                clients_agg.join(deadlines_agg, true())
+                .join(certificates_agg, true())
+                .join(receivables_agg, true())
+            )
+        )
+    ).one()
+    active_clients = int(totals.active_clients or 0)
+    pending_deadlines = int(totals.pending_deadlines or 0)
+    overdue_deadlines = int(totals.overdue_deadlines or 0)
+    certificates_expiring_30d = int(totals.certificates_expiring_30d or 0)
+    open_receivables = int(totals.open_receivables or 0)
+    overdue_receivables = int(totals.overdue_receivables or 0)
 
-    active_clients = await count_for(
-        select(func.count()).select_from(AccountingClient).where(
-            AccountingClient.tenant_id == tenant_id,
-            AccountingClient.status == "active",
-        )
-    )
-    pending_deadlines = await count_for(
-        select(func.count()).select_from(DeadlineItem).where(
-            DeadlineItem.tenant_id == tenant_id,
-            DeadlineItem.status == "pending",
-        )
-    )
-    overdue_deadlines = await count_for(
-        select(func.count()).select_from(DeadlineItem).where(
-            DeadlineItem.tenant_id == tenant_id,
-            DeadlineItem.status != "completed",
-            DeadlineItem.due_date < today,
-        )
-    )
-    certificates_expiring_30d = await count_for(
-        select(func.count()).select_from(DigitalCertificate).where(
-            DigitalCertificate.tenant_id == tenant_id,
-            DigitalCertificate.status == "valid",
-            DigitalCertificate.valid_until >= today,
-            DigitalCertificate.valid_until <= limit_date,
-        )
-    )
-    open_receivables = await count_for(
-        select(func.count()).select_from(AccountReceivable).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status == "pending",
-        )
-    )
-    overdue_receivables = await count_for(
-        select(func.count()).select_from(AccountReceivable).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status != "paid",
-            AccountReceivable.due_date < today,
-        )
-    )
-
-    amount_open_result = await db.execute(
-        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status == "pending",
-        )
-    )
-    amount_overdue_result = await db.execute(
-        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status != "paid",
-            AccountReceivable.due_date < today,
-        )
-    )
     upcoming_result = await db.execute(
         select(DeadlineItem)
         .where(
@@ -237,16 +248,8 @@ async def dashboard_overview(
         .limit(8)
     )
 
-    # ── Financeiro: total recebido no mes corrente ─────────────────────────────
-    first_of_month = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
-    received_month_result = await db.execute(
-        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status == "paid",
-            AccountReceivable.paid_at >= first_of_month,
-        )
-    )
-    total_received_month = Decimal(received_month_result.scalar_one() or 0)
+    # ── Financeiro: total recebido no mes corrente (vem da consulta agregada) ──
+    total_received_month = Decimal(totals.received_month or 0)
 
     # ── Financeiro: tendencia mensal (ano corrente) ────────────────────────────
     first_of_year = datetime(today.year, 1, 1, tzinfo=timezone.utc)
@@ -324,8 +327,8 @@ async def dashboard_overview(
         certificates_expiring_30d=certificates_expiring_30d,
         open_receivables=open_receivables,
         overdue_receivables=overdue_receivables,
-        receivables_amount_open=Decimal(amount_open_result.scalar_one() or 0),
-        receivables_amount_overdue=Decimal(amount_overdue_result.scalar_one() or 0),
+        receivables_amount_open=Decimal(totals.amount_open or 0),
+        receivables_amount_overdue=Decimal(totals.amount_overdue or 0),
         upcoming_deadlines=list(upcoming_result.scalars().all()),
         # novos campos financeiros
         total_received_month=total_received_month,
@@ -361,30 +364,81 @@ async def dashboard_productivity(
     first_of_month = date(comp_year, comp_month, 1)
     competence_str = f"{comp_year:04d}-{comp_month:02d}"
 
-    async def count_for(statement) -> int:
-        result = await db.execute(statement)
-        return int(result.scalar_one() or 0)
+    limit_date = today + timedelta(days=30)
 
-    # ── Obligation status totals for this competence month ─────────────────────
-    status_raw = await db.execute(
+    # ── Totais numa consulta só (antes eram 6 idas ao banco) ───────────────────
+    # Cada subconsulta agrega uma tabela e devolve uma linha; FILTER é SQL padrão.
+    obligations_agg = (
         select(
-            ObligationInstance.status,
-            func.count().label("cnt"),
+            func.count().filter(ObligationInstance.status == "pending").label("total_pending"),
+            func.count().filter(ObligationInstance.status == "in_progress").label("total_in_progress"),
+            func.count().filter(ObligationInstance.status == "delivered").label("total_delivered"),
+            func.count().filter(ObligationInstance.status == "overdue").label("total_overdue"),
         )
         .where(
             ObligationInstance.tenant_id == tenant_id,
             ObligationInstance.competence_month == first_of_month,
         )
-        .group_by(ObligationInstance.status)
+        .subquery()
     )
-    status_map: dict[str, int] = {}
-    for row in status_raw.all():
-        status_map[row.status] = int(row.cnt)
+    checklist_agg = (
+        select(func.count().label("docs_awaiting_approval"))
+        .select_from(DocumentChecklistItem)
+        .where(
+            DocumentChecklistItem.tenant_id == tenant_id,
+            DocumentChecklistItem.competence_month == first_of_month,
+            DocumentChecklistItem.status == "received",
+        )
+        .subquery()
+    )
+    closings_agg = (
+        select(func.count().label("total_blocked"))
+        .select_from(MonthlyClosing)
+        .where(
+            MonthlyClosing.tenant_id == tenant_id,
+            MonthlyClosing.competence == competence_str,
+            MonthlyClosing.status == "blocked",
+        )
+        .subquery()
+    )
+    certificates_agg = (
+        select(func.count().label("certificates_expiring_30d"))
+        .select_from(DigitalCertificate)
+        .where(
+            DigitalCertificate.tenant_id == tenant_id,
+            DigitalCertificate.status == "valid",
+            DigitalCertificate.valid_until >= today,
+            DigitalCertificate.valid_until <= limit_date,
+        )
+        .subquery()
+    )
+    receivables_agg = (
+        select(
+            func.count().label("overdue_receivables_count"),
+            func.coalesce(func.sum(AccountReceivable.amount), 0).label("overdue_receivables_amount"),
+        )
+        .where(
+            AccountReceivable.tenant_id == tenant_id,
+            AccountReceivable.status != "paid",
+            AccountReceivable.due_date < today,
+        )
+        .subquery()
+    )
+    totals = (
+        await db.execute(
+            select(obligations_agg, checklist_agg, closings_agg, certificates_agg, receivables_agg).select_from(
+                obligations_agg.join(checklist_agg, true())
+                .join(closings_agg, true())
+                .join(certificates_agg, true())
+                .join(receivables_agg, true())
+            )
+        )
+    ).one()
 
-    total_pending = status_map.get("pending", 0)
-    total_in_progress = status_map.get("in_progress", 0)
-    total_delivered = status_map.get("delivered", 0)
-    total_overdue = status_map.get("overdue", 0)
+    total_pending = int(totals.total_pending or 0)
+    total_in_progress = int(totals.total_in_progress or 0)
+    total_delivered = int(totals.total_delivered or 0)
+    total_overdue = int(totals.total_overdue or 0)
 
     closed = total_delivered + total_overdue
     compliance_rate = round((total_delivered / closed * 100) if closed > 0 else 0.0, 1)
@@ -459,14 +513,7 @@ async def dashboard_productivity(
         for row in top_pending_raw.all()
     ]
 
-    # ── Documents awaiting approval (received but not yet approved) ────────────
-    docs_awaiting_approval = await count_for(
-        select(func.count()).select_from(DocumentChecklistItem).where(
-            DocumentChecklistItem.tenant_id == tenant_id,
-            DocumentChecklistItem.competence_month == first_of_month,
-            DocumentChecklistItem.status == "received",
-        )
-    )
+    docs_awaiting_approval = int(totals.docs_awaiting_approval or 0)
 
     # ── Sample list of pending documents (same source as the count above) ──────
     pending_docs_raw = await db.execute(
@@ -500,41 +547,9 @@ async def dashboard_productivity(
             )
         )
 
-    # ── Fechamentos bloqueados na competência (blocked by client) ──────────────
-    total_blocked = await count_for(
-        select(func.count()).select_from(MonthlyClosing).where(
-            MonthlyClosing.tenant_id == tenant_id,
-            MonthlyClosing.competence == competence_str,
-            MonthlyClosing.status == "blocked",
-        )
-    )
-
-    # ── Certificates expiring in the next 30 days ──────────────────────────────
-    limit_date = today + timedelta(days=30)
-    certificates_expiring_30d = await count_for(
-        select(func.count()).select_from(DigitalCertificate).where(
-            DigitalCertificate.tenant_id == tenant_id,
-            DigitalCertificate.status == "valid",
-            DigitalCertificate.valid_until >= today,
-            DigitalCertificate.valid_until <= limit_date,
-        )
-    )
-
-    # ── Overdue receivables ────────────────────────────────────────────────────
-    overdue_receivables_count = await count_for(
-        select(func.count()).select_from(AccountReceivable).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status != "paid",
-            AccountReceivable.due_date < today,
-        )
-    )
-    overdue_amount_result = await db.execute(
-        select(func.coalesce(func.sum(AccountReceivable.amount), 0)).where(
-            AccountReceivable.tenant_id == tenant_id,
-            AccountReceivable.status != "paid",
-            AccountReceivable.due_date < today,
-        )
-    )
+    total_blocked = int(totals.total_blocked or 0)
+    certificates_expiring_30d = int(totals.certificates_expiring_30d or 0)
+    overdue_receivables_count = int(totals.overdue_receivables_count or 0)
 
     return ProductivityOverview(
         competence_month=competence_str,
@@ -550,7 +565,7 @@ async def dashboard_productivity(
         docs_awaiting_approval=docs_awaiting_approval,
         certificates_expiring_30d=certificates_expiring_30d,
         overdue_receivables_count=overdue_receivables_count,
-        overdue_receivables_amount=Decimal(overdue_amount_result.scalar_one() or 0),
+        overdue_receivables_amount=Decimal(totals.overdue_receivables_amount or 0),
     )
 
 
@@ -561,6 +576,7 @@ async def list_clients(
     tax_regime: str | None = Query(default=None, max_length=80),
     entity_type: str | None = Query(default=None, max_length=16),
     cnae_code: str | None = Query(default=None, max_length=20),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -583,8 +599,9 @@ async def list_clients(
                 AccountingClient.client_code.ilike(term),
             )
         )
-    result = await db.execute(statement.order_by(AccountingClient.name.asc()))
-    return list(result.scalars().all())
+    return await paginate(
+        db, statement.order_by(AccountingClient.name.asc(), AccountingClient.id.asc()), page
+    )
 
 
 @router.get("/clients/{client_id}", response_model=AccountingClientResponse)
@@ -879,6 +896,7 @@ async def deactivate_client(
 async def list_deadlines(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -888,8 +906,9 @@ async def list_deadlines(
         statement = statement.where(DeadlineItem.client_id == client_id)
     if status_filter:
         statement = statement.where(DeadlineItem.status == status_filter)
-    result = await db.execute(statement.order_by(DeadlineItem.due_date.asc()))
-    return list(result.scalars().all())
+    return await paginate(
+        db, statement.order_by(DeadlineItem.due_date.asc(), DeadlineItem.id.asc()), page
+    )
 
 
 @router.get("/deadlines/{deadline_id}", response_model=DeadlineResponse)
@@ -995,6 +1014,7 @@ async def update_deadline(
 @router.get("/documents", response_model=list[DocumentResponse])
 async def list_documents(
     client_id: uuid.UUID | None = None,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1002,8 +1022,9 @@ async def list_documents(
     statement = select(ClientDocument).where(ClientDocument.tenant_id == tenant_id)
     if client_id:
         statement = statement.where(ClientDocument.client_id == client_id)
-    result = await db.execute(statement.order_by(ClientDocument.created_at.desc()))
-    return list(result.scalars().all())
+    return await paginate(
+        db, statement.order_by(ClientDocument.created_at.desc(), ClientDocument.id.desc()), page
+    )
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
@@ -1161,6 +1182,7 @@ async def upload_document_file(
 @router.get("/certificates", response_model=list[CertificateResponse])
 async def list_certificates(
     client_id: uuid.UUID | None = None,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1168,8 +1190,9 @@ async def list_certificates(
     statement = select(DigitalCertificate).where(DigitalCertificate.tenant_id == tenant_id)
     if client_id:
         statement = statement.where(DigitalCertificate.client_id == client_id)
-    result = await db.execute(statement.order_by(DigitalCertificate.valid_until.asc()))
-    return list(result.scalars().all())
+    return await paginate(
+        db, statement.order_by(DigitalCertificate.valid_until.asc(), DigitalCertificate.id.asc()), page
+    )
 
 
 @router.get("/certificates/expiring", response_model=list[CertificateResponse])
@@ -1316,6 +1339,7 @@ async def get_certificate_usage_trail(
 async def list_receivables(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1325,8 +1349,9 @@ async def list_receivables(
         statement = statement.where(AccountReceivable.client_id == client_id)
     if status_filter:
         statement = statement.where(AccountReceivable.status == status_filter)
-    result = await db.execute(statement.order_by(AccountReceivable.due_date.asc()))
-    return list(result.scalars().all())
+    return await paginate(
+        db, statement.order_by(AccountReceivable.due_date.asc(), AccountReceivable.id.asc()), page
+    )
 
 
 @router.get("/receivables/{receivable_id}", response_model=ReceivableResponse)
@@ -1505,6 +1530,7 @@ async def update_client_billing_config(
 async def get_client_billing_history(
     client_id: uuid.UUID,
     limit: int = Query(default=24, ge=1, le=120),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ClientBillingHistoryItem]:
@@ -1518,8 +1544,9 @@ async def get_client_billing_history(
             AccountReceivable.client_id == client_id,
             AccountReceivable.description.like("Honorários%"),
         )
-        .order_by(AccountReceivable.due_date.desc())
+        .order_by(AccountReceivable.due_date.desc(), AccountReceivable.id.desc())
         .limit(limit)
+        .offset(offset)
     )
     receivables = result.scalars().all()
 
@@ -1710,6 +1737,7 @@ async def upload_client_document(
 @router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
 async def list_client_documents(
     client_id: uuid.UUID,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1717,9 +1745,11 @@ async def list_client_documents(
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, client_id)
 
-    stmt = select(ClientDocument).where(ClientDocument.client_id == client_id)
-    result = await db.execute(stmt.order_by(ClientDocument.id.desc()))
-    return list(result.scalars().all())
+    stmt = select(ClientDocument).where(
+        ClientDocument.tenant_id == tenant_id,
+        ClientDocument.client_id == client_id,
+    )
+    return await paginate(db, stmt.order_by(ClientDocument.id.desc()), page)
 
 
 async def _parse_document_background(

@@ -14,6 +14,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.core.plan_access import resolve_tenant_plan
 from app.models.operations import AccountingClient
 from app.models.plan import Plan
@@ -76,14 +77,15 @@ def _usage_item(used: int, limit: Optional[int]) -> UsageItem:
 # ---------------------------------------------------------------------------
 
 @router.get("/plans", response_model=list[PlanOut], summary="List available subscription plans")
-async def list_plans(db: AsyncSession = Depends(get_db)):
+async def list_plans(page: Page = Depends(page_params), db: AsyncSession = Depends(get_db)):
     """Return all active subscription plans (public, no auth required)."""
     from app.core.pricing import tabela_precos
 
-    result = await db.execute(
-        select(Plan).where(Plan.active == True).order_by(Plan.price_monthly.nullsfirst())
+    plans = await paginate(
+        db,
+        select(Plan).where(Plan.active == True).order_by(Plan.price_monthly.nullsfirst(), Plan.id),
+        page,
     )
-    plans = result.scalars().all()
     out = []
     for p in plans:
         item = PlanOut.model_validate(p)

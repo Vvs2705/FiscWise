@@ -14,10 +14,11 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy import event, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from app.core.config import settings
+from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 
 
@@ -152,6 +153,11 @@ async def _set_current_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) ->
     # vale só até o commit, e depois dele as policies com "OR tenant IS NULL"
     # liberavam tudo no resto da requisição (TEN-4).
     db.info["tenant_id"] = str(tenant_id)
+    # Sem transação aberta, o hook after_begin abaixo aplica o contexto na
+    # primeira consulta; executar aqui também dobrava o set_config.
+    in_transaction = getattr(db, "in_transaction", None)
+    if callable(in_transaction) and not in_transaction():
+        return
     await db.execute(
         text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
         {"tenant_id": str(tenant_id)},
@@ -229,9 +235,12 @@ async def get_current_user(
 
     await _set_current_tenant_context(db, token_tenant_id)
     
-    # Query user from database
+    # Usuário + tenant + assinatura numa ida só ao banco: o plan_access lê
+    # current_user.tenant.subscription em quase toda rota.
     result = await db.execute(
-        select(User).where(User.id == user_id)
+        select(User)
+        .options(joinedload(User.tenant).joinedload(Tenant.subscription))
+        .where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     

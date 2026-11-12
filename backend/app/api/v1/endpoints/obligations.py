@@ -24,6 +24,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.core.tenant_guard import ensure_client_in_tenant
 from app.models.obligation import (
     ClientObligationProfile,
@@ -177,6 +178,7 @@ def _require_owner_or_admin(user: User) -> None:
 @router.get("/rules", response_model=List[ObligationRuleOut], summary="List obligation rules")
 async def list_obligation_rules(
     active_only: bool = Query(True),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -184,8 +186,7 @@ async def list_obligation_rules(
     stmt = select(ObligationRule)
     if active_only:
         stmt = stmt.where(ObligationRule.active == True)
-    result = await db.execute(stmt.order_by(ObligationRule.jurisdiction, ObligationRule.code))
-    return result.scalars().all()
+    return await paginate(db, stmt.order_by(ObligationRule.jurisdiction, ObligationRule.code), page)
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +198,7 @@ async def list_obligation_instances(
     competence_month: Optional[date] = Query(None, description="Filter by competence month (YYYY-MM-DD, first day)"),
     client_id: Optional[UUID] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -210,12 +212,13 @@ async def list_obligation_instances(
     if status_filter:
         conditions.append(ObligationInstance.status == status_filter)
 
-    result = await db.execute(
+    return await paginate(
+        db,
         select(ObligationInstance)
         .where(and_(*conditions))
-        .order_by(ObligationInstance.due_date, ObligationInstance.priority.desc())
+        .order_by(ObligationInstance.due_date, ObligationInstance.priority.desc(), ObligationInstance.id),
+        page,
     )
-    return result.scalars().all()
 
 
 @router.post("/instances", response_model=ObligationInstanceOut, status_code=status.HTTP_201_CREATED,
@@ -370,6 +373,7 @@ async def list_checklist_items(
     client_id: Optional[UUID] = Query(None),
     competence_month: Optional[date] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -383,12 +387,17 @@ async def list_checklist_items(
     if status_filter:
         conditions.append(DocumentChecklistItem.status == status_filter)
 
-    result = await db.execute(
+    return await paginate(
+        db,
         select(DocumentChecklistItem)
         .where(and_(*conditions))
-        .order_by(DocumentChecklistItem.competence_month.desc(), DocumentChecklistItem.created_at)
+        .order_by(
+            DocumentChecklistItem.competence_month.desc(),
+            DocumentChecklistItem.created_at,
+            DocumentChecklistItem.id,
+        ),
+        page,
     )
-    return result.scalars().all()
 
 
 @router.post("/checklist", response_model=ChecklistItemOut, status_code=status.HTTP_201_CREATED,

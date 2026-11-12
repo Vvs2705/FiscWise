@@ -12,6 +12,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.models.user import User
 from app.models.rag_fiscal import RagDocument
 from app.services import rag_service
@@ -28,18 +29,18 @@ router = APIRouter(prefix="/rag", tags=["RAG Fiscal"])
 @router.get("/documents", response_model=List[RagDocumentResponse])
 async def list_documents(
     category: Optional[str] = Query(default=None),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[RagDocument]:
     """
     Lista todos os documentos da base de conhecimento RAG do tenant.
     """
-    stmt = select(RagDocument).where(RagDocument.tenant_id == current_user.tenant_id).order_by(desc(RagDocument.created_at))
+    stmt = select(RagDocument).where(RagDocument.tenant_id == current_user.tenant_id).order_by(desc(RagDocument.created_at), desc(RagDocument.id))
     if category:
         stmt = stmt.where(RagDocument.category == category)
         
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return await paginate(db, stmt, page)
 
 
 @router.post("/documents", response_model=RagDocumentResponse, status_code=status.HTTP_201_CREATED)

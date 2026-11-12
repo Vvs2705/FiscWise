@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -993,6 +994,10 @@ function TwoFactorCard() {
                 <img
                   src={`data:image/png;base64,${setupData.qr_code_base64}`}
                   alt="QR Code 2FA"
+                  width={160}
+                  height={160}
+                  loading="lazy"
+                  decoding="async"
                   className="h-40 w-40 rounded-lg border border-border"
                 />
               </div>
@@ -1663,6 +1668,22 @@ function BaseConhecimentoTab({
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Filtra localmente pelo termo com debounce (fica antes do early return: regra dos hooks)
+  const debouncedSearch = useDebouncedValue(search);
+  const filteredDocs = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return (documents || []).filter((doc) => {
+      const matchesSearch =
+        doc.title.toLowerCase().includes(q) ||
+        doc.content.toLowerCase().includes(q) ||
+        doc.source.toLowerCase().includes(q);
+
+      const matchesCategory = selectedCategory === 'todos' || doc.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [documents, debouncedSearch, selectedCategory]);
+
   if (isFree) {
     return (
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background p-8 text-center">
@@ -1684,18 +1705,6 @@ function BaseConhecimentoTab({
       </Card>
     );
   }
-
-  // Filter documents locally
-  const filteredDocs = (documents || []).filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.content.toLowerCase().includes(search.toLowerCase()) ||
-      doc.source.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesCategory = selectedCategory === 'todos' || doc.category === selectedCategory;
-
-    return matchesSearch && matchesCategory;
-  });
 
   const getCategoryLabel = (cat: string) => {
     switch (cat) {

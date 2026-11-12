@@ -6,14 +6,14 @@ export function DashboardLayout() {
   const location = useLocation();
 
   return (
-    <div className="fiscwise-shell flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header />
-        {/* key no pathname faz re-mount + animation ao trocar de rota */}
+        {/* key no pathname re-monta o conteúdo e dispara a entrada (fade + 6px, 250 ms) */}
         <main
           key={location.pathname}
-          className="fiscwise-grid flex-1 overflow-y-auto bg-background/40 p-5 md:p-6 page-enter"
+          className="page-enter flex-1 overflow-y-auto bg-background p-4 md:p-6"
         >
           <Outlet />
         </main>

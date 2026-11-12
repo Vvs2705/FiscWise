@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge, RiskBadge } from '@/components/ui/StatusBadge';
 import { EmptyState, ErrorState, SkeletonTable } from '@/components/ui/OperationalStates';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMailboxMessages, markMessageResolved, syncMailboxMessages } from '@/features/fiscal-mailbox/api';
+import { fetchMailboxMessages, markMessageRead, markMessageResolved, syncMailboxMessages } from '@/features/fiscal-mailbox/api';
 import { MailboxMessage } from '@/features/fiscal-mailbox/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -49,6 +49,22 @@ export function FiscalMailboxPage() {
     },
     onError: () => toast.error('Erro ao marcar como resolvida'),
   });
+
+  // Abrir o detalhe marca como lida — só a partir de "unread", para não
+  // rebaixar uma mensagem em andamento ou resolvida.
+  const readMutation = useMutation({
+    mutationFn: markMessageRead,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fiscal-mailbox'] }),
+  });
+
+  const openMessage = (msg: MailboxMessage) => {
+    if (msg.status === 'unread') {
+      readMutation.mutate(msg.id);
+      setSelected({ ...msg, status: 'read' });
+      return;
+    }
+    setSelected(msg);
+  };
 
   const syncMutation = useMutation({
     mutationFn: syncMailboxMessages,
@@ -176,7 +192,7 @@ export function FiscalMailboxPage() {
                       'border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20 cursor-pointer',
                       msg.status === 'unread' && 'bg-primary/5',
                     )}
-                    onClick={() => setSelected(msg)}
+                    onClick={() => openMessage(msg)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -198,7 +214,7 @@ export function FiscalMailboxPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={e => { e.stopPropagation(); setSelected(msg); }}
+                          onClick={e => { e.stopPropagation(); openMessage(msg); }}
                           className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title="Ver detalhes"
                         >

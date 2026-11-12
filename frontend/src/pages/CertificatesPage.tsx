@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -156,19 +157,22 @@ export function CertificatesPage() {
   const expiring30 = certificates?.filter((c) => daysUntil(c.valid_until) <= 30 && daysUntil(c.valid_until) > 0).length ?? 0;
   const a1Count = certificates?.filter((c) => c.certificate_type === 'A1').length ?? 0;
 
-  const filteredCertificates = (certificates ?? []).filter((cert) => {
-    const client = clients?.find((c) => c.id === cert.client_id);
-    const clientName = client?.name?.toLowerCase() || '';
-    const label = cert.label?.toLowerCase() || '';
-    const query = search.toLowerCase();
+  const debouncedSearch = useDebouncedValue(search);
+  const filteredCertificates = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    return (certificates ?? []).filter((cert) => {
+      const client = clients?.find((c) => c.id === cert.client_id);
+      const clientName = client?.name?.toLowerCase() || '';
+      const label = cert.label?.toLowerCase() || '';
 
-    const matchesSearch = clientName.includes(query) || label.includes(query);
-    const matchesClient = !selectedClient || cert.client_id === selectedClient;
-    const matchesStatus = !selectedStatus || cert.status === selectedStatus;
-    const matchesType = !selectedType || cert.certificate_type === selectedType;
+      const matchesSearch = clientName.includes(query) || label.includes(query);
+      const matchesClient = !selectedClient || cert.client_id === selectedClient;
+      const matchesStatus = !selectedStatus || cert.status === selectedStatus;
+      const matchesType = !selectedType || cert.certificate_type === selectedType;
 
-    return matchesSearch && matchesClient && matchesStatus && matchesType;
-  });
+      return matchesSearch && matchesClient && matchesStatus && matchesType;
+    });
+  }, [certificates, clients, debouncedSearch, selectedClient, selectedStatus, selectedType]);
 
   return (
     <div className="space-y-6">

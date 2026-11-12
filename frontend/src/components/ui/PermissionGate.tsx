@@ -16,8 +16,8 @@ interface PermissionGateProps {
 
 function AccessDenied() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-destructive/10">
         <ShieldOff className="h-5 w-5 text-destructive" />
       </div>
       <div>

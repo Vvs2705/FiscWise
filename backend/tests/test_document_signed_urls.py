@@ -143,11 +143,13 @@ async def test_get_signed_urls_lote(monkeypatch):
             {"path": "t/b.pdf", "signedURL": None, "error": "Either the object does not exist"},
         ])
 
-    real = httpx.AsyncClient
-    monkeypatch.setattr(
-        storage.httpx, "AsyncClient",
-        lambda **kw: real(transport=httpx.MockTransport(handler), **kw),
-    )
+    real = storage.request_with_retry
+
+    async def with_mock_client(method, url, **kw):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+            return await real(method, url, client=c, **kw)
+
+    monkeypatch.setattr(storage, "request_with_retry", with_mock_client)
     out = await storage.get_signed_urls("documents", ["t/a.pdf", "t/b.pdf", "t/a.pdf"], ttl=60)
     assert seen["url"] == f"{BASE}/storage/v1/object/sign/documents"
     assert b'"expiresIn":60' in seen["body"].replace(b" ", b"")

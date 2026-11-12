@@ -13,6 +13,7 @@ A failure for one contribuinte never aborts the whole sync — it is logged and
 the remaining contribuintes are still fetched (partial sync beats no sync).
 """
 
+import asyncio
 import json
 import time
 import logging
@@ -21,12 +22,15 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from app.core.http_client import external_client, request_with_retry
 from app.domain.fiscal_mailbox.integrations.base import FiscalMailboxProvider
 
 logger = logging.getLogger(__name__)
 
 CAIXA_POSTAL_SYSTEM = "CAIXAPOSTAL"
 LIST_MESSAGES_SERVICE = "MSGCONTRIBUINTE61"
+# Consultas simultâneas por lote (gentil com a cota do SERPRO).
+_SERPRO_CONCURRENCY = 4
 
 # Integra Contador "relevancia" flag → internal risk scale.
 _RELEVANCE_TO_RISK = {
@@ -92,23 +96,45 @@ class SerproIntegraContadorProvider(FiscalMailboxProvider):
     async def fetch_messages(self, tenant_id: str) -> List[Dict[str, Any]]:
         if self._external_client is not None:
             return await self._fetch_all(self._external_client, tenant_id)
-        async with httpx.AsyncClient(timeout=self.timeout, cert=self.cert or None) as client:
+        async with external_client(
+            read_timeout=self.timeout, cert=self.cert or None
+        ) as client:
             return await self._fetch_all(client, tenant_id)
 
     async def _fetch_all(self, client: httpx.AsyncClient, tenant_id: str) -> List[Dict[str, Any]]:
+        targets = [
+            (c, _digits(c.get("cnpj", ""))) for c in self.contribuintes
+        ]
+        targets = [(c, cnpj) for c, cnpj in targets if cnpj]
+        if not targets:
+            return []
+
+        # Token uma vez antes do lote: evita N pedidos de token concorrentes.
+        try:
+            await self._ensure_token(client)
+        except Exception:
+            logger.exception("SERPRO token request failed (tenant=%s)", tenant_id)
+            return []
+
+        # Consultas por contribuinte são independentes (sem sessão de banco
+        # aqui): rodam em paralelo, no máximo _SERPRO_CONCURRENCY por vez.
+        sem = asyncio.Semaphore(_SERPRO_CONCURRENCY)
+
+        async def _one(cnpj: str) -> Optional[List[Dict[str, Any]]]:
+            async with sem:
+                try:
+                    return await self._list_messages(client, cnpj)
+                except Exception:
+                    logger.exception(
+                        "SERPRO mailbox fetch failed (tenant=%s contribuinte=%s)", tenant_id, cnpj
+                    )
+                    return None
+
+        results = await asyncio.gather(*(_one(cnpj) for _, cnpj in targets))
+
         messages: List[Dict[str, Any]] = []
-        for contribuinte in self.contribuintes:
-            cnpj = _digits(contribuinte.get("cnpj", ""))
-            if not cnpj:
-                continue
-            try:
-                raw_list = await self._list_messages(client, cnpj)
-            except Exception:
-                logger.exception(
-                    "SERPRO mailbox fetch failed (tenant=%s contribuinte=%s)", tenant_id, cnpj
-                )
-                continue
-            for raw in raw_list:
+        for (contribuinte, _), raw_list in zip(targets, results):  # ordem preservada
+            for raw in raw_list or []:
                 mapped = self._map_message(raw, contribuinte)
                 if mapped:
                     messages.append(mapped)
@@ -117,8 +143,13 @@ class SerproIntegraContadorProvider(FiscalMailboxProvider):
     async def _ensure_token(self, client: httpx.AsyncClient) -> str:
         if self._token and time.monotonic() < self._token_expires_at:
             return self._token
-        response = await client.post(
+        # client_credentials não altera estado: pode repetir.
+        response = await request_with_retry(
+            "POST",
             self.auth_url,
+            service="serpro",
+            idempotent=True,
+            client=client,
             data={"grant_type": "client_credentials"},
             auth=(self.consumer_key, self.consumer_secret),
         )
@@ -147,7 +178,16 @@ class SerproIntegraContadorProvider(FiscalMailboxProvider):
                 "dados": "{}",
             },
         }
-        response = await client.post(f"{self.base_url}/Consultar", json=envelope, headers=headers)
+        # /Consultar é consulta (sem efeito colateral): idempotente.
+        response = await request_with_retry(
+            "POST",
+            f"{self.base_url}/Consultar",
+            service="serpro",
+            idempotent=True,
+            client=client,
+            json=envelope,
+            headers=headers,
+        )
         response.raise_for_status()
         body = response.json()
 

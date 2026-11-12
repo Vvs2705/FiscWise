@@ -1,23 +1,66 @@
 # FiscWise — robots.txt
-# Desenvolvido por Vstack Solutions (https://vstack-solutions.com.br)
+# Decisão GEO: crawlers de IA (busca e citação) são PERMITIDOS nas páginas públicas,
+# para que ChatGPT, Claude, Perplexity e Gemini possam citar o FiscWise.
+# Áreas autenticadas ficam bloqueadas para todos. Revisar se a política mudar.
 
 User-agent: *
-
-# Páginas públicas — permitir indexação
-Allow: /login
-Allow: /register
-Allow: /favicon.svg
-Allow: /logo.svg
-
-# Dashboard e áreas privadas — bloquear indexação
-Disallow: /dashboard
+Allow: /
+Disallow: /api/
+Disallow: /painel
+Disallow: /foco
 Disallow: /clientes
+Disallow: /fechamento
+Disallow: /obrigacoes
 Disallow: /documentos
-Disallow: /agenda-prazos
+Disallow: /notas-fiscais
+Disallow: /ecac
+Disallow: /guias
+Disallow: /caixa-postal-fiscal
+Disallow: /procuracoes
 Disallow: /certificados
 Disallow: /financeiro
+Disallow: /whatsapp
+Disallow: /portal
+Disallow: /relatorios
+Disallow: /aprender
 Disallow: /configuracoes
-Disallow: /api/
+Disallow: /calculadora
+Disallow: /dashboard
+Disallow: /app
 
-# Sitemap
-Sitemap: https://fiscwise.com.br/sitemap.xml
+# Crawlers de IA: grupos próprios repetem os bloqueios (um grupo específico ignora o "*").
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /painel
+Disallow: /foco
+Disallow: /clientes
+Disallow: /fechamento
+Disallow: /obrigacoes
+Disallow: /documentos
+Disallow: /notas-fiscais
+Disallow: /ecac
+Disallow: /guias
+Disallow: /caixa-postal-fiscal
+Disallow: /procuracoes
+Disallow: /certificados
+Disallow: /financeiro
+Disallow: /whatsapp
+Disallow: /portal
+Disallow: /relatorios
+Disallow: /aprender
+Disallow: /configuracoes
+Disallow: /calculadora
+Disallow: /dashboard
+Disallow: /app
+
+Sitemap: https://www.fiscwise.com.br/sitemap.xml

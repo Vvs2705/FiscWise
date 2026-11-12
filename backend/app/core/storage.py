@@ -12,9 +12,8 @@ Comportamento por ambiente (mesma filosofia do webhook fail-closed):
 import logging
 import os
 
-import httpx
-
 from app.core.config import settings
+from app.core.http_client import raise_for_upstream_status, request_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +58,13 @@ async def upload_bytes(
     url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{path}"
     headers = _headers(content_type)
     headers["x-upsert"] = "true" if upsert else "false"
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(url, content=file_bytes, headers=headers)
+    # Não idempotente: só repete se a conexão nem abriu (com x-upsert=false, um
+    # reenvio depois de gravado daria 409).
+    resp = await request_with_retry(
+        "POST", url, service="supabase_storage", idempotent=False,
+        read_timeout=30.0, content=file_bytes, headers=headers,
+    )
+    raise_for_upstream_status(resp, "supabase_storage")
     if resp.status_code not in (200, 201):
         logger.error("Supabase upload falhou: %s %s", resp.status_code, resp.text)
         raise RuntimeError(f"Falha no upload para storage ({resp.status_code})")
@@ -72,8 +76,12 @@ async def get_signed_url(bucket: str, path: str, ttl: int = 300) -> str:
     if not _config_or_degrade(f"signed url {bucket}/{path}"):
         return f"https://storage.local.dev/{bucket}/{path}?dev=1"
     url = f"{settings.SUPABASE_URL}/storage/v1/object/sign/{bucket}/{path}"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.post(url, json={"expiresIn": ttl}, headers=_headers())
+    # Assinar URL não altera nada no servidor: pode repetir.
+    resp = await request_with_retry(
+        "POST", url, service="supabase_storage", idempotent=True,
+        read_timeout=15.0, json={"expiresIn": ttl}, headers=_headers(),
+    )
+    raise_for_upstream_status(resp, "supabase_storage")
     if resp.status_code != 200:
         logger.error("Supabase sign falhou: %s %s", resp.status_code, resp.text)
         raise RuntimeError(f"Falha ao assinar URL ({resp.status_code})")
@@ -96,8 +104,12 @@ async def get_signed_urls(bucket: str, paths: list[str], ttl: int = 300) -> dict
     if not _config_or_degrade(f"signed urls {bucket} ({len(unique)})"):
         return {p: f"https://storage.local.dev/{bucket}/{p}?dev=1" for p in unique}
     url = f"{settings.SUPABASE_URL}/storage/v1/object/sign/{bucket}"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.post(url, json={"expiresIn": ttl, "paths": unique}, headers=_headers())
+    # Assinar em lote também não altera nada no servidor: pode repetir.
+    resp = await request_with_retry(
+        "POST", url, service="supabase_storage", idempotent=True,
+        read_timeout=15.0, json={"expiresIn": ttl, "paths": unique}, headers=_headers(),
+    )
+    raise_for_upstream_status(resp, "supabase_storage")
     if resp.status_code != 200:
         logger.error("Supabase sign em lote falhou: %s %s", resp.status_code, resp.text)
         raise RuntimeError(f"Falha ao assinar URLs ({resp.status_code})")

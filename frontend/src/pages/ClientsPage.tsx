@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -555,18 +556,12 @@ export function ClientsPage() {
   // Filter state
   const [clientView, setClientView] = useState<ClientView>('operational');
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [tipoFilter, setTipoFilter] = useState<TipoFilter>('');
   const [regimeFilter, setRegimeFilter] = useState<RegimeFilter>('');
 
-  // Search Debouncing
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Debounce da busca (300 ms) — o filtro usa o valor atrasado
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   // Handle URL redirect query parameters (e.g. ?id=... from global search)
   const idParam = searchParams.get('id');
@@ -674,7 +669,6 @@ export function ClientsPage() {
 
   function clearFilters() {
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setStatusFilter('');
     setTipoFilter('');
     setRegimeFilter('');

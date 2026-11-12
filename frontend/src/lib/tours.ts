@@ -1,8 +1,14 @@
-import { driver } from 'driver.js';
-import 'driver.js/dist/driver.css';
-import { NavigateFunction } from 'react-router-dom';
+import type { NavigateFunction } from 'react-router-dom';
 
-export function runDashboardTour() {
+// driver.js (JS + CSS) só é baixado quando o usuário inicia um tour:
+// o import dinâmico tira a biblioteca do chunk das páginas que só exibem o botão.
+async function loadDriver() {
+  const [mod] = await Promise.all([import('driver.js'), import('driver.js/dist/driver.css')]);
+  return mod.driver;
+}
+
+export async function runDashboardTour() {
+  const driver = await loadDriver();
   const d = driver({
     showProgress: true,
     steps: [
@@ -56,7 +62,8 @@ export function runDashboardTour() {
   d.drive();
 }
 
-export function runClientsTour() {
+export async function runClientsTour() {
+  const driver = await loadDriver();
   const d = driver({
     showProgress: true,
     steps: [
@@ -92,7 +99,8 @@ export function runClientsTour() {
   d.drive();
 }
 
-export function runDocumentsTour() {
+export async function runDocumentsTour() {
+  const driver = await loadDriver();
   const d = driver({
     showProgress: true,
     steps: [
@@ -121,31 +129,31 @@ export function runDocumentsTour() {
 
 export function startTour(tourName: 'dashboard' | 'clients' | 'documents', navigate: NavigateFunction, currentPath: string) {
   if (tourName === 'dashboard') {
-    if (currentPath !== '/dashboard') {
-      navigate('/dashboard');
+    if (currentPath !== '/painel') {
+      navigate('/painel');
       setTimeout(() => {
-        runDashboardTour();
+        void runDashboardTour();
       }, 500);
     } else {
-      runDashboardTour();
+      void runDashboardTour();
     }
   } else if (tourName === 'clients') {
     if (currentPath !== '/clientes') {
       navigate('/clientes');
       setTimeout(() => {
-        runClientsTour();
+        void runClientsTour();
       }, 500);
     } else {
-      runClientsTour();
+      void runClientsTour();
     }
   } else if (tourName === 'documents') {
     if (currentPath !== '/documentos') {
       navigate('/documentos');
       setTimeout(() => {
-        runDocumentsTour();
+        void runDocumentsTour();
       }, 500);
     } else {
-      runDocumentsTour();
+      void runDocumentsTour();
     }
   }
 }

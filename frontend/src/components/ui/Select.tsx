@@ -1,21 +1,20 @@
 import { type SelectHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
+import { fieldBaseClasses } from './Input';
 
-export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  /** Atalho para `aria-invalid`: borda destructive. */
+  invalid?: boolean;
+}
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, invalid, ...props }, ref) => {
     return (
       <select
         ref={ref}
-        className={cn(
-          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
-          'ring-offset-background',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
+        className={cn(fieldBaseClasses, 'flex h-10 py-2', className)}
         {...props}
+        aria-invalid={invalid || props['aria-invalid'] || undefined}
       >
         {children}
       </select>

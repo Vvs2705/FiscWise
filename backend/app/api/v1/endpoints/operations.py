@@ -742,15 +742,14 @@ async def create_client(
     # ── Plan limit enforcement ────────────────────────────────────────────────
     try:
         from app.core.plan_access import resolve_tenant_plan
-        from app.models.plan import Plan
         from app.models.tenant import Tenant
+        from app.services.catalog_cache import get_plan_by_slug
 
         tenant_row = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         tenant_obj = tenant_row.scalar_one_or_none()
         effective_slug = resolve_tenant_plan(tenant_obj, current_user.email) or "free"
 
-        plan_row = await db.execute(select(Plan).where(Plan.slug == effective_slug))
-        plan_obj = plan_row.scalar_one_or_none()
+        plan_obj = await get_plan_by_slug(db, effective_slug)
 
         if plan_obj and plan_obj.max_clients is not None:
             count_result = await db.execute(

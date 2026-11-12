@@ -73,6 +73,8 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
                     src={document.file_url}
                     className="max-h-full max-w-full object-contain rounded shadow-sm"
                     alt={document.name}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               ) : (

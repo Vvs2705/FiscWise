@@ -20,7 +20,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from app.core.config import settings
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
-from app.core.deps import get_sessionmaker
+from app.core.deps import DeviceAuthError, get_sessionmaker
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -179,6 +179,16 @@ app.add_middleware(
 
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.exception_handler(DeviceAuthError)
+async def _device_auth_error_handler(_request, exc: DeviceAuthError):
+    # Corpo plano {"detail", "code"}: o cliente offline decide pelo code (OFFLINE_SYNC.md 5.1).
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "code": exc.code},
+        headers=exc.headers,
+    )
 
 
 @app.get("/health", tags=["Health"])

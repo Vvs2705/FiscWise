@@ -7,7 +7,7 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 import logging
 import re
 import uuid
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -203,6 +203,11 @@ async def get_current_user(
             algorithms=[settings.JWT_ALGORITHM]
         )
         
+        # Token tipado (mfa, device) não é token de acesso: o de dispositivo
+        # só vale em /api/v1/sync/* (get_current_device).
+        if payload.get("type") is not None:
+            raise credentials_exception
+
         # Extract user_id from token payload
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
@@ -273,3 +278,90 @@ async def get_current_user(
         )
 
     return user
+
+
+class DeviceAuthError(HTTPException):
+    """401 do token de dispositivo com corpo {"detail": ..., "code": ...}.
+
+    O cliente offline decide pelo `code` (device_revoked → apaga o banco local).
+    Handler registrado em app/main.py.
+    """
+
+    def __init__(self, detail: str, code: str):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        self.code = code
+
+
+def _device_auth_error(detail: str, code: str) -> DeviceAuthError:
+    return DeviceAuthError(detail, code)
+
+
+async def get_current_device(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """Autentica o token de dispositivo dos endpoints /api/v1/sync/*.
+
+    Confere (docs/arquitetura/OFFLINE_SYNC.md 5.1): assinatura, type=device,
+    dispositivo existe e pertence ao usuário/escritório do token, não revogado
+    (401 code=device_revoked), usuário ativo, iat >= tokens_valid_after e
+    X-Tenant-ID igual ao tenant do token. Token de usuário comum é recusado.
+    Devolve (user, device) e atualiza last_seen_at.
+    """
+    from app.models.sync import SyncDevice
+
+    invalid = _device_auth_error("Token de dispositivo inválido.", "device_token_invalid")
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except JWTError:
+        raise invalid
+    if payload.get("type") != "device":
+        raise invalid
+    try:
+        user_id = uuid.UUID(str(payload.get("sub")))
+        tenant_id = uuid.UUID(str(payload.get("tenant_id")))
+        device_id = uuid.UUID(str(payload.get("device_id")))
+    except ValueError:
+        raise invalid
+    token_iat = payload.get("iat")
+
+    request_tenant_id = getattr(request.state, "tenant_id", None)
+    if request_tenant_id is not None and request_tenant_id != str(tenant_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant header does not match authenticated user",
+        )
+
+    await _set_current_tenant_context(db, tenant_id)
+
+    device = await db.scalar(select(SyncDevice).where(SyncDevice.id == device_id))
+    if device is None or device.tenant_id != tenant_id or device.user_id != user_id:
+        raise invalid
+    if device.revoked_at is not None:
+        raise _device_auth_error(
+            "Este dispositivo foi desconectado do escritório. Entre novamente.", "device_revoked"
+        )
+
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if user is None or user.tenant_id != tenant_id or not user.is_active:
+        raise invalid
+    if user.role == UserRole.CLIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client portal users cannot access office routes",
+        )
+    valid_after = getattr(user, "tokens_valid_after", None)
+    if valid_after is not None:
+        if valid_after.tzinfo is None:  # SQLite devolve sem fuso
+            valid_after = valid_after.replace(tzinfo=timezone.utc)
+        if token_iat is None or token_iat < int(valid_after.timestamp()):
+            raise _device_auth_error("Sessão expirada. Entre novamente.", "device_token_expired")
+
+    device.last_seen_at = datetime.now(timezone.utc)
+    await db.commit()
+    return user, device

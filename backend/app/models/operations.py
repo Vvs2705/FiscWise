@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 import enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum, text
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, JSON, Numeric, String, Text, UUID as SQLUUID, Enum as SQLEnum, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -41,6 +41,7 @@ class AccountingClient(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_clients_tenant_status", "tenant_id", "status"),
+        Index("idx_clients_tenant_updated_id", "tenant_id", "updated_at", "id"),
         # CNPJ/CPF único por escritório (migration l7f489e16dh3)
         Index(
             "uq_clients_tenant_document", "tenant_id", "document", unique=True,
@@ -88,6 +89,8 @@ class AccountingClient(Base, TenantBase):
     responsible_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     responsible_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     responsible_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Versão otimista do sync offline: +1 a cada UPDATE (listener em app/models/sync.py).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 class DeadlineItem(Base, TenantBase):
@@ -97,6 +100,7 @@ class DeadlineItem(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_deadlines_tenant_due_status", "tenant_id", "due_date", "status"),
+        Index("idx_deadlines_tenant_updated_id", "tenant_id", "updated_at", "id"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -126,6 +130,8 @@ class DeadlineItem(Base, TenantBase):
         ForeignKey("deadline_items.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Versão otimista do sync offline: +1 a cada UPDATE (listener em app/models/sync.py).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 
@@ -169,6 +175,10 @@ class DigitalCertificate(Base, TenantBase):
 
     __tablename__ = "digital_certificates"
 
+    __table_args__ = (
+        Index("idx_certificates_tenant_updated_id", "tenant_id", "updated_at", "id"),
+    )
+
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="CASCADE"),
@@ -194,6 +204,8 @@ class DigitalCertificate(Base, TenantBase):
     ultimo_uso: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     bloqueado: Mapped[bool] = mapped_column(default=False, server_default="false")
     motivo_bloqueio: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Versão otimista do sync offline: +1 a cada UPDATE (listener em app/models/sync.py).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 class AccountReceivable(Base, TenantBase):
@@ -203,6 +215,7 @@ class AccountReceivable(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_receivables_tenant_due_status", "tenant_id", "due_date", "status"),
+        Index("idx_receivables_tenant_updated_id", "tenant_id", "updated_at", "id"),
         # Um honorário automático por cliente e competência (migration n9h6ab38fj5)
         Index(
             "uq_receivables_tenant_client_competence", "tenant_id", "client_id", "competence",
@@ -235,6 +248,8 @@ class AccountReceivable(Base, TenantBase):
     nfse_emitida: Mapped[bool] = mapped_column(default=False, server_default="false")
     # AAAA-MM do honorário mensal gerado pelo scheduler; nulo em lançamentos manuais.
     competence: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    # Versão otimista do sync offline: +1 a cada UPDATE (listener em app/models/sync.py).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 class ClientPortalInvite(Base, TenantBase):

@@ -136,3 +136,25 @@ def verify_mfa_token(token: str) -> str | None:
         return payload.get("sub")
     except Exception:
         return None
+
+
+DEVICE_TOKEN_EXPIRE_DAYS = 30
+
+
+def create_device_token(user_id: str, tenant_id: str, role: str, device_id: str) -> str:
+    """Token do dispositivo offline (30 dias, type='device').
+
+    Só os endpoints /api/v1/sync/* aceitam este token, e só ele os acessa
+    (docs/arquitetura/OFFLINE_SYNC.md 5.1). get_current_user recusa type != None.
+    """
+    issued_at = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "tenant_id": tenant_id,
+        "role": role,
+        "device_id": device_id,
+        "type": "device",
+        "exp": issued_at + timedelta(days=DEVICE_TOKEN_EXPIRE_DAYS),
+        "iat": issued_at,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)

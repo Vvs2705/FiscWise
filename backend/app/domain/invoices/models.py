@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, Any, Dict
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UUID as SQLUUID
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, UUID as SQLUUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,8 @@ class InvoiceIssuer(Base, TenantBase):
 class Invoice(Base, TenantBase):
     """NFS-e Invoice record."""
     __tablename__ = "invoices"
+    # Cursor do pull offline (docs/arquitetura/OFFLINE_SYNC.md 5.4).
+    __table_args__ = (Index("idx_invoices_tenant_updated_id", "tenant_id", "updated_at", "id"),)
 
     issuer_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),

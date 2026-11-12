@@ -34,6 +34,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ADMIN_LIMIT = 10  # requests per minute
     ADMIN_WINDOW = 60  # seconds
     PROTECTED_PATHS = {"/api/v1/admin"}
+    # Sync offline (OFFLINE_SYNC.md 9): por dispositivo (hash do token) + IP, porque
+    # vários dispositivos do mesmo escritório saem pelo mesmo IP.
+    SYNC_PREFIX = "/api/v1/sync"
+    SYNC_LIMIT = 240
+    SYNC_WINDOW = 60
 
     def __init__(self, app, redis_url: Optional[str] = None, strict: Optional[bool] = None):
         super().__init__(app)
@@ -86,7 +91,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def _is_protected_path(self, path: str) -> bool:
         """Check if path matches protected prefixes."""
-        return any(path.startswith(prefix) for prefix in self.PROTECTED_PATHS)
+        return self._is_sync_path(path) or any(path.startswith(prefix) for prefix in self.PROTECTED_PATHS)
+
+    def _is_sync_path(self, path: str) -> bool:
+        return path == self.SYNC_PREFIX or path.startswith(f"{self.SYNC_PREFIX}/")
+
+    def _limits_for(self, path: str) -> tuple[int, int]:
+        if self._is_sync_path(path):
+            return self.SYNC_LIMIT, self.SYNC_WINDOW
+        return self.ADMIN_LIMIT, self.ADMIN_WINDOW
 
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request (same trusted-proxy rule as auth)."""
@@ -114,30 +127,36 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         current_count = 0
+        limit, window = self._limits_for(path)
         try:
             client_ip = self._get_client_ip(request)
             rate_limit_key = f"rate_limit:{path}:{client_ip}"
+            if self._is_sync_path(path):
+                import hashlib
+
+                auth = request.headers.get("Authorization", "")
+                rate_limit_key += ":" + hashlib.sha256(auth.encode()).hexdigest()[:16]
 
             # Get current request count for this client
             current_count = await client.incr(rate_limit_key)
 
             # Set expiration on first request
             if current_count == 1:
-                await client.expire(rate_limit_key, self.ADMIN_WINDOW)
+                await client.expire(rate_limit_key, window)
 
             # Check if limit exceeded
-            if current_count > self.ADMIN_LIMIT:
+            if current_count > limit:
                 logger.warning(
                     f"Rate limit exceeded for {client_ip} on {path} "
-                    f"({current_count}/{self.ADMIN_LIMIT} requests in {self.ADMIN_WINDOW}s)"
+                    f"({current_count}/{limit} requests in {window}s)"
                 )
                 return JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={
                         "detail": "Rate limit exceeded",
                         "error_code": "RATE_LIMIT_EXCEEDED",
-                        "message": f"Too many requests. Maximum {self.ADMIN_LIMIT} requests per {self.ADMIN_WINDOW} seconds allowed.",
-                        "retry_after": self.ADMIN_WINDOW
+                        "message": f"Too many requests. Maximum {limit} requests per {window} seconds allowed.",
+                        "retry_after": window
                     }
                 )
         except Exception as e:
@@ -151,8 +170,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Add rate limit headers to response only if rate limiting logic was successfully executed
         if current_count > 0:
-            response.headers["X-RateLimit-Limit"] = str(self.ADMIN_LIMIT)
-            response.headers["X-RateLimit-Remaining"] = str(max(0, self.ADMIN_LIMIT - current_count))
-            response.headers["X-RateLimit-Reset"] = str(datetime.utcnow().timestamp() + self.ADMIN_WINDOW)
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            response.headers["X-RateLimit-Remaining"] = str(max(0, limit - current_count))
+            response.headers["X-RateLimit-Reset"] = str(datetime.utcnow().timestamp() + window)
 
         return response

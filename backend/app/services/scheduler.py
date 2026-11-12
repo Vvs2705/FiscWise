@@ -56,6 +56,10 @@ def _job_definitions():
         ("send_payment_reminders", "Send Payment Reminders",
          send_payment_reminders_scheduled,
          CronTrigger(hour=8, minute=0, timezone=TZ_BR)),
+        # Retenção do log do sync offline (90 dias) — todo dia 04:30 (Brasília)
+        ("purge_sync_events", "Purge Old Sync Events",
+         purge_sync_events_scheduled,
+         CronTrigger(hour=4, minute=30, timezone=TZ_BR)),
     ]
 
 
@@ -344,3 +348,38 @@ async def send_payment_reminders_scheduled():
             )
     except Exception as e:
         logger.error(f"Error in scheduled payment reminders: {str(e)}")
+
+
+SYNC_EVENTS_RETENTION_DAYS = 90
+
+
+async def purge_sync_events_scheduled():
+    """Apaga sync_events com mais de 90 dias (OFFLINE_SYNC.md 5.3).
+
+    Escritório por escritório, com o contexto de tenant da RLS aplicado.
+    """
+    from datetime import timezone as _tz
+    from sqlalchemy import delete, select
+
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
+    from app.models.sync import SyncEvent
+    from app.models.tenant import Tenant
+
+    try:
+        cutoff = datetime.now(_tz.utc) - timedelta(days=SYNC_EVENTS_RETENTION_DAYS)
+        async with get_sessionmaker()() as db:
+            tenant_ids = list((await db.execute(select(Tenant.id))).scalars().all())
+            removed = 0
+            for tenant_id in tenant_ids:
+                await _set_current_tenant_context(db, tenant_id)
+                result = await db.execute(
+                    delete(SyncEvent).where(
+                        SyncEvent.tenant_id == tenant_id,
+                        SyncEvent.received_at < cutoff,
+                    )
+                )
+                removed += result.rowcount or 0
+                await db.commit()
+            logger.info("Sync events retention: %d eventos removidos", removed)
+    except Exception as exc:
+        logger.error("Error in sync events retention job: %s", exc, exc_info=True)

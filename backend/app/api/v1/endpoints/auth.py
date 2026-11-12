@@ -312,8 +312,12 @@ async def resend_2fa_code(
     logger.info("RESEND EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
 
     return Resend2FAResponse(
-        sent=True,
-        message="Novo código enviado para o seu e-mail.",
+        sent=sent,
+        message=(
+            "Novo código enviado para o seu e-mail."
+            if sent
+            else "Não foi possível enviar o código por e-mail agora. Tente novamente em instantes."
+        ),
     )
 
 

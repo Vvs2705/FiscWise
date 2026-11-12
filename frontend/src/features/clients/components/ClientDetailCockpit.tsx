@@ -81,6 +81,8 @@ import {
   buildDocumentAiView,
   type ClientAiSummary,
 } from '@/lib/aiDocuments';
+import { getApiErrorMessage } from '@/lib/api';
+import { describeClientEmailResult, useSendClientReminder } from '@/lib/hooks/useNotifications';
 
 interface ClientDetailCockpitProps {
   clientId: string;
@@ -168,7 +170,8 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate>('das');
   const [composedMessage, setComposedMessage] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  const sendReminder = useSendClientReminder();
+  const sendingEmail = sendReminder.isPending;
 
   // Queries
   const updateClientMutation = useUpdateClient();
@@ -679,17 +682,24 @@ FiscWise`,
     window.open(url, '_blank');
   };
 
-  const handleSendEmail = () => {
-    if (!client) return;
+  const handleSendEmail = async () => {
+    if (!client || sendReminder.isPending) return;
     if (!client.email) {
       toast.error('Cliente não possui e-mail cadastrado!');
       return;
     }
-    setSendingEmail(true);
-    setTimeout(() => {
-      setSendingEmail(false);
-      toast.success(`E-mail com lembrete enviado para ${client.email}!`);
-    }, 1200);
+    const message = composedMessage.trim();
+    if (!message) {
+      toast.error('Escreva a mensagem antes de enviar.');
+      return;
+    }
+    try {
+      const result = await sendReminder.mutateAsync({ clientId: client.id, kind: 'custom', message });
+      const t = describeClientEmailResult(result);
+      toast[t.kind](t.message);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao enviar o e-mail.'));
+    }
   };
 
   if (!client) {

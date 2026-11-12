@@ -28,6 +28,13 @@ import {
   type DigitalCertificate,
 } from '@/lib/hooks/useOperations';
 import { Button } from '@/components/ui/Button';
+import { getApiErrorMessage } from '@/lib/api';
+import {
+  describeClientEmailResult,
+  useSendClientReminder,
+  type ClientReminderKind,
+} from '@/lib/hooks/useNotifications';
+import { focusQueueState } from './focusQueue';
 
 interface ModoFocoModalProps {
   isOpen: boolean;
@@ -54,12 +61,14 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
   const updateDeadlineMutation = useUpdateDeadline();
   const updateReceivableMutation = useUpdateReceivable();
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const sendReminder = useSendClientReminder();
+
+  // Ids das tarefas já tratadas (resolvidas, adiadas, puladas): ver focusQueue.ts.
+  const [handledIds, setHandledIds] = useState<ReadonlySet<string>>(() => new Set());
   const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [resolvedCount, setResolvedCount] = useState(0);
   const [snoozedCount, setSnoozedCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
 
   // Clients mapping for fast lookup
   const clientMap = useMemo(() => {
@@ -126,102 +135,133 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
     return list;
   }, [deadlines, certificates, receivables, clientMap]);
 
-  const currentTask = focusTasks[currentIndex];
-  const totalTasks = focusTasks.length;
+  const queue = focusQueueState(focusTasks, handledIds);
+  const currentTask = queue.current;
+  const totalTasks = queue.total;
+  const isCompleted = queue.finished;
+  const busy =
+    sendReminder.isPending || updateDeadlineMutation.isPending || updateReceivableMutation.isPending;
 
   if (!isOpen) return null;
 
-  const handleNext = () => {
-    if (currentIndex + 1 < totalTasks) {
-      setDirection(1);
-      setCurrentIndex((prev) => prev + 1);
+  const markHandled = (taskId: string) => {
+    setDirection(1);
+    setHandledIds((prev) => new Set(prev).add(taskId));
+  };
+
+  /** Envia o lembrete por e-mail; devolve true só se o provedor aceitou. */
+  const remindClient = async (task: FocusTask): Promise<boolean> => {
+    const clientId = (task.originalItem as { client_id: string }).client_id;
+    let kind: ClientReminderKind = 'custom';
+    let message: string | undefined;
+    if (task.type === 'receivable') {
+      kind = 'payment';
+    } else if (task.type === 'certificate') {
+      const cert = task.originalItem as DigitalCertificate;
+      message =
+        `Olá ${task.clientName},\n\n` +
+        `O certificado digital "${cert.label}" vence em ${dateBR(cert.valid_until)}. ` +
+        'Sem ele não conseguimos emitir notas nem acessar os sistemas da Receita em seu nome.\n\n' +
+        'Por favor, providencie a renovação e nos envie o novo certificado.\n\n' +
+        'Atenciosamente,\nSeu escritório contábil';
     } else {
-      setIsCompleted(true);
+      kind = 'pending_documents';
+    }
+    try {
+      const result = await sendReminder.mutateAsync({ clientId, kind, message });
+      const t = describeClientEmailResult(result);
+      toast[t.kind](t.message);
+      return result.sent;
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao enviar o lembrete.'));
+      return false;
     }
   };
 
   const handleResolve = async () => {
-    if (!currentTask) return;
+    if (!currentTask || busy) return;
+    const task = currentTask;
 
     try {
-      if (currentTask.type === 'deadline') {
+      if (task.type === 'deadline') {
         await updateDeadlineMutation.mutateAsync({
-          id: currentTask.originalItem.id,
+          id: task.originalItem.id,
           payload: { status: 'completed' },
         });
         toast.success('Tarefa marcada como concluída!');
-      } else if (currentTask.type === 'receivable') {
+      } else if (task.type === 'receivable') {
         await updateReceivableMutation.mutateAsync({
-          id: currentTask.originalItem.id,
+          id: task.originalItem.id,
           payload: { status: 'paid', paid_at: new Date().toISOString().split('T')[0] },
         });
         toast.success('Honorário marcado como pago!');
-      } else if (currentTask.type === 'certificate') {
-        // ponytail: ainda não há envio real de lembrete de certificado; só marca a tarefa como vista.
-        toast.info('Tarefa marcada. O lembrete ao cliente ainda precisa ser enviado por você.');
+      } else if (task.type === 'certificate') {
+        // Só conta como resolvida se o e-mail saiu de verdade.
+        if (!(await remindClient(task))) return;
       }
       setResolvedCount((prev) => prev + 1);
-      handleNext();
+      markHandled(task.id);
     } catch {
       toast.error('Erro ao resolver tarefa.');
     }
   };
 
   const handleSnooze = async () => {
-    if (!currentTask) return;
+    if (!currentTask || busy || currentTask.type === 'certificate') return;
+    const task = currentTask;
 
     try {
       // Postpone by 7 days
-      const currentDueDate = new Date(currentTask.dueDate);
+      const currentDueDate = new Date(task.dueDate);
       currentDueDate.setDate(currentDueDate.getDate() + 7);
       const newDueDateStr = currentDueDate.toISOString().split('T')[0];
 
-      if (currentTask.type === 'deadline') {
+      if (task.type === 'deadline') {
         await updateDeadlineMutation.mutateAsync({
-          id: currentTask.originalItem.id,
+          id: task.originalItem.id,
           payload: { due_date: newDueDateStr },
         });
         toast.success(`Tarefa adiada para ${dateBR(newDueDateStr)}`);
-      } else if (currentTask.type === 'receivable') {
+      } else if (task.type === 'receivable') {
         await updateReceivableMutation.mutateAsync({
-          id: currentTask.originalItem.id,
+          id: task.originalItem.id,
           payload: { due_date: newDueDateStr },
         });
         toast.success(`Cobrança adiada para ${dateBR(newDueDateStr)}`);
-      } else if (currentTask.type === 'certificate') {
-        toast.success('Aviso adiado por 7 dias');
       }
       setSnoozedCount((prev) => prev + 1);
-      handleNext();
+      markHandled(task.id);
     } catch {
       toast.error('Erro ao adiar tarefa.');
     }
   };
 
   const handleWaitingClient = async () => {
-    if (!currentTask) return;
+    if (!currentTask || busy) return;
+    const task = currentTask;
 
     try {
-      if (currentTask.type === 'deadline') {
+      if (task.type === 'deadline') {
         await updateDeadlineMutation.mutateAsync({
-          id: currentTask.originalItem.id,
-          payload: { description: `[Aguardando Cliente] ${currentTask.description}` },
+          id: task.originalItem.id,
+          payload: { description: `[Aguardando Cliente] ${task.description}` },
         });
         toast.success('Marcado como aguardando cliente');
-      } else {
-        toast.success('Lembrete reforçado com o cliente');
+      } else if (!(await remindClient(task))) {
+        // Lembrete não saiu: a tarefa continua na fila.
+        return;
       }
       setResolvedCount((prev) => prev + 1); // treat as addressed
-      handleNext();
+      markHandled(task.id);
     } catch {
       toast.error('Erro ao atualizar status.');
     }
   };
 
   const handleSkip = () => {
+    if (!currentTask) return;
     setSkippedCount((prev) => prev + 1);
-    setDirection(1);
-    handleNext();
+    markHandled(currentTask.id);
   };
 
   const taskTypeConfig = {
@@ -289,7 +329,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
           <div className="h-1 w-full bg-muted">
             <div
               className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / totalTasks) * 100}%` }}
+              style={{ width: `${(queue.position / totalTasks) * 100}%` }}
             />
           </div>
         )}
@@ -306,7 +346,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
                 Voltar ao Painel
               </Button>
             </div>
-          ) : isCompleted ? (
+          ) : isCompleted || !currentTask ? (
             /* SUCCESS COMPLETION SCREEN */
             <div className="text-center py-6 space-y-6">
               <div className="relative inline-block">
@@ -365,7 +405,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
             <div className="space-y-6">
               {/* Stepper info */}
               <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
-                <span>TAREFA {currentIndex + 1} DE {totalTasks}</span>
+                <span>TAREFA {queue.position} DE {totalTasks}</span>
                 <span className="px-2 py-0.5 rounded bg-muted border border-border uppercase tracking-wider text-primary">
                   {taskTypeConfig[currentTask.type].label}
                 </span>
@@ -419,24 +459,30 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-6 border-t border-border">
                 <button
                   onClick={handleResolve}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-card bg-success text-success-foreground py-3 text-xs font-bold hover:bg-success/90 active:scale-98 transition shadow-token-sm"
+                  disabled={busy}
+                  className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card bg-success text-success-foreground py-3 text-xs font-bold hover:bg-success/90 active:scale-98 transition shadow-token-sm"
                 >
                   <CheckCircle className="h-4 w-4" />
                   {taskTypeConfig[currentTask.type].actionLabel}
                 </button>
-                <button
-                  onClick={handleSnooze}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-card border border-warning/20 bg-warning/10 text-warning py-3 text-xs font-bold hover:bg-warning/20 active:scale-98 transition"
-                >
-                  <Clock className="h-4 w-4" />
-                  Adiar 7 dias
-                </button>
+                {/* Certificado não tem "lembrar em" persistido: sem opção de adiar. */}
+                {currentTask.type !== 'certificate' && (
+                  <button
+                    onClick={handleSnooze}
+                    disabled={busy}
+                    className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-warning/20 bg-warning/10 text-warning py-3 text-xs font-bold hover:bg-warning/20 active:scale-98 transition"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Adiar 7 dias
+                  </button>
+                )}
                 <button
                   onClick={handleWaitingClient}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-card border border-primary/20 bg-primary/10 text-primary py-3 text-xs font-bold hover:bg-primary/20 active:scale-98 transition"
+                  disabled={busy}
+                  className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-primary/20 bg-primary/10 text-primary py-3 text-xs font-bold hover:bg-primary/20 active:scale-98 transition"
                 >
                   <Send className="h-4 w-4" />
-                  Aguardar Cliente
+                  {currentTask.type === 'deadline' ? 'Aguardar Cliente' : 'Lembrar por E-mail'}
                 </button>
                 <button
                   onClick={handleSkip}

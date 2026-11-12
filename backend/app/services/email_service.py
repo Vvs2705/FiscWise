@@ -23,6 +23,7 @@ Environment / Settings (all optional):
   RESEND_ENABLED   — 'true' to enable real sending. Anything else → fallback.
 """
 
+import html as _html
 import os
 import logging
 import uuid
@@ -62,6 +63,11 @@ def _is_enabled() -> bool:
     """Whether real sending is turned on (settings flag OR env == 'true')."""
     flag = getattr(_settings, "RESEND_ENABLED", False) if _settings else False
     return bool(flag) or os.getenv("RESEND_ENABLED", "") == "true"
+
+
+def is_configured() -> bool:
+    """True when real sending is on (RESEND_ENABLED + RESEND_API_KEY)."""
+    return _is_enabled() and bool(_get_api_key())
 
 
 async def send_email(
@@ -248,3 +254,46 @@ def render_lgpd_deletion_email(deadline_business_days: int = 15) -> str:
   conforme exigência da Receita Federal (legislação tributária brasileira).
 </p>"""
     return _base_layout(inner)
+
+
+def _text_to_html(text: str) -> str:
+    """Escape plain text and keep its line breaks."""
+    return _html.escape(text or "").replace("\n", "<br>")
+
+
+def render_client_message_email(title: str, text: str) -> str:
+    """HTML for a plain-text message to an accounting client (reminders, notices).
+
+    The text is escaped — it can carry user-typed content.
+    """
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(title)}</h1>
+<p style="margin:0;font-size:14px;line-height:1.6;color:{_MUTED};">{_text_to_html(text)}</p>"""
+    return _base_layout(inner)
+
+
+def render_payment_reminder_email(
+    client_name: str,
+    description: str,
+    amount: str,
+    due_date_label: str,
+    days_from_due: int,
+    office_name: str,
+) -> tuple[str, str]:
+    """Plain-text body and HTML for a payment (honorários) reminder.
+
+    days_from_due < 0 → vence em N dias; 0 → vence hoje; > 0 → vencida há N dias.
+    """
+    if days_from_due < 0:
+        when = f"vence em {-days_from_due} dia(s), em {due_date_label}"
+    elif days_from_due == 0:
+        when = f"vence hoje, {due_date_label}"
+    else:
+        when = f"venceu em {due_date_label} (há {days_from_due} dia(s))"
+    text = (
+        f"Olá {client_name},\n\n"
+        f"Lembramos que a cobrança \"{description}\" no valor de R$ {amount} {when}.\n\n"
+        f"Se o pagamento já foi feito, desconsidere esta mensagem.\n\n"
+        f"Atenciosamente,\n{office_name}"
+    )
+    return text, render_client_message_email("Lembrete de pagamento", text)

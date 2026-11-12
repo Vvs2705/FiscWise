@@ -46,3 +46,13 @@ for (const spec of pages) {
     expect(vitals.cls, `CLS ${vitals.cls} acima de ${CLS_LIMIT}`).toBeLessThanOrEqual(CLS_LIMIT)
   })
 }
+
+test('/: página inicial pública mostra o H1 e o cadastro', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'load' })
+
+  await expect(page).toHaveTitle(/obrigações fiscais/)
+  const h1 = page.getByRole('heading', { level: 1 })
+  await expect(h1).toHaveCount(1)
+  await expect(h1).toHaveText('Sua carteira de clientes em dia, sem planilha e sem prazo perdido.')
+  await expect(page.getByRole('link', { name: 'Criar conta grátis' }).first()).toBeVisible()
+})

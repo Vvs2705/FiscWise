@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveTitle } from './RouteTitle';
+import { HOME_TITLE, resolveTitle } from './RouteTitle';
 
 describe('resolveTitle', () => {
   it('maps static routes to friendly titles with the brand suffix', () => {
@@ -28,7 +28,12 @@ describe('resolveTitle', () => {
     expect(resolveTitle('/portal')).toBe('Portal do Cliente · FiscWise');
   });
 
+  it('dá à página inicial pública o título focado em contadores', () => {
+    expect(resolveTitle('/')).toBe(HOME_TITLE);
+    expect(HOME_TITLE).toContain('obrigações fiscais');
+  });
+
   it('falls back to the brand title for unmapped routes', () => {
-    expect(resolveTitle('/rota-inexistente')).toBe('FiscWise — Notas fiscais sem complicação');
+    expect(resolveTitle('/rota-inexistente')).toBe(HOME_TITLE);
   });
 });

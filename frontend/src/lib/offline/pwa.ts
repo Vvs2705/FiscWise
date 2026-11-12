@@ -5,6 +5,7 @@
  */
 import { registerSW } from 'virtual:pwa-register';
 import { toast } from 'sonner';
+import { isAuthenticated } from '@/lib/auth';
 
 let registered = false;
 
@@ -21,6 +22,9 @@ export function registerServiceWorker(): void {
       });
     },
     onOfflineReady() {
+      // Nas páginas públicas (visitante sem sessão) o aviso não cabe: a página
+      // inicial e o login só anunciam o que o visitante pode usar ali.
+      if (!isAuthenticated()) return;
       toast.success('FiscWise pronto para uso sem internet.');
     },
   });

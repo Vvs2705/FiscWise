@@ -5,7 +5,7 @@ import { matchPath, useLocation } from 'react-router-dom';
  * Per-route document title management.
  *
  * The SPA only had the static <title> from index.html, so every internal
- * screen showed "FiscWise — Notas fiscais sem complicação" (bad for browser
+ * screen showed the same brand title (bad for browser
  * tabs, history and bookmarks — CORRECOES.md, audit of internal routes).
  *
  * This component maps the current pathname to a friendly title and updates
@@ -13,6 +13,9 @@ import { matchPath, useLocation } from 'react-router-dom';
  * specific routes must come before their dynamic-segment counterparts.
  */
 const SUFFIX = 'FiscWise';
+
+/** Título da página inicial pública (e fallback de marca). */
+export const HOME_TITLE = 'FiscWise — Gestão de obrigações fiscais e carteira de clientes para contadores';
 
 const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
   // Public
@@ -61,20 +64,22 @@ const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
 ];
 
 export function resolveTitle(pathname: string): string {
+  if (pathname === '/') return HOME_TITLE;
   for (const [pattern, label] of ROUTE_TITLES) {
     if (matchPath({ path: pattern, end: true }, pathname)) {
       return `${label} · ${SUFFIX}`;
     }
   }
   // Fallback: keep the brand title for unmapped routes.
-  return `${SUFFIX} — Notas fiscais sem complicação`;
+  return HOME_TITLE;
 }
 
 const SITE = 'https://www.fiscwise.com.br';
 
 /** Páginas públicas indexáveis: caminho → descrição única. */
 const PUBLIC_META: Readonly<Record<string, string>> = {
-  '/login': 'Entre no FiscWise, notas fiscais sem complicação para empresas e contadores: clientes, prazos fiscais, guias e documentos em um só lugar.',
+  '/': 'Gestão de obrigações fiscais e carteira de clientes para contadores e escritórios contábeis: calendário de obrigações, documentos, portal do cliente, guias e fechamento mensal com dossiê em PDF.',
+  '/login': 'Entre no FiscWise, a central do contador: obrigações fiscais, documentos, portal do cliente, guias e fechamento mensal de cada cliente em um só lugar.',
   '/register': 'Crie sua conta no FiscWise: notas fiscais, clientes, obrigações fiscais, guias e certificados em um só lugar, simples para a empresa e organizado para o contador.',
   '/termos': 'Termos de uso do FiscWise, sistema de gestão contábil da Vstack Solutions.',
   '/privacidade': 'Política de privacidade do FiscWise: como tratamos dados pessoais conforme a LGPD.',

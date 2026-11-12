@@ -38,6 +38,14 @@ describe('applyRouteMeta', () => {
     expect(canon.attrs.href).toBe('https://www.fiscwise.com.br/register');
   });
 
+  it('indexa a página inicial pública com canonical na raiz', () => {
+    const f = fakeDocument();
+    vi.stubGlobal('document', f.document);
+    applyRouteMeta('/');
+    expect(f.nodes.find((n) => n.attrs.name === 'robots')!.attrs.content).toContain('index, follow');
+    expect(f.nodes.find((n) => n.attrs.rel === 'canonical')!.attrs.href).toBe('https://www.fiscwise.com.br/');
+  });
+
   it('marca área autenticada e rotas desconhecidas como noindex', () => {
     const f = fakeDocument();
     vi.stubGlobal('document', f.document);

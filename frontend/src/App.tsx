@@ -10,6 +10,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { RouteTitle } from '@/lib/RouteTitle';
 import { OfflineProvider } from '@/lib/offline/OfflineProvider';
 import { captureException } from '@/lib/monitoring';
+import { isAuthenticated } from '@/lib/auth';
 
 // ─── Casca e provedores sob demanda (fora do chunk index) ────────────────────
 // AppShell = MotionConfig (framer-motion) + DashboardLayout + busca global.
@@ -20,6 +21,7 @@ const GoogleAuthProvider = lazy(() => import('@/components/GoogleAuthProvider'))
 const Toaster            = lazy(() => import('sonner').then(m => ({ default: m.Toaster })));
 
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
+const LandingPage      = lazy(() => import('@/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const NotFoundPage     = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
@@ -98,6 +100,15 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Raiz "/": visitante sem sessão vê a página inicial pública; quem tem sessão
+ * (token no localStorage, o mesmo critério do ProtectedRoute, sem chamar API)
+ * segue para o painel. O ProtectedRoute de /painel cuida do papel "client".
+ */
+function HomeRoute() {
+  return isAuthenticated() ? <Navigate to="/painel" replace /> : <LandingPage />;
+}
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; message: string }
@@ -147,6 +158,7 @@ function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public routes */}
+              <Route path="/"            element={<HomeRoute />} />
               <Route path="/login"       element={<GoogleAuthProvider><LoginPage /></GoogleAuthProvider>} />
               <Route path="/register"    element={<GoogleAuthProvider><RegisterPage /></GoogleAuthProvider>} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
@@ -166,18 +178,14 @@ function App() {
                 }
               />
 
-              {/* Protected app routes */}
+              {/* Protected app routes (layout sem caminho; "/" é a HomeRoute) */}
               <Route
-                path="/"
                 element={
                   <ProtectedRoute>
                     <AppShell />
                   </ProtectedRoute>
                 }
               >
-                {/* Root redirect */}
-                <Route index element={<Navigate to="/painel" replace />} />
-
                 {/* ── Operação diária ──────────────────────────────────── */}
                 <Route path="painel"  element={<DashboardPage />} />
                 <Route path="foco"    element={<FocoPage />} />

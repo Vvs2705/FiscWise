@@ -41,11 +41,48 @@ function cloudflareBeacon(): Plugin {
   }
 }
 
+/**
+ * Trava de segurança do build (docs/audit/PROTECAO_CONTRA_COPIA.md).
+ * Derruba o build — e com ele o deploy no Cloudflare Pages — se o dist sair
+ * com source map (que entregaria o código-fonte original) ou com algo que
+ * parece segredo de servidor. Tudo que vai para o navegador é público.
+ */
+const SEGREDOS_PROIBIDOS: Array<[string, RegExp]> = [
+  ['chave secreta do Stripe', /\b[sr]k_(live|test)_[0-9A-Za-z]{10,}/],
+  ['chave privada', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+  ['chave da API do Resend', /\bre_[A-Za-z0-9]{8,}_[A-Za-z0-9]{10,}/],
+  ['chave service_role do Supabase', /SUPABASE_SERVICE_ROLE|SERVICE_ROLE_KEY/],
+  ['segredo do JWT', /JWT_SECRET_KEY/],
+]
+
+function guardaBuild(): Plugin {
+  return {
+    name: 'fiscwise:guarda-build',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const problemas: string[] = []
+      for (const [nome, item] of Object.entries(bundle)) {
+        if (nome.endsWith('.map')) problemas.push(`${nome}: source map no build`)
+        const codigo = item.type === 'chunk' ? item.code : typeof item.source === 'string' ? item.source : ''
+        if (!codigo) continue
+        if (/[#@] sourceMappingURL=/.test(codigo)) problemas.push(`${nome}: aponta para source map`)
+        for (const [rotulo, re] of SEGREDOS_PROIBIDOS) {
+          if (re.test(codigo)) problemas.push(`${nome}: parece conter ${rotulo}`)
+        }
+      }
+      if (problemas.length) {
+        this.error(`Build bloqueado para não expor código ou segredo:\n- ${problemas.join('\n- ')}`)
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     cloudflareBeacon(),
+    guardaBuild(),
     // PWA offline-first (docs/arquitetura/OFFLINE_SYNC.md, seção 7.1).
     // registerType 'prompt': a versão nova do app só assume quando o usuário
     // clica em "Atualizar" (src/lib/offline/pwa.ts). 'autoUpdate' recarregaria a
@@ -135,11 +172,18 @@ export default defineConfig({
       },
     },
   },
+  // Proteção contra cópia (docs/audit/PROTECAO_CONTRA_COPIA.md): o build de
+  // produção sai minificado, sem `debugger` e sem source map. Não ligar
+  // `sourcemap` aqui: ele publicaria o código-fonte original junto com o site.
+  // Se um dia os mapas forem para o Sentry, usar 'hidden' + upload + apagar os
+  // .map do dist (o plugin guardaBuild abaixo barra .map no deploy).
+  esbuild: { drop: ['debugger'] },
   build: {
     // Navegadores alvo já suportam ES2020; evita transpilar/polyfills extras.
     target: 'es2020',
     cssCodeSplit: true,
     sourcemap: false,
+    minify: 'esbuild',
     // Todos os navegadores alvo suportam <link rel="modulepreload">; o polyfill
     // só adicionaria bytes ao chunk de entrada.
     modulePreload: { polyfill: false },
@@ -148,6 +192,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
+        // Aviso de autoria em cada arquivo JS do app (comentário /*! sobrevive à
+        // minificação). Serve de prova de origem se o código aparecer copiado.
+        banner: (chunk) =>
+          chunk.name.startsWith('vendor-')
+            ? ''
+            : `/*! FiscWise (c) ${new Date().getFullYear()} VStack Solutions. Software proprietario, todos os direitos reservados. Copia, engenharia reversa e redistribuicao proibidas (Lei 9.609/1998). */`,
         manualChunks: {
           // Core React ecosystem — cached independently from app code
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],

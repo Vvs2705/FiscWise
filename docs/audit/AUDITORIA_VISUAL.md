@@ -44,7 +44,7 @@ Baseline de tamanho (gzip): vendor-react 53,7 kB · vendor-motion 42,2 kB ·
 vendor-utils 27,6 kB · vendor-query 12,8 kB · SettingsPage 17,9 kB ·
 ClientDetailCockpit 16,8 kB · DashboardPage 10,4 kB.
 
-## 3. Decisões (ver `DESIGN.md`)
+## 3. Decisões (ver `docs/audit/SISTEMA_DE_DESIGN.md`)
 
 1. Identidade única: laranja #e05e18 + navy; 2 famílias (Geist + JetBrains Mono), autoinstaladas.
 2. Superfícies planas, borda 1px, 3 sombras discretas, raio 6/8/12.

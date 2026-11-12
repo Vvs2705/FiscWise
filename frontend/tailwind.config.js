@@ -65,7 +65,7 @@ export default {
         },
       },
       borderRadius: {
-        // DESIGN.md §5: 6 / 8 / 12
+        // SISTEMA_DE_DESIGN.md §5: 6 / 8 / 12
         sm: 'var(--radius-sm)',
         md: 'var(--radius)',
         lg: 'var(--radius-lg)',
@@ -74,13 +74,13 @@ export default {
         panel: 'var(--radius-lg)',
       },
       fontFamily: {
-        // DESIGN.md §3: Geist (interface) + JetBrains Mono (dados)
+        // SISTEMA_DE_DESIGN.md §3: Geist (interface) + JetBrains Mono (dados)
         sans: ['"Geist Variable"', 'Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         display: ['"Geist Variable"', 'Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         mono: ['"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        // DESIGN.md §6: três níveis discretos
+        // SISTEMA_DE_DESIGN.md §6: três níveis discretos
         sm: 'var(--shadow-sm)',
         DEFAULT: 'var(--shadow-sm)',
         md: 'var(--shadow-md)',
@@ -128,7 +128,7 @@ export default {
       },
     },
   },
-  // DESIGN.md §1.5: nada de backdrop-filter. As classes `backdrop-blur*` ainda
+  // SISTEMA_DE_DESIGN.md §1.5: nada de backdrop-filter. As classes `backdrop-blur*` ainda
   // presentes nas páginas deixam de gerar CSS (superfícies planas).
   corePlugins: {
     backdropBlur: false,

@@ -1,6 +1,6 @@
 /**
  * FiscWise Motion Library
- * Tokens de movimento do DESIGN.md §7: resposta ≤150 ms, entrada ≤250 ms,
+ * Tokens de movimento do SISTEMA_DE_DESIGN.md §7: resposta ≤150 ms, entrada ≤250 ms,
  * só opacity/transform, sem scale no hover. `MotionConfig reducedMotion="user"`
  * cobre o reduced-motion no framer-motion.
  */
@@ -284,7 +284,7 @@ export const drawerMotion = {
 
 /**
  * Floating — mantido por compatibilidade, mas estático:
- * loop só é permitido em spinner e skeleton (DESIGN.md §7).
+ * loop só é permitido em spinner e skeleton (SISTEMA_DE_SISTEMA_DE_DESIGN.md §7).
  */
 export const floating = {
   animate: {

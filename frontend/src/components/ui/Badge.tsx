@@ -2,7 +2,7 @@ import { HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 export type BadgeVariant =
-  // DESIGN.md §8
+  // SISTEMA_DE_DESIGN.md §8
   | 'neutral'
   | 'primary'
   | 'success'

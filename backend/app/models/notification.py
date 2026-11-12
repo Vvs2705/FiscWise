@@ -103,7 +103,7 @@ class NotificationMessage(Base):
     template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("notification_templates.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
 
     channel: Mapped[str] = mapped_column(

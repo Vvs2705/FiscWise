@@ -7,5 +7,20 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 
+# Arquivos com hash no nome: cache permanente.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# SVGs publicos (logo, favicon) sem hash: 1 dia.
+/*.svg
+  Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=86400
+
+# HTML de entrada sempre revalidado, para pegar o deploy novo na hora.
+/index.html
+  Cache-Control: no-cache
+
+/
+  Cache-Control: no-cache

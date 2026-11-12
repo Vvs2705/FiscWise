@@ -25,6 +25,13 @@ export default defineConfig({
     },
   },
   build: {
+    // Navegadores alvo já suportam ES2020; evita transpilar/polyfills extras.
+    target: 'es2020',
+    cssCodeSplit: true,
+    sourcemap: false,
+    // Todos os navegadores alvo suportam <link rel="modulepreload">; o polyfill
+    // só adicionaria bytes ao chunk de entrada.
+    modulePreload: { polyfill: false },
     // Raise warning threshold — each individual chunk should still be small
     // but the total app may legitimately exceed 500 kB after splitting.
     chunkSizeWarningLimit: 600,

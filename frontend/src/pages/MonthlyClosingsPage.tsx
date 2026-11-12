@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -66,11 +67,15 @@ export function MonthlyClosingsPage() {
     onError: () => toast.error('Erro ao gerar rotina mensal.'),
   });
 
-  const filtered = (closings ?? []).filter(c =>
-    !search ||
-    c.clientName.toLowerCase().includes(search.toLowerCase()) ||
-    c.clientCnpj.includes(search)
-  );
+  const debouncedSearch = useDebouncedValue(search);
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return (closings ?? []).filter(c =>
+      !debouncedSearch ||
+      c.clientName.toLowerCase().includes(q) ||
+      c.clientCnpj.includes(debouncedSearch)
+    );
+  }, [closings, debouncedSearch]);
 
   const stats = {
     total: closings?.length ?? 0,

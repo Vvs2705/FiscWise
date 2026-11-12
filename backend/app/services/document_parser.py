@@ -10,9 +10,14 @@ inventado — campo não encontrado no arquivo fica None.
 
 import csv
 import re
-import xml.etree.ElementTree as ET
+# defusedxml: parser que recusa DTD/entidades externas (XXE, "billion laughs").
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from datetime import date
 from typing import Optional, Dict, Any
+
+# Elementos devolvidos pelo defusedxml (xml.etree.ElementTree.Element).
+XmlElement = Any
 from pathlib import Path
 import logging
 
@@ -233,7 +238,7 @@ def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
 
 
-def _child(el: Optional[ET.Element], *names: str) -> Optional[ET.Element]:
+def _child(el: Optional[XmlElement], *names: str) -> Optional[XmlElement]:
     """Desce por nomes locais (ignora namespace): _child(nfe, "ide", "nNF")."""
     cur = el
     for name in names:
@@ -243,7 +248,7 @@ def _child(el: Optional[ET.Element], *names: str) -> Optional[ET.Element]:
     return cur
 
 
-def _text(el: Optional[ET.Element], *names: str) -> Optional[str]:
+def _text(el: Optional[XmlElement], *names: str) -> Optional[str]:
     node = _child(el, *names) if names else el
     if node is None or node.text is None:
         return None
@@ -251,7 +256,7 @@ def _text(el: Optional[ET.Element], *names: str) -> Optional[str]:
     return value or None
 
 
-def _find(el: ET.Element, name: str) -> Optional[ET.Element]:
+def _find(el: XmlElement, name: str) -> Optional[XmlElement]:
     """Primeiro descendente com esse nome local (qualquer profundidade)."""
     return next((e for e in el.iter() if _local(e.tag) == name), None)
 
@@ -265,7 +270,7 @@ def _iso_date(value: Optional[str]) -> Optional[str]:
         return None
 
 
-def _party(el: Optional[ET.Element]) -> Optional[Dict[str, Optional[str]]]:
+def _party(el: Optional[XmlElement]) -> Optional[Dict[str, Optional[str]]]:
     if el is None:
         return None
     return {
@@ -275,16 +280,16 @@ def _party(el: Optional[ET.Element]) -> Optional[Dict[str, Optional[str]]]:
     }
 
 
-def _read_xml_root(file_path: str) -> ET.Element:
+def _read_xml_root(file_path: str) -> XmlElement:
     with open(file_path, "rb") as f:
         raw = f.read()
     # NF-e/NFS-e nunca têm DTD; recusar DOCTYPE/ENTITY corta XXE e "billion laughs".
     if _DTD_RE.search(raw):
         raise ValueError("XML com DOCTYPE/ENTITY não é aceito")
-    return ET.fromstring(raw)
+    return ET.fromstring(raw, forbid_dtd=True)
 
 
-def _parse_nfe(root: ET.Element) -> Dict[str, Any]:
+def _parse_nfe(root: XmlElement) -> Dict[str, Any]:
     inf = _find(root, "infNFe")
     if inf is None:
         raise ValueError("XML sem infNFe")
@@ -322,7 +327,7 @@ def _parse_nfe(root: ET.Element) -> Dict[str, Any]:
     }
 
 
-def _first_text(root: ET.Element, *names: str) -> Optional[str]:
+def _first_text(root: XmlElement, *names: str) -> Optional[str]:
     for name in names:
         value = _text(_find(root, name))
         if value:
@@ -330,7 +335,7 @@ def _first_text(root: ET.Element, *names: str) -> Optional[str]:
     return None
 
 
-def _nfse_party(el: Optional[ET.Element]) -> Optional[Dict[str, Optional[str]]]:
+def _nfse_party(el: Optional[XmlElement]) -> Optional[Dict[str, Optional[str]]]:
     if el is None:
         return None
     return {
@@ -340,7 +345,7 @@ def _nfse_party(el: Optional[ET.Element]) -> Optional[Dict[str, Optional[str]]]:
     }
 
 
-def _parse_nfse(root: ET.Element) -> Dict[str, Any]:
+def _parse_nfse(root: XmlElement) -> Dict[str, Any]:
     """NFS-e: padrão nacional (infNFSe) e ABRASF (InfNfse). Só o que achar."""
     prest = next(
         (e for e in root.iter() if _local(e.tag) in ("PrestadorServico", "Prestador", "prest", "emit")),
@@ -368,7 +373,7 @@ async def _parse_xml(file_path: str) -> tuple[Optional[Dict[str, Any]], Optional
     """XML: NF-e (portalfiscal), NFS-e ou XML genérico (só a tag raiz)."""
     try:
         root = _read_xml_root(file_path)
-    except ValueError as e:
+    except (ValueError, DefusedXmlException) as e:
         return None, f"XML parsing error: {e}"
     except ET.ParseError as e:
         return None, f"XML parsing error: {e}"

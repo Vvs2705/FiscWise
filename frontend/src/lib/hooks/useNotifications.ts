@@ -129,3 +129,28 @@ export function useCertExpiryWarning() {
     },
   });
 }
+
+export type ClientReminderKind = 'pending_documents' | 'payment' | 'custom';
+
+export interface ClientReminderInput {
+  clientId: string;
+  kind: ClientReminderKind;
+  message?: string;
+}
+
+/** POST /api/v1/clients/{id}/reminders — e-mail real ao cliente, com o resultado verdadeiro. */
+export function useSendClientReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId, kind, message }: ClientReminderInput) => {
+      const { data } = await api.post<ClientEmailResult>(
+        `/api/v1/clients/${clientId}/reminders`,
+        { kind, message: message ?? null }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: notifKey });
+    },
+  });
+}

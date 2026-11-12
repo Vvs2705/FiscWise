@@ -82,3 +82,29 @@ async def get_signed_url(bucket: str, path: str, ttl: int = 300) -> str:
     if not signed:
         raise RuntimeError("Resposta de sign sem signedURL")
     return f"{settings.SUPABASE_URL}/storage/v1{signed}"
+
+
+async def get_signed_urls(bucket: str, paths: list[str], ttl: int = 300) -> dict[str, str]:
+    """Assina vários objetos numa chamada só (endpoint em lote do Supabase).
+
+    Retorna {path: url_assinada}. Path que o Supabase não assinou (objeto
+    inexistente, por exemplo) fica fora do dict — o caller decide o fallback.
+    """
+    unique = list(dict.fromkeys(p for p in paths if p))
+    if not unique:
+        return {}
+    if not _config_or_degrade(f"signed urls {bucket} ({len(unique)})"):
+        return {p: f"https://storage.local.dev/{bucket}/{p}?dev=1" for p in unique}
+    url = f"{settings.SUPABASE_URL}/storage/v1/object/sign/{bucket}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(url, json={"expiresIn": ttl, "paths": unique}, headers=_headers())
+    if resp.status_code != 200:
+        logger.error("Supabase sign em lote falhou: %s %s", resp.status_code, resp.text)
+        raise RuntimeError(f"Falha ao assinar URLs ({resp.status_code})")
+    out: dict[str, str] = {}
+    for item in resp.json() or []:
+        signed = item.get("signedURL") or item.get("signedUrl")
+        path = item.get("path")
+        if path and signed and not item.get("error"):
+            out[path] = f"{settings.SUPABASE_URL}/storage/v1{signed}"
+    return out

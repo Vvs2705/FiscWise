@@ -459,12 +459,16 @@ export function useDeleteReceivable() {
   return useDeleteMutation('/api/v1/receivables');
 }
 
+// `url` é a referência do storage privado (grave em `file_url`); a API devolve
+// URL assinada na leitura. `signed_url` serve só para pré-visualizar já.
+export type UploadedDocument = { url: string; path: string; signed_url?: string | null };
+
 export function useUploadDocument() {
   return useMutation({
-    mutationFn: async (file: File): Promise<{ url: string; path: string }> => {
+    mutationFn: async (file: File): Promise<UploadedDocument> => {
       const form = new FormData();
       form.append('file', file);
-      const { data } = await api.post<{ url: string; path: string }>(
+      const { data } = await api.post<UploadedDocument>(
         '/api/v1/documents/upload',
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } },

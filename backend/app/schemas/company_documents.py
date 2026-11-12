@@ -31,7 +31,7 @@ class CompanyDocumentResponse(CompanyDocumentBase):
     id: UUID
     client_id: UUID
     tenant_id: UUID
-    file_url: str
+    file_url: str | None = None  # URL assinada na leitura; None se o storage falhar
     upload_date: datetime
     created_at: datetime
     updated_at: datetime
@@ -46,4 +46,4 @@ class CompanyDocumentListResponse(BaseModel):
     status: str
     upload_date: datetime
     expiration_date: date | None
-    file_url: str
+    file_url: str | None = None  # URL assinada na leitura; None se o storage falhar

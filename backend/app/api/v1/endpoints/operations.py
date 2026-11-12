@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.document_links import DOCUMENTS_BUCKET, SIGNED_URL_TTL, sign_file_urls, storage_ref
 from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_user_plan
 from app.services.audit import log_audit_event
 from app.models.calculator import AssistantRole, FiscalAssistantMessage
@@ -992,6 +993,13 @@ async def update_deadline(
 
 
 
+async def _documents_out(docs, tenant_id: uuid.UUID) -> list[DocumentResponse]:
+    """Serializa documentos trocando a referência do storage por URL assinada."""
+    out = [DocumentResponse.model_validate(d) for d in docs]
+    await sign_file_urls(out, tenant_id)
+    return out
+
+
 @router.get("/documents", response_model=list[DocumentResponse])
 async def list_documents(
     client_id: uuid.UUID | None = None,
@@ -1003,7 +1011,7 @@ async def list_documents(
     if client_id:
         statement = statement.where(ClientDocument.client_id == client_id)
     result = await db.execute(statement.order_by(ClientDocument.created_at.desc()))
-    return list(result.scalars().all())
+    return await _documents_out(result.scalars().all(), tenant_id)
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
@@ -1014,7 +1022,8 @@ async def get_document(
 ) -> DocumentResponse:
     """Buscar documento especifico por ID."""
     tenant_id = _tenant_id(current_user)
-    return await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    doc = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    return (await _documents_out([doc], tenant_id))[0]
 
 
 @router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -1035,7 +1044,7 @@ async def create_document(
         event="document.uploaded",
         data={"id": str(doc.id), "name": doc.name, "client_id": str(doc.client_id)},
     )
-    return doc
+    return (await _documents_out([doc], tenant_id))[0]
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentResponse)
@@ -1048,7 +1057,8 @@ async def update_document(
     tenant_id = _tenant_id(current_user)
     document = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
     _apply_updates(document, payload)
-    return await _commit_refresh(db, document)
+    doc = await _commit_refresh(db, document)
+    return (await _documents_out([doc], tenant_id))[0]
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1089,9 +1099,14 @@ async def upload_document_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    """Faz upload de arquivo para Supabase Storage e retorna a URL publica."""
+    """Sobe o arquivo para o bucket privado `documents`.
+
+    Devolve `url` = referência do storage (`documents/<tenant>/<arquivo>`), que o
+    frontend grava em `file_url` no POST /documents; a leitura troca por URL
+    assinada. `signed_url` serve para pré-visualizar logo após o upload.
+    """
     import uuid as _uuid
-    import httpx
+    from app.core import storage as _storage
     from app.core.config import settings
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
@@ -1106,10 +1121,8 @@ async def upload_document_file(
     if file.filename and "." in file.filename:
         file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
 
-    # Antes aceitava qualquer tipo e tamanho (lido inteiro na memória de uma
-    # máquina de 512 MB). Certificado .pfx/.p12 fica de fora: com chave privada,
-    # não pode ir para bucket com URL pública. ponytail: allowlist por extensão + teto de tamanho;
-    # checagem por assinatura (validate_file_mime) quando os tipos estabilizarem.
+    # Allowlist por extensão + teto de tamanho. Certificado .pfx/.p12 fica de
+    # fora (chave privada não vai para este bucket).
     if file_ext not in _DOC_UPLOAD_EXTS:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -1117,7 +1130,6 @@ async def upload_document_file(
         )
 
     unique_name = f"{tenant_id}/{_uuid.uuid4().hex}{file_ext}"
-    bucket = "documents"
 
     file_bytes = await file.read(_DOC_UPLOAD_MAX_BYTES + 1)
     if not file_bytes:
@@ -1129,33 +1141,23 @@ async def upload_document_file(
         )
     content_type = file.content_type or "application/octet-stream"
 
-    # Upload para Supabase Storage via REST
-    storage_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{unique_name}"
-
-    # Supabase Storage aceita tanto o JWT service role quanto as novas chaves
-    # sb_secret_* — ambos os headers sao necessarios para compatibilidade
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(
-            storage_url,
-            content=file_bytes,
-            headers={
-                "apikey": settings.SUPABASE_SECRET_KEY,
-                "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
-                "Content-Type": content_type,
-                "x-upsert": "false",
-            },
-        )
-
-    if resp.status_code not in (200, 201):
-        logger.error("Supabase Storage upload failed: %s %s", resp.status_code, resp.text)
+    try:
+        await _storage.upload_bytes(DOCUMENTS_BUCKET, unique_name, file_bytes, content_type)
+    except RuntimeError:
+        logger.exception("Supabase Storage upload failed (%s)", unique_name)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to upload file to storage",
         )
 
-    # URL publica
-    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket}/{unique_name}"
-    return {"url": public_url, "path": unique_name}
+    ref = storage_ref(unique_name)
+    try:
+        signed_url: str | None = await _storage.get_signed_url(
+            DOCUMENTS_BUCKET, unique_name, ttl=SIGNED_URL_TTL
+        )
+    except RuntimeError:
+        signed_url = None
+    return {"url": ref, "path": unique_name, "signed_url": signed_url}
 
 
 @router.get("/certificates", response_model=list[CertificateResponse])
@@ -1640,8 +1642,7 @@ async def upload_client_document(
     # Antes gravava uma URL de exemplo (storage.example.com) e nunca guardava o
     # arquivo, mas marcava o documento como disponível (TEN-6). Agora sobe de
     # verdade, com as mesmas regras do /documents/upload.
-    from app.core.config import settings
-    from app.core.storage import upload_bytes
+    from app.core import storage as _storage
 
     file_ext = Path(file.filename).suffix.lower() if file.filename else ""
     if file_ext not in _DOC_UPLOAD_EXTS:
@@ -1658,10 +1659,11 @@ async def upload_client_document(
             detail=f"Arquivo maior que {_DOC_UPLOAD_MAX_BYTES // (1024 * 1024)} MB",
         )
     storage_path = f"{tenant_id}/{uuid.uuid4().hex}{file_ext}"
-    await upload_bytes(
-        "documents", storage_path, content, file.content_type or "application/octet-stream"
+    await _storage.upload_bytes(
+        DOCUMENTS_BUCKET, storage_path, content, file.content_type or "application/octet-stream"
     )
-    file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/documents/{storage_path}"
+    # Bucket privado: grava a referência; a resposta devolve URL assinada.
+    file_url = storage_ref(storage_path)
 
     # Salvar arquivo temporário para parsing
     with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
@@ -1704,7 +1706,7 @@ async def upload_client_document(
         tenant_id,
     )
 
-    return DocumentResponse.from_orm(document)
+    return (await _documents_out([document], tenant_id))[0]
 
 
 @router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
@@ -1717,9 +1719,11 @@ async def list_client_documents(
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, client_id)
 
-    stmt = select(ClientDocument).where(ClientDocument.client_id == client_id)
-    result = await db.execute(stmt.order_by(ClientDocument.id.desc()))
-    return list(result.scalars().all())
+    stmt = select(ClientDocument).where(
+        ClientDocument.client_id == client_id, ClientDocument.tenant_id == tenant_id
+    )
+    result = await db.execute(stmt.order_by(ClientDocument.created_at.desc()))
+    return await _documents_out(result.scalars().all(), tenant_id)
 
 
 async def _parse_document_background(

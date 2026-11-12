@@ -1,0 +1,170 @@
+# Diagnóstico A0 — Stack real, banco e desempenho (2026-11-12)
+
+Relatório base da Frente A da missão noturna. Números medidos na madrugada de
+12/11/2026; onde a medição não foi possível a partir da nuvem, está dito.
+
+## 1. Stack real (o documento da missão estava desatualizado)
+
+| Camada | Onde roda | Região | Plano |
+|---|---|---|---|
+| API FastAPI | Google Cloud Run, serviço `fiscwise-api`, projeto `fiscwise-prod-da9a` | `southamerica-east1` (São Paulo) | pago por uso, `min-instances 0`, `max-instances 1`, 1 vCPU / 1 GiB, concurrency 80, cpu-boost |
+| Banco + Storage | Supabase "fiscwise" (ref `sigpsvbkvatzlhbhdmrw`), Postgres 17.11 | `sa-east-1` (São Paulo) | Free |
+| Conexão ao banco | Supavisor, `aws-1-sa-east-1.pooler.supabase.com:5432` (modo sessão), usuário `fiscwise_app` | SP | — |
+| Front SPA (Vite + React) | Cloudflare Pages, projeto `fiscwise` | borda global | Free |
+| DNS | Cloudflare (`fiscwise.com.br`) | — | Free |
+| Rotinas agendadas | Cloud Scheduler → `POST /api/v1/internal/tick` de hora em hora | SP | Free |
+
+Neon, Vercel e Fly.io foram excluídos. **Back-end e banco estão na mesma região**
+(São Paulo), então o item A1.6 (migração de região) não se aplica.
+
+## 2. Banco de dados (pg_stat_statements já ativo)
+
+Estado em 12/11 03:30 UTC, estatísticas acumuladas desde 25/10:
+
+| Métrica | Valor |
+|---|---|
+| Tamanho do banco | 14 MB |
+| Conexões abertas da aplicação no momento | 0 (Cloud Run estava em zero instâncias) |
+| Chamadas SQL do `fiscwise_app` desde 25/10 | 4.616 |
+| Tempo total de execução dessas chamadas | 1,58 s (média 0,34 ms por chamada) |
+| Cache hit do buffer | 99,99 % |
+| Linhas nas tabelas de negócio | 7 tenants, 7 usuários, 6 clientes, 69 eventos de auditoria |
+
+**Conclusão: o banco não é o gargalo.** Nenhuma consulta da aplicação passa de 1 ms
+de média; as 20 "mais lentas" são DDL de migração (até 80 ms) e `INSERT`s isolados
+(12–32 ms, custo de primeira página). O problema histórico do Neon (quota esgotada
+sem uso) era o health check do Fly.io em `/ready` a cada 15 s, já eliminado.
+
+### 2.1 As consultas mais frequentes (o padrão que importa)
+
+| Consulta | Chamadas | Comentário |
+|---|---|---|
+| `BEGIN` / `ROLLBACK` | 710 / 670 | sessão aberta por requisição; quase tudo é leitura |
+| `SELECT set_config('app.current_tenant_id', …)` | 639 | contexto de RLS, 1 por transação |
+| `SELECT tenants.*` | 317 | carregado **em toda requisição autenticada** |
+| `SELECT users.*` | 294 | idem (`get_current_user`) |
+| `SELECT tenant_subscriptions.*` | 257 | idem (`Tenant.subscription`, `lazy="selectin"`) |
+| `WITH RECURSIVE typeinfo_tree …` (introspecção do asyncpg) | 115 | 1 por conexão nova: cada cold start do Cloud Run recria o pool |
+| `DISCARD ALL` | 98 | reset do pooler ao devolver a conexão (3,7 ms cada) |
+| `SELECT accounting_clients.*` | 70 | listagem completa, sem paginação |
+
+**Padrão N+1 na autenticação:** `User.tenant` e `Tenant.users` são `lazy="selectin"`.
+Carregar o usuário do token dispara também o tenant, **todos os usuários do tenant**
+e a assinatura: 4 consultas + `set_config` = 5 idas ao banco antes de a rota rodar.
+Com Cloud Run e Supabase na mesma região cada ida custa ~1 ms, mas é desperdício
+puro e cresce com o número de usuários por escritório.
+
+**Dashboard (`/dashboard/overview`):** 12 consultas sequenciais (6 `count`, 3 `sum`,
+3 listagens) na mesma sessão. Pode virar 3 (contagens e somas com `FILTER`).
+
+### 2.2 Advisors do Supabase (performance)
+
+- 14 chaves estrangeiras sem índice (ex.: `fiscal_nfes.client_id`, `obligation_instances.rule_id`,
+  `notification_messages.client_id`, `tenant_subscriptions.plan_id`, `whatsapp_messages.tenant_id`).
+- 4 índices duplicados (`ix_*` + `uq_*` idênticos em `client_obligation_profiles`,
+  `obligation_rules`, `plans`, `portal_magic_tokens`).
+- 109 índices nunca usados: esperado com a base quase vazia; não remover agora.
+
+### 2.3 Bug de produção encontrado nos logs do Postgres (11/11 19:19–19:20 UTC)
+
+```
+column tax_guides.updated_at does not exist
+column ecac_proxies.updated_at does not exist
+```
+
+As migrations `f3b145a829ef` (guias) e `e3b145a829ef` (e-CAC) criaram as tabelas
+**sem** `updated_at` (e `ecac_fiscal_situations` sem `created_at` nem `updated_at`),
+mas os modelos herdam `TenantBase`, que tem as duas colunas. Qualquer `SELECT` do ORM
+nessas tabelas falha com 500: **os módulos Guias e Central e-CAC estão quebrados em
+produção.** Correção: migration aditiva (vai para a fila de aprovação, regra 2).
+Repassado às Frentes B e G.
+
+### 2.4 Segurança (advisor)
+
+- 5 tabelas sem RLS: `alembic_version`, `fiscal_benefits`, `obligation_rules`, `plans`,
+  `billing_webhook_events`. São tabelas globais (sem `tenant_id`), lidas pela própria
+  API com usuário dedicado; o risco real é só se a chave `anon` do Supabase for exposta
+  (o front não usa Supabase client). Fica registrado para o Portão de Segurança.
+- Função `current_app_tenant_id` com `search_path` mutável (aviso).
+
+## 3. Egress e conexões
+
+- Egress do Supabase: a aplicação devolveu 58 MB de tuplas desde 02/10 (acumulado de
+  todos os usuários). Irrelevante para a cota Free (5 GB/mês).
+- O pooler recicla a conexão do servidor a cada 3.600 s (`server lifetime over`);
+  com `min-instances 0` o pool do SQLAlchemy (5 + 10 overflow) é recriado a cada
+  cold start, daí as 115 introspecções do asyncpg. Trocar para a porta 6543
+  (modo transação) é possível (prepared statements já desligados) mas não traz ganho
+  com 1 instância; manter 5432.
+
+## 4. Latência da API (p95)
+
+A nuvem desta sessão **não alcança** `*.run.app` nem `fiscwise.com.br` (proxy de
+saída devolve 403) e não há credencial do GCP para ler os logs do Cloud Run. O p95
+real **não pôde ser medido** aqui. O que dá para afirmar pelo código e pela
+configuração:
+
+| Cenário | Estimativa | Por quê |
+|---|---|---|
+| Cold start (primeira requisição após inatividade) | 3–8 s | `min-instances 0`, imagem `python:3.12-slim`, import de Sentry + SQLAlchemy, criação do pool e introspecção do asyncpg |
+| Requisição autenticada aquecida | 15–40 ms | 5 idas ao banco na autenticação + consulta da rota, tudo em SP |
+| `/dashboard/overview` aquecido | 30–60 ms | 12 consultas sequenciais |
+
+Para ter o número real, a Frente A3 entrega um workflow `perf-probe` (GitHub
+Actions, `workflow_dispatch`) que mede p50/p95 de `/live`, `/health`, `/ready` e
+do caminho de autenticação, frio e quente.
+
+## 5. Web Vitals (front)
+
+Medição local do build de produção (Vite preview) com Playwright, perfil Moto G4,
+rede Slow 4G (400 kbps, 400 ms de latência) e CPU 4x mais lenta. Sem CDN e sem
+Google Fonts (bloqueadas na nuvem), então é o **custo intrínseco do bundle**:
+
+| Página | FCP | LCP | CLS | Transferido | Requisições |
+|---|---|---|---|---|---|
+| `/login` | 6,4 s | **8,9 s** | 0,001 | 211 KB | 20 |
+| `/register` | 6,6 s | **9,1 s** | 0 | 235 KB | 25 |
+
+Metas do Google: LCP ≤ 2,5 s, CLS ≤ 0,1, INP ≤ 200 ms. O CLS está ótimo; o LCP em
+rede lenta está 3,5x acima da meta.
+
+Bundle de produção (gzip): `vendor-react` 54 KB, `index` 45 KB, `vendor-motion`
+(framer-motion) 42 KB, `vendor-utils` 28 KB, `vendor-form` 23 KB, `vendor-query`
+13 KB, CSS 72 KB bruto. A página de login carrega framer-motion e o formulário
+inteiro antes do primeiro paint. Pontos para a Frente C: tirar framer-motion do
+caminho crítico do login, `font-display` já é `swap` (ok), preload do CSS, e
+dividir `index` (149 KB) que concentra Sidebar, stores e utilitários.
+
+O repositório tem um spec Playwright (`frontend/e2e/`) **sem** `@playwright/test`
+nas dependências nem `playwright.config.ts`: o E2E hoje não roda.
+
+## 6. Integrações externas (A2)
+
+Todas as chamadas `httpx` já têm timeout (15–30 s): Supabase Storage, Resend,
+Mercado Pago, OpenAI, SERPRO, webhooks de saída. Falta: **retry com backoff** e
+mensagem clara ao usuário quando o serviço externo falha; a consulta de CNPJ é feita
+no front. Não existe fila de trabalho: o parse de documentos usa `BackgroundTasks`
+do FastAPI (morre se a instância do Cloud Run for desligada) e a cobrança mensal
+roda inteira dentro do tick horário.
+
+Cache: `plans` e `obligation_rules` são lidos do banco a cada uso; o front já
+cacheia planos por 30 min. Redis não está configurado (REDIS_URL vazio) e o
+rate limit de admin cai para "desligado" sem ele.
+
+## 7. Monitoramento (A3)
+
+- Sentry está no código (back e front) mas `SENTRY_DSN`/`VITE_SENTRY_DSN` estão
+  vazios em produção: nenhum erro é capturado hoje.
+- Não há Web Analytics nem Web Vitals em produção (Vercel Speed Insights não se
+  aplica mais; o equivalente grátis é **Cloudflare Web Analytics**, que exige um
+  token criado no painel do Cloudflare → pendência do dono).
+- Logs do Cloud Run são texto solto; não há duração por requisição.
+
+## 8. O que a Frente A faz com isso
+
+| Tarefa | PR | Toca em | Merge |
+|---|---|---|---|
+| A1 Auth em 1 consulta, dashboard em 3 consultas, paginação com teto nas listagens, `lazy` correto nos relacionamentos | `a1-consultas` | código | pode mesclar após testes |
+| A1 Migration: colunas faltantes em guias/e-CAC, índices nas FKs, remoção dos 4 índices duplicados | `a1-migration` | migration | **fila de aprovação** |
+| A2 Retry/backoff + mensagem clara nas integrações; cache em memória de `plans`/`obligation_rules`; fila em Postgres com status | `a2-backend` | código + migration (fila) | fila de aprovação (migration) |
+| A3 Cloudflare Web Analytics (token opcional), log estruturado com duração por requisição, Playwright com perfis mobile e Slow 4G, workflow `perf-probe` | `a3-monitoramento` | código/CI | pode mesclar |

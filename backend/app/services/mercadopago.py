@@ -7,7 +7,7 @@ Segurança:
 - O ACCESS_TOKEN vive só como secret (nunca no repo/logs).
 - Toda cobrança real é trancada por `settings.PAGAMENTOS_GO_LIVE` no router — esta
   camada só monta payloads e fala com a API quando chamada.
-- Não importa o SDK do Mercado Pago: usa httpx direto (timeout-bounded,
+- Não importa o SDK do Mercado Pago: usa httpx direto via app.core.http_client (timeout, retry só em consulta,
   idempotency key), mantendo o módulo importável e testável sem dependências extras.
 - Valor SEMPRE calculado no servidor (nunca confiar em valor vindo do cliente).
 """
@@ -21,15 +21,13 @@ import time
 from decimal import Decimal
 from typing import Any
 
-import httpx
-
 from app.core.config import settings
+from app.core.http_client import ExternalServiceError, request_with_retry
 from app.core.pricing import linha_preco
 
 logger = logging.getLogger(__name__)
 
 MP_API_BASE = "https://api.mercadopago.com"
-_HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 
 class GatewayNaoConfiguradoError(RuntimeError):
@@ -75,16 +73,31 @@ class GatewayMercadoPago:
     async def _post(
         self, path: str, payload: dict[str, Any], idempotency_key: str | None = None
     ) -> dict[str, Any]:
-        async with httpx.AsyncClient(base_url=MP_API_BASE, timeout=_HTTP_TIMEOUT) as client:
-            resp = await client.post(path, json=payload, headers=self._headers(idempotency_key))
+        # Criação de cobrança/assinatura NUNCA é repetida às cegas: só há nova
+        # tentativa se a conexão nem abriu (o pedido não saiu daqui).
+        headers = self._headers(idempotency_key)
+        try:
+            resp = await request_with_retry(
+                "POST", f"{MP_API_BASE}{path}", service="mercadopago", idempotent=False,
+                connect_timeout=5.0, read_timeout=10.0, json=payload, headers=headers,
+            )
+        except ExternalServiceError as exc:
+            raise GatewayPagamentoError(exc.user_message) from exc
         if resp.status_code >= 400:
             logger.warning("mercadopago_erro path=%s status=%s", path, resp.status_code)
             raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
         return resp.json()
 
     async def _get(self, path: str) -> dict[str, Any]:
-        async with httpx.AsyncClient(base_url=MP_API_BASE, timeout=_HTTP_TIMEOUT) as client:
-            resp = await client.get(path, headers=self._headers())
+        # Consulta (GET): idempotente, repete em falha transitória.
+        headers = self._headers()
+        try:
+            resp = await request_with_retry(
+                "GET", f"{MP_API_BASE}{path}", service="mercadopago", idempotent=True,
+                connect_timeout=5.0, read_timeout=10.0, headers=headers,
+            )
+        except ExternalServiceError as exc:
+            raise GatewayPagamentoError(exc.user_message) from exc
         if resp.status_code >= 400:
             raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
         return resp.json()

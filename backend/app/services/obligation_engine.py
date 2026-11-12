@@ -324,6 +324,11 @@ async def generate_obligations_for_month(
                 pass
             total_errors += 1
 
+    # O motor pode ter inserido regras novas (regras dinâmicas): limpa o cache.
+    from app.services.catalog_cache import invalidate_obligation_rules
+
+    invalidate_obligation_rules()
+
     summary = {
         "created": total_created,
         "skipped": total_skipped,

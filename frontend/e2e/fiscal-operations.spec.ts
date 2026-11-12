@@ -1,4 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
+
+// Estas telas são protegidas: precisam de login real e de dados na API
+// (a sessão "mock" no localStorage abaixo não autentica no app atual).
+// Sem E2E_API_URL (API de teste com usuário semeado) o arquivo inteiro é
+// pulado, para o E2E rodar no CI só com o build estático. Também ficam fora
+// do perfil Slow 4G (testMatch do projeto mobile-slow-4g).
+test.skip(!process.env.E2E_API_URL, 'Requer API real com dados de teste: defina E2E_API_URL');
 
 test.describe('Foco de Hoje', () => {
   test.beforeEach(async ({ page }) => {

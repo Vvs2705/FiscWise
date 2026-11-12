@@ -29,6 +29,6 @@ describe('resolveTitle', () => {
   });
 
   it('falls back to the brand title for unmapped routes', () => {
-    expect(resolveTitle('/rota-inexistente')).toBe('FiscWise — Gestão Contábil Inteligente');
+    expect(resolveTitle('/rota-inexistente')).toBe('FiscWise — Notas fiscais sem complicação');
   });
 });

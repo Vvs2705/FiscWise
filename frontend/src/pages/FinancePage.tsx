@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -172,19 +173,22 @@ export function FinancePage() {
     ? paidList.reduce((sum, r) => sum + Number(r.amount), 0) / paidList.length
     : 0;
 
-  const filteredReceivables = (receivables ?? []).filter((r) => {
-    const client = clients?.find((c) => c.id === r.client_id);
-    const clientName = client?.name?.toLowerCase() || '';
-    const desc = r.description?.toLowerCase() || '';
-    const notes = r.notes?.toLowerCase() || '';
-    const query = search.toLowerCase();
+  const debouncedSearch = useDebouncedValue(search);
+  const filteredReceivables = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    return (receivables ?? []).filter((r) => {
+      const client = clients?.find((c) => c.id === r.client_id);
+      const clientName = client?.name?.toLowerCase() || '';
+      const desc = r.description?.toLowerCase() || '';
+      const notes = r.notes?.toLowerCase() || '';
 
-    const matchesSearch = clientName.includes(query) || desc.includes(query) || notes.includes(query);
-    const matchesClient = !selectedClient || r.client_id === selectedClient;
-    const matchesStatus = !selectedStatus || r.status === selectedStatus;
+      const matchesSearch = clientName.includes(query) || desc.includes(query) || notes.includes(query);
+      const matchesClient = !selectedClient || r.client_id === selectedClient;
+      const matchesStatus = !selectedStatus || r.status === selectedStatus;
 
-    return matchesSearch && matchesClient && matchesStatus;
-  });
+      return matchesSearch && matchesClient && matchesStatus;
+    });
+  }, [receivables, clients, debouncedSearch, selectedClient, selectedStatus]);
 
   return (
     <div className="space-y-6">

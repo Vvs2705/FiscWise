@@ -63,3 +63,40 @@ describe('importClientRows', () => {
     ]);
   });
 });
+
+describe('CSV e colunas de outros sistemas', () => {
+  it('lê CSV com ponto e vírgula, aspas, BOM e CRLF', async () => {
+    const { parseCsv } = await import('./xlsxImport');
+    const rows = parseCsv('﻿Razão Social;CNPJ;Obs\r\n"Café; Bar Ltda";11.222.333/0001-81;"disse ""oi"""\r\n');
+    expect(rows).toEqual([
+      ['Razão Social', 'CNPJ', 'Obs'],
+      ['Café; Bar Ltda', '11.222.333/0001-81', 'disse "oi"'],
+    ]);
+  });
+
+  it('detecta vírgula como separador', async () => {
+    const { parseCsv } = await import('./xlsxImport');
+    expect(parseCsv('nome,email\nAna,ana@x.com')).toEqual([['nome', 'email'], ['Ana', 'ana@x.com']]);
+  });
+
+  it('aceita cabeçalhos alternativos e normaliza o regime', () => {
+    const rows = parseClientRows([
+      ['Razão Social', 'CNPJ', 'Regime', 'Email', 'Celular', 'Tipo de pessoa'],
+      ['Mercado Azul Ltda', '11.222.333/0001-81', 'simples', 'azul@x.com', '(11) 9999-0000', 'Jurídica'],
+      ['João Lima', '529.982.247-25', 'LUCRO PRESUMIDO', '', '', 'Física'],
+    ]);
+    expect(rows[0].payload).toMatchObject({
+      name: 'Mercado Azul Ltda', document: '11.222.333/0001-81', tax_regime: 'Simples Nacional',
+      email: 'azul@x.com', phone: '(11) 9999-0000', entity_type: 'pj',
+    });
+    expect(rows[1].payload).toMatchObject({ name: 'João Lima', tax_regime: 'Lucro Presumido', entity_type: 'pf' });
+  });
+
+  it('readSpreadsheetRows lê um arquivo .csv', async () => {
+    const { readSpreadsheetRows } = await import('./xlsxImport');
+    const file = new File(['Nome;CPF / CNPJ\nPadaria Sol;11.222.333/0001-81\n'], 'clientes.csv', { type: 'text/csv' });
+    const parsed = parseClientRows(await readSpreadsheetRows(file));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].payload?.name).toBe('Padaria Sol');
+  });
+});

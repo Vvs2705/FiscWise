@@ -63,7 +63,7 @@ test('/: planos e preços com botão Assinar visível em cada plano pago', async
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DEMO_PLANS) }),
   )
   await page.goto('/')
-  await page.getByRole('link', { name: /^Planos/ }).first().click()
+  await page.getByRole('link', { name: 'Ver planos e preços' }).click()
   await expect(page.getByRole('heading', { name: 'Planos e preços' })).toBeInViewport()
   const assinar = page.getByRole('link', { name: 'Assinar Intermediário' })
   await expect(assinar).toBeVisible()

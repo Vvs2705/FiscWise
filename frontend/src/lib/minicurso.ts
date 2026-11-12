@@ -6,14 +6,22 @@ import gravacoes from './minicursoGravacoes.json';
  * Os vídeos ficam em public/minicurso/<id>.mp4 (capa em <id>.jpg) e são
  * gravados com Playwright sobre dados de demonstração:
  *   npm run minicurso:gravar
- * A gravação também escreve minicursoGravacoes.json com a duração e o
- * instante de cada capítulo, então os capítulos sempre batem com o vídeo.
+ * A gravação também escreve minicursoGravacoes.json com a duração, o
+ * instante de cada capítulo e as legendas da narração, então capítulos e
+ * legendas sempre batem com o vídeo.
  */
 
 export interface LessonChapter {
   /** segundo do vídeo em que o passo começa */
   t: number;
   label: string;
+}
+
+/** Trecho da narração, mostrado como legenda por cima do vídeo. */
+export interface LessonCue {
+  start: number;
+  end: number;
+  text: string;
 }
 
 export interface Lesson {
@@ -29,12 +37,13 @@ export interface Lesson {
   /** duração em segundos (vem da gravação) */
   duration: number;
   chapters: LessonChapter[];
+  cues: LessonCue[];
 }
 
-type Gravacoes = Record<string, { duration: number; chapters: LessonChapter[] }>;
+type Gravacoes = Record<string, { duration: number; chapters: LessonChapter[]; cues?: LessonCue[] }>;
 const recorded = gravacoes as Gravacoes;
 
-const BASE: Array<Omit<Lesson, 'video' | 'poster' | 'duration' | 'chapters'>> = [
+const BASE: Array<Omit<Lesson, 'video' | 'poster' | 'duration' | 'chapters' | 'cues'>> = [
   {
     id: 'primeiros-passos',
     title: 'Primeiros passos no FiscWise',
@@ -44,9 +53,13 @@ const BASE: Array<Omit<Lesson, 'video' | 'poster' | 'duration' | 'chapters'>> = 
   },
   {
     id: 'cadastrar-cliente',
-    title: 'Cadastrar um cliente',
-    description: 'Do CNPJ ao cliente salvo na carteira, com regime tributário e contato.',
-    outcomes: ['Buscar os dados pelo CNPJ', 'Escolher o regime tributário', 'Salvar e encontrar o cliente na lista'],
+    title: 'Cadastrar clientes',
+    description: 'Pelo CNPJ, com os dados da Receita, ou vários de uma vez com planilha Excel ou CSV.',
+    outcomes: [
+      'Preencher o cadastro só com o CNPJ',
+      'Escolher o regime tributário',
+      'Importar vários clientes de uma planilha Excel ou CSV',
+    ],
     path: '/clientes',
   },
   {
@@ -85,7 +98,18 @@ export const LESSONS: Lesson[] = BASE.map((lesson) => ({
   poster: `/minicurso/${lesson.id}.jpg`,
   duration: recorded[lesson.id]?.duration ?? 0,
   chapters: recorded[lesson.id]?.chapters ?? [],
+  cues: recorded[lesson.id]?.cues ?? [],
 }));
+
+/** Legenda ativa no instante `t` (a mais recente que já começou e não terminou). */
+export function cueAt(cues: LessonCue[], t: number): LessonCue | undefined {
+  let found: LessonCue | undefined;
+  for (const c of cues) {
+    if (c.start > t) break;
+    if (t < c.end) found = c;
+  }
+  return found;
+}
 
 export function getLesson(id: string): Lesson | undefined {
   return LESSONS.find((l) => l.id === id);

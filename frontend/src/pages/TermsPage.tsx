@@ -28,7 +28,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.0 — Última atualização: maio de 2026
+          Versão 1.1 — Última atualização: novembro de 2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -79,9 +79,18 @@ export function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold">5. Propriedade Intelectual</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Todos os direitos sobre a plataforma, interface, código-fonte, marca e materiais do
-              FiscWise pertencem à VStack Solutions. Os dados inseridos pelo Usuário permanecem de
-              propriedade do Usuário; o FiscWise não reivindica posse sobre eles.
+              Todos os direitos sobre a plataforma, interface, código-fonte, código executável,
+              banco de dados, regras de cálculo, textos, marca e demais materiais do FiscWise
+              pertencem à VStack Solutions e são protegidos pela Lei do Software (Lei nº 9.609/1998),
+              pela Lei de Direitos Autorais (Lei nº 9.610/1998) e pela Lei de Propriedade Industrial
+              (Lei nº 9.279/1996). A contratação concede ao Usuário apenas uma licença de uso
+              limitada, não exclusiva, intransferível e revogável, válida enquanto o plano estiver
+              ativo. Nenhum direito de propriedade é transferido, inclusive quando o aplicativo é
+              instalado no computador ou no celular.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Os dados inseridos pelo Usuário permanecem de propriedade do Usuário; o FiscWise não
+              reivindica posse sobre eles.
             </p>
           </section>
 
@@ -89,9 +98,35 @@ export function TermsPage() {
             <h2 className="text-lg font-semibold">6. Uso Permitido e Proibições</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               É proibido utilizar o FiscWise para atividades ilegais, fraudulentas, de lavagem de
-              dinheiro ou que violem a legislação brasileira. É vedado realizar engenharia reversa,
-              tentar acessar dados de outros tenants ou sobrecarregar intencionalmente a infraestrutura
-              da plataforma.
+              dinheiro ou que violem a legislação brasileira. Também é vedado, sem autorização
+              escrita da VStack Solutions:
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+              <li>
+                copiar, reproduzir, modificar, descompilar, desmontar ou fazer engenharia reversa do
+                FiscWise, inclusive do aplicativo instalado e dos arquivos guardados para uso offline;
+              </li>
+              <li>
+                usar o FiscWise, suas telas, fluxos ou regras para criar, treinar ou divulgar produto
+                ou serviço concorrente;
+              </li>
+              <li>
+                extrair conteúdo de forma automatizada (robôs, scraping) ou acessar a API fora do
+                aplicativo, exceto pela API pública oficial nos planos que a incluem;
+              </li>
+              <li>
+                revender, sublicenciar, alugar ou compartilhar o acesso com pessoas fora do escritório
+                contratante;
+              </li>
+              <li>
+                tentar acessar dados de outros escritórios, contornar limites do plano ou sobrecarregar
+                intencionalmente a infraestrutura da plataforma.
+              </li>
+            </ul>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              A violação permite a suspensão imediata do acesso, sem reembolso, e sujeita o infrator às
+              medidas civis e criminais cabíveis, incluindo indenização por perdas e danos (arts. 12 e
+              14 da Lei nº 9.609/1998).
             </p>
           </section>
 

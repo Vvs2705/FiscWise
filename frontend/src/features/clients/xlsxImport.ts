@@ -3,16 +3,31 @@ import type { AccountingClientCreate } from '@/lib/hooks/useOperations';
 /** Colunas da aba "Dados do Cliente" de public/template-cadastro-cliente.xlsx. */
 export const CLIENT_TEMPLATE_SHEET = 'Dados do Cliente';
 
-const COLUMN_MAP: Record<string, keyof AccountingClientCreate> = {
-  'Nome / Razao Social': 'name',
-  'CPF / CNPJ': 'document',
-  'Regime Tributario': 'tax_regime',
-  'E-mail': 'email',
-  'Telefone': 'phone',
-  'Inscricao Municipal': 'municipal_registration',
-  'Inscricao Estadual': 'state_registration',
-  'Observacoes': 'notes',
-};
+type ClientField = keyof AccountingClientCreate | 'tipo';
+
+/**
+ * Nomes de coluna aceitos para cada campo, já normalizados (sem acento, minúsculo,
+ * pontuação vira espaço). O primeiro é o do nosso modelo; os outros cobrem as
+ * exportações mais comuns de outros sistemas contábeis e planilhas próprias.
+ */
+const COLUMN_ALIASES: Array<[ClientField, string[]]> = [
+  ['name', ['nome razao social', 'razao social', 'nome empresarial', 'nome do cliente', 'cliente', 'empresa', 'nome']],
+  ['document', ['cpf cnpj', 'cnpj cpf', 'cnpj', 'cpf', 'documento', 'cnpj ou cpf', 'cpf ou cnpj']],
+  ['tipo', ['tipo pj ou pf', 'tipo de pessoa', 'tipo pessoa', 'pessoa', 'tipo']],
+  ['tax_regime', ['regime tributario', 'regime de tributacao', 'regime', 'tributacao']],
+  ['email', ['e mail', 'email', 'e mail principal', 'email de contato']],
+  ['phone', ['telefone', 'fone', 'celular', 'whatsapp', 'telefone principal']],
+  ['municipal_registration', ['inscricao municipal', 'insc municipal', 'im']],
+  ['state_registration', ['inscricao estadual', 'insc estadual', 'ie']],
+  ['notes', ['observacoes', 'observacao', 'obs', 'anotacoes']],
+];
+
+const REGIMES: Array<[RegExp, string]> = [
+  [/^mei|microempreendedor/, 'MEI'],
+  [/simples/, 'Simples Nacional'],
+  [/presumido/, 'Lucro Presumido'],
+  [/real/, 'Lucro Real'],
+];
 
 // Linha de exemplo que vem no modelo — nunca vira cliente.
 const EXAMPLE_ROW = { name: 'Empresa Exemplo Ltda', document: '12.345.678/0001-90' };
@@ -33,34 +48,75 @@ function cell(value: unknown): string {
   return String(value).trim();
 }
 
-/** Converte as linhas lidas do XLSX em payloads de POST /clients, validando cada linha. */
+export function normalizeHeader(header: string): string {
+  return header
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Para cada campo, o índice da coluna que o preenche (ou ausente). */
+export function mapColumns(headers: string[]): Partial<Record<ClientField, number>> {
+  const normalized = headers.map((h) => normalizeHeader(h));
+  const used = new Set<number>();
+  const map: Partial<Record<ClientField, number>> = {};
+  for (const [field, aliases] of COLUMN_ALIASES) {
+    for (const alias of aliases) {
+      const index = normalized.findIndex((h, i) => h === alias && !used.has(i));
+      if (index >= 0) {
+        map[field] = index;
+        used.add(index);
+        break;
+      }
+    }
+  }
+  return map;
+}
+
+/** "simples", "SIMPLES NACIONAL", "Lucro presumido"… viram o valor do cadastro. */
+export function normalizeRegime(value: string): string {
+  const v = normalizeHeader(value);
+  for (const [re, label] of REGIMES) if (re.test(v)) return label;
+  return value;
+}
+
+/** Converte as linhas lidas da planilha (XLSX ou CSV) em payloads de POST /clients, validando cada linha. */
 export function parseClientRows(rows: unknown[][]): ParsedClientRow[] {
   if (rows.length === 0) return [];
-  const headers = rows[0].map((h) => cell(h));
-  if (!headers.includes('Nome / Razao Social')) {
-    return [{ rowNumber: 1, name: '', error: 'Cabeçalho do modelo não encontrado (coluna "Nome / Razao Social").' }];
+  const columns = mapColumns(rows[0].map((h) => cell(h)));
+  if (columns.name === undefined) {
+    return [{
+      rowNumber: 1,
+      name: '',
+      error: 'Cabeçalho não reconhecido: a planilha precisa de uma coluna "Nome / Razao Social" (ou "Razão Social", "Nome").',
+    }];
   }
 
   const result: ParsedClientRow[] = [];
   rows.slice(1).forEach((row, index) => {
     const rowNumber = index + 2;
-    const record: Record<string, string> = {};
-    headers.forEach((header, i) => {
-      record[header] = cell(row[i]);
-    });
-    if (Object.values(record).every((v) => v === '')) return; // linha vazia
+    if (row.every((v) => cell(v) === '')) return; // linha vazia
+    const get = (field: ClientField) => {
+      const i = columns[field];
+      return i === undefined ? '' : cell(row[i]);
+    };
 
     const payload: AccountingClientCreate = { name: '', entity_type: 'pj', status: 'active' };
-    for (const [column, field] of Object.entries(COLUMN_MAP)) {
-      const value = record[column];
+    for (const [field] of COLUMN_ALIASES) {
+      if (field === 'tipo') continue;
+      const value = get(field);
       if (value) (payload as unknown as Record<string, string>)[field] = value;
     }
+    if (payload.tax_regime) payload.tax_regime = normalizeRegime(payload.tax_regime);
 
     if (payload.name === EXAMPLE_ROW.name && payload.document === EXAMPLE_ROW.document) return;
 
-    const tipo = (record['Tipo (PJ ou PF)'] ?? '').toUpperCase();
+    const tipo = get('tipo').toUpperCase();
     const digits = (payload.document ?? '').replace(/\D/g, '');
-    payload.entity_type = tipo === 'PF' || (!tipo && digits.length === 11) ? 'pf' : 'pj';
+    const isPf = tipo === 'PF' || tipo.startsWith('FISICA') || tipo.startsWith('FÍSICA');
+    payload.entity_type = isPf || (!tipo && digits.length === 11) ? 'pf' : 'pj';
 
     let error: string | undefined;
     if (!payload.name || payload.name.length < 2) error = 'Nome / Razão Social obrigatório.';
@@ -70,6 +126,75 @@ export function parseClientRows(rows: unknown[][]): ParsedClientRow[] {
     result.push(error ? { rowNumber, name: payload.name, error } : { rowNumber, name: payload.name, payload });
   });
   return result;
+}
+
+/**
+ * Lê um CSV exportado de outro sistema ou do Excel. Detecta o separador
+ * (";" do Excel em português, "," ou tabulação), aceita aspas e quebras de
+ * linha dentro de aspas, e ignora o BOM.
+ */
+export function parseCsv(text: string): string[][] {
+  const src = text.replace(/^\uFEFF/, '');
+  const firstLine = src.split(/\r?\n/, 1)[0] ?? '';
+  const count = (ch: string) => firstLine.split(ch).length - 1;
+  const delimiter = [';', ',', '\t'].reduce((best, ch) => (count(ch) > count(best) ? ch : best), ';');
+
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else quoted = false;
+      } else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === delimiter) {
+      row.push(field);
+      field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && src[i + 1] === '\n') i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else field += ch;
+  }
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Texto do arquivo: UTF-8 e, se não for, Windows-1252 (CSV salvo pelo Excel). */
+async function readText(file: Blob): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder('windows-1252').decode(buffer);
+  }
+}
+
+export const SPREADSHEET_ACCEPT = '.xlsx,.csv';
+
+export function isSpreadsheetFile(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase();
+  return ext === 'xlsx' || ext === 'csv';
+}
+
+/** Linhas de um .xlsx (aba do modelo, ou a primeira) ou de um .csv. */
+export async function readSpreadsheetRows(file: File): Promise<unknown[][]> {
+  if (file.name.toLowerCase().endsWith('.csv')) return parseCsv(await readText(file));
+  const { default: readXlsxFile, readSheetNames } = await import('read-excel-file');
+  const sheets = await readSheetNames(file);
+  const sheet = sheets.includes(CLIENT_TEMPLATE_SHEET) ? CLIENT_TEMPLATE_SHEET : sheets[0];
+  return (await readXlsxFile(file, { sheet })) as unknown[][];
 }
 
 export interface ImportRowResult {

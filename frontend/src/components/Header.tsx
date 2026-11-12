@@ -6,6 +6,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { PageHelp } from '@/components/PageHelp';
 import { Button } from './ui/Button';
 import { SyncIndicator } from './SyncIndicator';
+import { InstallAppButton } from './InstallAppButton';
 import { useSyncStore } from '@/lib/offline/status';
 import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
 import { cn } from '@/lib/utils';
@@ -88,6 +89,12 @@ export function Header() {
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {/* Indicador permanente de sincronização (offline-first) */}
         <SyncIndicator />
+
+        {/* Instalar no computador/celular: some quando já está instalado */}
+        <InstallAppButton
+          label="Instalar app"
+          className="h-8 border border-primary/40 bg-card px-2 text-sm text-primary hover:bg-accent sm:px-3"
+        />
 
         <PageHelp />
 

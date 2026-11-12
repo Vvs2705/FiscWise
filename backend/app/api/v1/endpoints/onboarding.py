@@ -108,7 +108,7 @@ async def register_tenant(
             subscription_status=SubscriptionStatus.TRIAL,
             plan_slug=chosen_slug,
             terms_accepted_at=now_utc if registration.terms_accepted else None,
-            terms_version="v1.0",
+            terms_version="v1.1",
         )
 
         db.add(new_tenant)

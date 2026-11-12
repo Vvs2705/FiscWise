@@ -26,7 +26,6 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { startTour } from '@/lib/tours';
-import readXlsxFile from 'read-excel-file';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -62,9 +61,11 @@ import { SyncRowMarker } from '@/components/SyncRowMarker';
 import { useSyncStatus } from '@/lib/offline/hooks';
 import { getApiErrorMessage } from '@/lib/api';
 import {
-  CLIENT_TEMPLATE_SHEET,
+  SPREADSHEET_ACCEPT,
   importClientRows,
+  isSpreadsheetFile,
   parseClientRows,
+  readSpreadsheetRows,
   type ImportRowResult,
 } from '@/features/clients/xlsxImport';
 
@@ -115,21 +116,6 @@ async function fetchCnpj(cnpj: string): Promise<BrasilApiCnpj> {
   if (!response.ok) throw new Error('CNPJ nao encontrado ou inativo');
   return response.json() as Promise<BrasilApiCnpj>;
 }
-
-// ---------------------------------------------------------------------------
-// XLSX column map
-// ---------------------------------------------------------------------------
-
-const XLSX_COLUMN_MAP: Record<string, keyof FormValues> = {
-  'Nome / Razao Social': 'name',
-  'CPF / CNPJ': 'document',
-  'E-mail': 'email',
-  'Telefone': 'phone',
-  'Inscricao Municipal': 'municipal_registration',
-  'Inscricao Estadual': 'state_registration',
-  'Observacoes': 'notes',
-  'Regime Tributario': 'tax_regime',
-};
 
 // ---------------------------------------------------------------------------
 // Sub-component: CNPJ auto-fill watcher
@@ -226,57 +212,31 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
   const [dragging, setDragging] = useState(false);
 
   async function processFile(file: File) {
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext !== 'xlsx') {
-      toast.error('Arquivo invalido. Use o modelo .xlsx disponibilizado.');
+    if (!isSpreadsheetFile(file.name)) {
+      toast.error('Arquivo inválido. Use o modelo .xlsx ou um arquivo .csv.');
       return;
     }
 
     try {
-      const rows = await readXlsxFile(file, { sheet: 'Dados do Cliente' });
-
-      if (rows.length < 2) {
+      const parsed = parseClientRows(await readSpreadsheetRows(file));
+      const first = parsed[0];
+      if (!first) {
         toast.error('Nenhum dado encontrado no arquivo. Preencha ao menos uma linha.');
         return;
       }
-
-      const headers = rows[0].map(String);
-      const dataRow = rows[1];
-
-      const record: Record<string, unknown> = {};
-      headers.forEach((header, i) => {
-        record[header] = dataRow[i] ?? '';
-      });
-
-      let mapped = false;
-
-      for (const [colName, fieldName] of Object.entries(XLSX_COLUMN_MAP)) {
-        const rawValue = record[colName];
-        if (rawValue !== undefined && rawValue !== '') {
-          const value = String(rawValue).trim();
-          if (fieldName === 'entity_type') continue;
-          setValue(fieldName, value);
-          mapped = true;
-        }
-      }
-
-      const tipoRaw = record['Tipo (PJ ou PF)'];
-      if (tipoRaw !== undefined && tipoRaw !== '') {
-        const tipo = String(tipoRaw).trim().toUpperCase();
-        setValue('entity_type', tipo === 'PF' ? 'pf' : 'pj');
-        mapped = true;
-      }
-
-      if (!mapped) {
-        toast.error(
-          'Nenhuma coluna reconhecida. Verifique se o arquivo segue o modelo disponibilizado.'
-        );
+      if (!first.payload) {
+        toast.error(first.error ?? 'Linha inválida no arquivo.');
         return;
+      }
+
+      for (const [field, value] of Object.entries(first.payload)) {
+        if (field === 'status' || !value) continue;
+        setValue(field as keyof FormValues, value as never, { shouldDirty: true });
       }
 
       toast.success('Formulário preenchido com a primeira linha do arquivo. Revise antes de salvar.');
     } catch {
-      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
+      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx ou um .csv separado por ponto e vírgula.');
     }
   }
 
@@ -297,7 +257,7 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Preencher pelo modelo XLSX"
+      aria-label="Preencher com planilha ou CSV"
       className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
         dragging
           ? 'border-primary bg-primary/5'
@@ -315,14 +275,15 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
       onDrop={handleDrop}
     >
       <Upload className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-      <p className="text-sm font-medium">Preencher pelo modelo XLSX</p>
+      <p className="text-sm font-medium">Preencher com planilha ou CSV</p>
       <p className="text-xs text-muted-foreground">
-        Usa a primeira linha preenchida. Para cadastrar vários clientes, use "Importar planilha".
+        Arraste o modelo .xlsx ou um .csv do seu sistema: os campos são preenchidos com a primeira linha.
+        Para cadastrar vários clientes, use "Importar planilha".
       </p>
       <input
         ref={inputRef}
         type="file"
-        accept=".xlsx,.xls"
+        accept={SPREADSHEET_ACCEPT}
         className="sr-only"
         onChange={handleChange}
         aria-hidden="true"
@@ -648,14 +609,13 @@ export function ClientsPage() {
   const [bulkResults, setBulkResults] = useState<ImportRowResult[] | null>(null);
 
   async function handleBulkImport(file: File) {
-    if (file.name.split('.').pop()?.toLowerCase() !== 'xlsx') {
-      toast.error('Arquivo inválido. Use o modelo .xlsx disponibilizado.');
+    if (!isSpreadsheetFile(file.name)) {
+      toast.error('Arquivo inválido. Use o modelo .xlsx ou um arquivo .csv.');
       return;
     }
     setBulkImporting(true);
     try {
-      const rows = await readXlsxFile(file, { sheet: CLIENT_TEMPLATE_SHEET });
-      const parsed = parseClientRows(rows as unknown[][]);
+      const parsed = parseClientRows(await readSpreadsheetRows(file));
       if (parsed.length === 0) {
         toast.error('Nenhum cliente encontrado na planilha. Preencha a partir da linha 2.');
         return;
@@ -670,7 +630,7 @@ export function ClientsPage() {
       if (ok === results.length) toast.success(`${ok} cliente${ok === 1 ? '' : 's'} importado${ok === 1 ? '' : 's'}.`);
       else toast.warning(`${ok} de ${results.length} linhas importadas. Veja o relatório.`);
     } catch {
-      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
+      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx ou um .csv separado por ponto e vírgula.');
     } finally {
       setBulkImporting(false);
     }
@@ -807,7 +767,7 @@ export function ClientsPage() {
             className="h-9"
             onClick={() => bulkInputRef.current?.click()}
             disabled={bulkImporting}
-            title="Cadastra todos os clientes da planilha (modelo XLSX)"
+            title="Cadastra todos os clientes de uma planilha: modelo XLSX ou CSV exportado do seu sistema"
           >
             {bulkImporting ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -819,10 +779,11 @@ export function ClientsPage() {
           <input
             ref={bulkInputRef}
             type="file"
-            accept=".xlsx"
+            accept={SPREADSHEET_ACCEPT}
             className="sr-only"
             aria-hidden="true"
             tabIndex={-1}
+            data-testid="importar-planilha-input"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void handleBulkImport(file);

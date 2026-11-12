@@ -16,7 +16,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_user_plan
+from app.core.plan_access import (
+    PLAN_INTERMEDIARIO,
+    check_chat_quota,
+    require_ai_configured,
+    require_plan,
+    resolve_user_plan,
+)
 from app.services.audit import log_audit_event
 from app.models.calculator import AssistantRole, FiscalAssistantMessage
 from app.models.operations import (
@@ -612,6 +618,8 @@ async def get_client_ai_summary(
     tenant_id = _tenant_id(current_user)
     plan = _plan(current_user)
     require_plan(plan, PLAN_INTERMEDIARIO, "Resumo por IA de cliente")
+    # Sem chave de IA: 503 antes de gravar a mensagem que consome a cota.
+    require_ai_configured()
 
     has_quota, _ = await check_chat_quota(tenant_id, plan, db)
     if not has_quota:

@@ -27,6 +27,7 @@ from app.core.plan_access import (
     PLAN_PREMIUM,
     check_chat_quota,
     has_plan,
+    require_ai_configured,
     require_plan,
     resolve_user_plan,
 )
@@ -435,6 +436,8 @@ async def chat(
 
     # Enforce plan access
     require_plan(plan, PLAN_INTERMEDIARIO, "Chat com assistente fiscal")
+    # Sem chave de IA: 503 antes de qualquer gravação, para não consumir cota.
+    require_ai_configured()
 
     # Check monthly quota
     has_quota, remaining = await check_chat_quota(tenant_id, plan, db)

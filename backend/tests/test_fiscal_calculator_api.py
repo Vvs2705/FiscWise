@@ -10,8 +10,11 @@ from app.core.plan_access import PLAN_FREE, PLAN_INTERMEDIARIO, PLAN_PREMIUM
 from app.schemas.calculator import RegimeSimulationCreate, IcmsSimulationCreate, PisCofinsSimulationCreate, AssistantMessageCreate, PdfExportRequest
 
 @pytest.fixture
-def mock_ai_services():
+def mock_ai_services(monkeypatch):
     """Mock the OpenAI integration services to avoid hitting the actual API."""
+    # AI "configurada": sem chave os endpoints de chat respondem 503 sem consumir cota.
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
     with patch("app.api.v1.endpoints.calculator.generate_regime_recommendation", new_callable=AsyncMock) as mock_regime, \
          patch("app.api.v1.endpoints.calculator.generate_icms_analysis", new_callable=AsyncMock) as mock_icms, \
          patch("app.api.v1.endpoints.calculator.generate_pis_cofins_analysis", new_callable=AsyncMock) as mock_pis_cofins, \

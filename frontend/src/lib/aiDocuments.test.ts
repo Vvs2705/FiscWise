@@ -115,3 +115,28 @@ describe('buildClientAiSummaryView', () => {
     expect(view.summary).toBe('Resumo de IA indisponivel para este cliente.');
   });
 });
+
+describe('buildDocumentAiView pendingMessage', () => {
+  const base = {
+    id: 'doc-x',
+    tenant_id: 't',
+    client_id: 'c',
+    name: 'x.pdf',
+    document_type: 'other',
+    status: 'available',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  } as ClientDocument;
+
+  it('envio sem arquivo acessível não fica "aguardando" para sempre', () => {
+    expect(buildDocumentAiView({ ...base, parse_status: 'unavailable' }).pendingMessage).toBe(
+      'Classificação automática indisponível para este envio.',
+    );
+    expect(buildDocumentAiView({ ...base, parse_status: 'unavailable' }).parseStatusLabel).toBe('Indisponível');
+  });
+
+  it('processando mostra espera e erro mostra o erro', () => {
+    expect(buildDocumentAiView({ ...base, parse_status: 'processing' }).pendingMessage).toBe('Aguardando processamento.');
+    expect(buildDocumentAiView({ ...base, parse_status: 'failed', parse_error: 'PDF ilegível' }).pendingMessage).toBe('PDF ilegível');
+  });
+});

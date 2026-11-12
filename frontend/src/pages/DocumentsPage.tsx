@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   Eye,
   BookOpen,
+  CheckCircle2,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { startTour } from '@/lib/tours';
@@ -53,6 +54,7 @@ import {
   useDocuments,
   useCreateDocument,
   useDeleteDocument,
+  useUpdateDocument,
   useUploadDocument,
   type DocumentCreate,
   type DocumentStatus,
@@ -411,7 +413,7 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {aiView.parseError ?? 'Aguardando processamento.'}
+          {aiView.pendingMessage}
         </p>
       )}
     </div>
@@ -446,6 +448,7 @@ export function DocumentsPage() {
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
+  const updateMutation = useUpdateDocument();
   const uploadMutation = useUploadDocument();
 
   // Search Debouncing
@@ -531,6 +534,20 @@ export function DocumentsPage() {
     reset();
     setFile(null);
     setOpen(false);
+  }
+
+  // Conferido = documento recebido e revisado: sai de "Em revisão" (ou de
+  // "Pendente" quando já tem arquivo anexado) para "Disponível".
+  const canMarkReviewed = (doc: ClientDocument) =>
+    doc.status === 'review' || (doc.status === 'missing' && !!doc.file_url);
+
+  async function handleMarkReviewed(doc: ClientDocument) {
+    try {
+      await updateMutation.mutateAsync({ id: doc.id, payload: { status: 'available' } });
+      toast.success(`"${doc.name}" marcado como conferido`);
+    } catch {
+      toast.error('Não foi possível marcar como conferido');
+    }
   }
 
   async function handleDelete(id: string, name: string) {
@@ -875,6 +892,20 @@ export function DocumentsPage() {
                                 </Button>
                               </a>
                             </>
+                          )}
+                          {canMarkReviewed(doc) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMarkReviewed(doc)}
+                              disabled={updateMutation.isPending}
+                              className="h-8 gap-1 text-success hover:text-success hover:bg-success/10"
+                              title="Marcar como conferido"
+                              aria-label={`Marcar ${doc.name} como conferido`}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="hidden xl:inline text-xs">Conferido</span>
+                            </Button>
                           )}
                           <Button
                             variant="ghost"

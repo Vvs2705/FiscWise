@@ -447,6 +447,10 @@ export function useUpdateDeadline() {
   return useUpdateMutation<DeadlineCreate, DeadlineItem>('/api/v1/deadlines');
 }
 
+export function useUpdateDocument() {
+  return useUpdateMutation<DocumentCreate, ClientDocument>('/api/v1/documents');
+}
+
 export function useDeleteDocument() {
   return useDeleteMutation('/api/v1/documents');
 }

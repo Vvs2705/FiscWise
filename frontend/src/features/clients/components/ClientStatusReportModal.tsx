@@ -66,7 +66,7 @@ export function ClientStatusReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 overflow-y-auto">
       {/* Dynamic CSS styles for clean printing of the modal container only */}
       <style>{`
         @media print {
@@ -104,7 +104,7 @@ export function ClientStatusReportModal({
         <div className="no-print flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-2">
             <Printer className="h-5 w-5 text-primary" />
-            <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Ficha de Status do Cliente</span>
+            <span className="text-xs font-bold text-muted-foreground">Ficha de Status do Cliente</span>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="default" size="sm" onClick={handlePrint} className="gap-1.5 bg-primary text-background hover:bg-primary/90">
@@ -170,7 +170,7 @@ export function ClientStatusReportModal({
 
           {/* HEALTH SCORE CARD */}
           <div className="bg-muted border border-border print:border print:bg-slate-50 rounded-card p-4 flex flex-col items-center justify-center text-center space-y-2">
-            <span className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider">Saúde da Carteira</span>
+            <span className="text-[10px] font-extrabold text-muted-foreground">Saúde da Carteira</span>
             <div className={`text-4xl font-extrabold ${getScoreColor(healthScore)}`}>
               {healthScore}
             </div>

@@ -445,7 +445,7 @@ export function DocumentsPage() {
   const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<ClientDocument | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
-  const { data: documents, isLoading, isError } = useDocuments();
+  const { data: documents, isLoading, isError, refetch } = useDocuments();
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
@@ -629,13 +629,13 @@ export function DocumentsPage() {
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os documentos." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os documentos." onRetry={() => refetch()} />}
 
       {/* Contadores */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Disponiveis
             </CardTitle>
           </CardHeader>
@@ -645,7 +645,7 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Pendentes
             </CardTitle>
           </CardHeader>
@@ -655,7 +655,7 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Em revisao
             </CardTitle>
           </CardHeader>
@@ -752,7 +752,7 @@ export function DocumentsPage() {
             </div>
 
             {/* List vs Card Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}

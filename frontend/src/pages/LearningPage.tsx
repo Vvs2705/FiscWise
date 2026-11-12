@@ -121,22 +121,19 @@ export function LearningPage() {
   return (
     <div className="space-y-6">
       {/* Header section with premium design */}
-      <div className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card/45 p-6 md:p-8 backdrop-blur-sm shadow-token-sm">
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card p-6 md:p-8 shadow-token-sm">
         <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-widest dark:text-primary">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-4 w-4" />
             <span>Academia Contábil</span>
           </div>
-          <h1 className="bg-gradient-to-r from-primary via-primary to-primary/60 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-primary dark:via-primary dark:to-primary/60">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Central de Aprendizado FiscWise
           </h1>
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
             Domine as ferramentas do FiscWise, acompanhe o progresso de configuração do seu ambiente e aprenda a otimizar sua rotina contábil.
           </p>
         </div>
-        {/* Background glow decoration */}
-        <div className="absolute right-0 top-0 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute left-1/3 bottom-0 -z-0 h-48 w-48 rounded-full bg-info/10 blur-3xl" />
       </div>
 
       {/* Tabs selector */}
@@ -177,7 +174,7 @@ export function LearningPage() {
       {activeTab === 'checklist' && (
         <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
           {/* Progress Widget */}
-          <Card className="bg-card/45 backdrop-blur-sm border-border/50 h-fit">
+          <Card className="h-fit">
             <CardHeader>
               <CardTitle className="text-lg font-bold">Seu Progresso</CardTitle>
               <CardDescription>
@@ -198,7 +195,7 @@ export function LearningPage() {
               {/* Progress bar */}
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-primary to-success rounded-full transition-all duration-500"
+                  className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -215,7 +212,7 @@ export function LearningPage() {
             {checklistItems.map((item) => (
               <Card
                 key={item.id}
-                className={`transition-all border-border/50 bg-card/40 ${
+                className={`transition-all border-border ${
                   item.completed
                     ? 'border-success/25 bg-success/5'
                     : 'hover:border-primary/30'
@@ -263,7 +260,7 @@ export function LearningPage() {
             </h3>
 
             <div className="grid gap-4">
-              <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <Building className="h-4 w-4" />
@@ -275,7 +272,7 @@ export function LearningPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <FolderOpen className="h-4 w-4" />
@@ -287,7 +284,7 @@ export function LearningPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all">
+              <Card className="hover:border-primary/35 transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary mb-2">
                     <CreditCard className="h-4 w-4" />
@@ -314,7 +311,7 @@ export function LearningPage() {
                 return (
                   <Card
                     key={index}
-                    className="bg-card/45 backdrop-blur-sm border-border/50 overflow-hidden"
+                    className="overflow-hidden"
                   >
                     <button
                       onClick={() => setExpandedFAQ(isExpanded ? null : index)}
@@ -354,9 +351,9 @@ export function LearningPage() {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 1</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 1</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour do Painel Cockpit</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda o Foco de Hoje, o indicador de Saúde da Carteira e a lista de prioridades diárias.
@@ -372,9 +369,9 @@ export function LearningPage() {
               </Button>
             </Card>
 
-            <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 2</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 2</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Carteira de Clientes</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Aprenda a buscar, filtrar regimes tributários e abrir a cockpit de detalhe de um cliente.
@@ -390,9 +387,9 @@ export function LearningPage() {
               </Button>
             </Card>
 
-            <Card className="bg-card/45 backdrop-blur-sm border-border/50 hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
+            <Card className="hover:border-primary/35 transition-all p-5 flex flex-col justify-between h-48">
               <div>
-                <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Passo a passo 3</span>
+                <span className="text-[10px] font-bold text-primary">Passo a passo 3</span>
                 <h4 className="mt-1 text-lg font-bold leading-snug text-foreground">Tour de Esteira Documental</h4>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   Entenda onde enviar arquivos, onde ver a classificação da IA e o preview lateral.

@@ -668,7 +668,7 @@ export function FatorRCalculator() {
             transition={{ duration: 0.4 }}
             className="space-y-5"
           >
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <h3 className="text-sm font-medium text-muted-foreground">
               Resultado do Fator R
             </h3>
 
@@ -676,7 +676,7 @@ export function FatorRCalculator() {
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
               {/* RBT12 */}
               <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   RBT12
                 </p>
                 <p className="text-lg font-bold text-foreground">
@@ -686,7 +686,7 @@ export function FatorRCalculator() {
 
               {/* Folha 12M */}
               <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Folha 12M
                 </p>
                 <p className="text-lg font-bold text-foreground">
@@ -696,7 +696,7 @@ export function FatorRCalculator() {
 
               {/* Fator R */}
               <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Fator R
                 </p>
                 <p
@@ -718,7 +718,7 @@ export function FatorRCalculator() {
                     : 'border-destructive/40 bg-destructive/5'
                 }`}
               >
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Anexo Determinado
                 </p>
                 <p

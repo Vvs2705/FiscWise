@@ -304,17 +304,14 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
   const afterScore = Math.min(100, beforeScore + resolvedCount * 4 + snoozedCount * 2);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
       <div className="relative w-full max-w-2xl overflow-hidden rounded-panel border border-border bg-card shadow-token">
-
-        {/* Header decoration */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
 
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-            <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">Modo Foco</h2>
+            <h2 className="text-lg font-bold text-foreground">Modo Foco</h2>
           </div>
           <button
             onClick={onClose}
@@ -328,7 +325,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
         {totalTasks > 0 && !isCompleted && (
           <div className="h-1 w-full bg-muted">
             <div
-              className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300"
               style={{ width: `${(queue.position / totalTasks) * 100}%` }}
             />
           </div>
@@ -350,7 +347,6 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
             /* SUCCESS COMPLETION SCREEN */
             <div className="text-center py-6 space-y-6">
               <div className="relative inline-block">
-                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                 <div className="relative border border-primary/30 bg-primary/10 p-5 rounded-full text-primary">
                   <CheckCircle className="h-12 w-12" />
                 </div>
@@ -379,7 +375,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               </div>
 
               {/* Score impact display */}
-              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-card p-4 max-w-md mx-auto">
+              <div className="flex items-center justify-center gap-4 bg-accent border border-primary/20 rounded-card p-4 max-w-md mx-auto">
                 <div className="text-right">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Score Anterior</p>
                   <p className="text-xl font-bold text-foreground">{beforeScore}</p>
@@ -406,7 +402,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               {/* Stepper info */}
               <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
                 <span>TAREFA {queue.position} DE {totalTasks}</span>
-                <span className="px-2 py-0.5 rounded bg-muted border border-border uppercase tracking-wider text-primary">
+                <span className="px-2 py-0.5 rounded bg-muted border border-border text-primary">
                   {taskTypeConfig[currentTask.type].label}
                 </span>
               </div>

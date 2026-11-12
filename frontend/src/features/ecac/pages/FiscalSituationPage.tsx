@@ -27,7 +27,7 @@ export function FiscalSituationPage() {
       <Card className="border-border/60 bg-card">
         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="min-w-[250px] flex-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+            <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">
               Selecione o Cliente para Consulta
             </label>
             <Select

@@ -100,7 +100,7 @@ export function InvoicesListPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="border-border/60 bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Total Faturado (NFS-e)
             </CardTitle>
             <DollarSign className="h-4 w-4 text-success" />
@@ -117,7 +117,7 @@ export function InvoicesListPage() {
 
         <Card className="border-border/60 bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Notas Emitidas
             </CardTitle>
             <FileCheck className="h-4 w-4 text-info" />
@@ -132,7 +132,7 @@ export function InvoicesListPage() {
 
         <Card className="border-border/60 bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Rascunhos pendentes
             </CardTitle>
             <AlertCircle className="h-4 w-4 text-warning" />
@@ -151,7 +151,7 @@ export function InvoicesListPage() {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-[220px] flex-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+              <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">
                 Filtrar por Cliente
               </label>
               <Select
@@ -169,7 +169,7 @@ export function InvoicesListPage() {
             </div>
 
             <div className="min-w-[150px]">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">
+              <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">
                 Filtrar por Status
               </label>
               <Select
@@ -218,7 +218,7 @@ export function InvoicesListPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold text-muted-foreground">
                     <th className="px-5 py-3">Número / Série</th>
                     <th className="px-5 py-3">Cliente / Tomador</th>
                     <th className="px-5 py-3 text-right">Valor do Serviço</th>

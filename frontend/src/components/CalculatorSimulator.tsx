@@ -80,7 +80,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} data-plan={userPlan} className="space-y-5 rounded-xl border border-border bg-card p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-sm font-medium text-muted-foreground">
           Dados da simulação
         </h3>
 
@@ -212,7 +212,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
             transition={{ duration: 0.4 }}
             className="space-y-4"
           >
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <h3 className="text-sm font-medium text-muted-foreground">
               Resultado da simulação
             </h3>
 
@@ -233,12 +233,12 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
                     }`}
                   >
                     {isRecommended && (
-                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white">
                         <Star className="h-2.5 w-2.5" />
                         Recomendado
                       </div>
                     )}
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">
                       {scenario.regime}
                     </p>
                     <p className={`text-xl font-bold ${isRecommended ? 'text-success' : 'text-foreground'}`}>

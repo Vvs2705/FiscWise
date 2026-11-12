@@ -93,7 +93,7 @@ export function CertificatesPage() {
   const [selectedType, setSelectedType] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const { data: certificates, isLoading, isError } = useCertificates();
+  const { data: certificates, isLoading, isError, refetch } = useCertificates();
   const { data: clients } = useClients();
   const createMutation = useCreateCertificate();
   const deleteMutation = useDeleteCertificate();
@@ -182,7 +182,7 @@ export function CertificatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Certificados Digitais
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -200,20 +200,20 @@ export function CertificatesPage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
+          <Button onClick={() => setOpen(true)} size="sm" className="shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo certificado
           </Button>
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os certificados." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os certificados." onRetry={() => refetch()} />}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Total Gerenciado
             </CardTitle>
           </CardHeader>
@@ -221,9 +221,9 @@ export function CertificatesPage() {
             <div className="text-3xl font-extrabold text-foreground">{isLoading ? '...' : total}</div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-warning uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-warning">
               Vencendo em 30 dias
             </CardTitle>
           </CardHeader>
@@ -233,9 +233,9 @@ export function CertificatesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50 sm:col-span-2 lg:col-span-1">
+        <Card className="sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Tipo A1
             </CardTitle>
           </CardHeader>
@@ -246,7 +246,7 @@ export function CertificatesPage() {
       </div>
 
       {/* Search and Filters toolbar */}
-      <Card className="p-4 bg-card/40 backdrop-blur-md border-border/50">
+      <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
           <div className="flex flex-1 flex-col sm:flex-row gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -332,7 +332,7 @@ export function CertificatesPage() {
           <LoadingCards count={6} />
         </div>
       ) : filteredCertificates.length === 0 ? (
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardContent className="pt-6">
             <EmptyState
               title="Nenhum certificado encontrado"
@@ -518,7 +518,7 @@ export function CertificatesPage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar certificado'}
             </Button>
           </div>

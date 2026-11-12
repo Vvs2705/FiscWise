@@ -119,10 +119,6 @@ function BrandPanel() {
         'bg-sidebar',
       )}
     >
-      {/* Decorative blobs */}
-      <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-16 -right-16 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
-
       <div className="relative flex flex-1 flex-col justify-between p-10">
         <Logo variant="full" theme="dark" size={36} />
 

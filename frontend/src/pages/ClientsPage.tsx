@@ -431,7 +431,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
             title="Gerenciar Empresa"
           >
             <Briefcase className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Gerenciar</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Gerenciar</span>
           </Button>
           <Button
             variant="ghost"
@@ -441,7 +441,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
             title="Notas seguras"
           >
             <Lock className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Notas</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Notas</span>
           </Button>
           {client.status !== 'inactive' && (
             <Button
@@ -452,7 +452,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
               title="Desativar cliente"
             >
               <Archive className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Desativar</span>
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Desativar</span>
             </Button>
           )}
           {client.status === 'inactive' && (
@@ -464,7 +464,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, on
               title="Reativar cliente"
             >
               <RotateCcw className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Reativar</span>
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Reativar</span>
             </Button>
           )}
         </div>
@@ -602,7 +602,7 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const { data: clients, isLoading, isError } = useClients();
+  const { data: clients, isLoading, isError, refetch } = useClients();
   const { data: deadlines = [] } = useDeadlines();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -837,14 +837,14 @@ export function ClientsPage() {
       </div>
 
       {isError && (
-        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." />
+        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." onRetry={() => refetch()} />
       )}
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Total de clientes
             </CardTitle>
           </CardHeader>
@@ -854,7 +854,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Carteira operacional
             </CardTitle>
           </CardHeader>
@@ -864,7 +864,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Em onboarding
             </CardTitle>
           </CardHeader>
@@ -874,7 +874,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Desativados
             </CardTitle>
           </CardHeader>
@@ -885,7 +885,7 @@ export function ClientsPage() {
       </div>
 
       {!isLoading && !isError && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card/45 p-2 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-2">
           <div
             className="flex gap-1"
             role="tablist"
@@ -1020,7 +1020,7 @@ export function ClientsPage() {
             </div>
 
             {/* List vs Card Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}

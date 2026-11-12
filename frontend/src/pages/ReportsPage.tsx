@@ -148,7 +148,7 @@ export function ReportsPage() {
   const { hasRole } = usePermission();
   const isAdmin = hasRole('admin');
 
-  const { data: op, isLoading, isError } = useReportsOperational(competence);
+  const { data: op, isLoading, isError, refetch } = useReportsOperational(competence);
   const { data: summary } = useReportsSummary(competence, isAdmin);
 
   const options = useMemo(competenceOptions, []);
@@ -198,7 +198,7 @@ export function ReportsPage() {
         {/* Financial summary — owner/admin only */}
         <PermissionGate requiredRole="admin" silent>
           <div>
-            <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Resumo financeiro</h2>
+            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Resumo financeiro</h2>
             {summaryMetrics.length === 0 ? (
               <EmptyState
                 icon={<Coins className="h-5 w-5" />}
@@ -217,11 +217,11 @@ export function ReportsPage() {
 
         {/* Report cards grid */}
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Relatórios operacionais</h2>
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Relatórios operacionais</h2>
           {isLoading ? (
             <LoadingCards count={6} />
           ) : isError ? (
-            <ErrorState message="Não foi possível carregar os relatórios. Tente novamente." />
+            <ErrorState message="Não foi possível carregar os relatórios. Tente novamente." onRetry={() => refetch()} />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {reports.map(report => (

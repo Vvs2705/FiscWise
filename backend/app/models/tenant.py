@@ -142,11 +142,13 @@ class Tenant(Base):
     )
     
     # Relationships
+    # lazy="select": a lista de usuários não é usada no caminho da requisição;
+    # com selectin ela vinha junto em todo carregamento de tenant (A1).
     users: Mapped[list["User"]] = relationship(
         "User",
         back_populates="tenant",
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="select"
     )
 
     # Assinatura de billing (tenant_subscriptions) — carregada junto com o

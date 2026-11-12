@@ -254,10 +254,6 @@ export function DashboardPage() {
   return (
     <div
       className="min-h-full rounded-panel border border-border bg-background text-foreground"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.12), transparent 28%), radial-gradient(circle at 80% 30%, hsl(var(--info) / 0.08), transparent 30%)',
-      }}
     >
       <motion.div
         variants={staggerContainer}

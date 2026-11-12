@@ -95,7 +95,7 @@ export function InvoiceEmitPage() {
           {/* Review Card */}
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">
                 Resumo da NFS-e
               </CardTitle>
             </CardHeader>
@@ -146,7 +146,7 @@ export function InvoiceEmitPage() {
         <div className="space-y-6">
           <Card className="border-border/60 bg-card">
             <CardHeader>
-              <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">
                 Lista de Validações
               </CardTitle>
             </CardHeader>

@@ -74,7 +74,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
         </div>
       )}
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+        <CardTitle className="text-sm font-semibold text-muted-foreground">
           Situação Fiscal Federal (e-CAC)
         </CardTitle>
         <Button
@@ -136,7 +136,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
           <div className="space-y-3 border-t border-border/40 pt-3">
             {pendencias && (
               <div>
-                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block">
                   Declarações Pendentes / Atrasadas
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">
@@ -151,7 +151,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
 
             {debitos && (
               <div className="border-t border-border/30 pt-2">
-                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block">
                   Débitos Fiscais Ativos
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">

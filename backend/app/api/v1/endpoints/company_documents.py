@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.core.document_links import sign_file_urls
+from app.core.pagination import Page, page_params, paginate
 from app.models.user import User
 from app.models.operations import CompanyDocument, AccountingClient
 from app.schemas.company_documents import (
@@ -58,6 +59,7 @@ async def upload_company_document(
 @router.get("", response_model=list[CompanyDocumentListResponse])
 async def list_company_documents(
     client_id: UUID,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CompanyDocumentListResponse]:
@@ -72,13 +74,16 @@ async def list_company_documents(
     if not client.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    result = await db.execute(
-        select(CompanyDocument).where(
+    docs = await paginate(
+        db,
+        select(CompanyDocument)
+        .where(
             CompanyDocument.client_id == client_id,
             CompanyDocument.tenant_id == current_user.tenant_id,
         )
+        .order_by(CompanyDocument.created_at.asc(), CompanyDocument.id.asc()),
+        page,
     )
-    docs = result.scalars().all()
     return await _signed([CompanyDocumentListResponse.model_validate(d) for d in docs], current_user.tenant_id)
 
 
@@ -86,6 +91,7 @@ async def list_company_documents(
 async def get_expiring_documents(
     client_id: UUID,
     days_threshold: int = 30,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CompanyDocumentListResponse]:
@@ -103,8 +109,10 @@ async def get_expiring_documents(
     from datetime import timedelta
     expiration_threshold = datetime.utcnow().date() + timedelta(days=days_threshold)
 
-    result = await db.execute(
-        select(CompanyDocument).where(
+    docs = await paginate(
+        db,
+        select(CompanyDocument)
+        .where(
             and_(
                 CompanyDocument.client_id == client_id,
                 CompanyDocument.tenant_id == current_user.tenant_id,
@@ -113,8 +121,9 @@ async def get_expiring_documents(
                 CompanyDocument.status == "valid",
             )
         )
+        .order_by(CompanyDocument.expiration_date.asc(), CompanyDocument.id.asc()),
+        page,
     )
-    docs = result.scalars().all()
     return await _signed([CompanyDocumentListResponse.model_validate(d) for d in docs], current_user.tenant_id)
 
 

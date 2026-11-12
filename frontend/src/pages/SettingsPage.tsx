@@ -687,7 +687,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="flex items-center justify-between gap-4 pt-6">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Plano atual</p>
+            <p className="text-xs font-medium text-muted-foreground">Plano atual</p>
             <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
             {activeDbPlan && (
               <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
@@ -735,7 +735,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             )}
           </div>
           <div className="rounded-xl border bg-muted/30 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fluxo do upgrade</p>
+            <p className="text-xs font-medium text-muted-foreground">Fluxo do upgrade</p>
             <div className="mt-3 space-y-3 text-sm text-muted-foreground">
               <p>1. Escolha o plano com base em capacidade e recursos.</p>
               <p>2. Revise o impacto comercial antes de confirmar.</p>
@@ -1803,7 +1803,7 @@ function BaseConhecimentoTab({
 
   if (isFree) {
     return (
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background p-8 text-center">
+      <Card className="border-primary/20 p-8 text-center">
         <CardContent className="flex flex-col items-center justify-center space-y-4 py-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Lock className="h-8 w-8" />
@@ -2184,7 +2184,7 @@ function DesenvolvedorTab() {
   return (
     <div className="space-y-8">
       {/* Header Banner */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+      <Card className="border-primary/20 bg-accent">
         <CardContent className="flex items-center gap-4 pt-6">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Code2 className="h-6 w-6 text-primary" />

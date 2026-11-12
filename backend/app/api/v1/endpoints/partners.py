@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.models.user import User
 from app.models.operations import CompanyPartner, AccountingClient
 from app.schemas.partners import PartnerCreate, PartnerUpdate, PartnerResponse
@@ -45,6 +46,7 @@ async def create_partner(
 @router.get("", response_model=list[PartnerResponse])
 async def list_partners(
     client_id: UUID,
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[PartnerResponse]:
@@ -59,13 +61,16 @@ async def list_partners(
     if not client.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
-    result = await db.execute(
-        select(CompanyPartner).where(
+    partners = await paginate(
+        db,
+        select(CompanyPartner)
+        .where(
             CompanyPartner.client_id == client_id,
             CompanyPartner.tenant_id == current_user.tenant_id,
         )
+        .order_by(CompanyPartner.created_at.asc(), CompanyPartner.id.asc()),
+        page,
     )
-    partners = result.scalars().all()
     return [PartnerResponse.model_validate(p) for p in partners]
 
 

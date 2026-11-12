@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from typing import Optional, List, Any, Dict
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class EcacProxyCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -60,3 +60,11 @@ class EcacFiscalSituationResponse(BaseModel):
     certidao_status: Optional[str]
     certidao_validade: Optional[date]
     consultado_em: datetime
+    raw_response: Optional[Dict[str, Any]] = Field(default=None, exclude=True)
+    # True quando a consulta foi feita pelo provider simulado (raw_response.provider == "mock").
+    simulated: bool = False
+
+    @model_validator(mode="after")
+    def _derive_simulated(self) -> "EcacFiscalSituationResponse":
+        self.simulated = (self.raw_response or {}).get("provider") == "mock"
+        return self

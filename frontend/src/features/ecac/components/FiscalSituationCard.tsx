@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { useFiscalSituation, useRefreshFiscalSituation } from '../hooks/useEcac';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 
 interface FiscalSituationCardProps {
   clientId: string;
@@ -18,8 +20,8 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
       await refresh.mutateAsync(clientId);
       toast.success('Consulta fiscal solicitada no e-CAC!');
       refetch();
-    } catch {
-      toast.error('Erro ao consultar e-CAC.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao consultar e-CAC.'));
     }
   };
 
@@ -64,6 +66,13 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
 
   return (
     <Card className="border-border/60 bg-card">
+      {situation.simulated && (
+        <div className="px-6 pt-4">
+          <SimulationNotice>
+            Esta situação fiscal foi gerada por um provedor simulado e não reflete a Receita Federal.
+          </SimulationNotice>
+        </div>
+      )}
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
           Situação Fiscal Federal (e-CAC)

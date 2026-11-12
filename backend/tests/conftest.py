@@ -278,6 +278,15 @@ async def client_with_auth_b(test_db: AsyncSession, user_b: User, client_b: Acco
 
 
 @pytest.fixture(autouse=True)
+def _no_job_queue_kick(monkeypatch):
+    """O kick pós-enqueue abriria outra sessão no mesmo SQLite em memória
+    concorrendo com o teste; os testes chamam run_pending explicitamente."""
+    from app.services import job_queue
+
+    monkeypatch.setattr(job_queue, "KICK_ENABLED", False)
+
+
+@pytest.fixture(autouse=True)
 def _reset_catalog_cache():
     """Cache de planos/regras é global: cada teste começa com ele vazio."""
     from app.core.ttl_cache import invalidate_all

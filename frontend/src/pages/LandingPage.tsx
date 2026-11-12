@@ -20,7 +20,7 @@ import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { LoginFooter, LoginLogo } from '@/features/auth/components/LoginShell';
 import { cn } from '@/lib/utils';
 import { useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
-import { formatPlanPrice, planFeatureList } from '@/features/subscription/planFeatures';
+import { formatPlanPrice, planDescription, planFeatureList, sortPlans } from '@/features/subscription/planFeatures';
 import { useAuthStore } from '@/stores/authStore';
 
 /*
@@ -349,12 +349,6 @@ function SectionHeading({ id, title, description }: { id: string; title: string;
   );
 }
 
-/** Ordem na vitrine: Gratuito, pagos do mais barato ao mais caro, "sob consulta" por último. */
-function sortPlans(plans: Plan[]): Plan[] {
-  const key = (p: Plan) => (p.price_monthly === null ? Number.POSITIVE_INFINITY : Number(p.price_monthly));
-  return [...plans].sort((a, b) => key(a) - key(b));
-}
-
 function PlanCard({ plan, isAuthenticated }: { plan: Plan; isAuthenticated: boolean }) {
   const price = plan.price_monthly === null ? null : Number(plan.price_monthly);
   const isFree = price === 0;
@@ -380,7 +374,7 @@ function PlanCard({ plan, isAuthenticated }: { plan: Plan; isAuthenticated: bool
           ({pixRow.desconto_pix_pct}% de desconto)
         </p>
       )}
-      {plan.description && <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>}
+      {planDescription(plan) && <p className="mt-3 text-sm text-muted-foreground">{planDescription(plan)}</p>}
       <ul className="mt-5 flex-1 space-y-2">
         {planFeatureList(plan).map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm text-foreground">

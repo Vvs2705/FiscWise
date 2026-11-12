@@ -35,6 +35,7 @@ import {
   type ClientReminderKind,
 } from '@/lib/hooks/useNotifications';
 import { focusQueueState } from './focusQueue';
+import { addLocalDays, parseLocalDate, toLocalISODate } from '@/lib/dates';
 
 interface ModoFocoModalProps {
   isOpen: boolean;
@@ -212,9 +213,8 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
 
     try {
       // Postpone by 7 days
-      const currentDueDate = new Date(task.dueDate);
-      currentDueDate.setDate(currentDueDate.getDate() + 7);
-      const newDueDateStr = currentDueDate.toISOString().split('T')[0];
+      const currentDueDate = parseLocalDate(currentTask.dueDate) ?? new Date();
+      const newDueDateStr = toLocalISODate(addLocalDays(currentDueDate, 7));
 
       if (task.type === 'deadline') {
         await updateDeadlineMutation.mutateAsync({

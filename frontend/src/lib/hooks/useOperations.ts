@@ -435,6 +435,30 @@ export function useUpdateReceivable() {
   return useUpdateMutation<ReceivableCreate, AccountReceivable>('/api/v1/receivables');
 }
 
+export interface GenerateMonthlyResult {
+  status: string;
+  year_month: string;
+  created: number;
+  skipped_duplicates: number;
+  message: string;
+}
+
+/** Gera as mensalidades (honorários) da competência; idempotente no backend. */
+export function useGenerateMonthlyReceivables() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (yearMonth: string) => {
+      const { data } = await api.post<GenerateMonthlyResult>('/api/v1/receivables/generate-monthly', null, {
+        params: { year_month: yearMonth },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}
+
 export function useDeleteClient() {
   return useDeleteMutation('/api/v1/clients');
 }
@@ -445,6 +469,10 @@ export function useDeleteDeadline() {
 
 export function useUpdateDeadline() {
   return useUpdateMutation<DeadlineCreate, DeadlineItem>('/api/v1/deadlines');
+}
+
+export function useUpdateDocument() {
+  return useUpdateMutation<DocumentCreate, ClientDocument>('/api/v1/documents');
 }
 
 export function useDeleteDocument() {

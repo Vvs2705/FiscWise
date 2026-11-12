@@ -7,11 +7,13 @@ Segue o mesmo padrão dos agregadores em ``operations.py``
 ``func.sum`` + ``GROUP BY``, sem tabelas novas nem camada de serviço.
 """
 
+import io
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -355,4 +357,115 @@ async def reports_operational(
         closings_by_status=closings_by_status,
         invoices_by_status=invoices_by_status,
         proxies_expiring=proxies_expiring,
+    )
+
+
+# ── Exportação XLSX ────────────────────────────────────────────────────────
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+_OPERATIONAL_SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
+    ("clients_by_status", "Clientes", [
+        ("active", "Ativos"), ("onboarding", "Em implantação"),
+        ("inactive", "Inativos"), ("total", "Total"),
+    ]),
+    ("obligations_by_status", "Obrigações", [
+        ("delivered", "Entregues"), ("pending", "Pendentes"),
+        ("in_progress", "Em andamento"), ("overdue", "Atrasadas"), ("total", "Total"),
+    ]),
+    ("guias_by_status", "Guias", [
+        ("paid", "Pagas"), ("awaiting", "Aguardando pagamento"),
+        ("overdue", "Vencidas"), ("total", "Total"),
+    ]),
+    ("closings_by_status", "Fechamentos", [
+        ("completed", "Concluídos"), ("in_progress", "Em andamento"),
+        ("blocked", "Bloqueados"), ("not_started", "Não iniciados"), ("total", "Total"),
+    ]),
+    ("invoices_by_status", "Notas fiscais", [
+        ("issued", "Emitidas"), ("rejected", "Rejeitadas"),
+        ("cancelled", "Canceladas/substituídas"), ("total", "Total"),
+    ]),
+    ("proxies_expiring", "Procurações a vencer", [
+        ("d30", "Em até 30 dias"), ("d60", "De 31 a 60 dias"),
+        ("d90", "De 61 a 90 dias"), ("total", "Total"),
+    ]),
+]
+
+
+def _build_reports_workbook(
+    operational: OperationalReport, summary: ReportsSummary | None
+) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    bold = Font(bold=True)
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = "Operacional"
+    ws.append(["Relatório operacional", f"Competência {operational.competence}"])
+    ws["A1"].font = bold
+    ws.append([])
+    ws.append(["Grupo", "Indicador", "Quantidade"])
+    for cell in ws[3]:
+        cell.font = bold
+    for attr, group_label, fields in _OPERATIONAL_SECTIONS:
+        group = getattr(operational, attr)
+        for field, label in fields:
+            ws.append([group_label, label, int(getattr(group, field))])
+    ws.column_dimensions["A"].width = 24
+    ws.column_dimensions["B"].width = 28
+    ws.column_dimensions["C"].width = 14
+
+    if summary is not None:
+        fs = wb.create_sheet("Financeiro")
+        fs.append(["Resumo financeiro", f"Competência {summary.competence}"])
+        fs["A1"].font = bold
+        fs.append([])
+        fs.append(["Indicador", "Valor"])
+        for cell in fs[3]:
+            cell.font = bold
+        money_rows = [
+            ("Receita faturada (R$)", summary.revenue_billed),
+            ("Receita recebida (R$)", summary.revenue_received),
+            ("Inadimplência em aberto (R$)", summary.overdue_amount),
+        ]
+        for label, value in money_rows:
+            fs.append([label, float(value)])
+            fs.cell(row=fs.max_row, column=2).number_format = "#,##0.00"
+        fs.append(["Clientes inadimplentes", summary.overdue_clients])
+        fs.append(["Clientes ativos", summary.active_clients])
+        fs.append(["Clientes novos no mês", summary.new_clients_month])
+        fs.column_dimensions["A"].width = 32
+        fs.column_dimensions["B"].width = 18
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+@router.get("/operational.xlsx")
+async def reports_operational_xlsx(
+    competence: str | None = Query(default=None, description="YYYY-MM (padrão: mês atual)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Planilha com as mesmas agregações de /reports/operational e /reports/summary.
+
+    A aba "Financeiro" só entra para owner/admin (mesma regra do /summary).
+    """
+    operational = await reports_operational(
+        competence=competence, current_user=current_user, db=db
+    )
+    summary: ReportsSummary | None = None
+    if current_user.role.value in ("owner", "admin"):
+        summary = await reports_summary(
+            competence=competence, current_user=current_user, db=db
+        )
+
+    content = _build_reports_workbook(operational, summary)
+    filename = f"relatorio-fiscwise-{operational.competence}.xlsx"
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

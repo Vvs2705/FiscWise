@@ -1084,17 +1084,91 @@ async def get_document(
     return await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
 
 
+def _tenant_storage_path(file_url: str | None, tenant_id: uuid.UUID) -> str | None:
+    """Path no bucket ``documents`` quando ``file_url`` é um objeto do próprio
+    tenant no nosso storage (gerado por /documents/upload). Qualquer outra URL
+    devolve None: o backend nunca busca URL arbitrária (evita SSRF)."""
+    from app.core.config import settings
+
+    if not file_url or not settings.SUPABASE_URL:
+        return None
+    prefix = f"{settings.SUPABASE_URL.rstrip('/')}/storage/v1/object/public/documents/"
+    if not file_url.startswith(prefix):
+        return None
+    path = file_url[len(prefix):].split("?", 1)[0]
+    if not path.startswith(f"{tenant_id}/") or ".." in path:
+        return None
+    if Path(path).suffix.lower() not in _DOC_UPLOAD_EXTS:
+        return None
+    return path
+
+
+async def _download_and_parse_background(
+    document_id: uuid.UUID,
+    storage_path: str,
+    file_name: str,
+    tenant_id: uuid.UUID,
+) -> None:
+    """Baixa o arquivo do storage e reaproveita o mesmo parser do upload por cliente."""
+    import tempfile
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
+    from app.core.storage import download_bytes
+
+    try:
+        content = await download_bytes("documents", storage_path)
+        error = None if content else "Arquivo indisponível no storage para classificação automática."
+    except Exception as exc:  # noqa: BLE001 — registra no documento em vez de sumir
+        content, error = None, f"Falha ao baixar o arquivo para classificação: {exc}"
+
+    if not content:
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            await _set_current_tenant_context(db, tenant_id)
+            document = (
+                await db.execute(
+                    select(ClientDocument).where(
+                        (ClientDocument.id == document_id)
+                        & (ClientDocument.tenant_id == tenant_id)
+                    )
+                )
+            ).scalar_one_or_none()
+            if document:
+                document.parse_status = "failed"
+                document.parse_error = error
+                await db.commit()
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=Path(storage_path).suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    await _parse_document_background(document_id, tmp_path, file_name, tenant_id)
+
+
 @router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_document(
     payload: DocumentCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, payload.client_id)
     document = ClientDocument(tenant_id=tenant_id, **payload.model_dump())
+    # Classificação automática só quando o arquivo está no nosso storage;
+    # sem arquivo acessível o documento fica "unavailable" (UI explica) em vez
+    # de "Aguardando processamento" para sempre.
+    storage_path = _tenant_storage_path(payload.file_url, tenant_id)
+    document.parse_status = "processing" if storage_path else "unavailable"
     db.add(document)
     doc = await _commit_refresh(db, document)
+    if storage_path:
+        background_tasks.add_task(
+            _download_and_parse_background,
+            doc.id,
+            storage_path,
+            doc.name,
+            tenant_id,
+        )
     # Fire-and-forget webhook dispatch for document.uploaded
     await _webhook_svc.dispatch_event(
         db=db,
@@ -1542,11 +1616,14 @@ async def generate_monthly_billing(
 
     for client in clients:
         # Checar se já existe fatura para este mês
+        # limit(1): com duas faturas do mês (ex.: ajuste manual) o
+        # scalar_one_or_none() estourava MultipleResultsFound (500).
         existing = await db.execute(
-            select(AccountReceivable).where(
-                (AccountReceivable.client_id == client.id)
+            select(AccountReceivable.id).where(
+                (AccountReceivable.tenant_id == tenant_id)
+                & (AccountReceivable.client_id == client.id)
                 & (AccountReceivable.description.like(f"Honorários - {year_month}%"))
-            )
+            ).limit(1)
         )
 
         if existing.scalar_one_or_none():

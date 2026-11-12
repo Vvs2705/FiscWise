@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useGuides, useCreateGuide } from '../hooks/useGuias';
 import { GuiaStatusBadge } from '../components/GuiaStatusBadge';
 import { PendingReceiptAlert } from '../components/PendingReceiptAlert';
@@ -16,6 +16,18 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
+import { toLocalISODate } from '@/lib/dates';
+
+/** Estado aceito via navigate('/guias', { state }) para abrir "Registrar Guia" pré-preenchida. */
+export interface GuiasLocationState {
+  openCreate?: boolean;
+  prefill?: {
+    client_id?: string;
+    tipo?: FormValues['tipo'];
+    valor?: number;
+    vencimento?: string;
+  };
+}
 
 type FormValues = {
   client_id: string;
@@ -27,6 +39,7 @@ type FormValues = {
 
 export function GuiasListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [openModal, setOpenModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -48,11 +61,27 @@ export function GuiasListPage() {
     defaultValues: {
       client_id: '',
       tipo: 'DAS',
-      competencia: new Date().toISOString().split('T')[0],
+      competencia: toLocalISODate(new Date()),
       valor: '',
-      vencimento: new Date().toISOString().split('T')[0],
+      vencimento: toLocalISODate(new Date()),
     },
   });
+
+  // Vindo do cockpit do cliente ("Emitir Guia") ou do menu de comandos.
+  useEffect(() => {
+    const state = location.state as GuiasLocationState | null;
+    if (!state?.openCreate) return;
+    const today = toLocalISODate(new Date());
+    reset({
+      client_id: state.prefill?.client_id ?? '',
+      tipo: state.prefill?.tipo ?? 'outro',
+      competencia: today,
+      valor: state.prefill?.valor ? formatCurrencyBRL(state.prefill.valor) : '',
+      vencimento: state.prefill?.vencimento ?? today,
+    });
+    setOpenModal(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate, reset]);
 
   const onSubmit = async (data: FormValues) => {
     try {

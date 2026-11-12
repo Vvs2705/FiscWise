@@ -31,6 +31,7 @@ import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { getApiErrorMessage } from '@/lib/api';
+import { addLocalDays, toLocalISODate } from '@/lib/dates';
 
 export function WhatsAppInboxPage() {
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export function WhatsAppInboxPage() {
   const openTaskModal = (msg: WhatsAppMessage) => {
     setSelectedMessage(msg);
     setTaskTitle(msg.body ? msg.body.substring(0, 50) + (msg.body.length > 50 ? '...' : '') : 'Ajustar pendência contábil');
-    setTaskDueDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // Default 2 days from now
+    setTaskDueDate(toLocalISODate(addLocalDays(new Date(), 2))); // Default 2 days from now
     setTaskPriority('medium');
     setShowTaskModal(true);
   };

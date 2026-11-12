@@ -11,7 +11,8 @@ import { PermissionGate } from '@/components/ui/PermissionGate';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { moneyBRL } from '@/lib/hooks/useOperations';
-import { useReportsOperational, useReportsSummary, type OperationalReport } from '@/lib/hooks/useReports';
+import { downloadReportsXlsx, useReportsOperational, useReportsSummary, type OperationalReport } from '@/lib/hooks/useReports';
+import { getApiErrorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -131,6 +132,19 @@ function buildReports(op: OperationalReport): ReportCardData[] {
 
 export function ReportsPage() {
   const [competence, setCompetence] = useState(currentCompetence);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportXlsx() {
+    setExporting(true);
+    try {
+      await downloadReportsXlsx(competence);
+      toast.success(`Planilha de ${competenceLabel(competence)} baixada.`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível gerar a planilha.'));
+    } finally {
+      setExporting(false);
+    }
+  }
   const { hasRole } = usePermission();
   const isAdmin = hasRole('admin');
 
@@ -170,11 +184,12 @@ export function ReportsPage() {
                 ))}
               </select>
               <button
-                onClick={() => toast.info('Exportação XLSX disponível em breve.')}
-                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+                onClick={handleExportXlsx}
+                disabled={exporting}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Exportar XLSX</span>
+                <span className="hidden sm:inline">{exporting ? 'Gerando...' : 'Exportar XLSX'}</span>
               </button>
             </div>
           }

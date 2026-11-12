@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate
 from app.models.user import User
 from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
 from app.services import whatsapp_service
@@ -38,6 +39,7 @@ router = APIRouter(prefix="/whatsapp", tags=["WhatsApp Inbox"])
 async def list_inboxes(
     client_id: Optional[uuid.UUID] = Query(default=None),
     status_filter: Optional[str] = Query(default="active", alias="status"),
+    page: Page = Depends(page_params),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[WhatsAppInboxOut]:
@@ -51,14 +53,13 @@ async def list_inboxes(
             (WhatsAppInbox.tenant_id == current_user.tenant_id) &
             (WhatsAppInbox.status == status_filter)
         )
-        .order_by(desc(WhatsAppInbox.last_message_at))
+        .order_by(desc(WhatsAppInbox.last_message_at), WhatsAppInbox.id)
     )
 
     if client_id:
         stmt = stmt.where(WhatsAppInbox.client_id == client_id)
 
-    result = await db.execute(stmt)
-    inboxes = result.scalars().all()
+    inboxes = await paginate(db, stmt, page)
 
     return [
         WhatsAppInboxOut(

@@ -318,3 +318,31 @@ def render_portal_magic_link_email(link: str) -> str:
   Se você não pediu este acesso, ignore este e-mail. Não compartilhe este link.
 </p>"""
     return _base_layout(inner)
+
+
+async def _send_test_email(to: str) -> bool:
+    """E-mail de teste para validar o Resend (uso manual, nunca no request)."""
+    return await send_email(
+        to=to,
+        subject="Teste de envio — FiscWise",
+        html=(
+            "<p>Este é um e-mail de teste do FiscWise.</p>"
+            "<p>Se você recebeu, o envio pelo Resend está funcionando.</p>"
+        ),
+    )
+
+
+if __name__ == "__main__":  # python -m app.services.email_service destino@exemplo.com
+    import asyncio
+    import sys
+
+    if len(sys.argv) != 2:
+        print("Uso: python -m app.services.email_service destino@exemplo.com")
+        raise SystemExit(2)
+    logging.basicConfig(level=logging.INFO)
+    if not is_configured():
+        print("Envio desligado: defina RESEND_ENABLED=true e RESEND_API_KEY.")
+        raise SystemExit(1)
+    ok = asyncio.run(_send_test_email(sys.argv[1]))
+    print("Enviado." if ok else "Falhou: veja o log acima.")
+    raise SystemExit(0 if ok else 1)

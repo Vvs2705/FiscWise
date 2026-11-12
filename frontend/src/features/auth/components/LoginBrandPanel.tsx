@@ -4,7 +4,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { FiscalRadarAnimation } from './FiscalRadarAnimation';
 import { FloatingMetricCards } from './FloatingMetricCards';
 
 const trustPoints = [
@@ -32,7 +31,7 @@ export function LoginBrandPanel() {
       style={{
         padding: 'clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px)',
         background:
-          'radial-gradient(circle at 14% 18%, hsl(var(--primary) / 0.22), transparent 26%), radial-gradient(circle at 86% 18%, hsl(var(--info) / 0.18), transparent 24%), linear-gradient(135deg, hsl(var(--sidebar)) 0%, hsl(var(--sidebar)) 55%, hsl(var(--sidebar)) 100%)',
+          'radial-gradient(circle at 14% 18%, hsl(var(--primary) / 0.22), transparent 26%), radial-gradient(circle at 86% 18%, hsl(var(--info) / 0.18), transparent 24%), linear-gradient(135deg, hsl(var(--sidebar-bg)) 0%, hsl(var(--sidebar-bg)) 55%, hsl(var(--sidebar-bg)) 100%)',
       }}
     >
       <div className="pointer-events-none absolute inset-0">
@@ -82,10 +81,6 @@ export function LoginBrandPanel() {
 
         <div className="mt-4">
           <FloatingMetricCards />
-        </div>
-
-        <div className="mt-4 flex-1 flex flex-col justify-center">
-          <FiscalRadarAnimation />
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">

@@ -1,28 +1,28 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { GoogleOAuthProvider } from '@react-oauth/google'
-import * as Sentry from '@sentry/react'
 import App from './App.tsx'
+import { initMonitoring } from './lib/monitoring'
 import './index.css'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '123456-dummy.apps.googleusercontent.com'
-const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN ?? ''
+// O GoogleOAuthProvider não envolve mais o app inteiro: ele injeta o script
+// do Google (~100 kB) e só /login e /register precisam dele (ver App.tsx).
 
-if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: import.meta.env.MODE,
-    release: `fiscwise-frontend@${import.meta.env.VITE_APP_VERSION ?? '1.0.0'}`,
-    integrations: [Sentry.browserTracingIntegration()],
-    tracesSampleRate: Number(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? '0.1'),
-    sendDefaultPii: false,
-  })
+// Web Vitals (RUM): chunk separado, baixado só depois do `load` para não
+// competir com o caminho crítico. Sem VITE_VITALS_ENDPOINT no build de
+// produção o bloco é removido (nenhum byte a mais).
+if (import.meta.env.VITE_VITALS_ENDPOINT || import.meta.env.DEV) {
+  const loadVitals = () => {
+    import('./lib/vitals').then((m) => m.startVitals()).catch(() => {})
+  }
+  if (document.readyState === 'complete') loadVitals()
+  else addEventListener('load', loadVitals, { once: true })
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <App />
-    </GoogleOAuthProvider>
+    <App />
   </React.StrictMode>,
 )
+
+// Sentry carrega depois da montagem, em tempo ocioso (lib/monitoring.ts).
+initMonitoring()

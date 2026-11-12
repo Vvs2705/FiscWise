@@ -1,6 +1,8 @@
 /**
  * FiscWise Motion Library
- * Padrões reutilizáveis de animação para consistência visual
+ * Tokens de movimento do DESIGN.md §7: resposta ≤150 ms, entrada ≤250 ms,
+ * só opacity/transform, sem scale no hover. `MotionConfig reducedMotion="user"`
+ * cobre o reduced-motion no framer-motion.
  */
 
 import type { Variants, Transition } from 'framer-motion';
@@ -9,26 +11,44 @@ import type { Variants, Transition } from 'framer-motion';
    Transições Base
    ═══════════════════════════════════════════════════════════════════ */
 
+/** Curva padrão do sistema (`ease-spring` no Tailwind). */
+export const EASE_STANDARD = [0.2, 0, 0, 1] as const;
+
+export const durations = {
+  instant: 0.1,
+  fast: 0.15,
+  base: 0.2,
+  enter: 0.25,
+} as const;
+
 export const transitions = {
+  /** Mantido por compatibilidade: agora é tween curto (sem mola/overshoot). */
   spring: {
-    type: 'spring',
-    stiffness: 260,
-    damping: 20,
+    type: 'tween',
+    duration: durations.base,
+    ease: EASE_STANDARD,
   } as Transition,
 
+  /** Entrada de conteúdo (fade + 6px). */
   smooth: {
-    duration: 0.35,
-    ease: 'easeOut',
+    duration: durations.enter,
+    ease: EASE_STANDARD,
   } as Transition,
 
   fast: {
-    duration: 0.2,
+    duration: durations.fast,
     ease: 'easeOut',
   } as Transition,
 
+  /** Mantido por compatibilidade: limitado a 250 ms. */
   slow: {
-    duration: 0.5,
-    ease: [0.16, 1, 0.3, 1],
+    duration: durations.enter,
+    ease: EASE_STANDARD,
+  } as Transition,
+
+  instant: {
+    duration: durations.instant,
+    ease: 'easeOut',
   } as Transition,
 };
 
@@ -51,7 +71,7 @@ export const fadeIn: Variants = {
  * Slide Up — Desliza de baixo para cima
  */
 export const slideUp: Variants = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: { opacity: 0, y: 6 },
   show: { 
     opacity: 1, 
     y: 0,
@@ -63,7 +83,7 @@ export const slideUp: Variants = {
  * Slide Down — Desliza de cima para baixo
  */
 export const slideDown: Variants = {
-  hidden: { opacity: 0, y: -18 },
+  hidden: { opacity: 0, y: -6 },
   show: { 
     opacity: 1, 
     y: 0,
@@ -75,7 +95,7 @@ export const slideDown: Variants = {
  * Slide Left — Desliza da direita para esquerda
  */
 export const slideLeft: Variants = {
-  hidden: { opacity: 0, x: 18 },
+  hidden: { opacity: 0, x: 6 },
   show: { 
     opacity: 1, 
     x: 0,
@@ -87,7 +107,7 @@ export const slideLeft: Variants = {
  * Slide Right — Desliza da esquerda para direita
  */
 export const slideRight: Variants = {
-  hidden: { opacity: 0, x: -18 },
+  hidden: { opacity: 0, x: -6 },
   show: { 
     opacity: 1, 
     x: 0,
@@ -96,25 +116,23 @@ export const slideRight: Variants = {
 };
 
 /**
- * Scale In — Aparece com zoom
+ * Scale In — mantido por compatibilidade; agora é fade simples (sem zoom).
  */
 export const scaleIn: Variants = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 0 },
   show: { 
     opacity: 1, 
-    scale: 1,
     transition: transitions.spring,
   },
 };
 
 /**
- * Scale Out — Desaparece com zoom reverso
+ * Scale Out — mantido por compatibilidade; agora é fade-out simples.
  */
 export const scaleOut: Variants = {
-  hidden: { opacity: 1, scale: 1 },
+  hidden: { opacity: 1 },
   show: { 
     opacity: 0, 
-    scale: 0.95,
     transition: transitions.fast,
   },
 };
@@ -127,8 +145,8 @@ export const staggerContainer: Variants = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05,
+      staggerChildren: 0.04,
+      delayChildren: 0,
     },
   },
 };
@@ -137,7 +155,7 @@ export const staggerContainer: Variants = {
  * Stagger Item — Item filho para animação em cascata
  */
 export const staggerItem: Variants = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: { opacity: 0, y: 6 },
   show: { 
     opacity: 1, 
     y: 0,
@@ -146,7 +164,7 @@ export const staggerItem: Variants = {
 };
 
 /**
- * Card Hover — Animação de hover para cards
+ * Card Hover — sem scale/deslocamento no hover (o realce é borda/sombra via CSS).
  */
 export const cardHover = {
   rest: { 
@@ -154,29 +172,31 @@ export const cardHover = {
     y: 0,
   },
   hover: { 
-    scale: 1.02,
-    y: -4,
+    scale: 1,
+    y: 0,
     transition: transitions.fast,
   },
   tap: {
     scale: 0.98,
+    transition: transitions.instant,
   },
 };
 
 /**
- * Button Hover — Animação de hover para botões
+ * Button Hover — só o toque comprime (0.98).
  */
 export const buttonHover = {
   rest: { 
     scale: 1,
   },
   hover: { 
-    scale: 1.02,
-    y: -1,
+    scale: 1,
+    y: 0,
     transition: transitions.fast,
   },
   tap: {
     scale: 0.98,
+    transition: transitions.instant,
   },
 };
 
@@ -186,19 +206,15 @@ export const buttonHover = {
 export const pageTransition: Variants = {
   hidden: { 
     opacity: 0,
-    y: 12,
+    y: 6,
   },
   show: { 
     opacity: 1,
     y: 0,
-    transition: {
-      duration: 0.4,
-      ease: [0.16, 1, 0.3, 1],
-    },
+    transition: transitions.smooth,
   },
   exit: {
     opacity: 0,
-    y: -12,
     transition: transitions.fast,
   },
 };
@@ -209,22 +225,16 @@ export const pageTransition: Variants = {
 export const modalMotion: Variants = {
   hidden: { 
     opacity: 0,
-    scale: 0.95,
-    y: 20,
+    y: 6,
   },
   show: { 
     opacity: 1,
-    scale: 1,
     y: 0,
-    transition: {
-      duration: 0.25,
-      ease: [0.16, 1, 0.3, 1],
-    },
+    transition: transitions.spring,
   },
   exit: {
     opacity: 0,
-    scale: 0.95,
-    y: 20,
+    y: 6,
     transition: transitions.fast,
   },
 };
@@ -236,11 +246,11 @@ export const backdropMotion: Variants = {
   hidden: { opacity: 0 },
   show: { 
     opacity: 1,
-    transition: { duration: 0.2 },
+    transition: transitions.fast,
   },
   exit: {
     opacity: 0,
-    transition: { duration: 0.2 },
+    transition: transitions.fast,
   },
 };
 
@@ -252,10 +262,7 @@ export const drawerMotion = {
     hidden: { x: '100%' },
     show: { 
       x: 0,
-      transition: {
-        duration: 0.3,
-        ease: [0.16, 1, 0.3, 1],
-      },
+      transition: transitions.smooth,
     },
     exit: {
       x: '100%',
@@ -266,10 +273,7 @@ export const drawerMotion = {
     hidden: { x: '-100%' },
     show: { 
       x: 0,
-      transition: {
-        duration: 0.3,
-        ease: [0.16, 1, 0.3, 1],
-      },
+      transition: transitions.smooth,
     },
     exit: {
       x: '-100%',
@@ -279,30 +283,21 @@ export const drawerMotion = {
 };
 
 /**
- * Floating Animation — Animação flutuante contínua
+ * Floating — mantido por compatibilidade, mas estático:
+ * loop só é permitido em spinner e skeleton (DESIGN.md §7).
  */
 export const floating = {
   animate: {
-    y: [0, -8, 0],
-    transition: {
-      duration: 3,
-      repeat: Infinity,
-      ease: 'easeInOut',
-    },
+    y: 0,
   },
 };
 
 /**
- * Pulse Animation — Animação de pulso
+ * Pulse — mantido por compatibilidade, mas estático (sem loop).
  */
 export const pulse = {
   animate: {
-    scale: [1, 1.05, 1],
-    transition: {
-      duration: 2,
-      repeat: Infinity,
-      ease: 'easeInOut',
-    },
+    scale: 1,
   },
 };
 
@@ -311,9 +306,9 @@ export const pulse = {
  */
 export const shake: Variants = {
   shake: {
-    x: [0, -10, 10, -10, 10, 0],
+    x: [0, -4, 4, -4, 4, 0],
     transition: {
-      duration: 0.4,
+      duration: durations.enter,
     },
   },
 };
@@ -325,7 +320,7 @@ export const shake: Variants = {
 /**
  * Cria uma animação de stagger customizada
  */
-export function createStagger(staggerDelay = 0.08, delayChildren = 0.05): Variants {
+export function createStagger(staggerDelay = 0.04, delayChildren = 0): Variants {
   return {
     hidden: { opacity: 0 },
     show: {
@@ -341,7 +336,7 @@ export function createStagger(staggerDelay = 0.08, delayChildren = 0.05): Varian
 /**
  * Cria uma transição customizada
  */
-export function createTransition(duration = 0.35, ease: 'easeIn' | 'easeOut' | 'easeInOut' | 'linear' = 'easeOut'): Transition {
+export function createTransition(duration = durations.enter, ease: 'easeIn' | 'easeOut' | 'easeInOut' | 'linear' = 'easeOut'): Transition {
   return {
     duration,
     ease,

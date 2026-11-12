@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -437,7 +438,6 @@ export function DocumentsPage() {
 
   // Filter and preview states
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -451,13 +451,8 @@ export function DocumentsPage() {
   const updateMutation = useUpdateDocument();
   const uploadMutation = useUploadDocument();
 
-  // Search Debouncing
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Debounce da busca (300 ms) — o filtro usa o valor atrasado
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   const {
     register,
@@ -600,7 +595,6 @@ export function DocumentsPage() {
 
   function clearFilters() {
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setClientFilter('');
     setCategoryFilter('');
     setStatusFilter('');

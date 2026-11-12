@@ -102,6 +102,21 @@ class GatewayMercadoPago:
             raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
         return resp.json()
 
+    async def _put(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        # PUT de status é idempotente (cancelar duas vezes dá no mesmo).
+        headers = self._headers()
+        try:
+            resp = await request_with_retry(
+                "PUT", f"{MP_API_BASE}{path}", service="mercadopago", idempotent=True,
+                connect_timeout=5.0, read_timeout=10.0, json=payload, headers=headers,
+            )
+        except ExternalServiceError as exc:
+            raise GatewayPagamentoError(exc.user_message) from exc
+        if resp.status_code >= 400:
+            logger.warning("mercadopago_erro path=%s status=%s", path, resp.status_code)
+            raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
+        return resp.json()
+
     # -- Montagem de payload (puro — testável sem rede) ------------------------
     def montar_preapproval(
         self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str
@@ -209,6 +224,10 @@ class GatewayMercadoPago:
     async def obter_preapproval(self, preapproval_id: str) -> dict[str, Any]:
         """Status de uma assinatura recorrente (usado pelo webhook)."""
         return await self._get(f"/preapproval/{preapproval_id}")
+
+    async def cancelar_assinatura(self, preapproval_id: str) -> dict[str, Any]:
+        """Cancela a assinatura recorrente: o Mercado Pago para de cobrar o cartão."""
+        return await self._put(f"/preapproval/{preapproval_id}", {"status": "cancelled"})
 
     async def obter_pagamento(self, pagamento_id: str) -> dict[str, Any]:
         """Status de um pagamento avulso (usado pelo webhook)."""

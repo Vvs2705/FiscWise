@@ -15,11 +15,15 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { LoginFooter, LoginLogo } from '@/features/auth/components/LoginShell';
 import { cn } from '@/lib/utils';
+import { useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
+import { formatPlanPrice, planFeatureList } from '@/features/subscription/planFeatures';
+import { useAuthStore } from '@/stores/authStore';
 
 /*
  * Página inicial pública (contador autônomo e escritório contábil).
  * Trava de honestidade: só o que o README marca como ✅ ou 🟡, com o 🟡
- * descrito como é. Sem preços, depoimentos, números ou métricas.
+ * descrito como é. Sem depoimentos, números ou métricas. Preços só os do
+ * catálogo do servidor (/subscription/plans), nunca fixos aqui.
  * Só CSS (sem framer-motion), conforme SISTEMA_DE_DESIGN.md §7.
  */
 
@@ -138,6 +142,10 @@ const faqs = [
     a: 'Cadastro de clientes e documentos, calendário de obrigações fiscais, fechamento mensal com dossiê em PDF, portal do cliente, registro e conciliação de guias, alerta de validade de certificados e controle de honorários.',
   },
   {
+    q: 'Como assino e como cancelo?',
+    a: 'Para assinar, clique em "Assinar" no plano que você quer, na seção Planos e preços. O pagamento é feito no Mercado Pago, por Pix ou cartão. Para cancelar, entre no sistema e clique em "Plano e assinatura" e depois em "Cancelar assinatura". Não tem multa, e o acesso continua até o fim do período já pago.',
+  },
+  {
     q: 'O FiscWise emite nota fiscal?',
     a: 'Ainda não. A emissão de NFS-e está em homologação com a prefeitura e o Portal Nacional. Quando estiver liberada, avisamos aqui.',
   },
@@ -165,6 +173,9 @@ function TopBar() {
         <nav aria-label="Principal" className="flex min-w-0 items-center gap-1 sm:gap-2">
           <a href="#como-funciona" className={cn(NAV_LINK, 'hidden md:inline-flex')}>
             Como funciona
+          </a>
+          <a href="#planos" className={NAV_LINK}>
+            Planos<span className="hidden sm:inline"> e preços</span>
           </a>
           <a href="/faq/" className={cn(NAV_LINK, 'hidden md:inline-flex')}>
             Perguntas frequentes
@@ -230,6 +241,118 @@ function SectionHeading({ id, title, description }: { id: string; title: string;
   );
 }
 
+/** Ordem na vitrine: Gratuito, pagos do mais barato ao mais caro, "sob consulta" por último. */
+function sortPlans(plans: Plan[]): Plan[] {
+  const key = (p: Plan) => (p.price_monthly === null ? Number.POSITIVE_INFINITY : Number(p.price_monthly));
+  return [...plans].sort((a, b) => key(a) - key(b));
+}
+
+function PlanCard({ plan, isAuthenticated }: { plan: Plan; isAuthenticated: boolean }) {
+  const price = plan.price_monthly === null ? null : Number(plan.price_monthly);
+  const isFree = price === 0;
+  const isCustom = price === null;
+  const signupHref = isAuthenticated
+    ? isFree
+      ? '/painel'
+      : `/assinatura?plano=${encodeURIComponent(plan.slug)}`
+    : isFree
+    ? '/register'
+    : `/register?plano=${encodeURIComponent(plan.slug)}`;
+  const pixRow = plan.tabela_precos?.find((l) => l.ciclo === 'anual');
+
+  return (
+    <li className="flex flex-col rounded-lg border border-border bg-card p-6">
+      <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+        {isCustom ? 'Sob consulta' : formatPlanPrice(price)}
+      </p>
+      {pixRow && pixRow.desconto_pix_pct > 0 && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          ou {pixRow.pix_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por ano no Pix
+          ({pixRow.desconto_pix_pct}% de desconto)
+        </p>
+      )}
+      {plan.description && <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>}
+      <ul className="mt-5 flex-1 space-y-2">
+        {planFeatureList(plan).map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      {isCustom ? (
+        <a
+          href="mailto:contato@vstack-solutions.com.br?subject=Plano%20Enterprise%20FiscWise"
+          className={cn(BTN_OUTLINE, 'mt-6 h-12 w-full px-5 text-base')}
+        >
+          Falar com a equipe
+        </a>
+      ) : (
+        <Link
+          to={signupHref}
+          className={cn(isFree ? BTN_OUTLINE : BTN_PRIMARY, 'mt-6 h-12 w-full px-5 text-base')}
+        >
+          {isFree ? 'Começar grátis' : `Assinar ${plan.name}`}
+          {!isFree && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+        </Link>
+      )}
+    </li>
+  );
+}
+
+function PricingSection() {
+  const { data: plans, isLoading, isError } = useAvailablePlans();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const visible = sortPlans(plans ?? []);
+
+  return (
+    <section id="planos" aria-labelledby="planos-title" className="scroll-mt-4 border-t border-border py-14 sm:py-20">
+      <div className={SECTION}>
+        <SectionHeading
+          id="planos-title"
+          title="Planos e preços"
+          description="Comece grátis. Assine quando quiser e cancele quando quiser, sem multa, direto no sistema."
+        />
+
+        {visible.length > 0 ? (
+          <ul className={cn('mt-10 grid gap-4 sm:grid-cols-2', visible.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+            {visible.map((plan) => (
+              <PlanCard key={plan.slug} plan={plan} isAuthenticated={isAuthenticated} />
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-10 rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+            {isLoading && !isError
+              ? 'Carregando os planos...'
+              : 'Não conseguimos carregar os preços agora. Crie sua conta grátis e veja os planos dentro do sistema.'}
+            <div className="mt-4">
+              <Link to="/register" className={cn(BTN_PRIMARY, 'h-11 px-5 text-base')}>
+                Criar conta grátis
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <ul className="mt-8 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+          <li className="flex gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            Pix com 15% de desconto nos planos trimestral, semestral e anual.
+          </li>
+          <li className="flex gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            Cartão em até 6x sem juros. Pagamento seguro pelo Mercado Pago.
+          </li>
+          <li className="flex gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            Para cancelar: Plano e assinatura, depois Cancelar assinatura. Sem multa.
+          </li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Página ───────────────────────────────────────────────────────────── */
 
 export function LandingPage() {
@@ -254,9 +377,9 @@ export function LandingPage() {
                 Criar conta grátis
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
-              <Link to="/login" className={cn(BTN_OUTLINE, 'h-11 px-5 text-base')}>
-                Entrar
-              </Link>
+              <a href="#planos" className={cn(BTN_OUTLINE, 'h-11 px-5 text-base')}>
+                Ver planos e preços
+              </a>
             </div>
           </div>
 
@@ -364,6 +487,8 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        <PricingSection />
 
         {/* Confiança */}
         <section aria-labelledby="confianca-title" className="border-t border-border py-14 sm:py-16">

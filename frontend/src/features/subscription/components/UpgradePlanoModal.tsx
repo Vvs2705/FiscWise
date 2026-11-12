@@ -225,7 +225,8 @@ export function UpgradePlanoModal({ open, onClose, selectedPlan }: UpgradePlanoM
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
               <span>
                 Você será redirecionado para o ambiente seguro do Mercado Pago para concluir o
-                pagamento. O FiscWise não coleta nem armazena dados do seu cartão.
+                pagamento. O FiscWise não coleta nem armazena dados do seu cartão. Cancele quando
+                quiser em Plano e assinatura, sem multa.
               </span>
             </div>
 
@@ -251,7 +252,7 @@ export function UpgradePlanoModal({ open, onClose, selectedPlan }: UpgradePlanoM
                 onClick={onClose}
                 disabled={processando}
               >
-                Cancelar e voltar
+                Voltar sem assinar
               </Button>
             </div>
           </>

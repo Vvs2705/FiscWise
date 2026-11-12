@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { CreditCard, LogOut } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PageHelp } from '@/components/PageHelp';
 import { Button } from './ui/Button';
 import { SyncIndicator } from './SyncIndicator';
 import { useSyncStore } from '@/lib/offline/status';
+import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
+import { cn } from '@/lib/utils';
 
 /** Títulos das rotas reais do App. Subrotas herdam pelo prefixo (ex.: /clientes/:id). */
 const sectionTitles: ReadonlyArray<readonly [string, string]> = [
@@ -59,6 +61,11 @@ export function Header() {
     logout();
   };
 
+  // Botão sempre visível de plano: "Assinar" no Gratuito, "Meu plano" no pago.
+  const { data: usage } = useSubscriptionUsage();
+  const planSlug = (usage as { plan_slug?: string } | undefined)?.plan_slug;
+  const isPaidPlan = !!planSlug && planSlug !== 'free';
+
   const sectionTitle = useMemo(() => getSectionTitle(location.pathname), [location.pathname]);
 
   /* Iniciais do nome do usuário para o avatar */
@@ -85,6 +92,24 @@ export function Header() {
         <PageHelp />
 
         <ThemeToggle />
+
+        {user?.role === 'owner' && (
+        <Link
+          to="/assinatura"
+          data-tour="meu-plano"
+          aria-label={isPaidPlan ? 'Meu plano: contratar, trocar ou cancelar' : 'Assinar um plano'}
+          className={cn(
+            'inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            isPaidPlan
+              ? 'border border-input bg-card text-foreground hover:bg-muted'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+          )}
+        >
+          <CreditCard className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">{isPaidPlan ? 'Meu plano' : 'Assinar'}</span>
+        </Link>
+        )}
 
         <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
 

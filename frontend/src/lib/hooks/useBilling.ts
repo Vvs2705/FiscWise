@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface SubscriptionData {
@@ -12,6 +12,9 @@ export interface SubscriptionData {
   amount: string | null;
   currency: string;
   created_at: string;
+  billing_cycle?: string;
+  /** Preenchido quando o dono cancelou: o acesso vale até current_period_end. */
+  cancelled_at?: string | null;
 }
 
 export function useSubscription() {
@@ -64,6 +67,22 @@ export function useCheckout() {
     mutationFn: async (data) => {
       const res = await api.post<CheckoutResponse>('/api/v1/billing/checkout', data);
       return res.data;
+    },
+  });
+}
+
+/** Cancela a assinatura (sem multa). O período já pago continua valendo. */
+export function useCancelSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation<SubscriptionData, Error, void>({
+    mutationFn: async () => {
+      const res = await api.post<SubscriptionData>('/api/v1/billing/subscription/cancel');
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['subscription'], data);
+      queryClient.invalidateQueries({ queryKey: ['subscription-usage'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant'] });
     },
   });
 }

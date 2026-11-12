@@ -72,7 +72,7 @@ import {
   type Setup2FAResponse,
 } from '@/lib/auth';
 import { useSubscriptionUsage, useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
-import { useSubscription } from '@/lib/hooks/useBilling';
+import { useSubscription, useCancelSubscription } from '@/lib/hooks/useBilling';
 import { UpgradePlanoModal } from '@/features/subscription/components/UpgradePlanoModal';
 import {
   useNotificationMessages,
@@ -620,8 +620,42 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
 
 function PlanoTab({ tenant }: { tenant: TenantData | null }) {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const { data: usage } = useSubscriptionUsage();
   const { data: dbPlans, isLoading: loadingPlans } = useAvailablePlans();
+  const { data: subscription } = useSubscription();
+  const cancelSubscription = useCancelSubscription();
+  const { user } = useAuthStore();
+  const isOwner = user?.role === 'owner';
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // ?plano=slug (botão "Assinar" da página inicial) abre direto a contratação.
+  const planoParam = searchParams.get('plano');
+  useEffect(() => {
+    if (!planoParam || !dbPlans) return;
+    const alvo = dbPlans.find((p) => p.slug === planoParam && (p.price_monthly ?? 0) > 0);
+    if (alvo) setSelectedPlan(alvo);
+    const next = new URLSearchParams(searchParams);
+    next.delete('plano');
+    setSearchParams(next, { replace: true });
+  }, [planoParam, dbPlans, searchParams, setSearchParams]);
+
+  const scrollToPlans = () =>
+    document.getElementById('planos-disponiveis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const handleCancel = () => {
+    cancelSubscription.mutate(undefined, {
+      onSuccess: (data) => {
+        setConfirmCancel(false);
+        toast.success(
+          data.status === 'cancelled'
+            ? 'Assinatura cancelada. Nenhuma nova cobrança será feita.'
+            : `Assinatura cancelada. Seu plano continua até ${formatLocalDate(data.current_period_end)} e não haverá nova cobrança.`,
+        );
+      },
+      onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível cancelar agora. Tente de novo.')),
+    });
+  };
   // usage.plan_slug é o plano efetivo (já degradado se a assinatura estiver suspensa).
   const currentSlug = usage?.plan_slug ?? tenant?.plan_slug ?? 'free';
 
@@ -643,6 +677,11 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
 
   const activeDbPlan = dbPlans?.find((plan) => plan.slug === currentSlug) ?? null;
   const currentPlanName = activeDbPlan?.name ?? usage?.plan_name ?? currentSlug;
+  const subAtiva = !!subscription && (subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due');
+  const cancelScheduled = subAtiva && !!subscription?.cancelled_at;
+  const hasPaidPlan = subAtiva && currentSlug !== 'free';
+  // Assinatura paga confirmada vale mais que o status gravado no escritório.
+  const statusKey = subscription?.status === 'active' ? 'active' : tenant?.subscription_status ?? 'trial';
 
   function getPlanIntent(plan: Plan) {
     if (plan.slug === currentSlug) return 'current';
@@ -654,9 +693,9 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
 
   const planCtas: Record<string, string> = {
     current: 'Plano atual',
-    upgrade: 'Fazer upgrade',
-    downgrade: 'Migrar para este plano',
-    change: 'Selecionar plano',
+    upgrade: 'Assinar este plano',
+    downgrade: 'Mudar para este plano',
+    change: 'Assinar este plano',
   };
 
   const nearLimitItems = usage
@@ -683,21 +722,62 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
 
   return (
     <div className="space-y-6">
-      {/* Current plan summary */}
+      {/* Plano atual + ações principais (contratar, trocar, cancelar) */}
       <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="flex items-center justify-between gap-4 pt-6">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Plano atual</p>
-            <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
-            {activeDbPlan && (
-              <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <Badge variant={statusTone[tenant?.subscription_status ?? 'trial'] ?? 'warning'}>
-              {statusLabel[tenant?.subscription_status ?? 'trial'] ?? 'Trial'}
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Plano atual</p>
+              <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
+              {activeDbPlan && (
+                <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
+              )}
+            </div>
+            <Badge variant={cancelScheduled ? 'default' : statusTone[statusKey] ?? 'warning'}>
+              {cancelScheduled ? 'Cancelamento agendado' : statusLabel[statusKey] ?? 'Trial'}
             </Badge>
           </div>
+
+          {cancelScheduled && (
+            <div role="status" className="rounded-lg border border-border bg-card p-3 text-sm text-foreground">
+              Assinatura cancelada. Você continua usando o plano {currentPlanName} até{' '}
+              <strong>{formatLocalDate(subscription?.current_period_end ?? null)}</strong>, e nenhuma nova
+              cobrança será feita. Depois disso a conta volta para o plano Gratuito, sem perder seus dados.
+            </div>
+          )}
+
+          {isOwner ? (
+            <div className="flex flex-wrap gap-2">
+              {!hasPaidPlan || cancelScheduled ? (
+                <Button size="lg" onClick={scrollToPlans}>
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  {cancelScheduled ? 'Assinar de novo' : 'Contratar um plano'}
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" variant="outline" onClick={scrollToPlans}>
+                    Trocar de plano
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                    onClick={() => setConfirmCancel(true)}
+                  >
+                    Cancelar assinatura
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Só o proprietário do escritório pode contratar, trocar ou cancelar o plano.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Cancele quando quiser, sem multa e sem falar com ninguém: o acesso pago continua até o fim do
+            período já pago.
+          </p>
         </CardContent>
       </Card>
 
@@ -735,17 +815,20 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             )}
           </div>
           <div className="rounded-xl border bg-muted/30 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Fluxo do upgrade</p>
+            <p className="text-xs font-medium text-muted-foreground">Como contratar</p>
             <div className="mt-3 space-y-3 text-sm text-muted-foreground">
-              <p>1. Escolha o plano com base em capacidade e recursos.</p>
-              <p>2. Revise o impacto comercial antes de confirmar.</p>
-              <p>3. A assinatura é provisionada e o plano do tenant é atualizado.</p>
+              <p>1. Clique em "Assinar" no plano que você quer.</p>
+              <p>2. Escolha mensal, trimestral, semestral ou anual, e Pix ou cartão.</p>
+              <p>3. Pague no Mercado Pago. O plano é liberado assim que o pagamento é aprovado.</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* All plans */}
+      <h3 id="planos-disponiveis" className="scroll-mt-20 text-base font-semibold text-foreground">
+        Planos disponíveis
+      </h3>
       <div className="grid gap-4 md:grid-cols-3">
         {(dbPlans || []).map((plan) => {
           const isActive = plan.slug === currentSlug;
@@ -807,14 +890,28 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="w-full"
-                  variant={isActive ? 'outline' : 'default'}
-                  disabled={isActive}
-                  onClick={() => setSelectedPlan(plan)}
-                >
-                  {isActive ? 'Plano atual' : planCtas[intent]}
-                </Button>
+                {plan.price_monthly === null ? (
+                  <a
+                    href="mailto:contato@vstack-solutions.com.br?subject=Plano%20Enterprise%20FiscWise"
+                    className="inline-flex h-11 w-full items-center justify-center rounded-md border border-input bg-card px-5 text-base font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Falar com a equipe
+                  </a>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    variant={isActive && !cancelScheduled ? 'outline' : 'default'}
+                    disabled={(isActive && !cancelScheduled) || !isOwner || Number(plan.price_monthly) === 0}
+                    onClick={() => setSelectedPlan(plan)}
+                  >
+                    {isActive && !cancelScheduled
+                      ? 'Plano atual'
+                      : Number(plan.price_monthly) === 0
+                      ? 'Plano gratuito'
+                      : planCtas[intent]}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           );
@@ -833,6 +930,33 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
         onClose={() => setSelectedPlan(null)}
         selectedPlan={selectedPlan}
       />
+
+      <Dialog
+        open={confirmCancel}
+        onClose={() => !cancelSubscription.isPending && setConfirmCancel(false)}
+        title="Cancelar assinatura?"
+      >
+        <div className="space-y-4 text-sm text-foreground">
+          <p>
+            Não haverá nova cobrança. Você continua com o plano {currentPlanName}
+            {subscription?.current_period_end
+              ? ` até ${formatLocalDate(subscription.current_period_end)}`
+              : ''}
+            . Depois disso a conta volta para o plano Gratuito.
+          </p>
+          <p className="text-muted-foreground">
+            Seus clientes, documentos e histórico ficam guardados. Você pode assinar de novo quando quiser.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setConfirmCancel(false)} disabled={cancelSubscription.isPending}>
+              Manter meu plano
+            </Button>
+            <Button variant="destructive" onClick={handleCancel} loading={cancelSubscription.isPending}>
+              Sim, cancelar assinatura
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -1434,6 +1558,14 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
                   </p>
                 </div>
               </div>
+
+              {isOwner && (subscription.status === 'active' || subscription.status === 'trialing') && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={onNavigateToPlans}>
+                    {subscription.cancelled_at ? 'Assinar de novo' : 'Trocar ou cancelar o plano'}
+                  </Button>
+                </div>
+              )}
 
               {(subscription.status === 'past_due' || subscription.status === 'suspended') && (
                 <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">

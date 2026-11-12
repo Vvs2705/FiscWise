@@ -54,6 +54,10 @@ class SubscriptionOut(BaseModel):
     amount: Optional[str]
     currency: str
     created_at: str
+    billing_cycle: str = "mensal"
+    # Preenchido quando o dono pediu o cancelamento: o acesso pago continua
+    # até current_period_end e não há nova cobrança.
+    cancelled_at: Optional[str] = None
 
 
 class CreateSubscriptionRequest(BaseModel):
@@ -99,7 +103,15 @@ def _sub_out(sub: TenantSubscription) -> SubscriptionOut:
         amount=str(sub.amount) if sub.amount else None,
         currency=sub.currency,
         created_at=sub.created_at.isoformat(),
+        billing_cycle=sub.billing_cycle or "mensal",
+        cancelled_at=_fmt(sub.cancelled_at),
     )
+
+
+def _aware(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is not None and dt.tzinfo is None:  # SQLite devolve datetimes naive
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 # ─── Subscription endpoints ───────────────────────────────────────────────────
@@ -172,6 +184,69 @@ async def create_or_update_subscription(
     await db.commit()
     await db.refresh(sub)
     logger.info("Subscription upserted: tenant=%s plan=%s", current_user.tenant_id, plan.slug)
+    return _sub_out(sub)
+
+
+@router.post("/subscription/cancel", response_model=SubscriptionOut)
+async def cancelar_assinatura(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SubscriptionOut:
+    """Cancela a assinatura em um clique (Termos, seção 4: sem multa).
+
+    - Para a cobrança: no mensal, cancela o preapproval no Mercado Pago.
+    - Período já pago: o acesso continua até current_period_end e depois o
+      plano volta para o Gratuito (plan_access.effective_plan_slug).
+    - Sem período pago (teste/checkout não concluído): encerra na hora.
+    Idempotente: cancelar de novo devolve o mesmo estado.
+    """
+    if current_user.role.value != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o proprietário do escritório pode cancelar a assinatura",
+        )
+    sub = (
+        await db.execute(
+            select(TenantSubscription).where(
+                TenantSubscription.tenant_id == current_user.tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if sub is None or sub.status in ("cancelled", "suspended"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não há assinatura ativa para cancelar.",
+        )
+    if sub.cancelled_at is not None:
+        return _sub_out(sub)
+
+    # Para a cobrança recorrente ANTES de gravar: se o gateway falhar, nada muda
+    # aqui e o cliente pode tentar de novo (nunca "cancelado" com cartão cobrando).
+    if sub.provider_subscription_id and sub.billing_provider == "mercadopago":
+        try:
+            await gateway.cancelar_assinatura(sub.provider_subscription_id)
+        except GatewayNaoConfiguradoError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        except GatewayPagamentoError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Não foi possível cancelar no Mercado Pago agora. Tente de novo em instantes.",
+            ) from exc
+
+    agora = datetime.now(timezone.utc)
+    sub.cancelled_at = agora
+    fim = _aware(sub.current_period_end)
+    if sub.status != "active" or fim is None or fim <= agora:
+        # Nada pago em vigor: encerra já.
+        sub.status = "cancelled"
+        tenant = (
+            await db.execute(select(Tenant).where(Tenant.id == sub.tenant_id))
+        ).scalar_one_or_none()
+        if tenant is not None:
+            tenant.subscription_status = SubscriptionStatus.CANCELLED
+    await db.commit()
+    await db.refresh(sub)
+    logger.info("Assinatura cancelada pelo dono: tenant=%s ate=%s", sub.tenant_id, fim)
     return _sub_out(sub)
 
 
@@ -422,11 +497,19 @@ async def mercadopago_webhook(
                         )
                     else:
                         sub.status = "active"
+                        sub.cancelled_at = None
                         sub.current_period_start = agora
                         sub.current_period_end = agora + timedelta(days=30)
                         await _refletir_plano_no_tenant(db, sub)
                 elif pre_status in ("cancelled", "paused"):
-                    if sub.status in ("active", "trialing", "past_due"):
+                    fim = _aware(sub.current_period_end)
+                    if (
+                        pre_status == "cancelled" and sub.cancelled_at is not None
+                        and sub.status == "active" and fim is not None and fim > agora
+                    ):
+                        # Cancelamento pedido pelo dono: o período pago segue até o fim.
+                        pass
+                    elif sub.status in ("active", "trialing", "past_due"):
                         sub.status = "suspended"
                         if pre_status == "cancelled":
                             sub.cancelled_at = agora
@@ -481,6 +564,7 @@ async def mercadopago_webhook(
                     else:
                         ciclo_info = get_ciclo(sub.billing_cycle) or {"meses": 1}
                         sub.status = "active"
+                        sub.cancelled_at = None
                         sub.current_period_start = agora
                         sub.current_period_end = agora + timedelta(days=30 * int(ciclo_info["meses"]))
                         await _refletir_plano_no_tenant(db, sub)

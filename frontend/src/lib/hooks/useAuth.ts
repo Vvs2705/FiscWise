@@ -63,6 +63,14 @@ export function useAuth() {
    */
   const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
   const navigate = useNavigate();
+  // Veio do botão "Assinar" da página inicial (?plano=slug): depois de entrar,
+  // vai direto para a contratação daquele plano.
+  const destinoAposEntrar = () => {
+    const plano = new URLSearchParams(window.location.search).get('plano');
+    return plano && /^[a-z0-9_-]{1,40}$/.test(plano)
+      ? `/assinatura?plano=${encodeURIComponent(plano)}`
+      : '/dashboard';
+  };
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
@@ -77,7 +85,7 @@ export function useAuth() {
       setUser(result.user);
       setMfaChallenge(null);
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      navigate(destinoAposEntrar());
     } catch (error: unknown) {
       const message = getAuthErrorMessage(error, 'Erro ao fazer login');
       toast.error(message);
@@ -93,7 +101,7 @@ export function useAuth() {
       const response = await authRegister(data);
       setUser(response.user);
       toast.success('Conta criada com sucesso!');
-      navigate('/dashboard');
+      navigate(destinoAposEntrar());
     } catch (error: unknown) {
       const message = getAuthErrorMessage(error, 'Erro ao criar conta');
       toast.error(message);
@@ -115,7 +123,7 @@ export function useAuth() {
       setUser(result.user);
       setMfaChallenge(null);
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      navigate(destinoAposEntrar());
     } catch (error: unknown) {
       const message = getAuthErrorMessage(error, 'Erro ao entrar com Google');
       toast.error(message);
@@ -134,7 +142,7 @@ export function useAuth() {
       setUser(response.user);
       setMfaChallenge(null);
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      navigate(destinoAposEntrar());
     } catch (error: unknown) {
       const message = getAuthErrorMessage(error, 'Código inválido. Tente novamente.');
       toast.error(message);

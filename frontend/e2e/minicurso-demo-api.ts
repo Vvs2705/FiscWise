@@ -26,6 +26,22 @@ type Row = Record<string, unknown> & { id: string }
 
 const base = { tenant_id: TENANT, created_at: '2026-09-01T12:00:00.000Z', updated_at: '2026-09-01T12:00:00.000Z', version: 1 }
 
+/** Catálogo como o servidor devolve (tabela_precos só no essencial para a tela). */
+const linhas = (m: number) =>
+  ([['mensal', 'Mensal', 1, 0, 1], ['trimestral', 'Trimestral', 3, 15, 3], ['semestral', 'Semestral', 6, 15, 6], ['anual', 'Anual', 12, 15, 6]] as const).map(
+    ([ciclo, label, meses, pix, parc]) => ({
+      ciclo, label, meses, preco_cheio: m * meses, pix_total: Math.round(m * meses * (1 - pix / 100) * 100) / 100,
+      desconto_pix_pct: pix, cartao_total: m * meses, desconto_cartao_pct: 0, cartao_max_parcelas: parc,
+      cartao_parcela: Math.round(((m * meses) / parc) * 100) / 100, obs: '',
+    }),
+  )
+export const DEMO_PLANS = [
+  { id: 'plan-free', slug: 'free', name: 'Gratuito', description: 'Para experimentar.', price_monthly: 0, max_clients: 10, max_users: 2, max_ai_calls_month: 0, features: { calculator: true }, tabela_precos: null },
+  { id: 'plan-intermediario', slug: 'intermediario', name: 'Intermediário', description: 'Para escritórios em crescimento.', price_monthly: 149, max_clients: 80, max_users: 5, max_ai_calls_month: 20, features: { calculator: true, portal_cliente: true, obrigacoes: true }, tabela_precos: linhas(149) },
+  { id: 'plan-premium', slug: 'premium', name: 'Premium', description: 'Sem limites.', price_monthly: 349, max_clients: null, max_users: null, max_ai_calls_month: null, features: { calculator: true, pdf_export: true, portal_cliente: true, obrigacoes: true }, tabela_precos: linhas(349) },
+  { id: 'plan-enterprise', slug: 'enterprise', name: 'Enterprise', description: 'Contrato personalizado.', price_monthly: null, max_clients: null, max_users: null, max_ai_calls_month: null, features: { enterprise: true }, tabela_precos: null },
+]
+
 export const DEMO_USER = {
   id: 'demo-user',
   email: 'ana@contabilidadeexemplo.com.br',
@@ -394,6 +410,24 @@ export async function installDemoApi(context: BrowserContext): Promise<DemoApi> 
     if (path === '/api/v1/portal/magic-link/request') {
       return json(route, { sent: true, delivery: 'email', email: (body.email as string) || 'financeiro@paodourado.com.br', expires_at: addDays(7) })
     }
+
+    // ── Plano e assinatura ──
+    if (path === '/api/v1/subscription/plans') return json(route, DEMO_PLANS)
+    if (path === '/api/v1/subscription/usage') {
+      return json(route, {
+        plan_slug: 'intermediario', plan_name: 'Intermediário',
+        clients: { used: 5, limit: 80, percent: 6.3 }, users: { used: 1, limit: 5, percent: 20 },
+        ai_calls_this_month: { used: 3, limit: 20, percent: 15 }, features: {},
+      })
+    }
+    if (path === '/api/v1/billing/subscription') {
+      return json(route, {
+        id: 'sub-demo', tenant_id: TENANT, plan_id: 'plan-intermediario', billing_provider: 'mercadopago',
+        status: 'active', current_period_end: addDays(18), trial_ends_at: null, amount: '149.00',
+        currency: 'BRL', created_at: now(), billing_cycle: 'mensal', cancelled_at: null,
+      })
+    }
+    if (path === '/api/v1/billing/config') return json(route, { gateway: 'mercadopago', public_key: '', go_live: false })
 
     // ── Financeiro ──
     if (path === '/api/v1/financeiro/inadimplencia') {

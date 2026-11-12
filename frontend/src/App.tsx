@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { initTheme } from '@/lib/hooks/useTheme';
 
 // Aplica o tema salvo antes do primeiro render para evitar flash
@@ -140,6 +140,14 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+/** /assinatura: atalho fácil de lembrar para Configurações › Plano (mantém ?plano=). */
+function AssinaturaRedirect() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set('aba', 'plano');
+  return <Navigate to={`/configuracoes?${params.toString()}`} replace />;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -221,6 +229,8 @@ function App() {
                 <Route path="agenda-prazos" element={<Navigate to="/obrigacoes" replace />} />
                 <Route path="das-mensal"   element={<Navigate to="/guias" replace />} />
                 <Route path="billing"      element={<Navigate to="/financeiro" replace />} />
+                <Route path="assinatura"   element={<AssinaturaRedirect />} />
+                <Route path="planos"       element={<AssinaturaRedirect />} />
                 <Route path="settings"     element={<Navigate to="/configuracoes" replace />} />
               </Route>
 

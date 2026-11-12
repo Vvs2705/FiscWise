@@ -65,7 +65,8 @@ def effective_plan_slug(tenant: object, subscription: object = None) -> Optional
 
     Degrada para FREE quando:
       - subscription.status ∈ {suspended, cancelled}; OU
-      - subscription.status == trialing E trial_ends_at já passou.
+      - subscription.status == trialing E trial_ends_at já passou; OU
+      - o dono cancelou (cancelled_at) e o período pago já terminou.
 
     Tenants SEM linha em tenant_subscriptions (legado) mantêm o plan_slug
     gravado — nunca degradam. Se `subscription` não for passada, é lida de
@@ -80,6 +81,16 @@ def effective_plan_slug(tenant: object, subscription: object = None) -> Optional
     sub_status = getattr(subscription, "status", None)
     if sub_status in ("suspended", "cancelled"):
         return PLAN_FREE
+
+    # Cancelamento pedido pelo dono: vale o período pago; depois, Gratuito.
+    if getattr(subscription, "cancelled_at", None) is not None:
+        period_end = getattr(subscription, "current_period_end", None)
+        if period_end is None:
+            return PLAN_FREE
+        if period_end.tzinfo is None:
+            period_end = period_end.replace(tzinfo=timezone.utc)
+        if period_end <= datetime.now(timezone.utc):
+            return PLAN_FREE
 
     if sub_status == "trialing":
         trial_ends_at = getattr(subscription, "trial_ends_at", None)

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
-import { installDemoApi } from './minicurso-demo-api'
+import { DEMO_PLANS, installDemoApi } from './minicurso-demo-api'
 
 /**
  * Contraste de cor (WCAG AA) em todas as telas, nos temas claro e escuro.
@@ -41,6 +41,10 @@ async function newThemedContext(browser: Browser, theme: Theme): Promise<Browser
   await context.addInitScript((t) => localStorage.setItem('fw-theme', t), theme)
   // Login com Google: iframe e script de terceiro, fora do nosso tema.
   await context.route(/accounts\.google\.com|apis\.google\.com/, (r) => r.abort())
+  // Vitrine de planos da página inicial (catálogo público): medida com os cards.
+  await context.route(/\/api\/v1\/subscription\/plans/, (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DEMO_PLANS) }),
+  )
   return context
 }
 
@@ -199,6 +203,7 @@ const OFFICE_ROUTES = [
   '/aprender',
   '/minicurso',
   '/configuracoes',
+  '/configuracoes?aba=plano',
   '/sincronizacao',
   '/calculadora',
 ]

@@ -20,6 +20,7 @@ import {
   RefreshCw,
   ChevronDown,
   GraduationCap,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -84,6 +85,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Minicurso',      href: '/minicurso',     icon: GraduationCap },
       { name: 'Aprender',       href: '/aprender',      icon: BookOpen },
+      { name: 'Plano e assinatura', href: '/assinatura', icon: CreditCard },
       { name: 'Configurações',  href: '/configuracoes', icon: Settings },
       { name: 'Sincronização',  href: '/sincronizacao', icon: RefreshCw },
     ],

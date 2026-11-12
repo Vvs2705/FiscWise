@@ -68,10 +68,11 @@ export function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold">4. Planos e Pagamentos</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              O FiscWise oferece planos gratuito e pagos. Os planos pagos são cobrados mensalmente
-              mediante cartão de crédito ou boleto bancário, processados por gateway de pagamento
-              terceirizado (Asaas). O cancelamento pode ser solicitado a qualquer momento, sem multa,
-              com encerramento ao fim do período vigente.
+              O FiscWise oferece planos gratuito e pagos. Os planos pagos podem ser contratados nos
+              ciclos mensal, trimestral, semestral ou anual, por Pix ou cartão de crédito, com o
+              pagamento processado pelo Mercado Pago. O cancelamento pode ser feito a qualquer
+              momento pelo próprio sistema, em Plano e assinatura, sem multa, com encerramento ao
+              fim do período já pago.
             </p>
           </section>
 

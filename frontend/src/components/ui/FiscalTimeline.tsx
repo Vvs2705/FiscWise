@@ -24,12 +24,12 @@ export function FiscalTimeline({ items, isLoading, className, ...props }: Fiscal
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex gap-4">
             <div className="flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
-              <div className="w-0.5 h-16 bg-border/40" />
+              <div className="skeleton h-8 w-8 rounded-md" />
+              <div className="h-16 w-px bg-border" />
             </div>
             <div className="flex-1 space-y-2 pt-1">
-              <div className="h-4 w-1/3 bg-muted animate-pulse rounded" />
-              <div className="h-3 w-2/3 bg-muted animate-pulse rounded" />
+              <div className="skeleton h-4 w-1/3 rounded-sm" />
+              <div className="skeleton h-3 w-2/3 rounded-sm" />
             </div>
           </div>
         ))}
@@ -48,17 +48,17 @@ export function FiscalTimeline({ items, isLoading, className, ...props }: Fiscal
   return (
     <div className={cn('relative space-y-6 pl-2', className)} {...props}>
       {/* Central vertical connecting line */}
-      <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-border/45" />
+      <div className="absolute bottom-2 left-6 top-2 w-px bg-border" aria-hidden="true" />
 
       {items.map((item) => {
         const Icon = item.icon || Calendar;
         
         const typeColors = {
           default: 'bg-muted border-border text-muted-foreground',
-          success: 'bg-success/10 border-success/35 text-success shadow-[0_0_12px_-2px_hsl(var(--success)/0.2)]',
-          warning: 'bg-warning/10 border-warning/35 text-warning shadow-[0_0_12px_-2px_hsl(var(--warning)/0.2)]',
-          error: 'bg-destructive/10 border-destructive/35 text-destructive shadow-[0_0_12px_-2px_hsl(var(--destructive)/0.2)]',
-          info: 'bg-info/10 border-info/35 text-info shadow-[0_0_12px_-2px_hsl(var(--info)/0.2)]',
+          success: 'bg-success/10 border-success/25 text-success',
+          warning: 'bg-warning/10 border-warning/25 text-warning',
+          error: 'bg-destructive/10 border-destructive/25 text-destructive',
+          info: 'bg-info/10 border-info/25 text-info',
         };
 
         const currentTypeColor = typeColors[item.type || 'default'];
@@ -68,7 +68,7 @@ export function FiscalTimeline({ items, isLoading, className, ...props }: Fiscal
             {/* Timeline icon node */}
             <div
               className={cn(
-                'relative z-10 w-9 h-9 rounded-xl border flex items-center justify-center transition-transform group-hover:scale-105',
+                'relative z-10 flex h-9 w-9 items-center justify-center rounded-md border bg-card',
                 currentTypeColor
               )}
             >
@@ -78,10 +78,10 @@ export function FiscalTimeline({ items, isLoading, className, ...props }: Fiscal
             {/* Content card */}
             <div className="flex-1 min-w-0 pt-0.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                <h4 className="text-sm font-semibold text-foreground tracking-tight group-hover:text-primary transition-colors">
+                <h4 className="text-sm font-semibold text-foreground">
                   {item.title}
                 </h4>
-                <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                   {item.date}
                 </span>
               </div>

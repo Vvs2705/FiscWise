@@ -1,64 +1,82 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary' | 'premium';
-  size?: 'sm' | 'md' | 'lg';
+export type ButtonVariant =
+  | 'default'
+  | 'secondary'
+  | 'outline'
+  | 'ghost'
+  | 'destructive'
+  | 'link'
+  /** @deprecated alias visual de `default` (sem gradiente). */
+  | 'premium';
+
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  /** Mostra spinner, desabilita o botão e mantém a largura do conteúdo. */
+  loading?: boolean;
+}
+
+const VARIANT_CLASSES: Record<Exclude<ButtonVariant, 'premium'>, string> = {
+  default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/70 dark:hover:bg-secondary/80',
+  outline: 'border border-input bg-card text-foreground hover:bg-muted hover:border-muted-foreground/30',
+  ghost: 'text-foreground hover:bg-muted',
+  destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+  link: 'h-auto px-0 text-primary underline-offset-4 hover:underline active:scale-100',
+};
+
+const SIZE_CLASSES: Record<ButtonSize, string> = {
+  sm: 'h-8 gap-1.5 px-3 text-sm',
+  md: 'h-10 gap-2 px-4 text-sm',
+  lg: 'h-11 gap-2 px-5 text-base',
+};
+
+function buttonVariants({
+  variant = 'default',
+  size = 'md',
+  className,
+}: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}) {
+  const v = variant === 'premium' ? 'default' : variant;
+  return cn(
+    'relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-md font-medium',
+    'transition-[background-color,border-color,color,transform] duration-100 ease-out',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+    'disabled:pointer-events-none disabled:opacity-50',
+    'active:scale-[0.98]',
+    SIZE_CLASSES[size],
+    VARIANT_CLASSES[v],
+    className,
+  );
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'md', ...props }, ref) => {
+  ({ className, variant = 'default', size = 'md', loading = false, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={cn(
-          // Base
-          'relative inline-flex items-center justify-center rounded-md font-medium select-none',
-          // Transições suaves
-          'transition-all duration-150 ease-spring',
-          // Focus ring
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          // Desabilitado
-          'disabled:pointer-events-none disabled:opacity-50',
-          // Hover lift + active press
-          'hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
-
-          // Variantes
-          variant === 'default' && [
-            'bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(224,94,24,0.22)]',
-            'hover:bg-primary/95 hover:shadow-[0_16px_38px_rgba(224,94,24,0.28)]',
-            'active:bg-primary/90',
-          ],
-          variant === 'premium' && [
-            'bg-[linear-gradient(135deg,hsl(var(--primary)),hsl(38_92%_55%))] text-primary-foreground',
-            'shadow-[0_14px_36px_rgba(224,94,24,0.28)]',
-            'hover:shadow-[0_18px_44px_rgba(224,94,24,0.34)] hover:saturate-110',
-          ],
-          variant === 'outline' && [
-            'border border-input bg-background/80 shadow-sm backdrop-blur-sm',
-            'hover:bg-accent/80 hover:text-accent-foreground hover:border-primary/35',
-          ],
-          variant === 'secondary' && [
-            'bg-secondary text-secondary-foreground shadow-sm',
-            'hover:bg-secondary/80',
-          ],
-          variant === 'ghost' && [
-            'hover:bg-accent/80 hover:text-accent-foreground',
-          ],
-          variant === 'destructive' && [
-            'bg-destructive text-destructive-foreground shadow-[0_12px_30px_rgba(239,68,68,0.22)]',
-            'hover:bg-destructive/90 hover:shadow-[0_16px_34px_rgba(239,68,68,0.28)]',
-          ],
-
-          // Tamanhos
-          size === 'sm' && 'h-8 gap-1.5 px-3 text-sm',
-          size === 'md' && 'h-10 gap-2 px-4 text-sm',
-          size === 'lg' && 'h-11 gap-2 px-6 text-base',
-
-          className,
-        )}
+        className={buttonVariants({ variant, size, className })}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
         {...props}
-      />
+      >
+        {loading ? (
+          <>
+            {/* Conteúdo invisível preserva a largura; spinner fica centralizado por cima */}
+            <span className="invisible inline-flex items-center gap-[inherit]">{children}</span>
+            <span className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <span className="sr-only">Carregando</span>
+            </span>
+          </>
+        ) : (
+          children
+        )}
+      </button>
     );
   },
 );

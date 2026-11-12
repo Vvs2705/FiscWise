@@ -1,99 +1,114 @@
+/* Fontes autoinstaladas (sem Google Fonts em runtime) — DESIGN.md §3 */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/jetbrains-mono';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Design tokens — Light mode ────────────────────────────────── */
+/* ─── Tokens — tema claro (DESIGN.md §2, §5, §6) ─────────────────── */
 @layer base {
   :root {
-    --background: 208 40% 97%;
-    --foreground: 211 49% 13%;
+    --background: 210 20% 98%;
+    --foreground: 215 30% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 211 49% 13%;
+    --card-foreground: 215 30% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 211 49% 13%;
+    --popover-foreground: 215 30% 14%;
     --primary: 21 81% 49%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 206 34% 93%;
-    --secondary-foreground: 211 49% 18%;
-    --muted: 206 34% 93%;
-    --muted-foreground: 214 16% 42%;
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 215 30% 14%;
+    --muted: 210 16% 94%;
+    --muted-foreground: 215 12% 42%;
     --accent: 24 100% 95%;
     --accent-foreground: 21 81% 30%;
-    --destructive: 0 75% 56%;
+    --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 58% 39%;
+    --success: 152 58% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 35 92% 48%;
+    --warning: 32 92% 42%;
     --warning-foreground: 0 0% 100%;
-    --info: 205 85% 44%;
+    --info: 206 85% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 205 26% 86%;
-    --input: 205 26% 86%;
+    --border: 214 16% 88%;
+    --input: 214 16% 88%;
     --ring: 21 81% 49%;
-    --radius: 0.75rem;
-    --radius-card: 1.125rem;
-    --radius-panel: 1.75rem;
 
-    /* Sombras de marca (V-STACK) */
-    --shadow-sm: 0 12px 32px hsl(211 49% 13% / 0.08);
-    --shadow: 0 28px 80px hsl(211 49% 13% / 0.14);
-    --shadow-glow: 0 22px 70px hsl(21 81% 49% / 0.18);
+    /* Raio: 6 / 8 / 12 */
+    --radius-sm: 6px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    /* Aliases legados */
+    --radius-card: 12px;
+    --radius-panel: 12px;
 
-    --sidebar-bg: 211 68% 10%;
-    --sidebar-fg: 205 53% 95%;
-    --sidebar-muted: 212 20% 66%;
+    /* Sombra: três níveis discretos, sem glow */
+    --shadow-sm: 0 1px 2px hsl(215 30% 14% / 0.06);
+    --shadow-md: 0 4px 12px -2px hsl(215 30% 14% / 0.10);
+    --shadow-lg: 0 16px 40px -12px hsl(215 30% 14% / 0.18);
+    /* Aliases legados */
+    --shadow: var(--shadow-md);
+    --shadow-glow: var(--shadow-sm);
+
+    /* Sidebar navy, fixa nos dois temas */
+    --sidebar-bg: 215 50% 11%;
+    --sidebar-fg: 210 30% 94%;
+    --sidebar-muted: 215 15% 66%;
     --sidebar-active-bg: 21 81% 49%;
     --sidebar-active-fg: 0 0% 100%;
-    --sidebar-hover-bg: 210 53% 16%;
-    --sidebar-border: 210 41% 18%;
-    --sidebar-logo-accent: 24 95% 55%;
+    --sidebar-hover-bg: 215 40% 16%;
+    --sidebar-border: 215 35% 18%;
+    --sidebar-logo-accent: 21 81% 49%;
 
-    --shell-bg: 206 45% 95%;
-    --shell-glow: 21 81% 49%;
-    --surface-elevated: 0 0% 100%;
-    --surface-elevated-foreground: 211 49% 13%;
+    /* Aliases legados (superfícies planas) */
+    --shell-bg: var(--background);
+    --shell-glow: var(--primary);
+    --surface-elevated: var(--card);
+    --surface-elevated-foreground: var(--card-foreground);
+
+    color-scheme: light;
   }
 
-  /* ─── Dark mode tokens ───────────────────────────────────────── */
+  /* ─── Tokens — tema escuro ─────────────────────────────────────── */
   .dark {
-    --background: 212 69% 7%;
-    --foreground: 203 54% 94%;
-    --card: 211 58% 13%;
-    --card-foreground: 203 54% 94%;
-    --popover: 211 58% 13%;
-    --popover-foreground: 203 54% 94%;
-    --primary: 22 87% 55%;
+    --background: 215 28% 8%;
+    --foreground: 210 20% 93%;
+    --card: 215 25% 12%;
+    --card-foreground: 210 20% 93%;
+    --popover: 215 25% 12%;
+    --popover-foreground: 210 20% 93%;
+    --primary: 22 85% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 212 38% 17%;
-    --secondary-foreground: 204 44% 92%;
-    --muted: 212 38% 17%;
-    --muted-foreground: 213 19% 65%;
-    --accent: 20 40% 18%;
-    --accent-foreground: 28 100% 92%;
-    --destructive: 0 74% 58%;
+    --secondary: 215 20% 16%;
+    --secondary-foreground: 210 20% 93%;
+    --muted: 215 20% 16%;
+    --muted-foreground: 215 12% 62%;
+    --accent: 22 40% 16%;
+    --accent-foreground: 28 100% 90%;
+    --destructive: 0 72% 58%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 52% 50%;
+    --success: 152 50% 48%;
     --success-foreground: 152 60% 8%;
     --warning: 35 90% 55%;
     --warning-foreground: 35 80% 10%;
-    --info: 205 80% 58%;
-    --info-foreground: 205 80% 10%;
-    --border: 209 38% 21%;
-    --input: 209 38% 21%;
-    --ring: 22 87% 55%;
+    --info: 206 80% 58%;
+    --info-foreground: 206 80% 10%;
+    --border: 215 16% 22%;
+    --input: 215 16% 22%;
+    --ring: 22 85% 56%;
 
-    --shadow-sm: 0 12px 32px hsl(212 69% 3% / 0.45);
-    --shadow: 0 28px 80px hsl(212 69% 2% / 0.55);
-    --shadow-glow: 0 22px 70px hsl(22 87% 55% / 0.22);
+    --shadow-sm: 0 1px 2px hsl(215 40% 3% / 0.30);
+    --shadow-md: 0 4px 12px -2px hsl(215 40% 3% / 0.40);
+    --shadow-lg: 0 16px 40px -12px hsl(215 40% 3% / 0.55);
 
-    --shell-bg: 212 69% 7%;
-    --shell-glow: 22 87% 55%;
-    --surface-elevated: 211 58% 13%;
-    --surface-elevated-foreground: 203 54% 94%;
+    --sidebar-active-bg: 22 85% 56%;
+
+    color-scheme: dark;
   }
 }
 
-/* ─── Base styles ────────────────────────────────────────────────── */
+/* ─── Base ───────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
@@ -104,18 +119,11 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: 'cv11', 'ss01';
+    @apply bg-background font-sans text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-image:
-      radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.12), transparent 28%),
-      radial-gradient(circle at top right, hsl(28 90% 55% / 0.10), transparent 24%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
-    background-attachment: fixed;
   }
 
-  /* Scrollbar personalizado */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -134,12 +142,34 @@
   }
 }
 
-/* ─── Keyframes ──────────────────────────────────────────────────── */
+/* ─── Componentes legados (camada components: utilitários sobrescrevem) ─ */
+@layer components {
+  /* Legados de superfície: agora planos */
+  .fiscwise-shell {
+    background-color: hsl(var(--background));
+  }
+
+  .fiscwise-surface {
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+  }
+
+  .fiscwise-grid {
+    background-image: none;
+  }
+}
+
+/* ─── Movimento (DESIGN.md §7) ───────────────────────────────────── */
 @layer utilities {
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   @keyframes fade-in-up {
     from {
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
@@ -147,126 +177,87 @@
     }
   }
 
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-
-  @keyframes scale-in {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes slide-in-left {
-    from {
-      opacity: 0;
-      transform: translateX(-16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
   @keyframes shimmer {
-    from { background-position: -200% 0; }
-    to   { background-position:  200% 0; }
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
   }
 
-  @keyframes pulse-ring {
-    0%   { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.35); }
-    70%  { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
-    100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
-  }
-
-  /* ── Utility classes ── */
-  .animate-fade-in-up {
-    animation: fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .animate-fade-in {
-    animation: fade-in 0.25s ease-out both;
+    animation: fade-in 0.15s ease-out both;
   }
 
-  .animate-scale-in {
-    animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  .animate-fade-in-up {
+    animation: fade-in-up 0.25s cubic-bezier(0.2, 0, 0, 1) both;
   }
 
+  /* Aliases legados: viram fade simples (sem scale, sem deslocamento lateral) */
+  .animate-scale-in,
   .animate-slide-in-left {
-    animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fade-in 0.2s cubic-bezier(0.2, 0, 0, 1) both;
   }
 
-  /* Stagger helpers */
-  .animation-delay-75  { animation-delay: 75ms; }
-  .animation-delay-150 { animation-delay: 150ms; }
-  .animation-delay-225 { animation-delay: 225ms; }
-  .animation-delay-300 { animation-delay: 300ms; }
+  /* Stagger: passo de 40 ms (máx. 4 itens) */
+  .animation-delay-75  { animation-delay: 40ms; }
+  .animation-delay-150 { animation-delay: 80ms; }
+  .animation-delay-225 { animation-delay: 120ms; }
+  .animation-delay-300 { animation-delay: 160ms; }
 
-  /* Page enter animation */
+  /* Entrada de página: fade + 6px, 250 ms, uma vez */
   .page-enter {
-    animation: fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fade-in-up 0.25s cubic-bezier(0.2, 0, 0, 1) both;
   }
 
-  /* Shimmer loading skeleton */
+  /* Skeleton: um único mecanismo (shimmer); estático com reduced-motion */
   .skeleton {
-    background: linear-gradient(
+    background-color: hsl(var(--muted));
+    background-image: linear-gradient(
       90deg,
-      hsl(var(--muted)) 25%,
-      hsl(var(--muted-foreground) / 0.1) 50%,
-      hsl(var(--muted)) 75%
+      transparent 0%,
+      hsl(var(--background) / 0.55) 50%,
+      transparent 100%
     );
     background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
+    background-repeat: no-repeat;
+    animation: shimmer 1.6s linear infinite;
   }
 
-  /* Interactive card */
+  /* Card clicável: só borda e sombra média, sem deslocamento */
   .card-interactive {
-    @apply transition-all duration-200 ease-out;
+    @apply cursor-pointer transition-colors duration-150 ease-out;
   }
 
   .card-interactive:hover {
-    @apply -translate-y-0.5 shadow-md;
+    @apply border-primary/40;
+    box-shadow: var(--shadow-md);
   }
 
-  /* Glow ring for primary buttons */
+  /* Legado: sem pulso no foco */
   .btn-glow:focus-visible {
-    animation: pulse-ring 0.6s ease-out;
+    animation: none;
   }
 
-  .fiscwise-shell {
-    background:
-      radial-gradient(circle at top left, hsl(var(--shell-glow) / 0.18), transparent 22%),
-      radial-gradient(circle at top right, hsl(28 90% 55% / 0.10), transparent 20%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+  .tabular-data {
+    @apply font-mono tabular-nums;
+  }
+}
+
+/* Reduced motion: zera animações e transições globalmente */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 
-  .fiscwise-surface {
-    background-color: hsl(var(--surface-elevated) / 0.90);
-    color: hsl(var(--surface-elevated-foreground));
-    backdrop-filter: blur(12px);
-    box-shadow:
-      0 4px 20px rgba(4, 14, 26, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.50);
-  }
-
-  .dark .fiscwise-surface {
-    background-color: hsl(var(--surface-elevated) / 0.82);
-    box-shadow:
-      0 18px 42px rgba(4, 14, 26, 0.16),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-
-  .fiscwise-grid {
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.15) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.15) 1px, transparent 1px);
-    background-size: 24px 24px;
-    background-position: center center;
+  .skeleton {
+    animation: none !important;
+    background-image: none !important;
   }
 }

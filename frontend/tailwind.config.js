@@ -65,48 +65,74 @@ export default {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
-        card: 'var(--radius-card)',
-        panel: 'var(--radius-panel)',
+        // DESIGN.md §5: 6 / 8 / 12
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius)',
+        lg: 'var(--radius-lg)',
+        // Aliases legados → 12px
+        card: 'var(--radius-lg)',
+        panel: 'var(--radius-lg)',
       },
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Syne', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        // DESIGN.md §3: Geist (interface) + JetBrains Mono (dados)
+        sans: ['"Geist Variable"', 'Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['"Geist Variable"', 'Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        mono: ['"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        'glow-sm': '0 0 12px -2px hsl(var(--primary) / 0.25)',
-        'glow': '0 0 20px -4px hsl(var(--primary) / 0.35)',
-        'card-hover': '0 4px 24px -4px rgb(0 0 0 / 0.12)',
+        // DESIGN.md §6: três níveis discretos
+        sm: 'var(--shadow-sm)',
+        DEFAULT: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        xl: 'var(--shadow-lg)',
+        '2xl': 'var(--shadow-lg)',
+        // Aliases legados (sem glow, sem cor)
+        'glow-sm': 'var(--shadow-sm)',
+        glow: 'var(--shadow-sm)',
+        'card-hover': 'var(--shadow-md)',
         'token-sm': 'var(--shadow-sm)',
-        'token': 'var(--shadow)',
-        'token-glow': 'var(--shadow-glow)',
+        token: 'var(--shadow-md)',
+        'token-glow': 'var(--shadow-sm)',
       },
       transitionTimingFunction: {
-        'spring': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        spring: 'cubic-bezier(0.2, 0, 0, 1)',
+        standard: 'cubic-bezier(0.2, 0, 0, 1)',
+      },
+      transitionDuration: {
+        instant: '100ms',
+        fast: '150ms',
+        base: '200ms',
+        enter: '250ms',
       },
       keyframes: {
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
         'fade-in-up': {
-          from: { opacity: '0', transform: 'translateY(12px)' },
+          from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
-        'scale-in': {
-          from: { opacity: '0', transform: 'scale(0.95)' },
-          to: { opacity: '1', transform: 'scale(1)' },
-        },
         shimmer: {
-          from: { backgroundPosition: '-200% 0' },
-          to: { backgroundPosition: '200% 0' },
+          from: { backgroundPosition: '200% 0' },
+          to: { backgroundPosition: '-200% 0' },
         },
       },
       animation: {
-        'fade-in-up': 'fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
-        'scale-in': 'scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both',
-        shimmer: 'shimmer 1.4s ease-in-out infinite',
+        'fade-in': 'fade-in 0.15s ease-out both',
+        'fade-in-up': 'fade-in-up 0.25s cubic-bezier(0.2, 0, 0, 1) both',
+        // Legado: scale-in vira fade simples
+        'scale-in': 'fade-in 0.2s cubic-bezier(0.2, 0, 0, 1) both',
+        shimmer: 'shimmer 1.6s linear infinite',
       },
     },
+  },
+  // DESIGN.md §1.5: nada de backdrop-filter. As classes `backdrop-blur*` ainda
+  // presentes nas páginas deixam de gerar CSS (superfícies planas).
+  corePlugins: {
+    backdropBlur: false,
+    backdropFilter: false,
   },
   plugins: [],
 }

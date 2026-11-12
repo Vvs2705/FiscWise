@@ -21,6 +21,7 @@ const Toaster            = lazy(() => import('sonner').then(m => ({ default: m.T
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const NotFoundPage     = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const DashboardPage    = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const ClientsPage      = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const DocumentsPage    = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
@@ -146,6 +147,7 @@ function App() {
               <Route path="/portal/login" element={<PortalLoginPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
+              <Route path="/404"         element={<NotFoundPage />} />
 
               {/* Portal do cliente final (role client) — fora do layout da equipe */}
               <Route
@@ -212,6 +214,9 @@ function App() {
                 <Route path="billing"      element={<Navigate to="/financeiro" replace />} />
                 <Route path="settings"     element={<Navigate to="/configuracoes" replace />} />
               </Route>
+
+              {/* Rota inexistente: página 404 (noindex via RouteTitle) */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

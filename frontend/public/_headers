@@ -1,11 +1,14 @@
 # Cloudflare Pages: headers de seguranca (os do vercel.json nao valem aqui).
-# CSP fica para quando a URL final da API e o login Google estiverem fixos.
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  # CSP em modo Report-Only: valida o login Google/API/Sentry sem risco de quebrar.
+  # Depois de conferir o console em producao, trocar por Content-Security-Policy.
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-htOkb8PVbg6qKvFhbzXAwsiBdsLo6wsG9aPu3AD0fH4=' https://accounts.google.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.run.app https://api.fiscwise.com.br https://accounts.google.com https://*.ingest.sentry.io https://*.supabase.co https://cloudflareinsights.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Arquivos com hash no nome: cache permanente.
 /assets/*
@@ -24,3 +27,10 @@
 
 /
   Cache-Control: no-cache
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+/robots.txt
+  Cache-Control: public, max-age=3600
+/llms.txt
+  Content-Type: text/plain; charset=utf-8

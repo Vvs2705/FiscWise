@@ -19,10 +19,10 @@ from decimal import Decimal
 import uuid
 from typing import Any, Optional
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.http_client import request_with_retry
 from app.services import rag_service
 
 logger = logging.getLogger(__name__)
@@ -177,15 +177,20 @@ async def _call_openai(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                _OPENAI_API_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-            )
+        # idempotent=False: repete só se a conexão não abriu. Timeout de leitura
+        # não repete (a OpenAI pode ter processado e cobrado os tokens).
+        response = await request_with_retry(
+            "POST",
+            _OPENAI_API_URL,
+            service="openai",
+            idempotent=False,
+            read_timeout=30.0,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
 
         if response.status_code != 200:
             logger.warning(

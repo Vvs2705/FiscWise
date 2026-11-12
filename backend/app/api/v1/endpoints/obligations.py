@@ -24,8 +24,9 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_principal, get_current_user, get_db
 from app.core.tenant_guard import ensure_client_in_tenant
+from app.services import webhook_service as _webhook_svc
 from app.models.obligation import (
     ClientObligationProfile,
     DocumentChecklistItem,
@@ -230,7 +231,7 @@ async def list_obligation_instances(
     competence_month: Optional[date] = Query(None, description="Filter by competence month (YYYY-MM-DD, first day)"),
     client_id: Optional[UUID] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """List obligation instances for the current tenant."""
@@ -255,7 +256,7 @@ async def list_obligation_instances(
              summary="Create manual obligation instance")
 async def create_obligation_instance(
     body: CreateObligationInstanceRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a manual obligation instance (not auto-generated)."""
@@ -289,7 +290,7 @@ async def create_obligation_instance(
 async def update_obligation_instance(
     instance_id: UUID,
     body: UpdateObligationInstanceRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Update status, assignment, or notes of an obligation instance."""
@@ -305,9 +306,11 @@ async def update_obligation_instance(
     if not instance:
         raise HTTPException(status_code=404, detail="Obligation instance not found")
 
+    became_delivered = False
     if body.status is not None:
         if body.status not in VALID_INSTANCE_STATUSES:
             raise HTTPException(422, f"Invalid status. Valid: {sorted(VALID_INSTANCE_STATUSES)}")
+        became_delivered = body.status == "delivered" and instance.status != "delivered"
         instance.status = body.status
         if body.status == "delivered" and not instance.completed_at:
             instance.completed_at = datetime.utcnow()
@@ -328,6 +331,20 @@ async def update_obligation_instance(
 
     await db.commit()
     await db.refresh(instance)
+    if became_delivered:
+        await _webhook_svc.dispatch_event(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            event="obligation.completed",
+            data={
+                "id": str(instance.id),
+                "client_id": str(instance.client_id),
+                "rule_id": str(instance.rule_id) if instance.rule_id else None,
+                "competence_month": instance.competence_month,
+                "status": instance.status,
+                "completed_at": instance.completed_at.isoformat() if instance.completed_at else None,
+            },
+        )
     return instance
 
 

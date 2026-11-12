@@ -5,7 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_principal, get_current_user, get_db
 from app.models.user import User
 
 def _tenant_id(current_user: User) -> uuid.UUID:
@@ -77,7 +77,7 @@ async def list_issuers(
 @router.post("", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     payload: InvoiceCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = InvoiceRepository(db)
@@ -89,7 +89,7 @@ async def list_invoices(
     status_filter: Optional[str] = Query(None, alias="status"),
     client_id: Optional[uuid.UUID] = Query(None),
     competencia: Optional[date] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = InvoiceRepository(db)
@@ -104,7 +104,7 @@ async def list_invoices(
 @router.get("/{id}", response_model=InvoiceResponse)
 async def get_invoice(
     id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = InvoiceRepository(db)

@@ -294,6 +294,9 @@ def _reset_auth_rate_limiter():
 
     auth_rate_limiter._login_store.clear()
     auth_rate_limiter._otp_store.clear()
+    from app.core import auth_rate_limiter as _arl
+
+    _arl._api_key_store.clear()
     redis_client = getattr(auth_rate_limiter, "_r", None)  # CI sobe Redis com REDIS_URL
     if redis_client is not None:
         for key in redis_client.scan_iter("rl:*"):

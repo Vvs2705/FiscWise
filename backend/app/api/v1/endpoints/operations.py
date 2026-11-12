@@ -15,7 +15,7 @@ from sqlalchemy import Date as SADate, cast, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_principal, get_current_user, get_db
 from app.core.plan_access import (
     PLAN_INTERMEDIARIO,
     check_chat_quota,
@@ -609,7 +609,7 @@ async def list_clients(
     tax_regime: str | None = Query(default=None, max_length=80),
     entity_type: str | None = Query(default=None, max_length=16),
     cnae_code: str | None = Query(default=None, max_length=20),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -638,7 +638,7 @@ async def list_clients(
 @router.get("/clients/{client_id}", response_model=AccountingClientResponse)
 async def get_client(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> AccountingClientResponse:
     """Buscar cliente especifico por ID."""
@@ -783,7 +783,7 @@ async def get_client_ai_summary(
 async def create_client(
     payload: AccountingClientCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -872,7 +872,7 @@ async def update_client(
     client_id: uuid.UUID,
     payload: AccountingClientUpdate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -892,6 +892,18 @@ async def update_client(
         after_data={"name": client.name, "document": client.document},
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="client.updated",
+        data={
+            "id": str(client.id),
+            "name": client.name,
+            "document": client.document,
+            "status": client.status,
+            "changed_fields": sorted(payload.model_dump(exclude_unset=True).keys()),
+        },
     )
     return client
 
@@ -928,7 +940,7 @@ async def deactivate_client(
 async def list_deadlines(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -944,7 +956,7 @@ async def list_deadlines(
 @router.get("/deadlines/{deadline_id}", response_model=DeadlineResponse)
 async def get_deadline(
     deadline_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> DeadlineResponse:
     """Buscar prazo especifico por ID."""
@@ -992,7 +1004,7 @@ def get_next_due_date(current_date: date, interval: str) -> date:
 @router.post("/deadlines", response_model=DeadlineResponse, status_code=status.HTTP_201_CREATED)
 async def create_deadline(
     payload: DeadlineCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1006,7 +1018,7 @@ async def create_deadline(
 async def update_deadline(
     deadline_id: uuid.UUID,
     payload: DeadlineUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1062,7 +1074,7 @@ async def cancel_deadline(
 @router.get("/documents", response_model=list[DocumentResponse])
 async def list_documents(
     client_id: uuid.UUID | None = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1076,7 +1088,7 @@ async def list_documents(
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentResponse:
     """Buscar documento especifico por ID."""
@@ -1148,7 +1160,7 @@ async def _download_and_parse_background(
 async def create_document(
     payload: DocumentCreate,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1183,7 +1195,7 @@ async def create_document(
 async def update_document(
     document_id: uuid.UUID,
     payload: DocumentUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1495,7 +1507,7 @@ async def get_certificate_usage_trail(
 async def list_receivables(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1511,7 +1523,7 @@ async def list_receivables(
 @router.get("/receivables/{receivable_id}", response_model=ReceivableResponse)
 async def get_receivable(
     receivable_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> ReceivableResponse:
     """Buscar conta a receber especifica por ID."""
@@ -1528,7 +1540,7 @@ async def get_receivable(
 @router.post("/receivables", response_model=ReceivableResponse, status_code=status.HTTP_201_CREATED)
 async def create_receivable(
     payload: ReceivableCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1542,7 +1554,7 @@ async def create_receivable(
 async def update_receivable(
     receivable_id: uuid.UUID,
     payload: ReceivableUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1900,6 +1912,17 @@ async def upload_client_document(
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="document.uploaded",
+        data={
+            "id": str(document.id),
+            "name": document.name,
+            "client_id": str(client_id),
+            "document_type": document.document_type,
+        },
+    )
 
     # Agendar parsing em background
     background_tasks.add_task(
@@ -1916,7 +1939,7 @@ async def upload_client_document(
 @router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
 async def list_client_documents(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Lista documentos de um cliente."""

@@ -5,7 +5,6 @@ Handles client portal invitations, magic link authentication, and client data.
 
 import hashlib
 import logging
-import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,13 +19,12 @@ from app.core.deps import get_db, get_current_user
 from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
+from app.core.config import settings
 from app.core.security import create_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["Client Portal"])
 
-# Frontend portal URL — override via PORTAL_URL env var in production
-_PORTAL_URL = os.getenv("PORTAL_URL", "https://fiscwise.com.br/portal")
 
 
 class InviteClientRequest(BaseModel):
@@ -598,7 +596,7 @@ async def request_magic_link(
     db.add(magic_token)
     await db.commit()
 
-    portal_link = f"{_PORTAL_URL}/login?token={raw_token}"
+    portal_link = f"{settings.portal_url}/login?token={raw_token}"
 
     logger.info(
         "Magic link issued for client user %s by %s (tenant %s)",

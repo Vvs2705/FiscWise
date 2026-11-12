@@ -5,6 +5,7 @@ Covers:
   - GET  /obligations/instances                     — list obligation instances for tenant
   - POST /obligations/instances                     — create manual obligation instance
   - PATCH /obligations/instances/{id}               — update status / assignment
+  - DELETE /obligations/instances/{id}              — cancel (soft delete, status=cancelled)
   - GET  /obligations/profiles/{client_id}          — get client fiscal profile
   - PUT  /obligations/profiles/{client_id}          — upsert client fiscal profile
   - GET  /obligations/checklist                     — list checklist items
@@ -19,7 +20,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,9 +33,34 @@ from app.models.obligation import (
     ObligationRule,
 )
 from app.models.user import User
+from app.services.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Nome da obrigação avulsa
+# ---------------------------------------------------------------------------
+# ObligationInstance não tem coluna de nome: obrigações avulsas (rule_id nulo)
+# guardam o nome na primeira linha de `notes`, com este prefixo. A API devolve
+# o nome em `custom_name` e as observações sem o prefixo em `notes`.
+CUSTOM_NAME_PREFIX = "[Avulsa] "
+
+
+def _compose_notes(custom_name: Optional[str], notes: Optional[str]) -> Optional[str]:
+    name = (custom_name or "").strip().replace("\n", " ")
+    if not name:
+        return notes
+    head = f"{CUSTOM_NAME_PREFIX}{name}"
+    return f"{head}\n{notes}" if notes else head
+
+
+def _split_notes(raw: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if not raw or not raw.startswith(CUSTOM_NAME_PREFIX):
+        return None, raw
+    head, _, rest = raw.partition("\n")
+    return head[len(CUSTOM_NAME_PREFIX):] or None, rest or None
 
 
 # ---------------------------------------------------------------------------
@@ -68,11 +94,19 @@ class ObligationInstanceOut(BaseModel):
     priority: str
     assigned_to: Optional[UUID]
     notes: Optional[str]
+    custom_name: Optional[str] = None
     completed_at: Optional[datetime]
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode="after")
+    def _split_custom_name(self) -> "ObligationInstanceOut":
+        # O nome da obrigação avulsa viaja dentro de `notes` (ver _compose_notes).
+        if self.custom_name is None:
+            self.custom_name, self.notes = _split_notes(self.notes)
+        return self
 
 
 class CreateObligationInstanceRequest(BaseModel):
@@ -84,6 +118,7 @@ class CreateObligationInstanceRequest(BaseModel):
     priority: str = "medium"
     assigned_to: Optional[UUID] = None
     notes: Optional[str] = None
+    custom_name: Optional[str] = Field(None, max_length=200)
 
 
 class UpdateObligationInstanceRequest(BaseModel):
@@ -243,7 +278,7 @@ async def create_obligation_instance(
         status=body.status,
         priority=body.priority,
         assigned_to=body.assigned_to,
-        notes=body.notes,
+        notes=_compose_notes(body.custom_name if body.rule_id is None else None, body.notes),
     )
     db.add(instance)
     await db.commit()
@@ -289,10 +324,61 @@ async def update_obligation_instance(
     if body.delivery_proof is not None:
         instance.delivery_proof = body.delivery_proof
     if body.notes is not None:
-        instance.notes = body.notes
+        # Preserva o nome da avulsa ao editar as observações.
+        current_name, _ = _split_notes(instance.notes)
+        instance.notes = _compose_notes(current_name, body.notes or None)
 
     await db.commit()
     await db.refresh(instance)
+    return instance
+
+
+@router.delete("/instances/{instance_id}", response_model=ObligationInstanceOut,
+               summary="Cancel obligation instance (soft delete)")
+async def cancel_obligation_instance(
+    instance_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica: marca a obrigação como `cancelled`.
+
+    Idempotente (cancelar de novo devolve 200 com o mesmo estado). Obrigação já
+    entregue (`delivered`) é status terminal e não pode ser cancelada (409).
+    """
+    result = await db.execute(
+        select(ObligationInstance).where(
+            and_(
+                ObligationInstance.id == instance_id,
+                ObligationInstance.tenant_id == current_user.tenant_id,
+            )
+        )
+    )
+    instance = result.scalar_one_or_none()
+    if not instance:
+        raise HTTPException(status_code=404, detail="Obligation instance not found")
+    if instance.status == "cancelled":
+        return instance
+    if instance.status == "delivered":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Obrigação já entregue não pode ser excluída.",
+        )
+
+    before_status = instance.status
+    instance.status = "cancelled"
+    await db.commit()
+    await db.refresh(instance)
+    await log_audit_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="obligation_instance.cancel",
+        entity_type="obligation_instance",
+        entity_id=instance.id,
+        before_data={"status": before_status},
+        after_data={"status": "cancelled"},
+    )
     return instance
 
 
@@ -474,7 +560,9 @@ async def trigger_obligation_generation(
 
     from app.services.obligation_engine import generate_obligations_for_month
 
-    summary = await generate_obligations_for_month(db, body.year, body.month)
+    summary = await generate_obligations_for_month(
+        db, body.year, body.month, tenant_id=current_user.tenant_id
+    )
     return {
         "status": "completed",
         "competence_month": f"{body.year:04d}-{body.month:02d}",

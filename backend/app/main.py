@@ -18,6 +18,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
+from app.core.http_client import ExternalServiceError
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.deps import get_sessionmaker
@@ -179,6 +180,20 @@ app.add_middleware(
 
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.exception_handler(ExternalServiceError)
+async def external_service_error_handler(_request, exc: ExternalServiceError):
+    """Serviço externo fora do ar → 503 (transitório) ou 502, com mensagem clara."""
+    return JSONResponse(
+        status_code=503 if exc.retryable else 502,
+        content={
+            "detail": exc.user_message,
+            "error_code": "EXTERNAL_SERVICE_UNAVAILABLE",
+            "service": exc.service,
+        },
+        headers={"Retry-After": "60"} if exc.retryable else None,
+    )
 
 
 @app.get("/health", tags=["Health"])

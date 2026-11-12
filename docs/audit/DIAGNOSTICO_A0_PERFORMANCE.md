@@ -114,6 +114,29 @@ Para ter o número real, a Frente A3 entrega um workflow `perf-probe` (GitHub
 Actions, `workflow_dispatch`) que mede p50/p95 de `/live`, `/health`, `/ready` e
 do caminho de autenticação, frio e quente.
 
+### 4.1 Medido em produção pelo `perf-probe` (2026-11-12 05:21 UTC)
+
+Runner do GitHub Actions em `eastus2` (EUA) → Cloud Run em São Paulo, 20
+chamadas quentes por endpoint ([run](https://github.com/Vvs2705/FiscWise/actions/runs/43160845588)).
+A instância já estava ligada (um run 1 min antes a acordou), então a coluna
+"fria" aqui **não** é cold start:
+
+| Endpoint | Status | Fria | p50 | p95 | max |
+|---|---|---|---|---|---|
+| `GET /live` | 200 | 169 ms | 153 ms | 159 ms | 176 ms |
+| `GET /health` | 200 | 150 ms | 151 ms | 157 ms | 308 ms |
+| `GET /api/v1/health` | 200 | 150 ms | 151 ms | 160 ms | 276 ms |
+| `GET /api/v1/clients` (sem token, pilha inteira de middlewares) | 401 | 148 ms | 151 ms | 163 ms | 307 ms |
+
+Front (`https://fiscwise.com.br/`, HTML de 1,9 KB pela Cloudflare): DNS 103 ms,
+TLS 117 ms, TTFB 191 ms.
+
+Leitura: a ida e volta EUA → SP responde por ~140 ms disso; o servidor em si
+fica em ~10 ms numa rota sem banco, igual ao estimado. De São Paulo a mesma
+chamada deve ficar abaixo de 30 ms. Falta medir o cold start de verdade (rodar o
+`perf-probe` depois de 15 min sem tráfego) e uma rota autenticada com banco,
+que precisa de token e fica para o dono rodar do PC.
+
 ## 5. Web Vitals (front)
 
 Medição local do build de produção (Vite preview) com Playwright, perfil Moto G4,

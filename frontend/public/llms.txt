@@ -20,9 +20,10 @@ Idioma: português do Brasil
 - Contas a receber e controle de inadimplência.
 - Portal do cliente final para documentos e guias.
 - Calculadora fiscal e assistente de IA de apoio.
+- Funciona sem internet: aplicativo instalável (PWA) no computador e no celular; clientes, prazos, certificados e honorários podem ser editados offline e sincronizam quando a conexão volta.
 
 ## Em desenvolvimento (ainda NÃO disponível em produção)
-- Emissão real de NFS-e (hoje em modo de simulação), NF-e, NFC-e, modo offline com sincronização, consulta e-CAC / Caixa Postal (SERPRO) e envio oficial por WhatsApp Business.
+- Emissão real de NFS-e (hoje em modo de simulação), NF-e, NFC-e, consulta e-CAC / Caixa Postal (SERPRO) e envio oficial por WhatsApp Business.
 O FiscWise não apresenta dado governamental simulado como se fosse oficial.
 
 ## Páginas

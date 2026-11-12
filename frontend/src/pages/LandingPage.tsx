@@ -4,13 +4,17 @@ import {
   Building2,
   CalendarClock,
   Check,
+  CloudUpload,
+  Download,
   FileStack,
   KeyRound,
   LockKeyhole,
   Server,
   ShieldCheck,
   Users,
+  WifiOff,
 } from 'lucide-react';
+import { InstallAppButton } from '@/components/InstallAppButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { LoginFooter, LoginLogo } from '@/features/auth/components/LoginShell';
@@ -68,6 +72,42 @@ const pains = [
   },
 ];
 
+const offlinePoints = [
+  {
+    icon: WifiOff,
+    title: 'Continua trabalhando quando a rede cai',
+    description:
+      'Cadastro de clientes, prazos e obrigações, certificados e honorários seguem funcionando sem internet. O que você faz fica guardado no próprio aparelho.',
+  },
+  {
+    icon: CloudUpload,
+    title: 'Sincroniza sozinho quando a conexão volta',
+    description:
+      'Cada alteração entra numa fila e sobe para a nuvem assim que a internet volta, sem duplicar nada. Se algo não puder ser salvo, você vê o motivo.',
+  },
+  {
+    icon: Download,
+    title: 'Instale no computador e no celular',
+    description:
+      'O FiscWise vira um aplicativo na sua área de trabalho pelo Chrome ou pelo Edge, e na tela inicial do celular. Abre em janela própria, sem barra de endereço.',
+  },
+];
+
+const installSteps = [
+  {
+    title: 'No computador (Chrome ou Edge)',
+    description: 'Clique em “Instalar aplicativo” acima, ou no ícone de instalar no fim da barra de endereço.',
+  },
+  {
+    title: 'No Android',
+    description: 'Abra o menu ⋮ do navegador e toque em “Instalar app” ou “Adicionar à tela inicial”.',
+  },
+  {
+    title: 'No iPhone ou iPad (Safari)',
+    description: 'Toque em Compartilhar e depois em “Adicionar à Tela de Início”.',
+  },
+];
+
 const steps = [
   {
     title: 'Cadastre seus clientes',
@@ -114,6 +154,11 @@ const available = [
     title: 'Honorários e inadimplência',
     description: 'Contas a receber dos honorários e controle de quem está em atraso.',
   },
+  {
+    title: 'Funciona sem internet',
+    description:
+      'Aplicativo instalável no computador e no celular. Clientes, prazos, certificados e honorários podem ser editados offline e sincronizam quando a rede volta.',
+  },
 ];
 
 const comingSoon = [
@@ -136,6 +181,14 @@ const faqs = [
   {
     q: 'O que o FiscWise já faz hoje?',
     a: 'Cadastro de clientes e documentos, calendário de obrigações fiscais, fechamento mensal com dossiê em PDF, portal do cliente, registro e conciliação de guias, alerta de validade de certificados e controle de honorários.',
+  },
+  {
+    q: 'O FiscWise funciona sem internet?',
+    a: 'Sim. Depois do primeiro acesso no aparelho, você continua cadastrando clientes, prazos, certificados e honorários mesmo sem conexão, e consulta as outras telas com os últimos dados carregados. Tudo fica guardado no aparelho e sobe para a nuvem quando a internet volta. O que depende de órgão público ou de arquivo na nuvem, como consulta à Receita, envio e download de documentos e geração do dossiê em PDF, espera a conexão.',
+  },
+  {
+    q: 'Preciso instalar alguma coisa?',
+    a: 'Não é obrigatório: o FiscWise abre no navegador. Se preferir, instale como aplicativo no computador pelo Chrome ou pelo Edge, ou no celular pela opção “Adicionar à tela inicial”. Não há arquivo para baixar nem configuração.',
   },
   {
     q: 'O FiscWise emite nota fiscal?',
@@ -166,9 +219,16 @@ function TopBar() {
           <a href="#como-funciona" className={cn(NAV_LINK, 'hidden md:inline-flex')}>
             Como funciona
           </a>
+          <a href="#offline" className={cn(NAV_LINK, 'hidden lg:inline-flex')}>
+            Funciona offline
+          </a>
           <a href="/faq/" className={cn(NAV_LINK, 'hidden md:inline-flex')}>
             Perguntas frequentes
           </a>
+          <InstallAppButton
+            label="Instalar app"
+            className="hidden h-10 border border-primary/40 bg-card px-3 text-sm text-primary hover:bg-accent md:inline-flex"
+          />
           <ThemeToggle />
           <Link to="/login" className={NAV_LINK}>
             Entrar
@@ -219,6 +279,53 @@ function ObligationsIllustration() {
   );
 }
 
+type SyncRow = { name: string; detail: string; status: string; tone: BadgeTone };
+
+const syncRows: SyncRow[] = [
+  { name: 'Novo cliente cadastrado', detail: 'Cliente D · Simples Nacional', status: 'Na fila', tone: 'warning' },
+  { name: 'DAS marcado como pago', detail: 'Cliente A · competência do mês', status: 'Na fila', tone: 'warning' },
+  { name: 'Honorário recebido', detail: 'Cliente C · mensal', status: 'Na fila', tone: 'warning' },
+];
+
+function OfflineIllustration() {
+  return (
+    <figure
+      aria-label="Exemplo ilustrativo de alterações feitas sem internet aguardando sincronização"
+      className="w-full rounded-lg border border-border bg-card shadow-lg"
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+        <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+          <WifiOff className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          Sem internet · 3 pendentes
+        </p>
+        <Badge variant="neutral">Exemplo</Badge>
+      </div>
+
+      <ul className="divide-y divide-border">
+        {syncRows.map((row) => (
+          <li key={row.name} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{row.detail}</p>
+            </div>
+            <Badge variant={row.tone} className="shrink-0">
+              {row.status}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+
+      <p className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-foreground sm:px-5">
+        <CloudUpload className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+        A internet voltou: tudo enviado para a nuvem.
+      </p>
+      <figcaption className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground sm:px-5">
+        Ilustração com dados fictícios.
+      </figcaption>
+    </figure>
+  );
+}
+
 function SectionHeading({ id, title, description }: { id: string; title: string; description?: string }) {
   return (
     <div className="max-w-2xl">
@@ -258,6 +365,18 @@ export function LandingPage() {
                 Entrar
               </Link>
             </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <p className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-sm font-medium text-foreground">
+                <WifiOff className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                Funciona sem internet
+              </p>
+              <a
+                href="#instalar"
+                className={cn('rounded-sm text-sm font-medium text-primary underline underline-offset-4', FOCUS_RING)}
+              >
+                Como instalar no computador e no celular
+              </a>
+            </div>
           </div>
 
           <div className="animate-fade-in-up [animation-delay:40ms] [animation-duration:200ms]">
@@ -293,11 +412,73 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* Funciona sem internet */}
+        <section
+          id="offline"
+          aria-labelledby="offline-title"
+          className="scroll-mt-4 border-t border-border py-14 sm:py-20"
+        >
+          <div className={cn(SECTION, 'grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16')}>
+            <div>
+              <SectionHeading
+                id="offline-title"
+                title="A internet caiu? O escritório não para."
+                description="Instale o FiscWise no computador e trabalhe sem medo de perder o que fez ou de ficar parado esperando a rede voltar."
+              />
+              <ul className="mt-8 space-y-5">
+                {offlinePoints.map(({ icon: Icon, title, description }) => (
+                  <li key={title} className="flex gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-primary">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-foreground">{title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm text-muted-foreground">
+                O primeiro acesso em cada aparelho precisa de internet. Consulta à Receita, envio e download de
+                documentos e geração do dossiê em PDF esperam a conexão voltar.
+              </p>
+            </div>
+            <OfflineIllustration />
+          </div>
+
+          <div id="instalar" className={cn(SECTION, 'mt-12 scroll-mt-4')}>
+            <div className="rounded-lg border border-primary/30 bg-accent/50 p-5 sm:p-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="max-w-2xl">
+                  <h3 className="text-lg font-semibold text-foreground">Instale o FiscWise em 1 clique</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Sem arquivo para baixar e sem configuração: o aplicativo é instalado pelo próprio navegador e
+                    ganha atalho na área de trabalho ou na tela inicial.
+                  </p>
+                </div>
+                <InstallAppButton
+                  label="Instalar aplicativo"
+                  compactLabel="Instalar aplicativo"
+                  className={cn(BTN_PRIMARY, 'h-11 w-full shrink-0 px-5 text-base md:w-auto')}
+                />
+              </div>
+              <ol className="mt-5 grid gap-4 border-t border-primary/15 pt-5 text-sm sm:grid-cols-3">
+                {installSteps.map((step) => (
+                  <li key={step.title} className="min-w-0">
+                    <p className="font-semibold text-foreground">{step.title}</p>
+                    <p className="mt-0.5 text-muted-foreground">{step.description}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
         {/* Como funciona */}
         <section
           id="como-funciona"
           aria-labelledby="como-funciona-title"
-          className="scroll-mt-4 border-t border-border py-14 sm:py-20"
+          className="scroll-mt-4 border-t border-border bg-card/60 py-14 sm:py-20"
         >
           <div className={SECTION}>
             <SectionHeading id="como-funciona-title" title="Como funciona" />

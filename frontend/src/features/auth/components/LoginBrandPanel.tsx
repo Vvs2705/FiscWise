@@ -1,104 +1,121 @@
-import {
-  BriefcaseBusiness,
-  Clock3,
-  ShieldCheck,
-} from 'lucide-react';
+import { FileText, KeyRound, Server, ShieldCheck, Users, WifiOff } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { FiscalRadarAnimation } from './FiscalRadarAnimation';
-import { FloatingMetricCards } from './FloatingMetricCards';
+import { cn } from '@/lib/utils';
 
-const trustPoints = [
+/* Conteúdo oficial (Frente D — posicionamento). */
+const AUDIENCE = 'Para pequenas empresas, MEIs e escritórios contábeis';
+const HEADLINE = 'Emita notas fiscais sem complicação, mesmo sem internet.';
+const SUBHEADLINE = 'Simples para a sua empresa, organizado para o seu contador.';
+
+const benefits: { icon: LucideIcon; title: string; description: string }[] = [
   {
-    icon: BriefcaseBusiness,
-    title: 'Carteira organizada',
-    description: 'Clientes, obrigações e documentos reunidos no mesmo ambiente.',
+    icon: FileText,
+    title: 'NF-e, NFS-e e NFC-e em poucos cliques',
+    description: 'Emita, consulte e cancele sem sair da tela.',
   },
   {
-    icon: Clock3,
-    title: 'Rotina mais previsível',
-    description: 'Saiba exatamente o que vence hoje e o que ainda depende do cliente.',
+    icon: WifiOff,
+    title: 'Funciona sem internet',
+    description:
+      'Suas notas ficam como pendentes de transmissão e são enviadas quando a conexão volta.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Segurança real',
-    description: 'Seus clientes e documentos protegidos em um ambiente exclusivo.',
+    icon: Users,
+    title: 'Seu contador já dentro',
+    description: 'Acesso nativo para o escritório contábil acompanhar tudo em tempo real.',
   },
 ];
 
+const trustItems: { icon: LucideIcon; label: string }[] = [
+  { icon: Server, label: 'Servidores no Brasil' },
+  { icon: ShieldCheck, label: 'Conforme a LGPD' },
+  { icon: KeyRound, label: 'Login com verificação em 2 etapas' },
+];
+
+function TrustLine({ tone }: { tone: 'dark' | 'light' }) {
+  return (
+    <ul
+      aria-label="Segurança"
+      className={cn(
+        'flex flex-wrap items-center gap-x-4 gap-y-2 text-xs',
+        tone === 'dark' ? 'text-sidebar-muted' : 'text-muted-foreground',
+      )}
+    >
+      {trustItems.map(({ icon: Icon, label }) => (
+        <li key={label} className="inline-flex items-center gap-1.5">
+          <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Coluna navy do login (≥ lg): proposta de valor, benefícios e confiança. */
 export function LoginBrandPanel() {
   return (
-    <section
-      className="relative border-white/10 text-white hidden lg:flex lg:h-screen lg:max-h-screen lg:overflow-hidden lg:border-r lg:flex-col"
-      style={{
-        padding: 'clamp(24px, 4vh, 48px) clamp(24px, 4vw, 56px)',
-        background:
-          'radial-gradient(circle at 14% 18%, hsl(var(--primary) / 0.22), transparent 26%), radial-gradient(circle at 86% 18%, hsl(var(--info) / 0.18), transparent 24%), linear-gradient(135deg, hsl(var(--sidebar)) 0%, hsl(var(--sidebar)) 55%, hsl(var(--sidebar)) 100%)',
-      }}
-    >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-10 top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-12 right-0 h-52 w-52 rounded-full bg-success/10 blur-3xl" />
+    <aside className="hidden bg-sidebar text-sidebar-foreground lg:flex lg:min-h-screen lg:flex-col lg:px-12 lg:py-10 xl:px-16">
+      <Logo variant="full" theme="dark" size={32} />
+
+      <div className="flex flex-1 flex-col justify-center py-12">
+        <div className="max-w-lg animate-fade-in-up">
+          <p className="text-sm font-medium text-sidebar-muted">{AUDIENCE}</p>
+          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">
+            {HEADLINE}
+          </h1>
+          <p className="mt-4 text-base text-sidebar-muted">{SUBHEADLINE}</p>
+
+          <ul className="mt-10 space-y-6">
+            {benefits.map(({ icon: Icon, title, description }) => (
+              <li key={title} className="flex items-start gap-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="mt-1 text-sm text-sidebar-muted">{description}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      <div className="relative z-10 flex w-full flex-col flex-1 justify-between">
-        <div className="flex items-center justify-between gap-4">
-          <Logo variant="full" theme="dark" size={38} />
-          <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/90 lg:block">
-            Fiscal Intelligence OS
-          </div>
-        </div>
+      <TrustLine tone="dark" />
+    </aside>
+  );
+}
 
-        <div className="mt-5 max-w-xl">
-          <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/90">
-            Feito para contador autônomo
-          </span>
-          <h1 className="mt-3 font-semibold leading-none tracking-tight text-white animate-fade-in-up"
-              style={{ fontSize: 'clamp(2.1rem, 3.2vw, 3.2rem)', lineHeight: 1.05, letterSpacing: '-0.04em' }}>
-            Controle sua carteira contábil com precisão.
-          </h1>
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground sm:text-sm"
-             style={{ maxWidth: '600px', fontSize: 'clamp(0.85rem, 1.05vw, 1rem)', lineHeight: 1.5 }}>
-            Clientes, documentos, prazos, certificados e obrigações fiscais em uma central feita para quem precisa manter a rotina em dia e saber onde agir primeiro.
-          </p>
-        </div>
+/** Versão compacta (< lg), exibida abaixo do formulário. */
+export function LoginValueSummary() {
+  return (
+    <section aria-labelledby="login-value-title" className="w-full max-w-md lg:hidden">
+      <p className="text-xs font-medium text-muted-foreground">{AUDIENCE}</p>
+      <h2
+        id="login-value-title"
+        className="mt-2 text-xl font-semibold leading-tight tracking-tight text-foreground"
+      >
+        {HEADLINE}
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground">{SUBHEADLINE}</p>
 
-        <div className="mt-4 grid gap-3 grid-cols-3">
-          {trustPoints.map((point) => (
-            <div
-              key={point.title}
-              className="rounded-[16px] border border-white/10 bg-white/5 p-3 backdrop-blur-md flex flex-col justify-between"
-              style={{ minHeight: 'clamp(100px, 13vh, 130px)' }}
-            >
-              <div>
-                <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/10">
-                  <point.icon className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <p className="text-[11px] font-bold text-white tracking-tight leading-tight">{point.title}</p>
-              </div>
-              <p className="mt-1 text-[10px] leading-snug text-muted-foreground/90">{point.description}</p>
+      <ul className="mt-6 space-y-4">
+        {benefits.map(({ icon: Icon, title, description }) => (
+          <li key={title} className="flex items-start gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">{title}</p>
+              <p className="mt-0.5 text-muted-foreground">{description}</p>
             </div>
-          ))}
-        </div>
+          </li>
+        ))}
+      </ul>
 
-        <div className="mt-4">
-          <FloatingMetricCards />
-        </div>
-
-        <div className="mt-4 flex-1 flex flex-col justify-center">
-          <FiscalRadarAnimation />
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-            Atenção de hoje
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-            Obrigações e prazos
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
-            Documentos sob controle
-          </span>
-        </div>
+      <div className="mt-6 border-t border-border pt-4">
+        <TrustLine tone="light" />
       </div>
     </section>
   );

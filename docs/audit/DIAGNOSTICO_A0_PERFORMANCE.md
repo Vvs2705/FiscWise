@@ -128,6 +128,24 @@ Google Fonts (bloqueadas na nuvem), então é o **custo intrínseco do bundle**:
 Metas do Google: LCP ≤ 2,5 s, CLS ≤ 0,1, INP ≤ 200 ms. O CLS está ótimo; o LCP em
 rede lenta está 3,5x acima da meta.
 
+### 5.1 Depois da Frente C (PR #72, mesclado na `main` em 2026-11-12)
+
+Mesma medição (build de produção local, Vite preview, Moto G4, Slow 4G, CPU 4x),
+mediana de 3 rodadas, sobre a `main` com o PR #72 (chunk de entrada de 45 KB
+para 8 KB gzip; `vendor-motion` fora do caminho crítico do login):
+
+| Página | FCP antes → depois | LCP antes → depois | CLS | Transferido | Requisições |
+|---|---|---|---|---|---|
+| `/login` | 6,4 s → **6,0 s** | 8,9 s → **6,1 s** (−31%) | 0 | 211 → 221 KB | 20 → 27 |
+| `/register` | 6,6 s → **5,9 s** | 9,1 s → **6,9 s** (−24%) | 0 | 235 → 202 KB | 25 → 31 |
+
+O ganho vem do primeiro render acontecer antes de baixar o resto: o total
+transferido quase não muda (os chunks viraram lazy), mas o LCP cai 2,8 s no
+login. Ainda falta 2,4x para a meta de 2,5 s em Slow 4G; o próximo degrau é o
+CSS (72 KB bruto num arquivo só) e `vendor-react` + `vendor-form` no caminho
+crítico. Em rede 4G normal e com CDN o número real é bem menor; o `perf-probe`
+(Actions) mede isso em produção.
+
 Bundle de produção (gzip): `vendor-react` 54 KB, `index` 45 KB, `vendor-motion`
 (framer-motion) 42 KB, `vendor-utils` 28 KB, `vendor-form` 23 KB, `vendor-query`
 13 KB, CSS 72 KB bruto. A página de login carrega framer-motion e o formulário
@@ -164,7 +182,8 @@ rate limit de admin cai para "desligado" sem ele.
 
 | Tarefa | PR | Toca em | Merge |
 |---|---|---|---|
-| A1 Auth em 1 consulta, dashboard em 3 consultas, paginação com teto nas listagens, `lazy` correto nos relacionamentos | `a1-consultas` | código | pode mesclar após testes |
-| A1 Migration: colunas faltantes em guias/e-CAC, índices nas FKs, remoção dos 4 índices duplicados | `a1-migration` | migration | **fila de aprovação** |
-| A2 Retry/backoff + mensagem clara nas integrações; cache em memória de `plans`/`obligation_rules`; fila em Postgres com status | `a2-backend` | código + migration (fila) | fila de aprovação (migration) |
-| A3 Cloudflare Web Analytics (token opcional), log estruturado com duração por requisição, Playwright com perfis mobile e Slow 4G, workflow `perf-probe` | `a3-monitoramento` | código/CI | pode mesclar |
+| A1 Auth em 1 consulta (5 → 2), dashboards agregados (13 → 5 e 9 → 4), paginação com teto nas listagens, `lazy` correto nos relacionamentos | [#73](https://github.com/Vvs2705/FiscWise/pull/73) | código (auth) | **fila de aprovação** (toca em auth) |
+| A1 Migration: 8 colunas faltantes (guias, e-CAC, fiscal_nfes, invoice_events, invoice_rejections, whatsapp_messages), 14 índices nas FKs, remoção dos 4 índices duplicados | [#76](https://github.com/Vvs2705/FiscWise/pull/76) | migration | **fila de aprovação** |
+| A2 Retry/backoff + 503 claro nas integrações; cache em memória de `plans`/`obligation_rules`; SERPRO em paralelo (4 por vez) | [#71](https://github.com/Vvs2705/FiscWise/pull/71) | código | **mesclado** |
+| A2 Fila em Postgres (`background_jobs`) com tick horário, `GET /jobs`, parse de documento e `invoice.emit` para a Frente G | [#77](https://github.com/Vvs2705/FiscWise/pull/77) | migration + fluxo fiscal | **fila de aprovação** |
+| A3 Cloudflare Web Analytics (token opcional), log JSON com duração por requisição, Web Vitals, Playwright com perfis mobile e Slow 4G, workflow `perf-probe` | [#75](https://github.com/Vvs2705/FiscWise/pull/75) | código/CI | **mesclado** |

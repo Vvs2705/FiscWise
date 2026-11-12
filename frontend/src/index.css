@@ -15,7 +15,10 @@
     --card-foreground: 215 30% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 30% 14%;
-    --primary: 21 81% 49%;
+    /* Laranja da marca escurecido para texto e botões: branco sobre ele e ele
+       sobre fundo/card/muted/accent ficam ≥ 4.5:1 (WCAG AA). O #e05e18 cheio
+       fica no ícone da logo. */
+    --primary: 21 81% 37%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 16% 94%;
     --secondary-foreground: 215 30% 14%;
@@ -23,17 +26,19 @@
     --muted-foreground: 215 12% 42%;
     --accent: 24 100% 95%;
     --accent-foreground: 21 81% 30%;
-    --destructive: 0 72% 50%;
+    /* Status: texto na cor cheia sobre o fundo /10 e branco sobre a cor cheia
+       ficam ≥ 4.5:1 (WCAG AA). */
+    --destructive: 0 72% 44%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 58% 36%;
+    --success: 152 60% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 92% 42%;
+    --warning: 31 92% 31%;
     --warning-foreground: 0 0% 100%;
-    --info: 206 85% 42%;
+    --info: 206 85% 36%;
     --info-foreground: 0 0% 100%;
     --border: 214 16% 88%;
     --input: 214 16% 88%;
-    --ring: 21 81% 49%;
+    --ring: 21 81% 37%;
 
     /* Raio: 6 / 8 / 12 */
     --radius-sm: 6px;
@@ -55,7 +60,8 @@
     --sidebar-bg: 215 50% 11%;
     --sidebar-fg: 210 30% 94%;
     --sidebar-muted: 215 15% 66%;
-    --sidebar-active-bg: 21 81% 49%;
+    /* Item ativo: mesmo laranja do --primary claro (branco ≥ 4.5:1) nos dois temas */
+    --sidebar-active-bg: 21 81% 37%;
     --sidebar-active-fg: 0 0% 100%;
     --sidebar-hover-bg: 215 40% 16%;
     --sidebar-border: 215 35% 18%;
@@ -78,16 +84,18 @@
     --card-foreground: 210 20% 93%;
     --popover: 215 25% 12%;
     --popover-foreground: 210 20% 93%;
-    --primary: 22 85% 56%;
-    --primary-foreground: 0 0% 100%;
+    /* Laranja claro para texto sobre fundo escuro (≥ 5:1); por isso o texto
+       sobre o botão primário é escuro (7:1) e não branco (2.6:1). */
+    --primary: 22 85% 60%;
+    --primary-foreground: 22 60% 8%;
     --secondary: 215 20% 16%;
     --secondary-foreground: 210 20% 93%;
     --muted: 215 20% 16%;
     --muted-foreground: 215 12% 62%;
     --accent: 22 40% 16%;
     --accent-foreground: 28 100% 90%;
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 85% 66%;
+    --destructive-foreground: 0 60% 10%;
     --success: 152 50% 48%;
     --success-foreground: 152 60% 8%;
     --warning: 35 90% 55%;
@@ -96,13 +104,11 @@
     --info-foreground: 206 80% 10%;
     --border: 215 16% 22%;
     --input: 215 16% 22%;
-    --ring: 22 85% 56%;
+    --ring: 22 85% 60%;
 
     --shadow-sm: 0 1px 2px hsl(215 40% 3% / 0.30);
     --shadow-md: 0 4px 12px -2px hsl(215 40% 3% / 0.40);
     --shadow-lg: 0 16px 40px -12px hsl(215 40% 3% / 0.55);
-
-    --sidebar-active-bg: 22 85% 56%;
 
     color-scheme: dark;
   }

@@ -1171,7 +1171,7 @@ FiscWise`,
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[10px] py-1 border-destructive/30 text-destructive bg-destructive/10 hover:bg-destructive/20"
+                    className="h-7 text-[10px] py-1 border-destructive/30 text-destructive bg-destructive/10 hover:bg-destructive/15"
                     onClick={() => {
                       setSelectedTemplate('das');
                       setActiveTab('comunicacao');
@@ -1271,7 +1271,7 @@ FiscWise`,
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[10px] py-1 border-warning/30 text-warning bg-warning/10 hover:bg-warning/20"
+                    className="h-7 text-[10px] py-1 border-warning/30 text-warning bg-warning/10 hover:bg-warning/15"
                     onClick={() => {
                       setSelectedTemplate('certificado');
                       setActiveTab('comunicacao');

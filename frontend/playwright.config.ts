@@ -8,6 +8,7 @@ import type { ThrottleOptions } from './e2e/fixtures'
  * Projetos:
  * - desktop-chromium: Chrome desktop.
  * - mobile-pixel-5:   Pixel 5 (viewport, DPR, touch, UA de celular).
+ *                     Não roda o contrast.spec.ts (job "Frontend contrast (axe)" do CI).
  * - mobile-slow-4g:   Pixel 5 + rede Slow 4G (400 kbps / 400 ms) + CPU 4x
  *                     (fixture `throttle` em e2e/fixtures.ts). Só as páginas públicas.
  *
@@ -44,6 +45,8 @@ export default defineConfig<ThrottleOptions>({
     },
     {
       name: 'mobile-pixel-5',
+      // Contraste depende do tema, não do aparelho: roda só no desktop-chromium.
+      testIgnore: /contrast\.spec\.ts/,
       use: { ...devices['Pixel 5'], launchOptions },
     },
     {

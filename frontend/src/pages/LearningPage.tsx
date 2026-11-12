@@ -234,14 +234,14 @@ export function LearningPage() {
                   )}
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-4">
-                      <h4 className={`font-bold text-base ${item.completed ? 'text-success/90 line-through' : 'text-foreground'}`}>
+                      <h4 className={`font-bold text-base ${item.completed ? 'text-success line-through' : 'text-foreground'}`}>
                         {item.title}
                       </h4>
                       {!item.completed && (
                         <Button
                           size="sm"
                           onClick={item.action}
-                          className="h-8 text-xs bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 shrink-0"
+                          className="h-8 text-xs bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 shrink-0"
                         >
                           {item.actionLabel}
                           <ArrowRight className="h-3.5 w-3.5 ml-1" />
@@ -370,7 +370,7 @@ export function LearningPage() {
               <Button
                 onClick={() => startTour('dashboard', navigate, '/aprender')}
                 size="sm"
-                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 gap-1.5"
+                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 gap-1.5"
               >
                 <Play className="h-3.5 w-3.5 fill-primary" />
                 Iniciar Tour
@@ -388,7 +388,7 @@ export function LearningPage() {
               <Button
                 onClick={() => startTour('clients', navigate, '/aprender')}
                 size="sm"
-                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 gap-1.5"
+                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 gap-1.5"
               >
                 <Play className="h-3.5 w-3.5 fill-primary" />
                 Iniciar Tour
@@ -406,7 +406,7 @@ export function LearningPage() {
               <Button
                 onClick={() => startTour('documents', navigate, '/aprender')}
                 size="sm"
-                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 gap-1.5"
+                className="w-fit bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 gap-1.5"
               >
                 <Play className="h-3.5 w-3.5 fill-primary" />
                 Iniciar Tour

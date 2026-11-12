@@ -318,7 +318,7 @@ export function PortfolioRiskCard({
                 ) : rec.link ? (
                   <a
                     href={rec.link}
-                    className="shrink-0 flex items-center gap-1 text-[10px] border border-primary/35 bg-primary/10 text-primary font-bold px-2 py-1.5 rounded-md hover:bg-primary/20 transition"
+                    className="shrink-0 flex items-center gap-1 text-[10px] border border-primary/35 bg-primary/10 text-primary font-bold px-2 py-1.5 rounded-md hover:bg-primary/15 transition"
                   >
                     Acessar
                   </a>

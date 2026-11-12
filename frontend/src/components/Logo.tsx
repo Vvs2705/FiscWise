@@ -3,8 +3,14 @@ import { cn } from '@/lib/utils';
 interface LogoProps {
   /** 'icon' = só o ícone quadrado | 'full' = ícone + wordmark */
   variant?: 'icon' | 'full';
-  /** Tema do wordmark (não afeta o ícone colorido) */
-  theme?: 'light' | 'dark';
+  /**
+   * Cor do wordmark (não afeta o ícone colorido):
+   * - 'light': navy, para fundo claro fixo;
+   * - 'dark': quase-branco, para fundo escuro fixo (ex.: sidebar);
+   * - 'auto': segue o tema do app (classe `dark` no <html>). Use em toda tela
+   *   cujo fundo muda com o tema, senão o texto some (branco no branco).
+   */
+  theme?: 'light' | 'dark' | 'auto';
   /** Tamanho do ícone em px */
   size?: number;
   className?: string;
@@ -23,7 +29,7 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
   const id = `fw-logo-${++_uid}`;
 
   // SISTEMA_DE_DESIGN.md §12: navy no claro, quase-branco no escuro
-  const textColor = theme === 'dark' ? '#EEF1FA' : '#1A2540';
+  const textColor = theme === 'auto' ? 'currentColor' : theme === 'dark' ? '#EEF1FA' : '#1A2540';
 
   const iconW = size;
   const gap = size * WORDMARK_GAP;
@@ -40,7 +46,7 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="FiscWise"
-      className={cn('shrink-0', className)}
+      className={cn('shrink-0', theme === 'auto' && 'text-[#1A2540] dark:text-[#EEF1FA]', className)}
     >
       <defs>
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2={iconW} y2={iconW} gradientUnits="userSpaceOnUse">

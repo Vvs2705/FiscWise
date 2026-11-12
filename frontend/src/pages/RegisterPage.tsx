@@ -124,10 +124,10 @@ function BrandPanel() {
 
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-sidebar-foreground">
               Estruture sua rotina desde o início
             </h2>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-2 text-sm text-sidebar-muted">
               Monte sua central fiscal, organize clientes e comece a trabalhar com mais previsibilidade.
             </p>
           </div>
@@ -138,7 +138,7 @@ function BrandPanel() {
               { icon: '📅', text: 'Acompanhe vencimentos e obrigações em um só lugar' },
               { icon: '💰', text: 'Controle honorários, recebíveis e pendências da carteira' },
             ].map(({ icon, text }) => (
-              <div key={text} className="flex items-start gap-3 text-sm text-white/70">
+              <div key={text} className="flex items-start gap-3 text-sm text-sidebar-foreground/85">
                 <span className="mt-0.5 text-base leading-none">{icon}</span>
                 <span>{text}</span>
               </div>
@@ -146,13 +146,13 @@ function BrandPanel() {
           </div>
         </div>
 
-        <p className="text-xs text-white/30">
+        <p className="text-xs text-sidebar-muted">
           Desenvolvido por{' '}
           <a
             href="https://vstack-solutions.com.br"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-white/60"
+            className="underline underline-offset-2 hover:text-sidebar-foreground"
           >
             Vstack Solutions
           </a>
@@ -239,7 +239,7 @@ export function RegisterPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-8">
         {/* Mobile logo */}
         <div className="mb-8 lg:hidden">
-          <Logo variant="full" theme="light" size={32} />
+          <Logo variant="full" theme="auto" size={32} />
         </div>
 
         <div className="w-full max-w-md animate-fade-in-up">
@@ -413,7 +413,7 @@ export function RegisterPage() {
                           active ? 'border-primary bg-primary' : 'border-border',
                         )}
                       >
-                        {active && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        {active && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
                       </div>
 
                       <div className="flex-1">

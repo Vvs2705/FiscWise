@@ -466,7 +466,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
                   <button
                     onClick={handleSnooze}
                     disabled={busy}
-                    className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-warning/20 bg-warning/10 text-warning py-3 text-xs font-bold hover:bg-warning/20 active:scale-98 transition"
+                    className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-warning/20 bg-warning/10 text-warning py-3 text-xs font-bold hover:bg-warning/15 active:scale-98 transition"
                   >
                     <Clock className="h-4 w-4" />
                     Adiar 7 dias
@@ -475,7 +475,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
                 <button
                   onClick={handleWaitingClient}
                   disabled={busy}
-                  className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-primary/20 bg-primary/10 text-primary py-3 text-xs font-bold hover:bg-primary/20 active:scale-98 transition"
+                  className="disabled:opacity-60 inline-flex items-center justify-center gap-1.5 rounded-card border border-primary/20 bg-primary/10 text-primary py-3 text-xs font-bold hover:bg-primary/15 active:scale-98 transition"
                 >
                   <Send className="h-4 w-4" />
                   {currentTask.type === 'deadline' ? 'Aguardar Cliente' : 'Lembrar por E-mail'}

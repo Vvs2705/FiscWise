@@ -38,22 +38,32 @@ Todas em HSL sem a função, para `hsl(var(--x) / alpha)` funcionar.
 | `--muted` | 210 16% 94% | 215 20% 16% | fundos secundários, skeleton |
 | `--muted-foreground` | 215 12% 42% | 215 12% 62% | texto secundário (contraste ≥ 4.5:1 sobre card) |
 | `--border` | 214 16% 88% | 215 16% 22% | bordas de 1px |
-| `--primary` | 21 81% 49% | 22 85% 56% | ação primária, marca (#e05e18) |
-| `--primary-foreground` | 0 0% 100% | 0 0% 100% | texto sobre primário |
+| `--primary` | 21 81% 37% | 22 85% 60% | ação primária e links; laranja da marca ajustado para AA (o #e05e18 cheio fica no ícone da logo) |
+| `--primary-foreground` | 0 0% 100% | 22 60% 8% | texto sobre primário (escuro no tema escuro: branco sobre laranja claro dá 2.6:1) |
 | `--accent` | 24 100% 95% | 22 40% 16% | fundo de destaque suave (hover, seleção) |
-| `--success` | 152 58% 36% | 152 50% 48% | autorizado, pago, em dia |
-| `--warning` | 32 92% 42% | 35 90% 55% | pendente, vence em breve |
-| `--destructive` | 0 72% 50% | 0 72% 58% | rejeitado, vencido, erro |
-| `--info` | 206 85% 42% | 206 80% 58% | informativo, em processamento |
+| `--success` | 152 60% 28% | 152 50% 48% | autorizado, pago, em dia |
+| `--warning` | 31 92% 31% | 35 90% 55% | pendente, vence em breve |
+| `--destructive` | 0 72% 44% | 0 85% 66% | rejeitado, vencido, erro |
+| `--info` | 206 85% 36% | 206 80% 58% | informativo, em processamento |
 | `--ring` | = primary | = primary | anel de foco |
 
 Sidebar (navy, fixa nos dois temas): `--sidebar-bg 215 50% 11%`,
 `--sidebar-fg 210 30% 94%`, `--sidebar-muted 215 15% 66%`,
 `--sidebar-hover-bg 215 40% 16%`, `--sidebar-border 215 35% 18%`,
-item ativo = `--primary` com texto branco.
+item ativo = `--sidebar-active-bg` (laranja `21 81% 37%` nos dois temas) com texto branco.
 
 Regras:
 - Texto secundário nunca abaixo de 4.5:1 sobre a superfície em que está.
+- Texto colorido (primary/status) sobre fundo da mesma cor: no máximo `/10`
+  parado e `/15` no hover. Acima disso o contraste cai abaixo de 4.5:1.
+- Texto sobre fundo de status (`bg-success`, `bg-destructive`...) usa o
+  `*-foreground` do token, nunca `text-white` (no escuro o foreground é escuro).
+- Logo em tela cujo fundo segue o tema: `<Logo theme="auto" />`. `light`/`dark`
+  só sobre fundo fixo (ex.: sidebar navy).
+- Nada de `bg-white`, `text-black`, `gray-*`/`slate-*` fora de `print:`: use os
+  tokens (`bg-card`, `text-foreground`, `text-muted-foreground`...).
+- O CI roda `frontend/e2e/contrast.spec.ts` (axe, WCAG AA, claro e escuro, todas
+  as telas) e reprova em qualquer violação.
 - Status sempre com fundo `/10`, borda `/25` e texto na cor cheia (ver `Badge`).
 - Gradiente só no ícone da logo.
 
@@ -184,7 +194,7 @@ Objetivo: em 5 segundos o visitante entende o que é, para quem é e o benefíci
 - [ ] Nenhum `backdrop-blur`, `blur-3xl`, gradiente em botão ou sombra "glow".
 - [ ] Raio só 6/8/12/full.
 - [ ] Espaçamento só da escala.
-- [ ] Texto secundário com contraste ≥ 4.5:1 (claro e escuro).
+- [ ] Texto secundário com contraste ≥ 4.5:1 (claro e escuro); `contrast.spec.ts` verde.
 - [ ] Estados carregando/vazio/erro presentes.
 - [ ] Funciona em 360px de largura sem scroll horizontal.
 - [ ] Animações só em opacity/transform, ≤ 250 ms, respeitam reduced-motion.

@@ -236,7 +236,7 @@ export function FinancePage() {
             variant="outline"
             size="sm"
             onClick={() => navigate('/aprender')}
-            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />
@@ -393,7 +393,7 @@ export function FinancePage() {
               title="Nenhuma cobrança encontrada"
               description="Nenhum registro atende aos filtros de busca aplicados."
               action={
-                <Button size="sm" onClick={() => setOpen(true)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
+                <Button size="sm" onClick={() => setOpen(true)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15">
                   Nova cobranca
                 </Button>
               }
@@ -450,7 +450,7 @@ export function FinancePage() {
                   {(r.status === 'pending' || r.status === 'overdue') && (
                     <Button
                       size="sm"
-                      className="bg-success/10 text-success hover:bg-success/20 border border-success/20"
+                      className="bg-success/10 text-success hover:bg-success/15 border border-success/20"
                       onClick={() => handleMarkPaid(r.id)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5 mr-1" />

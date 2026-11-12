@@ -538,7 +538,7 @@ export function FatorRCalculator() {
               <button
                 type="button"
                 onClick={applyToAll}
-                className="mt-3 rounded-lg bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition"
+                className="mt-3 rounded-lg bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15 transition"
               >
                 Aplicar valores a todos os 12 meses
               </button>

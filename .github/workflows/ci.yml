@@ -160,6 +160,46 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  frontend-contrast:
+    # Bloqueante: texto ilegível (contraste abaixo de WCAG AA) em qualquer tela,
+    # no tema claro ou escuro, reprova o CI. Só o desktop-chromium, para ser rápido.
+    name: Frontend contrast (axe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Contraste (axe, claro e escuro)
+        run: npx playwright test e2e/contrast.spec.ts --project=desktop-chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-contrast
+          path: frontend/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+
   security:
     name: Security Scans (SAST, Dependency, Secrets)
     runs-on: ubuntu-latest

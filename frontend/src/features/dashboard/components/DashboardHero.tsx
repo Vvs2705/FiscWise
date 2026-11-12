@@ -41,7 +41,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
           <button
             type="button"
             onClick={() => startTour('dashboard', navigate, '/painel')}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/20"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
           >
             <BookOpen className="h-4 w-4" />
             Iniciar Guia

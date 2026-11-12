@@ -5,7 +5,6 @@ Handles client portal invitations, magic link authentication, and client data.
 
 import hashlib
 import logging
-import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,13 +19,32 @@ from app.core.deps import get_db, get_current_user
 from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
+from app.core.config import settings
 from app.core.security import create_access_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["Client Portal"])
 
-# Frontend portal URL — override via PORTAL_URL env var in production
-_PORTAL_URL = os.getenv("PORTAL_URL", "https://fiscwise.com.br/portal")
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normaliza para UTC com fuso: o Postgres devolve aware, o SQLite naive.
+
+    Comparar naive com aware levanta TypeError (era o 500 dos convites no PG).
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _is_expired(dt: Optional[datetime]) -> bool:
+    exp = _as_utc(dt)
+    return exp is not None and _now() > exp
 
 
 class InviteClientRequest(BaseModel):
@@ -122,7 +140,7 @@ async def invite_client(
         email=request.email,
         status=InviteStatus.PENDING,
         invited_by=current_user.id,
-        expires_at=datetime.utcnow() + timedelta(days=30)
+        expires_at=_now() + timedelta(days=30)
     )
 
     db.add(invite)
@@ -152,7 +170,7 @@ async def get_invite(
         )
 
     # Check if expired
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if _is_expired(invite.expires_at):
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -202,7 +220,7 @@ async def accept_invite(
             detail=f"Invitation has been {invite.status}"
         )
 
-    if invite.expires_at and datetime.utcnow() > invite.expires_at:
+    if _is_expired(invite.expires_at):
         invite.status = InviteStatus.EXPIRED
         db.add(invite)
         await db.commit()
@@ -256,7 +274,7 @@ async def accept_invite(
 
     # Mark invitation as accepted
     invite.status = InviteStatus.ACCEPTED
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = _now()
 
     db.add(client_user)
     db.add(client)
@@ -598,7 +616,7 @@ async def request_magic_link(
     db.add(magic_token)
     await db.commit()
 
-    portal_link = f"{_PORTAL_URL}/login?token={raw_token}"
+    portal_link = f"{settings.portal_url}/login?token={raw_token}"
 
     logger.info(
         "Magic link issued for client user %s by %s (tenant %s)",
@@ -649,7 +667,7 @@ async def verify_magic_link(
             detail="Este link já foi utilizado. Solicite um novo link ao seu escritório.",
         )
 
-    if now > magic.expires_at:
+    if now > _as_utc(magic.expires_at):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Link expirado. Solicite um novo link ao seu escritório.",

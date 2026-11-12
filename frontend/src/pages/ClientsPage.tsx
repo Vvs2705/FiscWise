@@ -749,7 +749,7 @@ export function ClientsPage() {
             variant="outline"
             size="sm"
             onClick={() => startTour('clients', navigate, '/clientes')}
-            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />
@@ -865,7 +865,7 @@ export function ClientsPage() {
             >
               <UserCheck className="h-4 w-4" aria-hidden="true" />
               Ativos
-              <span className="rounded bg-background/20 px-1.5 py-0.5 text-[10px]">
+              <span className="rounded px-1.5 py-0.5 text-[10px] tabular-nums ring-1 ring-inset ring-current">
                 {operationalCount}
               </span>
             </button>
@@ -885,7 +885,7 @@ export function ClientsPage() {
             >
               <UserX className="h-4 w-4" aria-hidden="true" />
               Desativados
-              <span className="rounded bg-background/20 px-1.5 py-0.5 text-[10px]">
+              <span className="rounded px-1.5 py-0.5 text-[10px] tabular-nums ring-1 ring-inset ring-current">
                 {inactiveCount}
               </span>
             </button>

@@ -98,6 +98,9 @@ export function ClientStatusReportModal({
 
       <div
         id="print-report-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ficha de Status do Cliente"
         className="w-full max-w-4xl rounded-panel border border-border bg-card text-foreground shadow-token p-6 md:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto scrollbar"
       >
         {/* Floating print actions */}
@@ -107,7 +110,7 @@ export function ClientStatusReportModal({
             <span className="text-xs font-bold text-muted-foreground">Ficha de Status do Cliente</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="default" size="sm" onClick={handlePrint} className="gap-1.5 bg-primary text-background hover:bg-primary/90">
+            <Button variant="default" size="sm" onClick={handlePrint} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
               <Printer className="h-4 w-4" />
               Imprimir / PDF
             </Button>

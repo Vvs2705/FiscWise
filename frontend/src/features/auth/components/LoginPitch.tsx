@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarClock, FileStack, Server, Users, type LucideIcon } from 'lucide-react';
+import { ArrowRight, CalendarClock, FileStack, Server, Users, WifiOff, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /*
@@ -27,6 +27,11 @@ const items: Item[] = [
     icon: FileStack,
     title: 'Fechamento com dossiê PDF',
     description: 'Fechamento por competência e dossiê em PDF pronto para entregar.',
+  },
+  {
+    icon: WifiOff,
+    title: 'Funciona sem internet',
+    description: 'Instale no computador ou no celular. Se a rede cair, você continua e tudo sincroniza quando ela voltar.',
   },
 ];
 

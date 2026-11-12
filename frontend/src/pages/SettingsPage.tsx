@@ -327,7 +327,7 @@ function ProfileTab({
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="email_display"
-                  className="pl-9 cursor-not-allowed opacity-60"
+                  className="pl-9 cursor-not-allowed bg-muted text-muted-foreground"
                   value={user?.email ?? ''}
                   readOnly
                   tabIndex={-1}
@@ -996,7 +996,7 @@ function TwoFactorCard() {
             <CardTitle className="text-base">Autenticação de Dois Fatores (2FA)</CardTitle>
           </div>
           {enabled && (
-            <Badge className="bg-success/15 text-success border-success/30">
+            <Badge className="bg-success/10 text-success border-success/25">
               ✓ Ativo · {method === 'totp' ? 'App Autenticador' : 'E-mail'}
             </Badge>
           )}
@@ -1358,10 +1358,10 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
   const isOwner = user?.role === 'owner';
   
   const statusColors: Record<string, string> = {
-    trialing: 'bg-warning/10 text-warning hover:bg-warning/20',
-    active: 'bg-success/10 text-success hover:bg-success/20',
-    past_due: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
-    suspended: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
+    trialing: 'bg-warning/10 text-warning hover:bg-warning/15',
+    active: 'bg-success/10 text-success hover:bg-success/15',
+    past_due: 'bg-destructive/10 text-destructive hover:bg-destructive/15',
+    suspended: 'bg-destructive/10 text-destructive hover:bg-destructive/15',
     cancelled: 'bg-muted text-muted-foreground hover:bg-muted/80',
   };
 

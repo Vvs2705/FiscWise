@@ -78,6 +78,32 @@ toda nota em `queued` há mais de 10 min sem job pendente (a chave impede
 duplicar). Quem põe a nota em `queued` (ex.: `/sync/push` offline) não precisa
 enfileirar: basta deixá-la em `queued`. Offline nunca autoriza a emissão.
 
+## E-mail transacional (Resend)
+
+Tudo o que o sistema envia passa por `backend/app/services/email_service.py`:
+código de acesso (2FA), ativação do 2FA, redefinição de senha, pedido de
+exclusão de dados (LGPD), link de acesso do portal do cliente, aviso de
+documentos pendentes, lembrete de pagamento e alerta de certificado vencendo.
+Sem `RESEND_ENABLED=true` e `RESEND_API_KEY`, nada é enviado: o envio só fica
+no log e as telas que dependem dele avisam ou escondem a opção.
+
+| Variável | Onde fica | Valor |
+|---|---|---|
+| `RESEND_ENABLED` | `cloudrun.env.yaml` | `"true"` |
+| `RESEND_API_KEY` | Secret Manager (`RESEND_API_KEY`) | chave `fiscwise-api`, Sending access, domínio fiscwise.com.br |
+| `RESEND_FROM` | opcional | padrão `FiscWise <nao-responda@fiscwise.com.br>` |
+
+O domínio fiscwise.com.br está verificado no Resend (região sa-east-1), com
+DKIM, SPF e DMARC no Cloudflare. Para trocar a chave, crie uma versão nova do
+segredo e faça um deploy:
+
+```
+printf '%s' 'NOVA_CHAVE' | gcloud secrets versions add RESEND_API_KEY --data-file=- --project fiscwise-prod-da9a
+```
+
+Teste manual com a chave no ambiente local:
+`cd backend && RESEND_ENABLED=true RESEND_API_KEY=... python -m app.services.email_service voce@exemplo.com`
+
 ## Passo a passo
 
 Os comandos abaixo usam o `gcloud` (Cloud Shell no navegador já vem com ele).

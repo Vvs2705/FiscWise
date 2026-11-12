@@ -7,12 +7,7 @@ const FOCUS_RING =
 
 /** Logo com wordmark navy no claro e claro no escuro. */
 export function LoginLogo({ size = 28 }: { size?: number }) {
-  return (
-    <>
-      <Logo variant="full" theme="light" size={size} className="dark:hidden" />
-      <Logo variant="full" theme="dark" size={size} className="hidden dark:block" />
-    </>
-  );
+  return <Logo variant="full" theme="auto" size={size} />;
 }
 
 /** Barra superior do login: marca (link para a página inicial) e cadastro. */

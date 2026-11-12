@@ -133,7 +133,7 @@ export function PortalDashboardPage() {
         ) : (
           <>
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
                 {initials(portal.client.name)}
               </div>
               <div>
@@ -159,7 +159,7 @@ export function PortalDashboardPage() {
                   <tab.icon className="h-3.5 w-3.5" />
                   {tab.label}
                   {tab.key === 'pending' && pendencies.length > 0 && (
-                    <span className="ml-1 rounded-full bg-destructive/20 px-1.5 text-[10px] font-bold text-destructive">
+                    <span className="ml-1 rounded-full bg-destructive/10 px-1.5 text-[10px] font-bold text-destructive">
                       {pendencies.length}
                     </span>
                   )}

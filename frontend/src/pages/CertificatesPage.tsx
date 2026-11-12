@@ -194,7 +194,7 @@ export function CertificatesPage() {
             variant="outline"
             size="sm"
             onClick={() => navigate('/aprender')}
-            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
+            className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 gap-1.5"
             title="Aprender sobre esta tela"
           >
             <BookOpen className="h-4 w-4" />
@@ -338,7 +338,7 @@ export function CertificatesPage() {
               title="Nenhum certificado encontrado"
               description="Nenhum certificado atende aos filtros selecionados. Tente ajustar os filtros ou cadastre um novo certificado."
               action={
-                <Button size="sm" onClick={() => setOpen(true)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
+                <Button size="sm" onClick={() => setOpen(true)} className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15">
                   Novo certificado
                 </Button>
               }

@@ -304,7 +304,7 @@ export function FiscalMailboxPage() {
                   <button
                     onClick={() => resolveMutation.mutate(selected.id)}
                     disabled={resolveMutation.isPending}
-                    className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success/90 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-semibold text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Marcar resolvida

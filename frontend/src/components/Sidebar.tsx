@@ -91,8 +91,8 @@ const navGroups: NavGroup[] = [
 ];
 
 const BADGE_CLASSES = {
-  danger:  'bg-destructive text-white',
-  warning: 'bg-warning text-white',
+  danger:  'bg-destructive text-destructive-foreground',
+  warning: 'bg-warning text-warning-foreground',
   primary: 'bg-primary text-primary-foreground',
 };
 

@@ -199,7 +199,7 @@ export function MonthlyClosingDetailPage() {
                 key={item.id}
                 className={cn(
                   'flex items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors',
-                  item.status === 'done' && 'opacity-60',
+                  item.status === 'done' && 'bg-muted/40',
                   item.status === 'blocked' && 'border-destructive/20 bg-destructive/5',
                 )}
               >
@@ -210,7 +210,7 @@ export function MonthlyClosingDetailPage() {
                   </p>
                   {item.notes && <p className="mt-0.5 text-xs text-muted-foreground">{item.notes}</p>}
                   {item.completedAt && (
-                    <p className="mt-0.5 text-xs text-success/80">
+                    <p className="mt-0.5 text-xs text-success">
                       Concluído em {new Date(item.completedAt).toLocaleDateString('pt-BR')}
                     </p>
                   )}
@@ -220,7 +220,7 @@ export function MonthlyClosingDetailPage() {
                     <button
                       onClick={() => checklistMutation.mutate({ itemId: item.id, status: 'done' })}
                       disabled={checklistMutation.isPending}
-                      className="rounded px-2.5 py-1 text-xs font-medium bg-success/20 text-success hover:bg-success/40 transition-colors"
+                      className="rounded px-2.5 py-1 text-xs font-medium bg-success/10 text-success hover:bg-success/15 transition-colors"
                     >
                       Marcar como feito
                     </button>

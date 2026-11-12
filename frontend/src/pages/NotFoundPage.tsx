@@ -13,7 +13,7 @@ export function NotFoundPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background p-8 text-center">
-      <Logo variant="full" theme="light" size={32} />
+      <Logo variant="full" theme="auto" size={32} />
       <div>
         <p className="text-sm font-semibold text-primary">Erro 404</p>
         <h1 className="mt-2 text-2xl font-bold">Página não encontrada</h1>

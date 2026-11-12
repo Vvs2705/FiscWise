@@ -233,7 +233,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
                     }`}
                   >
                     {isRecommended && (
-                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white">
+                      <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-success-foreground">
                         <Star className="h-2.5 w-2.5" />
                         Recomendado
                       </div>

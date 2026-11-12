@@ -53,10 +53,10 @@ export function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted px-4 py-10 text-foreground">
       <div className="w-full max-w-[440px] space-y-6">
         <div className="flex justify-center">
-          <Logo variant="full" theme="light" size={32} />
+          <Logo variant="full" theme="auto" size={32} />
         </div>
 
-        <div className="rounded-[24px] border border-border bg-white/90 p-6 shadow-token sm:p-8">
+        <div className="rounded-[24px] border border-border bg-card p-6 text-card-foreground shadow-token sm:p-8">
           <div className="mb-6 space-y-1.5">
             <h1 className="text-2xl font-bold tracking-[-0.02em]">Criar nova senha</h1>
             <p className="text-sm text-muted-foreground">

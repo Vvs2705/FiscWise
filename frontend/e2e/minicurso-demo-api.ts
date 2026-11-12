@@ -400,6 +400,26 @@ export async function installDemoApi(context: BrowserContext): Promise<DemoApi> 
       return json(route, { total_overdue: 650, clients: [{ client_id: 'cli-oficina', client_name: 'Oficina Rodas & Cia ME', overdue_amount: 650, overdue_count: 1, oldest_due_date: addDays(-5) }] })
     }
 
+    // ── Relatórios ──
+    if (path === '/api/v1/reports/operational') {
+      return json(route, {
+        competence: url.searchParams.get('competence') ?? competence,
+        clients_by_status: { active: 4, onboarding: 1, inactive: 0, total: 5 },
+        obligations_by_status: { delivered: 1, pending: 4, in_progress: 1, overdue: 1, total: 7 },
+        guias_by_status: { paid: 6, awaiting: 3, overdue: 1, total: 10 },
+        closings_by_status: { completed: 0, in_progress: 2, blocked: 1, not_started: 1, total: 5 },
+        invoices_by_status: { issued: 120, rejected: 2, cancelled: 1, total: 123 },
+        proxies_expiring: { d30: 1, d60: 0, d90: 1, total: 2 },
+      })
+    }
+    if (path === '/api/v1/reports/summary') {
+      return json(route, {
+        competence: url.searchParams.get('competence') ?? competence,
+        revenue_billed: 6200, revenue_received: 2450, overdue_amount: 650,
+        overdue_clients: 1, active_clients: 4, new_clients_month: 1,
+      })
+    }
+
     unknown.add(`${method} ${path}`)
     return json(route, method === 'GET' ? [] : {})
   }

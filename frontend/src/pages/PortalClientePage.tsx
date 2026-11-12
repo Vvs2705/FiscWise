@@ -105,9 +105,9 @@ export function PortalClientePage() {
         ) : (
           <>
             {/* Client preview banner */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-card p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
                   {initials(preview.client.name)}
                 </div>
                 <div>
@@ -122,7 +122,7 @@ export function PortalClientePage() {
                   clientName={preview.client.name}
                   clientEmail={selectedClient?.email}
                 />
-                <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary">Modo preview</span>
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">Modo preview</span>
               </div>
             </div>
 
@@ -142,7 +142,7 @@ export function PortalClientePage() {
                   <tab.icon className="h-3.5 w-3.5" />
                   {tab.label}
                   {tab.key === 'pending' && pendencies.length > 0 && (
-                    <span className="ml-1 rounded-full bg-destructive/20 px-1.5 text-[10px] font-bold text-destructive">
+                    <span className="ml-1 rounded-full bg-destructive/10 px-1.5 text-[10px] font-bold text-destructive">
                       {pendencies.length}
                     </span>
                   )}
@@ -280,7 +280,7 @@ export function PortalClientePage() {
                       </div>
                       <Link
                         to="/obrigacoes"
-                        className="rounded-lg bg-warning/20 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/30 transition-colors"
+                        className="rounded-lg bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
                       >
                         Resolver
                       </Link>

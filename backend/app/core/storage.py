@@ -98,9 +98,41 @@ async def download_bytes(bucket: str, path: str) -> bytes | None:
     if not _config_or_degrade(f"download {bucket}/{path}"):
         return None
     url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{path}"
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(url, headers=_headers())
+    resp = await request_with_retry(
+        "GET", url, service="supabase_storage", read_timeout=30.0, headers=_headers(),
+    )
+    raise_for_upstream_status(resp, "supabase_storage")
     if resp.status_code != 200:
         logger.error("Supabase download falhou: %s %s", resp.status_code, resp.text)
         raise RuntimeError(f"Falha no download do storage ({resp.status_code})")
     return resp.content
+
+
+async def get_signed_urls(bucket: str, paths: list[str], ttl: int = 300) -> dict[str, str]:
+    """Assina vários objetos numa chamada só (endpoint em lote do Supabase).
+
+    Retorna {path: url_assinada}. Path que o Supabase não assinou (objeto
+    inexistente, por exemplo) fica fora do dict — o caller decide o fallback.
+    """
+    unique = list(dict.fromkeys(p for p in paths if p))
+    if not unique:
+        return {}
+    if not _config_or_degrade(f"signed urls {bucket} ({len(unique)})"):
+        return {p: f"https://storage.local.dev/{bucket}/{p}?dev=1" for p in unique}
+    url = f"{settings.SUPABASE_URL}/storage/v1/object/sign/{bucket}"
+    # Assinar em lote também não altera nada no servidor: pode repetir.
+    resp = await request_with_retry(
+        "POST", url, service="supabase_storage", idempotent=True,
+        read_timeout=15.0, json={"expiresIn": ttl, "paths": unique}, headers=_headers(),
+    )
+    raise_for_upstream_status(resp, "supabase_storage")
+    if resp.status_code != 200:
+        logger.error("Supabase sign em lote falhou: %s %s", resp.status_code, resp.text)
+        raise RuntimeError(f"Falha ao assinar URLs ({resp.status_code})")
+    out: dict[str, str] = {}
+    for item in resp.json() or []:
+        signed = item.get("signedURL") or item.get("signedUrl")
+        path = item.get("path")
+        if path and signed and not item.get("error"):
+            out[path] = f"{settings.SUPABASE_URL}/storage/v1{signed}"
+    return out

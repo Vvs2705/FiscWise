@@ -313,6 +313,55 @@ _redis = _redis_client()
 auth_rate_limiter = _RedisAuthRateLimiter(_redis) if _redis else _AuthRateLimiter()
 
 
+# ─── Limite por chave de API (integrações) ────────────────────────────────────
+
+API_KEY_MAX_REQUESTS = 120       # requisições por chave
+API_KEY_WINDOW_SECONDS = 60      # janela fixa
+
+_api_key_lock = threading.Lock()
+_api_key_store: dict[str, tuple[float, int]] = {}
+
+
+def _api_key_hit_memory(key_id: str) -> tuple[int, int]:
+    import time
+
+    now = time.monotonic()
+    with _api_key_lock:
+        start, count = _api_key_store.get(key_id, (now, 0))
+        if now - start >= API_KEY_WINDOW_SECONDS:
+            start, count = now, 0
+        count += 1
+        _api_key_store[key_id] = (start, count)
+        return count, max(1, int(API_KEY_WINDOW_SECONDS - (now - start)))
+
+
+def check_api_key_rate(key_id: str) -> None:
+    """Conta uma requisição da chave; 429 acima de API_KEY_MAX_REQUESTS/min.
+
+    Mesmo padrão do limiter de auth: Redis quando houver (limite somado entre
+    instâncias), memória do processo quando o Redis falhar.
+    """
+    count = retry_after = 0
+    if _redis is not None:
+        try:
+            rkey = f"rl:apikey:{key_id}"
+            count = int(_redis.incr(rkey))
+            if count == 1:
+                _redis.expire(rkey, API_KEY_WINDOW_SECONDS)
+            retry_after = max(1, int(_redis.ttl(rkey) or API_KEY_WINDOW_SECONDS))
+        except Exception as exc:
+            logger.warning("Redis indisponível no limite de API key (%s); usando memória", exc)
+            count = 0
+    if not count:
+        count, retry_after = _api_key_hit_memory(key_id)
+    if count > API_KEY_MAX_REQUESTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite de {API_KEY_MAX_REQUESTS} requisições por minuto para esta chave de API.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 # ─── Helpers para uso nos endpoints ───────────────────────────────────────────
 
 def get_client_ip(request: Request) -> str:

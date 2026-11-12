@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_principal, get_current_user, get_db
 from app.core.tenant_guard import ensure_client_in_tenant
 from app.models.obligation import (
     ClientObligationProfile,
@@ -197,7 +197,7 @@ async def list_obligation_instances(
     competence_month: Optional[date] = Query(None, description="Filter by competence month (YYYY-MM-DD, first day)"),
     client_id: Optional[UUID] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """List obligation instances for the current tenant."""
@@ -222,7 +222,7 @@ async def list_obligation_instances(
              summary="Create manual obligation instance")
 async def create_obligation_instance(
     body: CreateObligationInstanceRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a manual obligation instance (not auto-generated)."""
@@ -256,7 +256,7 @@ async def create_obligation_instance(
 async def update_obligation_instance(
     instance_id: UUID,
     body: UpdateObligationInstanceRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Update status, assignment, or notes of an obligation instance."""

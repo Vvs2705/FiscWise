@@ -276,10 +276,19 @@ com histórico.**
 - Tela "Sincronização" lista os conflitos com "manter como está" (resolve) ou
   "restaurar valor do servidor" (gera um novo `update`). Nada é perdido em
   silêncio: o valor anterior fica no histórico.
-- Transições de status terminal nunca são revertidas por LWW: `inactive`,
-  `cancelled`, `paid`, `revoked`, `completed` só saem por ação explícita que
-  também passa pela outbox (o servidor rejeita `update` que tente voltar de
-  `paid` para `pending`, com mensagem).
+- Transições de status terminal nunca são revertidas por LWW. Terminais por
+  entidade: cliente `inactive`; prazo `completed` e `cancelled`; certificado
+  `revoked`; honorário `paid` e `cancelled`. O servidor rejeita `update` que
+  tente sair deles, com mensagem; reativar continua possível pela API REST
+  (ação explícita, online), e só então o pull propaga o novo status.
+- O conflito só é registrado quando o valor enviado difere do valor atual do
+  servidor; evento repetido devolve o mesmo ACK e o conflito original.
+- A auditoria `sync.<entidade>.<operação>` guarda só os nomes dos campos
+  alterados, `event_id`, `device_id` e o flag de conflito, sem valores (LGPD).
+- Paridade com a API REST no push: criar cliente respeita o limite do plano e o
+  CNPJ/CPF único e gera `client_code`; concluir prazo recorrente gera a próxima
+  ocorrência; marcar honorário pago preenche `paid_at`. O webhook
+  `client.created` não é disparado pelo sync (pendência).
 
 **Documentos fiscais (NFS-e): servidor é autoridade, sem mesclagem.**
 
@@ -287,6 +296,15 @@ com histórico.**
   `emit_requested`. Qualquer outro campo de status vindo do cliente é rejeitado.
 - Dois dispositivos pedindo a transmissão do mesmo rascunho: o segundo recebe
   ACK idempotente (a nota já está `queued`/`processing`), nunca duas emissões.
+- `emit_requested` chama `queue_emission` (status `queued`) e agenda o mesmo
+  processamento em segundo plano que `POST /invoices/{id}/emit` usa hoje. Esse
+  processamento morre quando o Cloud Run desliga; a fila em Postgres da Frente
+  A2 (`background_jobs`, kind `invoice.emit`, varredura das notas `queued` sem
+  job no tick horário) é quem garante a emissão. Quando ela entrar, o push
+  passa a só gravar `queued`.
+- A criação de nota pelo sync replica as validações de `InvoiceService`
+  (tomador, competência, cliente e emissor do escritório) porque o serviço não
+  aceita o id gerado no cliente; `invoices` não tem `version` (sai `null`).
 
 ### 5.6 Ciclo (`syncNow`)
 
@@ -469,6 +487,10 @@ instalado sem rede, criar cliente, voltar a rede, ver o cliente na API.
 | Criptografia de campos sensíveis no IndexedDB | decisão | Seção 9. |
 | RPS para municípios ABRASF | decisão de produto | Só quando houver emissor homologado em município não migrado. |
 | Build do `.exe` do Tauri | infraestrutura | Runner `windows-latest` do GitHub Actions (grátis em repositório público; em privado consome os 2.000 min/mês do plano Free). |
+| Endpoint para resolver/listar `sync_conflicts` no servidor | contrato | Hoje a revisão é local (tela Sincronização); o servidor só grava o histórico. Entra com a tela de revisão compartilhada entre dispositivos. |
+| Webhook `client.created` para clientes criados pelo sync | paridade | Disparar no handler `create` do push, como no REST. |
+| Isolamento por escritório do cache HTTP do service worker | segurança | Cache chaveado por URL; limpo no logout e na revogação. Chavear por tenant se um navegador for compartilhado entre escritórios. |
+| E2E Playwright offline (perfil mobile, `setOffline`) | teste | Depende de backend de preview; cenários unitários já cobrem a engine. |
 
 ---
 

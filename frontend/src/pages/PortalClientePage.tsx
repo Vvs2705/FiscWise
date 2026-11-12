@@ -12,6 +12,7 @@ import { FeatureGate } from '@/components/ui/FeatureGate';
 import { useClients } from '@/lib/hooks/useOperations';
 import { fetchPortalPreview } from '@/features/portal/api';
 import { cn } from '@/lib/utils';
+import { formatLocalDate } from '@/lib/dates';
 
 const PORTAL_TABS = [
   { key: 'overview', label: 'Visão Geral', icon: Globe },
@@ -232,7 +233,7 @@ export function PortalClientePage() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {competenceLabel(guide.competence)}
-                          {guide.due && ` · Vencimento: ${new Date(guide.due).toLocaleDateString('pt-BR')}`}
+                          {guide.due && ` · Vencimento: ${formatLocalDate(guide.due)}`}
                         </p>
                       </div>
                       <div className="text-right">
@@ -263,7 +264,7 @@ export function PortalClientePage() {
                         <p className="text-sm font-medium text-foreground">{p.title}</p>
                         {p.deadline && (
                           <p className="text-xs text-muted-foreground">
-                            Prazo: {new Date(p.deadline).toLocaleDateString('pt-BR')}
+                            Prazo: {formatLocalDate(p.deadline)}
                           </p>
                         )}
                       </div>

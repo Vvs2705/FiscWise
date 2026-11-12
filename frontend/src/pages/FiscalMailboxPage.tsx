@@ -9,6 +9,7 @@ import { fetchMailboxMessages, markMessageResolved, syncMailboxMessages } from '
 import { MailboxMessage } from '@/features/fiscal-mailbox/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatLocalDate } from '@/lib/dates';
 
 const RISK_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'Todos os riscos' },
@@ -190,7 +191,7 @@ export function FiscalMailboxPage() {
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">{msg.clientName}</td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{msg.organ}</td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                      {msg.deadline ? new Date(msg.deadline).toLocaleDateString('pt-BR') : '—'}
+                      {formatLocalDate(msg.deadline)}
                     </td>
                     <td className="px-4 py-3"><RiskBadge risk={msg.risk} /></td>
                     <td className="px-4 py-3"><StatusBadge status={msg.status} /></td>
@@ -246,7 +247,7 @@ export function FiscalMailboxPage() {
                 </div>
                 <div className="rounded-lg bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground">Prazo</p>
-                  <p className="font-medium">{selected.deadline ? new Date(selected.deadline).toLocaleDateString('pt-BR') : '—'}</p>
+                  <p className="font-medium">{formatLocalDate(selected.deadline)}</p>
                 </div>
               </div>
 

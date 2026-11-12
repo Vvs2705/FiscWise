@@ -80,6 +80,7 @@ import {
   buildDocumentAiView,
   type ClientAiSummary,
 } from '@/lib/aiDocuments';
+import { daysUntilLocal, formatLocalDate } from '@/lib/dates';
 
 interface ClientDetailCockpitProps {
   clientId: string;
@@ -447,20 +448,13 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
 
   // Helper date logic
   const isExpiringSoon = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    const diffTime = expDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays >= 0 && diffDays <= 30;
   };
 
   const isExpired = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return expDate < today;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays < 0;
   };
 
   // Build History Timeline Items
@@ -1636,7 +1630,7 @@ FiscWise`,
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                          Vencimento original: {new Date(debt.due_date).toLocaleDateString('pt-BR')}
+                          Vencimento original: {formatLocalDate(debt.due_date)}
                         </p>
                       </div>
                       <div className="flex items-center gap-4 justify-between sm:justify-end shrink-0">

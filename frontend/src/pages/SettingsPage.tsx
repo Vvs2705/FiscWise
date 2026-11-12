@@ -94,6 +94,7 @@ import {
   type ApiKeyCreated,
   type WebhookSubscriptionCreated,
 } from '@/lib/hooks/useDeveloper';
+import { formatLocalDate } from '@/lib/dates';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -1259,8 +1260,7 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
   };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('pt-BR');
+    return formatLocalDate(dateStr);
   };
 
   const amountFormatted = subscription?.amount 

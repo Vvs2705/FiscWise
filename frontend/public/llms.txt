@@ -1,0 +1,35 @@
+# FiscWise
+
+> FiscWise é um sistema de gestão contábil em nuvem para contadores autônomos e escritórios de contabilidade no Brasil. Reúne carteira de clientes, documentos, obrigações fiscais e prazos, guias, certificados digitais, fechamento mensal, financeiro e portal do cliente em um só lugar. Desenvolvido pela Vstack Solutions.
+
+Site: https://www.fiscwise.com.br
+Idioma: português do Brasil
+
+## Para quem é
+- Contadores autônomos que querem sair das planilhas paralelas.
+- Pequenos e médios escritórios contábeis, com carteiras por responsável e dados isolados por escritório.
+- Operações de BPO financeiro e contábil com alto volume de guias e fechamentos.
+
+## O que faz hoje
+- Carteira de clientes e upload de documentos.
+- Calendário de obrigações fiscais por regime, CNAE, município e UF, com recorrência e prazos.
+- Fechamento mensal por competência, com dossiê em PDF.
+- Registro e conciliação de guias (DAS, DARF, GPS, ISS) e comprovantes.
+- Cadastro de certificados digitais A1/A3 com alerta de validade.
+- Contas a receber e controle de inadimplência.
+- Portal do cliente final para documentos e guias.
+- Calculadora fiscal e assistente de IA de apoio.
+
+## Em desenvolvimento (depende de credenciais ou contratos oficiais)
+- Emissão de NFS-e em produção, consulta e-CAC / Caixa Postal (SERPRO) e envio oficial por WhatsApp Business.
+O FiscWise não apresenta dado governamental simulado como se fosse oficial.
+
+## Páginas
+- [Perguntas frequentes](https://www.fiscwise.com.br/faq/): respostas diretas sobre o produto
+- [Criar conta](https://www.fiscwise.com.br/register)
+- [Entrar](https://www.fiscwise.com.br/login)
+- [Termos de uso](https://www.fiscwise.com.br/termos)
+- [Política de privacidade](https://www.fiscwise.com.br/privacidade)
+
+## Empresa
+Vstack Solutions — https://vstack-solutions.com.br

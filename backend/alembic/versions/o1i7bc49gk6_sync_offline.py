@@ -4,7 +4,7 @@ Contrato em docs/arquitetura/OFFLINE_SYNC.md, seção 4.2. Tabelas novas com RLS
 tenant_isolation (current_app_tenant_id()), igual às demais tabelas de escritório.
 
 Revision ID: o1i7bc49gk6
-Revises: n9h6ab38fj5
+Revises: o0a1b2c3d4e5
 Create Date: 2026-11-12
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "o1i7bc49gk6"
-down_revision = "n9h6ab38fj5"
+down_revision = "o0a1b2c3d4e5"
 branch_labels = None
 depends_on = None
 

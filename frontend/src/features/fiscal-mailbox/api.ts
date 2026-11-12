@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { MailboxMessage, MailboxMessageRisk, MailboxMessageStatus } from './types';
+import { MailboxMessage, MailboxMessageRisk, MailboxMessageStatus, MailboxProviderStatus } from './types';
 
 /** Raw message shape returned by the backend (snake_case). */
 interface ApiMailboxMessage {
@@ -21,6 +21,8 @@ interface ApiMailboxMessage {
   obligation_linked: string | null;
   tags: string[] | null;
   created_at: string;
+  provider?: string;
+  simulated?: boolean;
 }
 
 function mapMessage(m: ApiMailboxMessage): MailboxMessage {
@@ -40,6 +42,7 @@ function mapMessage(m: ApiMailboxMessage): MailboxMessage {
     taskCreated: m.task_created,
     obligationLinked: m.obligation_linked,
     tags: m.tags ?? [],
+    simulated: Boolean(m.simulated),
   };
 }
 
@@ -78,4 +81,20 @@ export async function syncMailboxMessages(): Promise<{ synced: number; created: 
     '/api/v1/fiscal-mailbox/sync',
   );
   return data;
+}
+
+/** Provider configurado: a UI avisa quando é simulado e esconde o sync bloqueado. */
+export async function fetchMailboxProviderStatus(): Promise<MailboxProviderStatus> {
+  const { data } = await api.get<{
+    provider: string;
+    simulated: boolean;
+    sync_available: boolean;
+    message: string | null;
+  }>('/api/v1/fiscal-mailbox/provider-status');
+  return {
+    provider: data.provider,
+    simulated: data.simulated,
+    syncAvailable: data.sync_available,
+    message: data.message,
+  };
 }

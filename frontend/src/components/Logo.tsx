@@ -13,14 +13,22 @@ interface LogoProps {
 /* Gradiente inline: cada instância precisa de um id único */
 let _uid = 0;
 
+/* Proporções do wordmark (relativas ao lado do ícone) */
+const WORDMARK_GAP = 0.3;
+const WORDMARK_FONT = 0.56;
+/* Largura de "FiscWise" em Geist 600 com tracking -0.02em, em em */
+const WORDMARK_EM_WIDTH = 4.2;
+
 export function Logo({ variant = 'full', theme = 'dark', size = 36, className }: LogoProps) {
   const id = `fw-logo-${++_uid}`;
 
+  // SISTEMA_DE_DESIGN.md §12: navy no claro, quase-branco no escuro
   const textColor = theme === 'dark' ? '#EEF1FA' : '#1A2540';
-  const subColor  = theme === 'dark' ? '#8B9ABF'  : '#6B7A99';
 
   const iconW = size;
-  const totalW = variant === 'full' ? size + size * 3.6 : size;
+  const gap = size * WORDMARK_GAP;
+  const fontSize = size * WORDMARK_FONT;
+  const totalW = variant === 'full' ? Math.ceil(size + gap + fontSize * WORDMARK_EM_WIDTH) : size;
   const totalH = size;
 
   /* Posições dos elementos do ícone (escalam via viewBox) */
@@ -83,33 +91,21 @@ export function Logo({ variant = 'full', theme = 'dark', size = 36, className }:
         strokeLinecap="round" fill="none" opacity="0.88"
       />
 
-      {/* ── Wordmark (só no variant=full) ── */}
+      {/* ── Wordmark (só no variant=full), centralizado na vertical ── */}
       {variant === 'full' && (
-        <>
-          <text
-            x={iconW + iconW * 0.28}
-            y={totalH * 0.58}
-            fontFamily="Syne, system-ui, sans-serif"
-            fontSize={totalH * 0.42}
-            fontWeight="700"
-            letterSpacing="-0.4"
-            fill={textColor}
-          >
-            FiscWise
-          </text>
-          <text
-            x={iconW + iconW * 0.29}
-            y={totalH * 0.88}
-            fontFamily="Geist, system-ui, sans-serif"
-            fontSize={totalH * 0.18}
-            fontWeight="500"
-            letterSpacing="1.6"
-            fill={subColor}
-          >
-            ROTINA FISCAL
+        <text
+          x={iconW + gap}
+          y={totalH / 2}
+          dominantBaseline="central"
+          fontFamily="'Geist Variable', Geist, system-ui, sans-serif"
+          fontSize={fontSize}
+          fontWeight="600"
+          letterSpacing="-0.02em"
+          fill={textColor}
+        >
+          FiscWise
         </text>
-      </>
-    )}
+      )}
     </svg>
   );
 }

@@ -110,7 +110,7 @@ function isDeviceTokenEndpoint(url: string | undefined): boolean {
 
 /** Login, 2FA etc.: 401 ali é credencial errada, não sessão vencida. */
 function isAuthEndpoint(url: string | undefined): boolean {
-  return !!url && /\/api\/v1\/auth\/(login|google|register|login\/verify-2fa)/.test(url);
+  return !!url && /\/api\/v1\/auth\/(login|google|register)(\/|\?|$)/.test(url);
 }
 
 type RetriableConfig = InternalAxiosRequestConfig & { _fiscwiseRetried?: boolean };
@@ -127,8 +127,15 @@ api.interceptors.response.use(
     const config = error.config as RetriableConfig | undefined;
 
     if (error.response.status === 401 && !isDeviceTokenEndpoint(config?.url)) {
+      // 401 nas rotas de entrada (senha errada, código 2FA inválido, token do
+      // Google recusado) é resposta normal do formulário: a tela mostra a
+      // mensagem. Só sessão expirada em chamada autenticada redireciona.
+      if (isAuthEndpoint(config?.url)) {
+        return Promise.reject(error);
+      }
+
       // Tenta UMA vez renovar com o token de dispositivo e repetir a requisição.
-      if (config && !config._fiscwiseRetried && !isAuthEndpoint(config.url)) {
+      if (config && !config._fiscwiseRetried) {
         config._fiscwiseRetried = true;
         const renewed = await renewAccessTokenOnce();
         if (renewed) {

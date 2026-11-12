@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Calculator, BrainCircuit, TrendingDown, History } from 'lucide-react';
 import { FiscalCalculatorSection } from '../components/FiscalCalculatorSection';
 import { fetchTenant } from '../lib/auth';
+import { normalizeCalculatorPlan } from '../lib/fiscwise-calculator-api';
+import type { CalculatorPlan } from '../lib/types/calculator';
 
 const highlights = [
   {
@@ -28,18 +30,14 @@ const highlights = [
 ];
 
 export function CalculatorPage() {
-  const [userPlan, setUserPlan] = useState<'FREE' | 'INTERMEDIARIO' | 'PREMIUM'>('FREE');
+  const [userPlan, setUserPlan] = useState<CalculatorPlan>('FREE');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTenant()
-      .then((tenant) => {
-        const plan = (tenant.plan_slug || 'FREE').toUpperCase() as
-          | 'FREE'
-          | 'INTERMEDIARIO'
-          | 'PREMIUM';
-        setUserPlan(plan);
-      })
+      // /auth/tenant devolve plan_slug já como plano efetivo (resolve_tenant_plan:
+      // assinatura suspensa/trial vencido → free, override de superuser → premium).
+      .then((tenant) => setUserPlan(normalizeCalculatorPlan(tenant.plan_slug)))
       .catch(() => setUserPlan('FREE'))
       .finally(() => setLoading(false));
   }, []);

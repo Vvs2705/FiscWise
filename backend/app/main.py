@@ -18,8 +18,10 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
+from app.core.http_client import ExternalServiceError
 from app.core.middleware import TenantMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.request_log import RequestLogMiddleware, request_log_enabled
 from app.core.deps import DeviceAuthError, get_sessionmaker
 from app.api.v1.api import api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -177,6 +179,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request log (JSON no stdout → Cloud Logging) + Server-Timing — added AFTER
+# CORS, so it is the OUTERMOST custom layer:
+#   RequestLog → CORS → RateLimit → Tenant → route
+# Being outermost, the measured duration covers the whole middleware stack and
+# every response is logged, including CORS preflights, 429 and 400 errors.
+# It never produces a response itself, so it does not interfere with CORS
+# being the outermost layer that *answers*. Pure ASGI: no body buffering.
+if request_log_enabled(settings.ENVIRONMENT, str(settings.REQUEST_LOG_JSON)):
+    app.add_middleware(RequestLogMiddleware)
+
 # Include API v1 routes
 app.include_router(api_router, prefix="/api/v1")
 
@@ -188,6 +200,20 @@ async def _device_auth_error_handler(_request, exc: DeviceAuthError):
         status_code=exc.status_code,
         content={"detail": exc.detail, "code": exc.code},
         headers=exc.headers,
+    )
+
+
+@app.exception_handler(ExternalServiceError)
+async def external_service_error_handler(_request, exc: ExternalServiceError):
+    """Serviço externo fora do ar → 503 (transitório) ou 502, com mensagem clara."""
+    return JSONResponse(
+        status_code=503 if exc.retryable else 502,
+        content={
+            "detail": exc.user_message,
+            "error_code": "EXTERNAL_SERVICE_UNAVAILABLE",
+            "service": exc.service,
+        },
+        headers={"Retry-After": "60"} if exc.retryable else None,
     )
 
 

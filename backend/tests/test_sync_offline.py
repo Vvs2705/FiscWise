@@ -368,6 +368,33 @@ async def test_regra_fiscal_da_nota(ctx, test_db):
     assert queued == 1
 
 
+async def test_emissao_offline_com_mock_em_producao_fica_rascunho(ctx, test_db, monkeypatch):
+    """Mesmo portão do POST /emit: mock em produção recusa e a nota segue draft (G2)."""
+    from app.core.config import settings
+
+    issuer = InvoiceIssuer(tenant_id=ctx["tenant_id"], cnpj="10000000000145", regime_tributario="simples",
+                           municipio_ibge="3550308")
+    test_db.add(issuer)
+    await test_db.commit()
+    http, headers, dev = ctx["http"], ctx["headers"], ctx["device_id"]
+    inv_id = uuid.uuid4()
+    base = {"issuer_id": str(issuer.id), "client_id": str(ctx["client_id"]),
+            "competencia": date.today().isoformat(), "valor_servico": "500.00",
+            "descricao_servico": "Consultoria tributária"}
+    assert _push(http, headers, _event(dev, "invoice", inv_id, "create", base)).json()["acks"][0]["status"] == "ack"
+
+    monkeypatch.setattr(settings, "NFSE_PROVIDER", "mock")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    ack = _push(http, headers, _event(dev, "invoice", inv_id, "emit_requested")).json()["acks"][0]
+    assert ack["status"] == "rejected"
+    assert "não configurada" in ack["error"]
+    test_db.expire_all()
+    inv = (await test_db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
+    assert inv.status == "draft"
+    assert await _count(test_db, InvoiceEvent, InvoiceEvent.invoice_id == inv_id,
+                        InvoiceEvent.event_type == "queued") == 0
+
+
 # ---------------------------------------------------------------------------
 # pull
 # ---------------------------------------------------------------------------

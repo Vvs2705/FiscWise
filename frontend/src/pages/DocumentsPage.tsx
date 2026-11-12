@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,6 +27,7 @@ import {
   LayoutGrid,
   Eye,
   BookOpen,
+  CheckCircle2,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { startTour } from '@/lib/tours';
@@ -54,6 +56,7 @@ import {
   useDocuments,
   useCreateDocument,
   useDeleteDocument,
+  useUpdateDocument,
   useUploadDocument,
   type DocumentCreate,
   type DocumentStatus,
@@ -412,7 +415,7 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {aiView.parseError ?? 'Aguardando processamento.'}
+          {aiView.pendingMessage}
         </p>
       )}
     </div>
@@ -436,7 +439,6 @@ export function DocumentsPage() {
 
   // Filter and preview states
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -447,15 +449,11 @@ export function DocumentsPage() {
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
+  const updateMutation = useUpdateDocument();
   const uploadMutation = useUploadDocument();
 
-  // Search Debouncing
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Debounce da busca (300 ms) — o filtro usa o valor atrasado
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   const {
     register,
@@ -534,6 +532,20 @@ export function DocumentsPage() {
     setOpen(false);
   }
 
+  // Conferido = documento recebido e revisado: sai de "Em revisão" (ou de
+  // "Pendente" quando já tem arquivo anexado) para "Disponível".
+  const canMarkReviewed = (doc: ClientDocument) =>
+    doc.status === 'review' || (doc.status === 'missing' && !!doc.file_url);
+
+  async function handleMarkReviewed(doc: ClientDocument) {
+    try {
+      await updateMutation.mutateAsync({ id: doc.id, payload: { status: 'available' } });
+      toast.success(`"${doc.name}" marcado como conferido`);
+    } catch {
+      toast.error('Não foi possível marcar como conferido');
+    }
+  }
+
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Excluir documento "${name}"?`)) return;
     try {
@@ -585,7 +597,6 @@ export function DocumentsPage() {
 
   function clearFilters() {
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setClientFilter('');
     setCategoryFilter('');
     setStatusFilter('');
@@ -877,6 +888,20 @@ export function DocumentsPage() {
                                 </Button>
                               </a>
                             </>
+                          )}
+                          {canMarkReviewed(doc) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMarkReviewed(doc)}
+                              disabled={updateMutation.isPending}
+                              className="h-8 gap-1 text-success hover:text-success hover:bg-success/10"
+                              title="Marcar como conferido"
+                              aria-label={`Marcar ${doc.name} como conferido`}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="hidden xl:inline text-xs">Conferido</span>
+                            </Button>
                           )}
                           <Button
                             variant="ghost"

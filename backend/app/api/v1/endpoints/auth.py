@@ -24,13 +24,13 @@ from datetime import datetime, timezone, timedelta
 import pyotp
 import qrcode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Union
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -42,13 +42,21 @@ from app.core.security import (
     create_mfa_token,
     verify_mfa_token,
     get_password_hash,
+    create_password_reset_token,
+    decode_password_reset_token,
+    password_reset_token_matches_user,
 )
 from app.core.auth_rate_limiter import _redis as _otp_redis, auth_rate_limiter, get_client_ip
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.schemas.token import AuthResponse, UserInfo
 from app.services.audit import log_audit_event
-from app.services.email_service import send_email, render_otp_email
+from app.services.email_service import (
+    email_delivery_available,
+    render_otp_email,
+    render_password_reset_email,
+    send_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +108,29 @@ def _verify_email_otp(user_id: str, code: str) -> bool:
         _EMAIL_OTP_STORE.pop(user_id, None)
         return True
     return False
+
+
+_EMAIL_2FA_SEND_FAILED = (
+    "Não foi possível enviar o código de verificação por e-mail agora. "
+    "Tente novamente em instantes ou fale com o suporte."
+)
+
+
+async def _send_login_otp_or_503(user: User) -> None:
+    """Gera e envia o código do 2FA por e-mail; sem envio real → 503 claro
+    (antes respondia "código enviado" mesmo quando nada saía)."""
+    otp_code = _generate_email_otp(str(user.id))
+    sent = await send_email(
+        to=user.email,
+        subject="Seu código de acesso FiscWise",
+        html=render_otp_email(otp_code),
+    )
+    logger.info("EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
+    if not sent:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_EMAIL_2FA_SEND_FAILED,
+        )
 
 
 def _build_auth_response(user: User, tenant_id: str) -> AuthResponse:
@@ -225,13 +256,7 @@ async def login(
 
         # For email OTP, generate and send the code now
         if method == "email":
-            otp_code = _generate_email_otp(str(user.id))
-            sent = await send_email(
-                to=user.email,
-                subject="Seu código de acesso FiscWise",
-                html=render_otp_email(otp_code),
-            )
-            logger.info("EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
+            await _send_login_otp_or_503(user)
 
         mfa_token = create_mfa_token(user_id=str(user.id))
         return MfaChallengeResponse(
@@ -312,8 +337,8 @@ async def resend_2fa_code(
     logger.info("RESEND EMAIL OTP for %s [code redacted] sent=%s", user.email, sent)
 
     return Resend2FAResponse(
-        sent=True,
-        message="Novo código enviado para o seu e-mail.",
+        sent=sent,
+        message=("Novo código enviado para o seu e-mail." if sent else _EMAIL_2FA_SEND_FAILED),
     )
 
 
@@ -457,13 +482,7 @@ async def google_auth(
         if getattr(existing_user, "two_factor_enabled", False):
             method = getattr(existing_user, "two_factor_method", "totp")
             if method == "email":
-                otp_code = _generate_email_otp(str(existing_user.id))
-                sent = await send_email(
-                    to=existing_user.email,
-                    subject="Seu código de acesso FiscWise",
-                    html=render_otp_email(otp_code),
-                )
-                logger.info("EMAIL OTP for %s [code redacted] sent=%s", existing_user.email, sent)
+                await _send_login_otp_or_503(existing_user)
             mfa_token = create_mfa_token(user_id=str(existing_user.id))
             return MfaChallengeResponse(
                 status="requires_2fa",
@@ -591,7 +610,13 @@ async def enable_2fa(
         )
 
     elif body.method == "email":
-        # Generate and send email OTP
+        # Sem envio real o usuário ativaria um 2FA cujo código nunca chega e
+        # ficaria trancado fora da conta.
+        if not email_delivery_available():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="2FA por e-mail indisponível: envio de e-mail não configurado",
+            )
         code = _generate_email_otp(str(current_user.id))
         sent = await send_email(
             to=current_user.email,
@@ -599,6 +624,11 @@ async def enable_2fa(
             html=render_otp_email(code),
         )
         logger.info("2FA EMAIL SETUP OTP for %s [code redacted] sent=%s", current_user.email, sent)
+        if not sent:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=_EMAIL_2FA_SEND_FAILED,
+            )
         return {"message": "Código enviado para seu e-mail. Confirme com /auth/2fa/confirm-email."}
 
     raise HTTPException(status_code=400, detail="Método inválido. Use 'totp' ou 'email'.")
@@ -882,3 +912,145 @@ async def change_password(
             role=current_user.role.value,
         ),
     }
+
+
+# ─── Esqueci minha senha ──────────────────────────────────────────────────────
+#
+# Token: JWT de 1 h com purpose="password_reset" (recusado como access token em
+# get_current_user) e impressão do hash da senha atual — ao redefinir, a
+# impressão muda e o link morre (uso único). tokens_valid_after=now derruba as
+# sessões abertas. Resposta do pedido é sempre a mesma (sem enumeração de
+# e-mail) e o envio vai para background (o tempo de resposta também não
+# denuncia se a conta existe).
+
+_RESET_GENERIC_MESSAGE = (
+    "Se houver uma conta com este e-mail, enviaremos um link para redefinir a senha."
+)
+_RESET_INVALID_TOKEN = "Link de redefinição inválido ou expirado. Solicite um novo."
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(..., min_length=1, max_length=2048)
+    # Mesma política do cadastro/troca: mínimo 8; bcrypt aceita até 72 bytes.
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+async def _send_password_reset_email(to: str, reset_link: str) -> None:
+    sent = await send_email(
+        to=to,
+        subject="Redefinição de senha — FiscWise",
+        html=render_password_reset_email(reset_link),
+    )
+    if not sent:
+        logger.warning("Password reset e-mail NOT sent to=%s (envio indisponível ou falhou)", to)
+
+
+@router.get("/password-reset/available", summary="Password reset by e-mail available?")
+async def password_reset_available():
+    """A UI avisa quando a instalação não envia e-mail (sem Resend)."""
+    return {"available": email_delivery_available()}
+
+
+@router.post("/password-reset/request", summary="Request password reset link")
+async def request_password_reset(
+    body: PasswordResetRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    client_ip = get_client_ip(request)
+    email = body.email.strip().lower()
+    # Cada pedido conta (não só falhas): limita disparo de e-mail por IP e por
+    # destinatário. Vale para e-mail existente ou não — não revela nada.
+    try:
+        for rl_key in (f"pwreset:ip:{client_ip}", f"pwreset:email:{email}"):
+            auth_rate_limiter.check_login_ip(rl_key)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail="Muitos pedidos de redefinição de senha. Aguarde alguns minutos e tente de novo.",
+            headers=exc.headers,
+        )
+    for rl_key in (f"pwreset:ip:{client_ip}", f"pwreset:email:{email}"):
+        auth_rate_limiter.record_login_failure(rl_key)
+
+    if not email_delivery_available():
+        logger.warning("Password reset solicitado mas envio de e-mail não está configurado (RESEND)")
+
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
+    users = result.scalars().all()
+    if len(users) == 1 and users[0].is_active:
+        user = users[0]
+        token = create_password_reset_token(str(user.id), user.hashed_password)
+        reset_link = f"{settings.APP_URL.rstrip('/')}/redefinir-senha?token={token}"
+        background_tasks.add_task(_send_password_reset_email, user.email, reset_link)
+        await log_audit_event(
+            db=db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            actor_role=user.role.value,
+            action="auth.password_reset_requested",
+            entity_type="auth",
+            ip_address=client_ip,
+            user_agent=request.headers.get("User-Agent"),
+        )
+
+    return {"message": _RESET_GENERIC_MESSAGE}
+
+
+@router.post("/password-reset/confirm", summary="Confirm password reset")
+async def confirm_password_reset(
+    body: PasswordResetConfirm,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    client_ip = get_client_ip(request)
+    rl_key = f"pwreset-confirm:{client_ip}"
+    auth_rate_limiter.check_login_ip(rl_key)
+
+    def _invalid() -> HTTPException:
+        auth_rate_limiter.record_login_failure(rl_key)
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_RESET_INVALID_TOKEN)
+
+    payload = decode_password_reset_token(body.token)
+    if payload is None:
+        raise _invalid()
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except (ValueError, TypeError):
+        raise _invalid()
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active or not password_reset_token_matches_user(payload, user):
+        raise _invalid()
+
+    try:
+        new_hash = get_password_hash(body.new_password)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A senha deve ter no máximo 72 bytes.",
+        )
+
+    user.hashed_password = new_hash
+    # Derruba todas as sessões abertas (inclusive de quem tinha a senha antiga).
+    user.tokens_valid_after = datetime.now(timezone.utc).replace(microsecond=0)
+    await db.commit()
+    auth_rate_limiter.record_login_success(rl_key)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=user.tenant_id,
+        actor_user_id=user.id,
+        actor_role=user.role.value,
+        action="auth.password_reset_completed",
+        entity_type="auth",
+        ip_address=client_ip,
+        user_agent=request.headers.get("User-Agent"),
+    )
+    return {"message": "Senha redefinida. Entre com a nova senha."}

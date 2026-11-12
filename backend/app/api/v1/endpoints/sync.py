@@ -516,6 +516,10 @@ async def _create_invoice(db: AsyncSession, ctx: _Ctx, ev: SyncEventIn) -> _Appl
 
 
 async def _emit_invoice(db: AsyncSession, ctx: _Ctx, ev: SyncEventIn) -> _Applied:
+    from app.domain.invoices.providers.factory import (
+        NfseProviderNotConfiguredError,
+        build_nfse_provider,
+    )
     from app.domain.invoices.repository import InvoiceRepository
     from app.domain.invoices.service import InvoiceService
 
@@ -527,6 +531,12 @@ async def _emit_invoice(db: AsyncSession, ctx: _Ctx, ev: SyncEventIn) -> _Applie
         return _Applied(invoice, after={"status": invoice.status, "already": True})
     if invoice.status not in ("draft", "rejected"):
         raise SyncRejection(f"A nota está com status '{invoice.status}' e não pode ser transmitida.")
+    # Mesmo portão do POST /invoices/{id}/emit: em produção com provider mock a
+    # nota não sai do rascunho (regra G2; providers/factory.py).
+    try:
+        build_nfse_provider()
+    except NfseProviderNotConfiguredError as exc:
+        raise SyncRejection(str(exc)) from None
     old_status = invoice.status
     try:
         invoice = await InvoiceService(InvoiceRepository(db)).queue_emission(ev.entity_id, ctx.tenant_id)

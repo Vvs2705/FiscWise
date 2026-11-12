@@ -145,8 +145,12 @@ async def generate_obligations_for_month(
     db: AsyncSession,
     year: int,
     month: int,
+    tenant_id: Optional[UUID] = None,
 ) -> dict:
     """Generate ObligationInstance records for all active clients.
+
+    Sem ``tenant_id`` (scheduler) percorre todos os tenants em trial/ativos.
+    Com ``tenant_id`` (disparo manual pelo escritório) processa só esse tenant.
 
     Idempotent: skips instances that already exist for (client_id, rule_id, competence_month).
 
@@ -165,16 +169,23 @@ async def generate_obligations_for_month(
         logger.warning("No active obligation rules found in database — proceeding with dynamic rules only")
 
     # Load all active tenants (trial or active subscriptions)
-    tenants_result = await db.execute(
-        select(Tenant).where(
+    if tenant_id is not None:
+        tenants_stmt = select(Tenant).where(Tenant.id == tenant_id)
+    else:
+        tenants_stmt = select(Tenant).where(
             Tenant.subscription_status.in_([SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE])
         )
-    )
+    tenants_result = await db.execute(tenants_stmt)
     tenants = tenants_result.scalars().all()
 
     total_created = 0
     total_skipped = 0
     total_errors = 0
+
+    # Lookup de regras por código, compartilhado entre tenants: regras dinâmicas
+    # criadas (e commitadas) para um tenant são reaproveitadas pelos seguintes
+    # em vez de serem inseridas de novo (violaria o UNIQUE de obligation_rules.code).
+    rules_by_code = {r.code.upper(): r for r in all_rules}
 
     for tenant in tenants:
         try:
@@ -190,9 +201,6 @@ async def generate_obligations_for_month(
                 )
             )
             clients = clients_result.scalars().all()
-
-            # Create a lookup map for rules by uppercase code
-            rules_by_code = {r.code.upper(): r for r in all_rules}
 
             for client in clients:
                 # Fetch fiscal profile (may not exist yet)
@@ -307,9 +315,19 @@ async def generate_obligations_for_month(
             )
             try:
                 await db.rollback()
+                # Regras inseridas na transação desfeita não existem mais.
+                reloaded = await db.execute(
+                    select(ObligationRule).where(ObligationRule.active == True)
+                )
+                rules_by_code = {r.code.upper(): r for r in reloaded.scalars().all()}
             except Exception:
                 pass
             total_errors += 1
+
+    # O motor pode ter inserido regras novas (regras dinâmicas): limpa o cache.
+    from app.services.catalog_cache import invalidate_obligation_rules
+
+    invalidate_obligation_rules()
 
     summary = {
         "created": total_created,

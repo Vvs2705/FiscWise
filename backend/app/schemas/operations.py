@@ -205,6 +205,12 @@ class DocumentResponse(DocumentCreate):
         return self
 
 
+class DocumentUploadResponse(DocumentResponse):
+    """Resposta do upload: o documento + o job da fila que faz o parse."""
+
+    job_id: Optional[UUID] = None
+
+
 class ClientAiSummaryResponse(BaseModel):
     client_id: UUID
     summary: str

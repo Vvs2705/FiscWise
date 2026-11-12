@@ -128,7 +128,7 @@ class DeadlineItem(Base, TenantBase):
     recurrence_parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("deadline_items.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
     # Versão otimista do sync offline: +1 a cada UPDATE (listener em app/models/sync.py).
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
@@ -280,7 +280,7 @@ class ClientPortalInvite(Base, TenantBase):
     invited_by: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
         comment="User who sent the invite",
     )
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)

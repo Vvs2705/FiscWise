@@ -10,6 +10,9 @@ bcrypt.__about__.__version__ which was removed in bcrypt 4.0.  We call the
 bcrypt library directly instead of going through passlib to avoid this.
 """
 
+import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -158,3 +161,67 @@ def create_device_token(user_id: str, tenant_id: str, role: str, device_id: str)
         "iat": issued_at,
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+# ─── Redefinição de senha ("esqueci minha senha") ────────────────────────────
+
+PASSWORD_RESET_PURPOSE = "password_reset"
+PASSWORD_RESET_EXPIRE_MINUTES = 60
+
+
+def _password_fingerprint(hashed_password: str) -> str:
+    """Impressão do hash atual da senha (HMAC com a chave do JWT).
+
+    Vai dentro do token de reset: quando a senha muda, a impressão deixa de
+    bater e o link já usado (ou qualquer link anterior) morre — uso único sem
+    tabela, mesmo dentro do mesmo segundo do ``tokens_valid_after``.
+    """
+    return hmac.new(
+        JWT_SECRET_KEY.encode("utf-8"), hashed_password.encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:32]
+
+
+def create_password_reset_token(user_id: str, hashed_password: str) -> str:
+    """JWT de 1 h, propósito único (nunca serve como access token)."""
+    issued_at = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "purpose": PASSWORD_RESET_PURPOSE,
+        "jti": secrets.token_urlsafe(16),
+        "pwh": _password_fingerprint(hashed_password),
+        "exp": issued_at + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES),
+        "iat": issued_at,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def decode_password_reset_token(token: str) -> dict | None:
+    """Valida assinatura, expiração e propósito. Devolve o payload ou None.
+
+    A checagem contra o usuário (impressão da senha, ``tokens_valid_after``)
+    fica em ``password_reset_token_matches_user``.
+    """
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None
+    if payload.get("purpose") != PASSWORD_RESET_PURPOSE or not payload.get("sub"):
+        return None
+    if not isinstance(payload.get("iat"), int) or not payload.get("pwh"):
+        return None
+    return payload
+
+
+def password_reset_token_matches_user(payload: dict, user) -> bool:
+    """Token ainda vale para este usuário? (senha não mudou desde a emissão)."""
+    if not hmac.compare_digest(
+        str(payload.get("pwh", "")), _password_fingerprint(user.hashed_password)
+    ):
+        return False
+    valid_after = getattr(user, "tokens_valid_after", None)
+    if valid_after is not None:
+        if valid_after.tzinfo is None:  # SQLite devolve sem fuso
+            valid_after = valid_after.replace(tzinfo=timezone.utc)
+        if payload["iat"] < int(valid_after.timestamp()):
+            return False
+    return True

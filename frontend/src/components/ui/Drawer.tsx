@@ -3,7 +3,8 @@ import { Drawer as VaulDrawer } from 'vaul';
 import { cn } from '@/lib/utils';
 
 export function Drawer({
-  shouldScaleBackground = true,
+  // Sem escala do fundo (SISTEMA_DE_SISTEMA_DE_DESIGN.md §7: nada de scale fora do toque em botões)
+  shouldScaleBackground = false,
   ...props
 }: ComponentProps<typeof VaulDrawer.Root>) {
   return (
@@ -26,7 +27,7 @@ export function DrawerOverlay({
 }: ComponentProps<typeof VaulDrawer.Overlay>) {
   return (
     <VaulDrawer.Overlay
-      className={cn('fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]', className)}
+      className={cn('fixed inset-0 z-50 bg-foreground/40', className)}
       {...props}
     />
   );
@@ -42,12 +43,12 @@ export function DrawerContent({
       <DrawerOverlay />
       <VaulDrawer.Content
         className={cn(
-          'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[20px] border border-border bg-card/95 text-card-foreground shadow-token backdrop-blur-md outline-none',
+          'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[92vh] flex-col rounded-t-lg border border-border bg-card text-card-foreground shadow-lg outline-none',
           className
         )}
         {...props}
       >
-        <div className="mx-auto mt-4 h-1.5 w-12 shrink-0 rounded-full bg-muted-foreground/30" />
+        <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" aria-hidden="true" />
         {children}
       </VaulDrawer.Content>
     </DrawerPortal>
@@ -84,7 +85,7 @@ export function DrawerTitle({
 }: ComponentProps<typeof VaulDrawer.Title>) {
   return (
     <VaulDrawer.Title
-      className={cn('text-lg font-bold leading-none tracking-tight text-foreground', className)}
+      className={cn('text-base font-semibold leading-6 text-foreground', className)}
       {...props}
     />
   );

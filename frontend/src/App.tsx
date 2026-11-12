@@ -6,19 +6,23 @@ import { initTheme } from '@/lib/hooks/useTheme';
 initTheme();
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
-import * as Sentry from '@sentry/react';
-import { MotionConfig } from 'framer-motion';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { DashboardLayout } from '@/layouts/DashboardLayout';
-import { CommandMenu } from '@/components/ui/CommandMenu';
 import { RouteTitle } from '@/lib/RouteTitle';
-import { useAuthStore } from '@/stores/authStore';
 import { OfflineProvider } from '@/lib/offline/OfflineProvider';
+import { captureException } from '@/lib/monitoring';
+
+// ─── Casca e provedores sob demanda (fora do chunk index) ────────────────────
+// AppShell = MotionConfig (framer-motion) + DashboardLayout + busca global.
+const AppShell           = lazy(() => import('@/components/AppShell'));
+// Provider do Google só nas rotas com GoogleLogin; evita o script do Google no resto.
+const GoogleAuthProvider = lazy(() => import('@/components/GoogleAuthProvider'));
+// sonner em chunk próprio; baixa em paralelo com a página.
+const Toaster            = lazy(() => import('sonner').then(m => ({ default: m.Toaster })));
 
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const NotFoundPage     = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const DashboardPage    = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const ClientsPage      = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const DocumentsPage    = lazy(() => import('@/pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
@@ -28,6 +32,8 @@ const SettingsPage     = lazy(() => import('@/pages/SettingsPage').then(m => ({ 
 const CalculatorPage   = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
 const ObrigacoesPage   = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
 const PortalLoginPage  = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage  = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
@@ -54,27 +60,40 @@ const EcacCentralPage   = lazy(() => import('@/features/ecac/pages/EcacCentralPa
 const GuiasListPage     = lazy(() => import('@/features/guias/pages/GuiasListPage').then(m => ({ default: m.GuiasListPage })));
 const GuiaDetailPage    = lazy(() => import('@/features/guias/pages/GuiaDetailPage').then(m => ({ default: m.GuiaDetailPage })));
 
-// Busca global (Ctrl+K) lista clientes e rotas da equipe: não existe para o
-// cliente do portal, que levaria 403 e cairia em telas que não pode abrir.
-function StaffCommandMenu() {
-  const role = useAuthStore((state) => state.user?.role);
-  return role === 'client' ? null : <CommandMenu />;
-}
-
-// Full-screen spinner shown while a lazy chunk is loading
+// Skeleton leve exibido enquanto um chunk lazy carrega. Só classes Tailwind,
+// sem componentes de ui/, para não puxar dependências para o chunk index.
 function PageLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    <div
+      className="min-h-screen bg-background p-5 md:p-6"
+      role="status"
+      aria-busy="true"
+      aria-label="Carregando"
+    >
+      <div className="mx-auto max-w-5xl animate-pulse space-y-4">
+        <div className="h-7 w-48 rounded-md bg-muted" />
+        <div className="h-4 w-72 max-w-full rounded-md bg-muted" />
+        <div className="grid gap-4 pt-2 sm:grid-cols-3">
+          <div className="h-24 rounded-lg bg-muted" />
+          <div className="h-24 rounded-lg bg-muted" />
+          <div className="h-24 rounded-lg bg-muted" />
+        </div>
+        <div className="h-64 rounded-lg bg-muted" />
+      </div>
     </div>
   );
 }
 
+// Defaults de cache: evita refetch a cada navegação (staleTime 0 gerava
+// tráfego excessivo no banco). As queryKeys das páginas não mudam.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
       retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
   },
 });
@@ -93,7 +112,7 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+    captureException(error, { extra: { componentStack: info.componentStack } });
   }
 
   render() {
@@ -120,21 +139,22 @@ class ErrorBoundary extends React.Component<
 
 function App() {
   return (
-    <MotionConfig reducedMotion="user">
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <OfflineProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <RouteTitle />
-          <StaffCommandMenu />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public routes */}
-              <Route path="/login"       element={<LoginPage />} />
-              <Route path="/register"    element={<RegisterPage />} />
+              <Route path="/login"       element={<GoogleAuthProvider><LoginPage /></GoogleAuthProvider>} />
+              <Route path="/register"    element={<GoogleAuthProvider><RegisterPage /></GoogleAuthProvider>} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
+              <Route path="/esqueci-senha"   element={<ForgotPasswordPage />} />
+              <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
+              <Route path="/404"         element={<NotFoundPage />} />
 
               {/* Portal do cliente final (role client) — fora do layout da equipe */}
               <Route
@@ -151,7 +171,7 @@ function App() {
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <DashboardLayout />
+                    <AppShell />
                   </ProtectedRoute>
                 }
               >
@@ -202,14 +222,18 @@ function App() {
                 <Route path="billing"      element={<Navigate to="/financeiro" replace />} />
                 <Route path="settings"     element={<Navigate to="/configuracoes" replace />} />
               </Route>
+
+              {/* Rota inexistente: página 404 (noindex via RouteTitle) */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
         </OfflineProvider>
-        <Toaster position="top-right" theme="dark" richColors closeButton />
+        <Suspense fallback={null}>
+          <Toaster position="top-right" theme="dark" richColors closeButton />
+        </Suspense>
       </QueryClientProvider>
     </ErrorBoundary>
-    </MotionConfig>
   );
 }
 

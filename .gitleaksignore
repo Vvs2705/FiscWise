@@ -1,3 +1,5 @@
 # Falsos positivos revisados. Formato: commit:arquivo:regra:linha
 # Senha de teste sintetica do aceite de convite (nao e credencial real).
 3a36c6979326d5e8052f11e806ea073fc05b4689:backend/tests/test_portal_invite_accept.py:generic-api-key:24
+# Exemplo de curl na aba Desenvolvedor: chave e o placeholder "fw_live_..." (nao e credencial).
+8c5112ef139aafc128292fa4acd86d57cd89bf5d:frontend/src/pages/SettingsPage.tsx:curl-auth-header:1975

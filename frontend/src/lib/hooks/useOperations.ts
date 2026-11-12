@@ -611,6 +611,30 @@ export function useUpdateReceivable() {
   );
 }
 
+export interface GenerateMonthlyResult {
+  status: string;
+  year_month: string;
+  created: number;
+  skipped_duplicates: number;
+  message: string;
+}
+
+/** Gera as mensalidades (honorários) da competência; idempotente no backend. */
+export function useGenerateMonthlyReceivables() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (yearMonth: string) => {
+      const { data } = await api.post<GenerateMonthlyResult>('/api/v1/receivables/generate-monthly', null, {
+        params: { year_month: yearMonth },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}
+
 /** Sem exclusão física: desativa o cliente (status inactive). */
 export function useDeleteClient() {
   return useLocalFirstDelete('client', localRepo.deactivateClient);
@@ -629,6 +653,10 @@ export function useUpdateDeadline() {
   );
 }
 
+export function useUpdateDocument() {
+  return useUpdateMutation<DocumentCreate, ClientDocument>('/api/v1/documents');
+}
+
 export function useDeleteDocument() {
   return useDeleteMutation('/api/v1/documents');
 }
@@ -643,12 +671,16 @@ export function useDeleteReceivable() {
   return useLocalFirstDelete('receivable', localRepo.cancelReceivable);
 }
 
+// `url` é a referência do storage privado (grave em `file_url`); a API devolve
+// URL assinada na leitura. `signed_url` serve só para pré-visualizar já.
+export type UploadedDocument = { url: string; path: string; signed_url?: string | null };
+
 export function useUploadDocument() {
   return useMutation({
-    mutationFn: async (file: File): Promise<{ url: string; path: string }> => {
+    mutationFn: async (file: File): Promise<UploadedDocument> => {
       const form = new FormData();
       form.append('file', file);
-      const { data } = await api.post<{ url: string; path: string }>(
+      const { data } = await api.post<UploadedDocument>(
         '/api/v1/documents/upload',
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } },

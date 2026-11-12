@@ -268,3 +268,39 @@ export async function changePassword(data: ChangePasswordData): Promise<void> {
   const { data: res } = await api.post<{ access_token?: string }>('/api/v1/auth/change-password', data);
   if (res.access_token) localStorage.setItem('access_token', res.access_token);
 }
+
+// ─── Esqueci minha senha ──────────────────────────────────────────────────────
+
+/** Mesma política do cadastro (mín. 8) + limite do bcrypt (72 bytes). */
+export const NEW_PASSWORD_MIN_LENGTH = 8;
+export const NEW_PASSWORD_MAX_BYTES = 72;
+
+export function newPasswordError(password: string): string | null {
+  if (password.length < NEW_PASSWORD_MIN_LENGTH) {
+    return `Senha deve ter ao menos ${NEW_PASSWORD_MIN_LENGTH} caracteres`;
+  }
+  if (new TextEncoder().encode(password).length > NEW_PASSWORD_MAX_BYTES) {
+    return 'Senha muito longa (máximo de 72 bytes)';
+  }
+  return null;
+}
+
+/** Sempre resolve com a mesma mensagem genérica (não revela se a conta existe). */
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>('/api/v1/auth/password-reset/request', { email });
+  return data;
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>('/api/v1/auth/password-reset/confirm', {
+    token,
+    new_password: newPassword,
+  });
+  return data;
+}
+
+/** false quando a instalação não envia e-mail (recuperação indisponível). */
+export async function passwordResetAvailable(): Promise<boolean> {
+  const { data } = await api.get<{ available: boolean }>('/api/v1/auth/password-reset/available');
+  return data.available;
+}

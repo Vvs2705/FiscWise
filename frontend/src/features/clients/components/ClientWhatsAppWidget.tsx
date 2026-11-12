@@ -17,11 +17,13 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { getApiErrorMessage } from '@/lib/api';
+import { addLocalDays, toLocalISODate } from '@/lib/dates';
 
 interface ClientWhatsAppWidgetProps {
   clientId: string;
@@ -74,12 +76,12 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
 
   if (!inbox) {
     return (
-      <Card className="p-6 border border-border bg-card/30 text-center text-muted-foreground">
-        <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-xs">Nenhum histórico de mensagens associado a este telefone (+{clientPhone}).</p>
-        <p className="text-[10px] mt-1 max-w-xs mx-auto">
-          Escreva uma mensagem no compositor ao lado e use o atalho para abrir o WhatsApp Web, ou aguarde o primeiro contato do cliente para registrar a conversa aqui.
-        </p>
+      <Card className="border border-border bg-card/30">
+        <EmptyState
+          icon={Bot}
+          title="Sem conversa registrada"
+          description={`Nenhum histórico de mensagens associado a este telefone (+${clientPhone}). A conversa aparece aqui quando houver o primeiro contato registrado.`}
+        />
       </Card>
     );
   }
@@ -118,7 +120,7 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
   const openTaskModal = (msg: WhatsAppMessage) => {
     setSelectedMessage(msg);
     setTaskTitle(msg.body ? msg.body.substring(0, 55) + (msg.body.length > 55 ? '...' : '') : 'Ajustar pendência contábil');
-    setTaskDueDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setTaskDueDate(toLocalISODate(addLocalDays(new Date(), 2)));
     setTaskPriority('medium');
     setShowTaskModal(true);
   };
@@ -127,11 +129,14 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
     <Card className="flex flex-col h-[400px] border border-border bg-card/20 overflow-hidden">
       {/* HEADER */}
       <div className="bg-card/50 px-4 py-2 border-b border-border flex items-center justify-between">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-          Histórico WhatsApp Live
+        <span
+          className="text-[10px] font-bold text-warning uppercase tracking-wider flex items-center gap-1.5"
+          title="O envio pelo WhatsApp ainda não está conectado a um provedor. Mensagens marcadas como enviadas não chegam ao cliente."
+        >
+          <span className="h-2 w-2 rounded-full bg-warning" />
+          Envio simulado — provedor não configurado
         </span>
-        <Badge variant="success" className="text-[8px] py-0 px-1 font-mono">
+        <Badge variant="default" className="text-[8px] py-0 px-1 font-mono">
           +{inbox.phone_number}
         </Badge>
       </div>
@@ -143,9 +148,11 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground text-center">
-            <p className="text-[10px]">Chat vazio. Envie uma mensagem abaixo para iniciar.</p>
-          </div>
+          <EmptyState
+            icon={Bot}
+            title="Conversa vazia"
+            description="Nenhuma mensagem registrada nesta conversa ainda."
+          />
         ) : (
           messages.map((msg) => {
             const isOutbound = msg.direction === 'outbound';

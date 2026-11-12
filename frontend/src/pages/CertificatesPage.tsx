@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { api, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { Plus, Trash2, LayoutGrid, List, Search, Bell, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CertificateCard } from '@/components/ui/Card';
@@ -33,6 +34,7 @@ import {
   type CertificateStatus,
 } from '@/lib/hooks/useOperations';
 import { SyncRowMarker } from '@/components/SyncRowMarker';
+import { describeClientEmailResult, useCertExpiryWarning } from '@/lib/hooks/useNotifications';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -122,54 +124,59 @@ export function CertificatesPage() {
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Excluir certificado "${label}"?`)) return;
+    if (!confirm(`Excluir o certificado "${label}"? Ele será marcado como Revogado.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Certificado removido');
+      toast.success('Certificado revogado');
     } catch {
-      toast.error('Erro ao remover certificado');
+      toast.error('Erro ao revogar certificado');
     }
   }
 
+  const certWarning = useCertExpiryWarning();
   const handleWarnClient = (
     clientId: string,
     clientName: string,
     certLabel: string,
     daysLeft: number,
-  ) => (e: React.MouseEvent) => {
+  ) => async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toast.promise(
-      api.post('/api/v1/notifications/cert-expiry-warning', {
+    if (certWarning.isPending) return;
+    const toastId = toast.loading(`Enviando aviso de vencimento para ${clientName}...`);
+    try {
+      const result = await certWarning.mutateAsync({
         client_id: clientId,
         client_name: clientName,
         cert_label: certLabel,
         days_until_expiry: daysLeft,
-      }),
-      {
-        loading: `Enviando aviso de vencimento para ${clientName}...`,
-        success: `Aviso do certificado "${certLabel}" enviado com sucesso!`,
-        error: (err) => getApiErrorMessage(err, 'Erro ao enviar aviso.'),
-      }
-    );
+      });
+      const t = describeClientEmailResult(result);
+      toast[t.kind](t.message, { id: toastId });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao enviar aviso.'), { id: toastId });
+    }
   };
 
   const total = certificates?.length ?? 0;
   const expiring30 = certificates?.filter((c) => daysUntil(c.valid_until) <= 30 && daysUntil(c.valid_until) > 0).length ?? 0;
   const a1Count = certificates?.filter((c) => c.certificate_type === 'A1').length ?? 0;
 
-  const filteredCertificates = (certificates ?? []).filter((cert) => {
-    const client = clients?.find((c) => c.id === cert.client_id);
-    const clientName = client?.name?.toLowerCase() || '';
-    const label = cert.label?.toLowerCase() || '';
-    const query = search.toLowerCase();
+  const debouncedSearch = useDebouncedValue(search);
+  const filteredCertificates = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
+    return (certificates ?? []).filter((cert) => {
+      const client = clients?.find((c) => c.id === cert.client_id);
+      const clientName = client?.name?.toLowerCase() || '';
+      const label = cert.label?.toLowerCase() || '';
 
-    const matchesSearch = clientName.includes(query) || label.includes(query);
-    const matchesClient = !selectedClient || cert.client_id === selectedClient;
-    const matchesStatus = !selectedStatus || cert.status === selectedStatus;
-    const matchesType = !selectedType || cert.certificate_type === selectedType;
+      const matchesSearch = clientName.includes(query) || label.includes(query);
+      const matchesClient = !selectedClient || cert.client_id === selectedClient;
+      const matchesStatus = !selectedStatus || cert.status === selectedStatus;
+      const matchesType = !selectedType || cert.certificate_type === selectedType;
 
-    return matchesSearch && matchesClient && matchesStatus && matchesType;
-  });
+      return matchesSearch && matchesClient && matchesStatus && matchesType;
+    });
+  }, [certificates, clients, debouncedSearch, selectedClient, selectedStatus, selectedType]);
 
   return (
     <div className="space-y-6">
@@ -344,7 +351,8 @@ export function CertificatesPage() {
             const client = clients?.find((c) => c.id === cert.client_id);
             const clientName = client?.name || 'Cliente Desconhecido';
             const days = daysUntil(cert.valid_until);
-            const displayLabel = `${clientName} - ${cert.label}`;
+            const isRevoked = cert.status === 'revoked';
+            const displayLabel = `${clientName} - ${cert.label}${isRevoked ? ' (revogado)' : ''}`;
 
             return (
               <div key={cert.id} className="relative group">
@@ -356,14 +364,16 @@ export function CertificatesPage() {
                   onWarnClient={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                 />
                 <SyncRowMarker status={cert._sync_status} error={cert._sync_error} className="absolute bottom-4 right-4 z-10" />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(cert.id, cert.label)}
-                  className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  aria-label={`Excluir certificado ${cert.label}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!isRevoked && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cert.id, cert.label)}
+                    className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    aria-label={`Excluir certificado ${cert.label}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -431,15 +441,17 @@ export function CertificatesPage() {
                           <span>Notificar</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(cert.id, cert.label)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir certificado"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {cert.status !== 'revoked' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(cert.id, cert.label)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir certificado"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

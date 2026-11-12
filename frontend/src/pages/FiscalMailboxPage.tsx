@@ -1,14 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Search, RefreshCw, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge, RiskBadge } from '@/components/ui/StatusBadge';
-import { EmptyState, ErrorState, SkeletonTable } from '@/components/ui/OperationalStates';
+import { EmptyState, ErrorState, SimulationNotice, SkeletonTable } from '@/components/ui/OperationalStates';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMailboxMessages, markMessageResolved, syncMailboxMessages } from '@/features/fiscal-mailbox/api';
+import {
+  fetchMailboxMessages,
+  fetchMailboxProviderStatus,
+  markMessageRead,
+  markMessageResolved,
+  syncMailboxMessages,
+} from '@/features/fiscal-mailbox/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { MailboxMessage } from '@/features/fiscal-mailbox/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatLocalDate } from '@/lib/dates';
 
 const RISK_OPTIONS: { value: string; label: string }[] = [
   { value: 'all', label: 'Todos os riscos' },
@@ -39,6 +48,15 @@ export function FiscalMailboxPage() {
     queryFn: () => fetchMailboxMessages({ risk: riskFilter, status: statusFilter }),
   });
 
+  const { data: providerStatus } = useQuery({
+    queryKey: ['fiscal-mailbox', 'provider-status'],
+    queryFn: fetchMailboxProviderStatus,
+    staleTime: 5 * 60_000,
+  });
+  const showSimulation =
+    Boolean(providerStatus?.simulated) || (messages ?? []).some(m => m.simulated);
+  const syncAvailable = providerStatus?.syncAvailable ?? true;
+
   const resolveMutation = useMutation({
     mutationFn: markMessageResolved,
     onSuccess: () => {
@@ -48,6 +66,22 @@ export function FiscalMailboxPage() {
     },
     onError: () => toast.error('Erro ao marcar como resolvida'),
   });
+
+  // Abrir o detalhe marca como lida — só a partir de "unread", para não
+  // rebaixar uma mensagem em andamento ou resolvida.
+  const readMutation = useMutation({
+    mutationFn: markMessageRead,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fiscal-mailbox'] }),
+  });
+
+  const openMessage = (msg: MailboxMessage) => {
+    if (msg.status === 'unread') {
+      readMutation.mutate(msg.id);
+      setSelected({ ...msg, status: 'read' });
+      return;
+    }
+    setSelected(msg);
+  };
 
   const syncMutation = useMutation({
     mutationFn: syncMailboxMessages,
@@ -59,14 +93,18 @@ export function FiscalMailboxPage() {
           : 'Caixa postal já está atualizada',
       );
     },
-    onError: () => toast.error('Erro ao sincronizar a caixa postal'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Erro ao sincronizar a caixa postal')),
   });
 
-  const filtered = (messages ?? []).filter(m =>
-    !search ||
-    m.subject.toLowerCase().includes(search.toLowerCase()) ||
-    m.clientName.toLowerCase().includes(search.toLowerCase())
-  );
+  const debouncedSearch = useDebouncedValue(search);
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return (messages ?? []).filter(m =>
+      !debouncedSearch ||
+      m.subject.toLowerCase().includes(q) ||
+      m.clientName.toLowerCase().includes(q)
+    );
+  }, [messages, debouncedSearch]);
 
   const unreadCount = (messages ?? []).filter(m => m.status === 'unread').length;
   const criticalCount = (messages ?? []).filter(m => m.risk === 'critical').length;
@@ -80,6 +118,7 @@ export function FiscalMailboxPage() {
           icon={<Mail className="h-5 w-5" />}
           breadcrumb={[{ label: 'Caixa Postal Fiscal' }]}
           actions={
+            syncAvailable && (
             <button
               type="button"
               onClick={() => syncMutation.mutate()}
@@ -90,8 +129,17 @@ export function FiscalMailboxPage() {
               <RefreshCw className={cn('h-4 w-4', syncMutation.isPending && 'animate-spin')} />
               <span className="hidden sm:inline">{syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}</span>
             </button>
+            )
           }
         />
+
+        {showSimulation && (
+          <SimulationNotice>
+            {syncAvailable
+              ? 'A caixa postal está ligada a um provedor simulado: as mensagens abaixo são exemplos e não vieram da Receita Federal.'
+              : `${providerStatus?.message ?? 'Caixa postal exige SERPRO (não configurado)'}. Mensagens marcadas como simuladas não vieram da Receita Federal.`}
+          </SimulationNotice>
+        )}
 
         {/* Alert banners */}
         {criticalCount > 0 && (
@@ -175,7 +223,7 @@ export function FiscalMailboxPage() {
                       'border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20 cursor-pointer',
                       msg.status === 'unread' && 'bg-primary/5',
                     )}
-                    onClick={() => setSelected(msg)}
+                    onClick={() => openMessage(msg)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -190,14 +238,14 @@ export function FiscalMailboxPage() {
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">{msg.clientName}</td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{msg.organ}</td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                      {msg.deadline ? new Date(msg.deadline).toLocaleDateString('pt-BR') : '—'}
+                      {formatLocalDate(msg.deadline)}
                     </td>
                     <td className="px-4 py-3"><RiskBadge risk={msg.risk} /></td>
                     <td className="px-4 py-3"><StatusBadge status={msg.status} /></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={e => { e.stopPropagation(); setSelected(msg); }}
+                          onClick={e => { e.stopPropagation(); openMessage(msg); }}
                           className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title="Ver detalhes"
                         >
@@ -246,7 +294,7 @@ export function FiscalMailboxPage() {
                 </div>
                 <div className="rounded-lg bg-muted/30 p-3">
                   <p className="text-xs text-muted-foreground">Prazo</p>
-                  <p className="font-medium">{selected.deadline ? new Date(selected.deadline).toLocaleDateString('pt-BR') : '—'}</p>
+                  <p className="font-medium">{formatLocalDate(selected.deadline)}</p>
                 </div>
               </div>
 

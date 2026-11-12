@@ -45,14 +45,14 @@ const navGroups: NavGroup[] = [
     label: 'Operação diária',
     items: [
       { name: 'Painel',        href: '/painel',    icon: LayoutDashboard },
-      { name: 'Foco de Hoje',  href: '/foco',      icon: Target },
+      { name: 'Foco de hoje',  href: '/foco',      icon: Target },
     ],
   },
   {
     label: 'Gestão',
     items: [
       { name: 'Clientes',          href: '/clientes',         icon: UsersRound },
-      { name: 'Fechamento Mensal', href: '/fechamento',       icon: CalendarCheck2 },
+      { name: 'Fechamento mensal', href: '/fechamento',       icon: CalendarCheck2 },
       { name: 'Obrigações',        href: '/obrigacoes',       icon: ListChecks },
       { name: 'Documentos',        href: '/documentos',       icon: FolderKanban },
     ],
@@ -60,10 +60,10 @@ const navGroups: NavGroup[] = [
   {
     label: 'Fiscal',
     items: [
-      { name: 'Notas Fiscais',       href: '/notas-fiscais',      icon: FileText },
+      { name: 'Notas fiscais',       href: '/notas-fiscais',      icon: FileText },
       { name: 'Central e-CAC',       href: '/ecac',               icon: ShieldCheck },
-      { name: 'Guias e Pagamentos',  href: '/guias',              icon: Coins },
-      { name: 'Caixa Postal Fiscal', href: '/caixa-postal-fiscal',icon: Mail },
+      { name: 'Guias e pagamentos',  href: '/guias',              icon: Coins },
+      { name: 'Caixa postal fiscal', href: '/caixa-postal-fiscal',icon: Mail },
       { name: 'Procurações',         href: '/procuracoes',        icon: FileText },
       { name: 'Certificados',        href: '/certificados',       icon: Fingerprint },
     ],
@@ -73,7 +73,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Financeiro',      href: '/financeiro', icon: ReceiptText },
       { name: 'WhatsApp',        href: '/whatsapp',   icon: MessageSquare },
-      { name: 'Portal do Cliente', href: '/portal',   icon: Globe },
+      { name: 'Portal do cliente', href: '/portal',   icon: Globe },
       { name: 'Relatórios',      href: '/relatorios', icon: BarChart3 },
     ],
   },
@@ -89,9 +89,9 @@ const navGroups: NavGroup[] = [
 ];
 
 const BADGE_CLASSES = {
-  danger:  'bg-destructive/90 text-white',
-  warning: 'bg-warning/90 text-white',
-  primary: 'bg-primary/90 text-primary-foreground',
+  danger:  'bg-destructive text-white',
+  warning: 'bg-warning text-white',
+  primary: 'bg-primary text-primary-foreground',
 };
 
 export function Sidebar() {
@@ -118,19 +118,18 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex h-full w-16 shrink-0 flex-col md:w-64',
-        'bg-sidebar border-r border-sidebar-border',
-        'transition-all duration-300 ease-in-out',
+        'flex h-full w-16 shrink-0 flex-col md:w-60',
+        'border-r border-sidebar-border bg-sidebar',
       )}
     >
       {/* Logo */}
       <Link
         to="/painel"
         aria-label="Ir para o painel"
-        className="flex h-14 items-center justify-center border-b border-sidebar-border px-3 transition-opacity hover:opacity-80 md:justify-start md:px-5"
+        className="flex h-14 shrink-0 items-center justify-center border-b border-sidebar-border px-3 transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary md:justify-start md:px-4"
       >
         <div className="hidden md:block">
-          <Logo variant="full" theme="dark" size={32} />
+          <Logo variant="full" theme="dark" size={28} />
         </div>
         <div className="md:hidden">
           <Logo variant="icon" size={28} />
@@ -138,24 +137,25 @@ export function Sidebar() {
       </Link>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0 overflow-y-auto px-2 py-3 scrollbar-thin">
+      <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-2 py-3">
         {navGroups.map((group) => {
           const isCollapsed = collapsed[group.label];
           return (
-            <div key={group.label} className="mb-1">
+            <div key={group.label} className="mb-2 last:mb-0">
               {/* Group header */}
-              <div className="mb-0.5 flex items-center justify-between px-2 pt-2">
-                <p className="hidden truncate text-[9px] font-semibold uppercase tracking-[0.22em] text-sidebar-muted md:block">
+              <div className="mb-1 hidden h-6 items-center justify-between px-2.5 md:flex">
+                <p className="truncate text-[11px] font-medium uppercase tracking-wide text-sidebar-muted">
                   {group.label}
                 </p>
                 {group.collapsible && (
                   <button
                     onClick={() => toggleGroup(group.label)}
-                    className="hidden md:flex items-center text-sidebar-muted hover:text-sidebar-foreground transition-colors"
-                    aria-label={isCollapsed ? 'Expandir' : 'Recolher'}
+                    className="flex h-6 w-6 items-center justify-center rounded-sm text-sidebar-muted transition-colors duration-150 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label={isCollapsed ? `Expandir ${group.label}` : `Recolher ${group.label}`}
+                    aria-expanded={!isCollapsed}
                   >
                     <ChevronDown
-                      className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')}
+                      className={cn('h-3.5 w-3.5 transition-transform duration-150', isCollapsed && '-rotate-90')}
                     />
                   </button>
                 )}
@@ -163,7 +163,7 @@ export function Sidebar() {
 
               {/* Items */}
               {(!group.collapsible || !isCollapsed) &&
-                group.items.map((item, i) => {
+                group.items.map((item) => {
                   const active = isActive(item.href);
                   const badge =
                     item.href === '/foco' && focusCount > 0
@@ -176,28 +176,22 @@ export function Sidebar() {
                       key={item.name}
                       to={item.href}
                       aria-label={item.name}
+                      aria-current={active ? 'page' : undefined}
                       title={item.name}
-                      style={{ animationDelay: `${i * 30}ms` }}
                       className={cn(
-                        'group relative flex items-center justify-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium',
-                        'transition-all duration-150 md:justify-start',
+                        'group relative flex h-10 items-center justify-center gap-3 rounded-md px-2.5 text-sm font-medium md:h-9 md:justify-start',
+                        'transition-colors duration-150 ease-out',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
                         active
-                          ? [
-                              'bg-sidebar-active-bg text-sidebar-active-fg shadow-sm',
-                              'before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px]',
-                              'before:-translate-y-1/2 before:rounded-r-full before:bg-primary/70',
-                            ]
-                          : [
-                              'text-sidebar-muted',
-                              'hover:bg-sidebar-hover-bg hover:text-sidebar-foreground',
-                            ],
+                          ? 'bg-sidebar-active-bg text-sidebar-active-fg'
+                          : 'text-sidebar-muted hover:bg-sidebar-hover-bg hover:text-sidebar-foreground',
                       )}
                     >
                       <item.icon
+                        aria-hidden="true"
                         className={cn(
-                          'h-[17px] w-[17px] shrink-0 transition-transform duration-150',
-                          'group-hover:scale-110',
-                          active ? 'text-sidebar-active-fg' : 'text-sidebar-muted',
+                          'h-[18px] w-[18px] shrink-0',
+                          active ? 'text-sidebar-active-fg' : 'text-sidebar-muted group-hover:text-sidebar-foreground',
                         )}
                       />
                       <span className="hidden flex-1 truncate md:inline">{item.name}</span>
@@ -206,7 +200,8 @@ export function Sidebar() {
                       {badge && (
                         <span
                           className={cn(
-                            'hidden md:flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                            'hidden h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums md:flex',
+                            active && 'bg-white/20 text-white',
                             BADGE_CLASSES[badgeVariant ?? 'primary'],
                           )}
                         >
@@ -215,10 +210,10 @@ export function Sidebar() {
                       )}
 
                       {/* Tooltip mobile */}
-                      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground shadow-token-sm group-hover:block md:hidden">
+                      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md group-hover:block group-focus-visible:block md:hidden">
                         {item.name}
                         {badge && (
-                          <span className={cn('ml-1.5 rounded-full px-1 text-[9px]', BADGE_CLASSES[badgeVariant ?? 'primary'])}>
+                          <span className={cn('ml-1.5 rounded-full px-1 text-[11px] tabular-nums', BADGE_CLASSES[badgeVariant ?? 'primary'])}>
                             {badge}
                           </span>
                         )}

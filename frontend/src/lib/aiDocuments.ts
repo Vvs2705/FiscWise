@@ -17,6 +17,8 @@ export interface DocumentAiView {
   parseStatus: string;
   parseStatusLabel: string;
   parseStatusVariant: 'default' | 'info' | 'success' | 'warning' | 'error';
+  /** Texto exibido enquanto não há classificação (erro, espera ou indisponível). */
+  pendingMessage: string;
   hasClassification: boolean;
   classification: AiDocumentClassification | null;
   parseError: string | null;
@@ -69,6 +71,7 @@ const parseStatusLabels: Record<string, DocumentAiView['parseStatusLabel']> = {
   completed: 'Processado',
   failed: 'Falhou',
   not_analyzed: 'Nao analisado',
+  unavailable: 'Indisponível',
 };
 
 const parseStatusVariants: Record<string, DocumentAiView['parseStatusVariant']> = {
@@ -77,7 +80,17 @@ const parseStatusVariants: Record<string, DocumentAiView['parseStatusVariant']> 
   completed: 'success',
   failed: 'error',
   not_analyzed: 'default',
+  unavailable: 'default',
 };
+
+function buildPendingMessage(parseStatus: string, parseError: string | null | undefined): string {
+  if (parseError) return parseError;
+  if (parseStatus === 'unavailable' || parseStatus === 'not_analyzed') {
+    return 'Classificação automática indisponível para este envio.';
+  }
+  if (parseStatus === 'completed') return 'Sem classificação de IA para este documento.';
+  return 'Aguardando processamento.';
+}
 
 const extractionFieldLabels: Record<string, string> = {
   competence_month: 'Competencia',
@@ -159,6 +172,7 @@ export function buildDocumentAiView(document: ClientDocument): DocumentAiView {
       parseStatus,
       parseStatusLabel: parseStatusLabels[parseStatus] ?? parseStatus,
       parseStatusVariant: parseStatusVariants[parseStatus] ?? 'default',
+      pendingMessage: buildPendingMessage(parseStatus, document.parse_error),
       hasClassification: false,
       classification: null,
       parseError: document.parse_error ?? null,
@@ -169,6 +183,7 @@ export function buildDocumentAiView(document: ClientDocument): DocumentAiView {
     parseStatus,
     parseStatusLabel: parseStatusLabels[parseStatus] ?? parseStatus,
     parseStatusVariant: parseStatusVariants[parseStatus] ?? 'default',
+    pendingMessage: buildPendingMessage(parseStatus, document.parse_error),
     hasClassification: true,
     classification: {
       documentType: formatDocumentType(readString(classification, 'document_type')),

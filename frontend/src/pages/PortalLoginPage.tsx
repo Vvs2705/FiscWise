@@ -1,34 +1,43 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, ShieldCheck, CheckCircle2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { useSelfRequestPortalLink } from '@/features/portal/api';
 
 // ---------------------------------------------------------------------------
-// Portal Login - handles magic link token verification from URL
+// Portal Login — verifica o link mágico da URL ou deixa o cliente pedir um novo
 // ---------------------------------------------------------------------------
+
+type Phase = 'verifying' | 'success' | 'error' | 'request' | 'requested';
 
 export function PortalLoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.setUser);
 
-  const [phase, setPhase] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [phase, setPhase] = useState<Phase>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [requestedMessage, setRequestedMessage] = useState('');
+  const selfRequest = useSelfRequestPortalLink();
+  // O token é de uso único: nunca verificar o mesmo duas vezes (StrictMode, re-render).
+  const verifiedToken = useRef<string | null>(null);
 
   const verifyToken = useCallback(
     async (token: string) => {
       try {
         const res = await api.post('/api/v1/portal/magic-link/verify', { token });
-        const { access_token, tenant_id, email } = res.data;
+        const { access_token, tenant_id, email: userEmail } = res.data;
 
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('tenant_id', tenant_id);
-        const portalUser = { id: '', email, full_name: '', phone: undefined, role: 'client' };
+        const portalUser = { id: '', email: userEmail, full_name: '', phone: undefined, role: 'client' };
         localStorage.setItem('user', JSON.stringify(portalUser));
         login(portalUser);
 
@@ -41,7 +50,7 @@ export function PortalLoginPage() {
       } catch (err: unknown) {
         setPhase('error');
         setErrorMessage(
-          getApiErrorMessage(err, 'Nao foi possivel verificar o link. Tente novamente.')
+          getApiErrorMessage(err, 'Não foi possível verificar o link.')
         );
       }
     },
@@ -51,13 +60,34 @@ export function PortalLoginPage() {
   useEffect(() => {
     const token = searchParams.get('token');
     if (!token) {
-      setPhase('error');
-      setErrorMessage('Link invalido - nenhum token encontrado na URL.');
+      setPhase(current => (current === 'requested' ? current : 'request'));
       return;
     }
-
+    if (verifiedToken.current === token) return;
+    verifiedToken.current = token;
+    setPhase('verifying');
     void verifyToken(token);
   }, [searchParams, verifyToken]);
+
+  const askNewLink = () => {
+    setErrorMessage('');
+    setPhase('request');
+    // Tira o token usado da URL para não ser verificado de novo.
+    navigate('/portal/login', { replace: true });
+  };
+
+  const submitRequest = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    try {
+      const res = await selfRequest.mutateAsync(trimmed);
+      setRequestedMessage(res.message);
+      setPhase('requested');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível pedir o link agora. Tente mais tarde.'));
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -88,29 +118,66 @@ export function PortalLoginPage() {
           </div>
         )}
 
+        {phase === 'request' && (
+          <form
+            onSubmit={e => void submitRequest(e)}
+            className="space-y-4 rounded-xl border border-border bg-card p-6 text-left shadow-sm"
+          >
+            <div>
+              <p className="font-semibold text-foreground">Receba seu link de acesso</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Informe o e-mail cadastrado no seu escritório contábil. Enviaremos um link de uso
+                único, válido por 24 horas.
+              </p>
+            </div>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-foreground">E-mail</span>
+              <Input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="voce@empresa.com.br"
+              />
+            </label>
+            <Button type="submit" className="w-full gap-1.5" disabled={selfRequest.isPending}>
+              {selfRequest.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Enviar link de acesso
+            </Button>
+          </form>
+        )}
+
+        {phase === 'requested' && (
+          <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
+            <Mail className="mx-auto mb-4 h-8 w-8 text-primary" />
+            <p className="font-semibold text-foreground">Verifique seu e-mail</p>
+            <p className="mt-2 text-sm text-muted-foreground">{requestedMessage}</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Não chegou? Confira a caixa de spam ou peça ao seu escritório para confirmar o seu
+              e-mail cadastrado.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => setPhase('request')}>
+              Usar outro e-mail
+            </Button>
+          </div>
+        )}
+
         {phase === 'error' && (
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-8 shadow-sm">
             <div className="mx-auto mb-4 flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive">
               <span className="text-lg font-bold">!</span>
             </div>
-            <p className="font-semibold text-destructive">Link invalido ou expirado</p>
+            <p className="font-semibold text-destructive">Link inválido ou expirado</p>
             <p className="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Entre em contato com seu escritorio contabil para solicitar um novo link de acesso.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => window.location.reload()}
-            >
-              Tentar novamente
+            <Button variant="outline" size="sm" className="mt-4" onClick={askNewLink}>
+              Pedir novo link
             </Button>
           </div>
         )}
 
         <p className="text-xs text-muted-foreground">
-          Acesso seguro via link magico de uso unico
+          Acesso seguro via link mágico de uso único
         </p>
       </div>
     </div>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -13,12 +14,12 @@ import { FeatureGate } from '@/components/ui/FeatureGate';
 import { fetchMonthlyClosings, generateMonthlyClosings } from '@/features/monthly-closing/api';
 import { MonthlyClosing } from '@/features/monthly-closing/types';
 import { cn } from '@/lib/utils';
+import { competenceLabel, previousCompetence, recentCompetences } from '@/lib/dates';
 
-const COMPETENCE_OPTIONS = [
-  { value: '2026-05', label: 'Maio/2026' },
-  { value: '2026-04', label: 'Abril/2026' },
-  { value: '2026-03', label: 'Março/2026' },
-];
+// Mês atual + últimas 12 competências ("YYYY-MM", o formato que o backend valida).
+function buildCompetenceOptions() {
+  return recentCompetences(13).map((value) => ({ value, label: competenceLabel(value) }));
+}
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -45,7 +46,9 @@ function ProgressBar({ value, max, className }: { value: number; max: number; cl
 }
 
 export function MonthlyClosingsPage() {
-  const [competence, setCompetence] = useState('2026-05');
+  const [competenceOptions] = useState(buildCompetenceOptions);
+  // O fechamento normalmente é feito sobre o mês que acabou.
+  const [competence, setCompetence] = useState(() => previousCompetence());
   const [search, setSearch] = useState('');
 
   const { data: closings, isLoading, error, refetch } = useQuery({
@@ -58,7 +61,7 @@ export function MonthlyClosingsPage() {
     onSuccess: (r) => {
       toast.success(
         r.created > 0
-          ? `Rotina de ${competence} gerada: ${r.created} cliente${r.created > 1 ? 's' : ''} com checklist criado.`
+          ? `Rotina de ${competenceLabel(competence)} gerada: ${r.created} cliente${r.created > 1 ? 's' : ''} com checklist criado.`
           : 'Todos os clientes já têm fechamento nesta competência.',
       );
       refetch();
@@ -66,11 +69,15 @@ export function MonthlyClosingsPage() {
     onError: () => toast.error('Erro ao gerar rotina mensal.'),
   });
 
-  const filtered = (closings ?? []).filter(c =>
-    !search ||
-    c.clientName.toLowerCase().includes(search.toLowerCase()) ||
-    c.clientCnpj.includes(search)
-  );
+  const debouncedSearch = useDebouncedValue(search);
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return (closings ?? []).filter(c =>
+      !debouncedSearch ||
+      c.clientName.toLowerCase().includes(q) ||
+      c.clientCnpj.includes(debouncedSearch)
+    );
+  }, [closings, debouncedSearch]);
 
   const stats = {
     total: closings?.length ?? 0,
@@ -93,13 +100,22 @@ export function MonthlyClosingsPage() {
                 onChange={e => setCompetence(e.target.value)}
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
-                {COMPETENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {competenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <button
                 onClick={() => refetch()}
                 className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => generateRoutine.mutate()}
+                disabled={generateRoutine.isPending}
+                title="Cria o fechamento dos clientes ativos que ainda não têm nesta competência. Os existentes não são alterados."
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {generateRoutine.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Gerar rotina
               </button>
             </div>
           }

@@ -19,4 +19,13 @@ export interface MailboxMessage {
   taskCreated: boolean;
   obligationLinked: string | null;
   tags: string[];
+  /** Mensagem gerada pelo provider simulado (não veio da Receita). */
+  simulated: boolean;
+}
+
+export interface MailboxProviderStatus {
+  provider: string;
+  simulated: boolean;
+  syncAvailable: boolean;
+  message: string | null;
 }

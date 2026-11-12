@@ -20,7 +20,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { useClients } from '@/lib/hooks/useOperations';
-import { invoicesService } from '../services/invoices.service';
+import { downloadErrorMessage, invoicesService } from '../services/invoices.service';
 import { toast } from 'sonner';
 
 export function InvoicesListPage() {
@@ -37,21 +37,19 @@ export function InvoicesListPage() {
     status: selectedStatus || undefined,
   });
 
-  const handleDownloadPdf = async (id: string) => {
+  const handleDownloadPdf = async (id: string, numero?: string) => {
     try {
-      const res = await invoicesService.getPdfUrl(id);
-      window.open(res.url, '_blank');
-    } catch {
-      toast.error('Erro ao gerar URL do PDF');
+      await invoicesService.downloadPdf(id, numero);
+    } catch (err) {
+      toast.error(await downloadErrorMessage(err, 'Erro ao baixar o PDF'));
     }
   };
 
-  const handleDownloadXml = async (id: string) => {
+  const handleDownloadXml = async (id: string, numero?: string) => {
     try {
-      const res = await invoicesService.getXmlUrl(id);
-      window.open(res.url, '_blank');
-    } catch {
-      toast.error('Erro ao gerar URL do XML');
+      await invoicesService.downloadXml(id, numero);
+    } catch (err) {
+      toast.error(await downloadErrorMessage(err, 'Erro ao baixar o XML'));
     }
   };
 
@@ -259,7 +257,7 @@ export function InvoicesListPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDownloadPdf(inv.id)}
+                                onClick={() => handleDownloadPdf(inv.id, inv.numero)}
                                 title="Baixar PDF"
                               >
                                 <FileText className="h-4 w-4" />
@@ -267,7 +265,7 @@ export function InvoicesListPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDownloadXml(inv.id)}
+                                onClick={() => handleDownloadXml(inv.id, inv.numero)}
                                 title="Baixar XML"
                               >
                                 <Download className="h-4 w-4" />

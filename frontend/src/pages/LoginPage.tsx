@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
-import { ArrowLeft, Eye, EyeOff, MailOpen, RefreshCcw, Smartphone } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, LockKeyhole, MailOpen, RefreshCcw, Smartphone } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { api, getApiErrorMessage } from '@/lib/api';
-import { LoginBrandPanel, LoginValueSummary } from '@/features/auth/components/LoginBrandPanel';
+import { LoginHowItWorks } from '@/features/auth/components/LoginHowItWorks';
+import { LoginFooter, LoginTopBar } from '@/features/auth/components/LoginShell';
 import { OtpInput } from '@/features/auth/components/OtpInput';
 
-const CARD_CLASS =
-  'w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg sm:p-8 animate-fade-in-up';
+/* Coluna do formulário: sem cartão, direto sobre o fundo. Entrada de 200 ms. */
+const FORM_COLUMN_CLASS = 'w-full animate-fade-in-up [animation-duration:200ms]';
 
 function Spinner() {
   return (
@@ -20,16 +19,6 @@ function Spinner() {
       aria-hidden="true"
       className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
     />
-  );
-}
-
-/** Logo do card: wordmark navy no claro, claro no escuro. */
-function CardLogo() {
-  return (
-    <>
-      <Logo variant="full" theme="light" size={28} className="dark:hidden" />
-      <Logo variant="full" theme="dark" size={28} className="hidden dark:block" />
-    </>
   );
 }
 
@@ -97,22 +86,15 @@ function TwoFAScreen({
       : message;
 
   return (
-    <div className={CARD_CLASS}>
-      <CardLogo />
-
-      <div className="mt-8 flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Verificação em 2 etapas
-          </h1>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        </div>
-      </div>
-
-      <p className="mt-4 text-sm text-muted-foreground">{hint}</p>
+    <div className={FORM_COLUMN_CLASS}>
+      <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-primary/20 bg-accent text-primary">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <p className="mt-6 text-sm font-medium text-primary">{subtitle}</p>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        Verificação em 2 etapas
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground">{hint}</p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <OtpInput value={code} onChange={setCode} disabled={isLoading} />
@@ -142,7 +124,12 @@ function TwoFAScreen({
         </Button>
       </form>
 
-      <div className="mt-4 flex flex-col items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <Button type="button" variant="ghost" size="md" onClick={onBack} className="-ml-3">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Voltar para o login
+        </Button>
+
         {method === 'email' &&
           (countdown > 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -162,11 +149,6 @@ function TwoFAScreen({
               {resending ? 'Enviando...' : 'Reenviar código'}
             </Button>
           ))}
-
-        <Button type="button" variant="ghost" size="md" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Voltar para o login
-        </Button>
       </div>
     </div>
   );
@@ -197,13 +179,15 @@ function LoginForm({
   };
 
   return (
-    <div className={CARD_CLASS}>
-      <CardLogo />
-      <h1 className="mt-8 text-xl font-semibold tracking-tight text-foreground">Entrar</h1>
+    <div className={FORM_COLUMN_CLASS}>
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        Entrar no FiscWise
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground">Acesse suas notas, clientes e prazos.</p>
 
       {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
         <>
-          <div className={cn('mt-6', isLoading && 'pointer-events-none opacity-50')}>
+          <div className={cn('mt-8', isLoading && 'pointer-events-none opacity-50')}>
             <GoogleLogin
               onSuccess={(res) => {
                 if (res.credential) loginWithGoogle(res.credential);
@@ -218,13 +202,17 @@ function LoginForm({
 
           <div className="mt-6 flex items-center gap-3" role="separator">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">ou</span>
+            <span className="text-xs text-muted-foreground">ou com e-mail</span>
             <div className="h-px flex-1 bg-border" />
           </div>
         </>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className={cn('space-y-4', import.meta.env.VITE_GOOGLE_CLIENT_ID ? 'mt-6' : 'mt-8')}
+        noValidate
+      >
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium text-foreground">
             E-mail
@@ -244,9 +232,12 @@ function LoginForm({
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="text-sm font-medium text-foreground">
-            Senha
-          </label>
+          {/* Linha flex: reservada para o link "Esqueci minha senha" à direita. */}
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="password" className="text-sm font-medium text-foreground">
+              Senha
+            </label>
+          </div>
           <div className="relative">
             <Input
               id="password"
@@ -297,15 +288,10 @@ function LoginForm({
         </Button>
       </form>
 
-      <div className="mt-4 border-t border-border pt-4 text-center">
-        <p className="text-sm text-muted-foreground">Ainda não tem conta?</p>
-        <Link
-          to="/register"
-          className="mt-1 inline-block rounded-md text-sm font-semibold text-primary transition-colors duration-150 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Criar conta grátis — sem cartão
-        </Link>
-      </div>
+      <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+        <LockKeyhole className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        Acesso protegido com verificação em 2 etapas
+      </p>
     </div>
   );
 }
@@ -316,11 +302,11 @@ export function LoginPage() {
   const { login, loginWithGoogle, verify2FA, cancelMfa, mfaChallenge, isLoading } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[45fr_55fr]">
-      <LoginBrandPanel />
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <LoginTopBar />
 
-      <main className="flex min-h-screen flex-col items-center px-4 py-8 sm:px-6 lg:justify-center lg:py-10">
-        <div className="flex w-full flex-1 flex-col items-center justify-center gap-10 lg:flex-none">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 content-start gap-10 px-4 pb-6 pt-6 sm:px-6 sm:pt-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:content-stretch lg:gap-16 lg:px-10 lg:py-5 xl:py-6 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] xl:gap-24">
+        <div className="w-full max-w-[440px] lg:self-center">
           {mfaChallenge ? (
             <TwoFAScreen
               method={mfaChallenge.two_factor_method}
@@ -333,30 +319,12 @@ export function LoginPage() {
           ) : (
             <LoginForm login={login} loginWithGoogle={loginWithGoogle} isLoading={isLoading} />
           )}
-
-          <LoginValueSummary />
         </div>
 
-        <footer className="mt-10 text-center text-xs text-muted-foreground">
-          <a
-            href="https://vstack-solutions.com.br"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-foreground"
-          >
-            Vstack Solutions
-          </a>
-          {' · '}© {new Date().getFullYear()}
-          {' · '}
-          <Link to="/termos" className="hover:text-foreground">
-            Termos
-          </Link>
-          {' · '}
-          <Link to="/privacidade" className="hover:text-foreground">
-            Privacidade
-          </Link>
-        </footer>
+        <LoginHowItWorks />
       </main>
+
+      <LoginFooter />
     </div>
   );
 }

@@ -17,6 +17,8 @@ from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
 from app.models.operations import AccountingClient, ClientDocument, DeadlineItem
 from app.models.audit import AuditEvent
 
+from app.core.integration_mode import is_production_like
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,11 +98,14 @@ async def send_whatsapp_message(
         db.add(inbox)
         await db.flush()
 
-    # 3. Simulate message dispatch to WhatsApp provider (Evolution API / Zapi)
-    external_message_id = f"mock-msg-{uuid.uuid4()}"
+    # 3. Não há provedor de WhatsApp configurado (Evolution API / Z-API / Cloud
+    # API). Nunca marcar como "sent": em dev/test fica "simulated"; em
+    # produção/staging fica "failed" com error_message="provider_not_configured".
+    # O corpo da mensagem não é logado (PII).
+    production = is_production_like()
     logger.info(
-        "Sending WhatsApp to %s via provider. Body: '%s', Media: %s",
-        phone_number, body, media_url
+        "WhatsApp outbound não enviado (sem provedor): tenant=%s inbox=%s status=%s",
+        tenant_id, inbox.id, "failed" if production else "simulated",
     )
 
     # 4. Create outbound message
@@ -114,8 +119,9 @@ async def send_whatsapp_message(
         message_type=message_type,
         body=body,
         media_url=media_url,
-        external_message_id=external_message_id,
-        status="sent"
+        external_message_id=None,
+        status="failed" if production else "simulated",
+        error_message="provider_not_configured" if production else None,
     )
     db.add(message)
 

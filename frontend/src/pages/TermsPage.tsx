@@ -147,7 +147,7 @@ export function TermsPage() {
             <h2 className="text-lg font-semibold">12. Lei Aplicável e Foro</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Estes termos são regidos pela legislação brasileira. Fica eleito o foro da comarca
-              de São Paulo/SP para dirimir quaisquer controvérsias, com renúncia a qualquer outro,
+              de {COMPANY_CITY} para dirimir quaisquer controvérsias, com renúncia a qualquer outro,
               por mais privilegiado que seja.
             </p>
           </section>

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -170,8 +171,15 @@ type TabId = (typeof TABS)[number]['id'];
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+function isTabId(value: string | null): value is TabId {
+  return !!value && TABS.some((t) => t.id === value);
+}
+
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('perfil');
+  // ?aba=plano abre direto a aba (usado pelo bloqueio do Chat IA).
+  const [searchParams] = useSearchParams();
+  const abaParam = searchParams.get('aba');
+  const [activeTab, setActiveTab] = useState<TabId>(isTabId(abaParam) ? abaParam : 'perfil');
   const { user, updateUser } = useAuthStore();
   const [tenant, setTenant] = useState<TenantData | null>(null);
   const [loadingTenant, setLoadingTenant] = useState(true);

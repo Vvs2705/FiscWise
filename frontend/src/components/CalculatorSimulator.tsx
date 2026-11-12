@@ -1,15 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingDown, Star, AlertCircle, ChevronDown } from 'lucide-react';
+import { TrendingDown, Star, AlertCircle, BrainCircuit } from 'lucide-react';
 import { SimulationResult, SimulationRequest } from '../lib/types/calculator';
-import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { calculatorAPI, isValidCnae } from '../lib/fiscwise-calculator-api';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
-
-const ESTADOS_BR = [
-  'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA',
-  'MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN',
-  'RO','RR','RS','SC','SE','SP','TO',
-];
 
 function moneyBRL(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -23,9 +17,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
   const [formData, setFormData] = useState<SimulationRequest>({
     monthly_revenue: '' as unknown as number,  // starts empty so placeholder shows
     annual_cogs: '' as unknown as number,
-    state: 'SP',
-    regime: 'simples',
-    has_pis_cofins_credit: false,
+    activity_code: '',
   });
 
   const [result, setResult] = useState<SimulationResult | null>(null);
@@ -46,6 +38,10 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
 
     if (formData.annual_cogs !== ('' as unknown as number) && (isNaN(costs) || costs < 0)) {
       errors.annual_cogs = 'Custo anual não pode ser negativo';
+    }
+
+    if (formData.activity_code && formData.activity_code.trim() && !isValidCnae(formData.activity_code)) {
+      errors.activity_code = 'CNAE deve ter 7 dígitos (ex.: 6201500)';
     }
 
     setFieldErrors(errors);
@@ -147,53 +143,35 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
           )}
         </div>
 
-        {/* Estado */}
+        {/* CNAE */}
         <div>
-          <label htmlFor="state" className="block text-sm font-medium text-foreground mb-1">
-            Estado <span className="text-destructive">*</span>
+          <label htmlFor="activity_code" className="block text-sm font-medium text-foreground mb-1">
+            CNAE principal{' '}
+            <span className="text-muted-foreground text-xs font-normal">(opcional, 7 dígitos)</span>
           </label>
-          <div className="relative">
-            <select
-              id="state"
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              className="w-full appearance-none rounded-lg border border-input bg-background text-foreground text-sm pl-3 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-            >
-              {ESTADOS_BR.map((s) => (
-                <option key={s} value={s} className="bg-background text-foreground">
-                  {s}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Crédito PIS/COFINS */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={formData.has_pis_cofins_credit}
-            id="pis_cofins"
-            onClick={() =>
-              setFormData({ ...formData, has_pis_cofins_credit: !formData.has_pis_cofins_credit })
-            }
-            className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
-              formData.has_pis_cofins_credit
-                ? 'bg-primary border-primary'
-                : 'border-input bg-background'
+          <input
+            id="activity_code"
+            type="text"
+            inputMode="numeric"
+            placeholder="Ex.: 6201500"
+            maxLength={10}
+            value={formData.activity_code ?? ''}
+            onChange={(e) => setFormData({ ...formData, activity_code: e.target.value })}
+            {...field('activity_code')}
+            className={`w-full rounded-lg border px-3 py-2.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition ${
+              fieldErrors.activity_code ? 'border-destructive' : 'border-input'
             }`}
-          >
-            {formData.has_pis_cofins_credit && (
-              <svg viewBox="0 0 12 10" className="h-3 w-3 text-primary-foreground" fill="none">
-                <path d="M1 5l3.5 4L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </button>
-          <label htmlFor="pis_cofins" className="text-sm text-foreground cursor-pointer select-none" onClick={() => setFormData({ ...formData, has_pis_cofins_credit: !formData.has_pis_cofins_credit })}>
-            Possui crédito de PIS/COFINS
-          </label>
+          />
+          {fieldErrors.activity_code ? (
+            <p id="activity_code-error" className="mt-1 flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {fieldErrors.activity_code}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Define o anexo do Simples Nacional. Em branco, considera atividade de serviços (Anexo III).
+            </p>
+          )}
         </div>
 
         {/* API error */}
@@ -285,6 +263,17 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
                 );
               })}
             </div>
+
+            {/* AI recommendation */}
+            {result.ai_recommendation && (
+              <div className="rounded-xl border border-primary/25 bg-primary/5 px-5 py-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <BrainCircuit className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">Recomendação da IA</p>
+                </div>
+                <p className="whitespace-pre-line text-sm text-muted-foreground">{result.ai_recommendation}</p>
+              </div>
+            )}
 
             {/* Savings banner */}
             {result.annual_savings > 0 && (

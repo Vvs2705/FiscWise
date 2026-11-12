@@ -49,8 +49,15 @@ function TwoFAScreen({
     setResending(true);
     setError('');
     try {
-      await api.post('/api/v1/auth/login/resend-2fa', { mfa_token: mfaToken });
-      setCountdown(60);
+      const { data } = await api.post<{ sent?: boolean; message?: string }>(
+        '/api/v1/auth/login/resend-2fa',
+        { mfa_token: mfaToken },
+      );
+      if (data?.sent === false) {
+        setError(data.message || 'Não foi possível reenviar o código agora.');
+      } else {
+        setCountdown(60);
+      }
     } catch (err) {
       const msg = getApiErrorMessage(err, 'Erro ao reenviar código.');
       console.error(msg);

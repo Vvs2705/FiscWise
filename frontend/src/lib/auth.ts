@@ -136,7 +136,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
  * de API do service worker (computador compartilhado — OFFLINE_SYNC.md, seção 9).
  * O redirecionamento espera a limpeza (com teto de 2 s para nunca travar a saída).
  */
-export function logout(redirectTo = '/login'): void {
+export function logout(redirectTo = '/'): void {
   const tenantId = localStorage.getItem('tenant_id');
   localStorage.removeItem('access_token');
   localStorage.removeItem('tenant_id');

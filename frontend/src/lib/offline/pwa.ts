@@ -1,7 +1,8 @@
 /**
  * Registro do service worker (vite-plugin-pwa, registerType 'prompt').
- * A versão nova só assume quando o usuário clica em "Atualizar": recarregar
- * sozinho no meio de um formulário perderia o que ainda não foi salvo.
+ * Com sessão aberta, a versão nova só assume quando o usuário clica em
+ * "Atualizar": recarregar sozinho no meio de um formulário perderia o que
+ * ainda não foi salvo. Sem sessão, atualiza na hora.
  */
 import { registerSW } from 'virtual:pwa-register';
 import { toast } from 'sonner';
@@ -15,6 +16,12 @@ export function registerServiceWorker(): void {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
+      // Visitante sem sessão (página inicial, login) não tem nada a perder:
+      // assume a versão nova na hora, para nunca ver uma página antiga do site.
+      if (!isAuthenticated()) {
+        void updateSW(true);
+        return;
+      }
       toast('Nova versão do FiscWise disponível', {
         description: 'Atualize para usar a versão mais recente. Suas alterações locais ficam guardadas.',
         duration: Infinity,

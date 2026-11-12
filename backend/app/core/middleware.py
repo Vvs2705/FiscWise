@@ -40,6 +40,14 @@ _EXCLUDED_EXACT_PATHS: Set[str] = {
     "/api/v1/auth/login",
     "/api/v1/auth/google",
     "/api/v1/auth/logout",
+    # 2º passo do login: autenticado pelo mfa_token; o navegador ainda não tem
+    # tenant_id salvo (sem isto o 2FA falhava num navegador limpo).
+    "/api/v1/auth/login/verify-2fa",
+    "/api/v1/auth/login/resend-2fa",
+    # Esqueci minha senha: público, sem tenant.
+    "/api/v1/auth/password-reset/request",
+    "/api/v1/auth/password-reset/confirm",
+    "/api/v1/auth/password-reset/available",
     "/api/v1/ready",         # Public database readiness check
 }
 

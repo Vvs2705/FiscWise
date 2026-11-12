@@ -181,7 +181,7 @@ export function CertificatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Certificados Digitais
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -199,7 +199,7 @@ export function CertificatesPage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
+          <Button onClick={() => setOpen(true)} size="sm" className="shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo certificado
           </Button>
@@ -513,7 +513,7 @@ export function CertificatesPage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar certificado'}
             </Button>
           </div>

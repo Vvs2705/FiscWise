@@ -307,9 +307,6 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
       <div className="relative w-full max-w-2xl overflow-hidden rounded-panel border border-border bg-card shadow-token">
 
-        {/* Header decoration */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
-
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
@@ -328,7 +325,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
         {totalTasks > 0 && !isCompleted && (
           <div className="h-1 w-full bg-muted">
             <div
-              className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300"
               style={{ width: `${(queue.position / totalTasks) * 100}%` }}
             />
           </div>
@@ -378,7 +375,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
               </div>
 
               {/* Score impact display */}
-              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-card p-4 max-w-md mx-auto">
+              <div className="flex items-center justify-center gap-4 bg-accent border border-primary/20 rounded-card p-4 max-w-md mx-auto">
                 <div className="text-right">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Score Anterior</p>
                   <p className="text-xl font-bold text-foreground">{beforeScore}</p>

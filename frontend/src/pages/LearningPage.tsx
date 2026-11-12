@@ -127,7 +127,7 @@ export function LearningPage() {
             <Sparkles className="h-4 w-4" />
             <span>Academia Contábil</span>
           </div>
-          <h1 className="bg-gradient-to-r from-primary via-primary to-primary/60 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-primary dark:via-primary dark:to-primary/60">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Central de Aprendizado FiscWise
           </h1>
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
@@ -195,7 +195,7 @@ export function LearningPage() {
               {/* Progress bar */}
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-primary to-success rounded-full transition-all duration-500"
+                  className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>

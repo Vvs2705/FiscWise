@@ -341,8 +341,8 @@ export function WhatsAppInboxPage() {
                         <div
                           className={`rounded-card px-4 py-2.5 text-xs shadow-sm border ${
                             isOutbound
-                              ? 'bg-gradient-to-r from-primary/20 to-primary/10 border-primary/20 text-foreground'
-                              : 'bg-card border-white/5 text-foreground'
+                              ? 'bg-accent border-primary/20 text-foreground'
+                              : 'bg-card border-border text-foreground'
                           }`}
                         >
                           {/* SENDER LABEL (IF INBOUND AND NAME EXISTS) */}

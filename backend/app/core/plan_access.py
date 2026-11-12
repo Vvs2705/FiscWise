@@ -164,6 +164,26 @@ def require_plan(
         )
 
 
+AI_NOT_CONFIGURED_DETAIL = "Assistente de IA não configurado nesta instalação."
+
+
+def require_ai_configured() -> None:
+    """
+    Fail fast with 503 when no AI key is configured.
+
+    Must run BEFORE anything that consumes chat quota (persisting the user
+    message), so an installation without OPENAI_API_KEY never burns the
+    tenant's monthly messages on answers that cannot be produced.
+    """
+    from app.core.config import settings
+
+    if not (settings.OPENAI_API_KEY or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=AI_NOT_CONFIGURED_DETAIL,
+        )
+
+
 def has_plan(current_plan: Optional[str], required_plan: str) -> bool:
     """Return True if current_plan meets the required minimum tier."""
     return _rank(current_plan) >= _rank(required_plan)

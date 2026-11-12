@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
 
 export function TermsPage() {
   return (
@@ -38,7 +39,8 @@ export function TermsPage() {
               Ao criar uma conta no FiscWise, você (o "Usuário" ou "Contratante") concorda com
               estes Termos de Uso em sua totalidade. Se não concordar, não utilize o serviço.
               Estes termos constituem um contrato juridicamente vinculante entre você e
-              <strong> VStack Solutions Ltda</strong>, CNPJ XX.XXX.XXX/0001-XX, com sede em São Paulo/SP.
+              <strong> {COMPANY_LEGAL_NAME}</strong>
+              {COMPANY_CNPJ ? `, CNPJ ${COMPANY_CNPJ}` : ''}, com sede em São Paulo/SP.
             </p>
           </section>
 

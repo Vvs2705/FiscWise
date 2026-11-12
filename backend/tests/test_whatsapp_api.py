@@ -122,9 +122,48 @@ class TestWhatsAppAPI:
         assert data["body"] == "Mensagem de teste de envio"
         assert data["direction"] == "outbound"
 
+        # Sem provedor: nunca "sent" nem id externo inventado.
+        assert data["status"] == "simulated"
+        assert data["external_message_id"] is None
+
         # Check DB updates on inbox
         await test_db.refresh(inbox)
         assert inbox.last_message_preview == "Mensagem de teste de envio"
+
+        inboxes = client.get("/api/v1/whatsapp/inboxes").json()
+        assert inboxes and all(i["simulated"] is True for i in inboxes)
+
+    @pytest.mark.asyncio
+    async def test_send_in_production_fails_without_provider_and_no_body_log(
+        self, client_with_auth_a, test_db, monkeypatch, caplog
+    ):
+        import logging
+        from sqlalchemy import select
+        from app.core.config import settings
+        from app.models.whatsapp import WhatsAppMessage
+
+        client, user_a, client_a, _ = client_with_auth_a
+        inbox = WhatsAppInbox(
+            id=uuid.uuid4(), tenant_id=user_a.tenant_id, client_id=client_a.id,
+            phone_number="+5511988887777", customer_name="Maria", unread_count=0, status="active",
+        )
+        test_db.add(inbox)
+        await test_db.commit()
+        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+        with caplog.at_level(logging.DEBUG):
+            response = client.post(
+                f"/api/v1/whatsapp/inboxes/{inbox.id}/send",
+                json={"body": "CPF 123.456.789-00 segredo"},
+            )
+        assert response.status_code == 200
+        assert response.json()["status"] == "failed"
+        app_logs = " ".join(r.getMessage() for r in caplog.records if r.name.startswith("app"))
+        assert "segredo" not in app_logs
+        msgs = (await test_db.execute(select(WhatsAppMessage))).scalars().all()
+        assert [m.status for m in msgs] == ["failed"]
+        assert msgs[0].error_message == "provider_not_configured"
+        assert all(m.status != "sent" for m in msgs)
 
     @pytest.mark.asyncio
     async def test_link_inbox_client(self, client_with_auth_a, test_db):

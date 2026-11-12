@@ -15,8 +15,15 @@ from sqlalchemy import Date as SADate, cast, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
-from app.core.plan_access import PLAN_INTERMEDIARIO, check_chat_quota, require_plan, resolve_user_plan
+from app.core.deps import get_current_principal, get_current_user, get_db
+from app.core.document_links import DOCUMENTS_BUCKET, SIGNED_URL_TTL, sign_file_urls, storage_ref
+from app.core.plan_access import (
+    PLAN_INTERMEDIARIO,
+    check_chat_quota,
+    require_ai_configured,
+    require_plan,
+    resolve_user_plan,
+)
 from app.services.audit import log_audit_event
 from app.models.calculator import AssistantRole, FiscalAssistantMessage
 from app.models.operations import (
@@ -30,7 +37,7 @@ from app.models.obligation import DocumentChecklistItem, ObligationInstance
 from app.domain.monthly_closing.models import MonthlyClosing
 from app.models.user import User
 from app.services.ai_fiscal import classify_fiscal_document, generate_client_operational_summary
-from app.services.document_parser import parse_document
+from app.services.document_parser import is_skipped, parse_document
 from app.services import webhook_service as _webhook_svc
 from app.schemas.operations import (
     AccountingClientCreate,
@@ -138,6 +145,48 @@ async def _commit_refresh(db: AsyncSession, instance: Any) -> Any:
         )
     await db.refresh(instance)
     return instance
+
+
+async def _soft_delete(
+    db: AsyncSession,
+    request: Request,
+    current_user: User,
+    item: Any,
+    *,
+    terminal_status: str,
+    blocked_statuses: dict[str, str],
+    entity_type: str,
+) -> Any:
+    """Exclusão lógica: leva `item` ao status terminal e registra auditoria.
+
+    Idempotente: se já está no status terminal, devolve o item como está.
+    Status em `blocked_statuses` (ex.: concluído/pago) são terminais e não
+    podem ser excluídos — responde 409 com a mensagem associada.
+    """
+    if item.status == terminal_status:
+        return item
+    if item.status in blocked_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=blocked_statuses[item.status],
+        )
+    before_status = item.status
+    item.status = terminal_status
+    item = await _commit_refresh(db, item)
+    await log_audit_event(
+        db=db,
+        tenant_id=item.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action=f"{entity_type}.{terminal_status}",
+        entity_type=entity_type,
+        entity_id=item.id,
+        before_data={"status": before_status},
+        after_data={"status": terminal_status},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return item
 
 
 async def _generate_client_code(db: AsyncSession, tenant_id: uuid.UUID) -> str:
@@ -561,7 +610,7 @@ async def list_clients(
     tax_regime: str | None = Query(default=None, max_length=80),
     entity_type: str | None = Query(default=None, max_length=16),
     cnae_code: str | None = Query(default=None, max_length=20),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -590,7 +639,7 @@ async def list_clients(
 @router.get("/clients/{client_id}", response_model=AccountingClientResponse)
 async def get_client(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> AccountingClientResponse:
     """Buscar cliente especifico por ID."""
@@ -612,6 +661,8 @@ async def get_client_ai_summary(
     tenant_id = _tenant_id(current_user)
     plan = _plan(current_user)
     require_plan(plan, PLAN_INTERMEDIARIO, "Resumo por IA de cliente")
+    # Sem chave de IA: 503 antes de gravar a mensagem que consome a cota.
+    require_ai_configured()
 
     has_quota, _ = await check_chat_quota(tenant_id, plan, db)
     if not has_quota:
@@ -733,7 +784,7 @@ async def get_client_ai_summary(
 async def create_client(
     payload: AccountingClientCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -822,7 +873,7 @@ async def update_client(
     client_id: uuid.UUID,
     payload: AccountingClientUpdate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -842,6 +893,18 @@ async def update_client(
         after_data={"name": client.name, "document": client.document},
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="client.updated",
+        data={
+            "id": str(client.id),
+            "name": client.name,
+            "document": client.document,
+            "status": client.status,
+            "changed_fields": sorted(payload.model_dump(exclude_unset=True).keys()),
+        },
     )
     return client
 
@@ -878,7 +941,7 @@ async def deactivate_client(
 async def list_deadlines(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -894,7 +957,7 @@ async def list_deadlines(
 @router.get("/deadlines/{deadline_id}", response_model=DeadlineResponse)
 async def get_deadline(
     deadline_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> DeadlineResponse:
     """Buscar prazo especifico por ID."""
@@ -942,7 +1005,7 @@ def get_next_due_date(current_date: date, interval: str) -> date:
 @router.post("/deadlines", response_model=DeadlineResponse, status_code=status.HTTP_201_CREATED)
 async def create_deadline(
     payload: DeadlineCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -956,7 +1019,7 @@ async def create_deadline(
 async def update_deadline(
     deadline_id: uuid.UUID,
     payload: DeadlineUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -990,11 +1053,36 @@ async def update_deadline(
     return await _commit_refresh(db, item)
 
 
+@router.delete("/deadlines/{deadline_id}", response_model=DeadlineResponse)
+async def cancel_deadline(
+    deadline_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica do prazo (status `cancelled`)."""
+    tenant_id = _tenant_id(current_user)
+    item = await _get_item_or_404(db, DeadlineItem, tenant_id, deadline_id, "Deadline not found")
+    return await _soft_delete(
+        db, request, current_user, item,
+        terminal_status="cancelled",
+        blocked_statuses={"completed": "Prazo já concluído não pode ser excluído."},
+        entity_type="deadline",
+    )
+
+
+
+async def _documents_out(docs, tenant_id: uuid.UUID) -> list[DocumentResponse]:
+    """Serializa documentos trocando a referência do storage por URL assinada."""
+    out = [DocumentResponse.model_validate(d) for d in docs]
+    await sign_file_urls(out, tenant_id)
+    return out
+
 
 @router.get("/documents", response_model=list[DocumentResponse])
 async def list_documents(
     client_id: uuid.UUID | None = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1002,31 +1090,102 @@ async def list_documents(
     if client_id:
         statement = statement.where(ClientDocument.client_id == client_id)
     result = await db.execute(statement.order_by(ClientDocument.created_at.desc()))
-    return list(result.scalars().all())
+    return await _documents_out(result.scalars().all(), tenant_id)
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> DocumentResponse:
     """Buscar documento especifico por ID."""
     tenant_id = _tenant_id(current_user)
-    return await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    doc = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
+    return (await _documents_out([doc], tenant_id))[0]
+
+
+def _tenant_storage_path(file_url: str | None, tenant_id: uuid.UUID) -> str | None:
+    """Path no bucket ``documents`` quando ``file_url`` é um objeto do próprio
+    tenant no nosso storage (referência ``documents/<tenant>/...`` gerada por
+    /documents/upload, ou a URL pública antiga). Qualquer outra URL devolve
+    None: o backend nunca busca URL arbitrária (evita SSRF)."""
+    from app.core.document_links import object_path_for
+
+    path = object_path_for(file_url, tenant_id)
+    if not path:
+        return None
+    if Path(path).suffix.lower() not in _DOC_UPLOAD_EXTS:
+        return None
+    return path
+
+
+async def _download_and_parse_background(
+    document_id: uuid.UUID,
+    storage_path: str,
+    file_name: str,
+    tenant_id: uuid.UUID,
+) -> None:
+    """Baixa o arquivo do storage e reaproveita o mesmo parser do upload por cliente."""
+    import tempfile
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
+    from app.core.storage import download_bytes
+
+    try:
+        content = await download_bytes("documents", storage_path)
+        error = None if content else "Arquivo indisponível no storage para classificação automática."
+    except Exception as exc:  # noqa: BLE001 — registra no documento em vez de sumir
+        content, error = None, f"Falha ao baixar o arquivo para classificação: {exc}"
+
+    if not content:
+        async_session = get_sessionmaker()
+        async with async_session() as db:
+            await _set_current_tenant_context(db, tenant_id)
+            document = (
+                await db.execute(
+                    select(ClientDocument).where(
+                        (ClientDocument.id == document_id)
+                        & (ClientDocument.tenant_id == tenant_id)
+                    )
+                )
+            ).scalar_one_or_none()
+            if document:
+                document.parse_status = "failed"
+                document.parse_error = error
+                await db.commit()
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=Path(storage_path).suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    await _parse_document_background(document_id, tmp_path, file_name, tenant_id)
 
 
 @router.post("/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_document(
     payload: DocumentCreate,
-    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, payload.client_id)
     document = ClientDocument(tenant_id=tenant_id, **payload.model_dump())
+    # Classificação automática só quando o arquivo está no nosso storage;
+    # sem arquivo acessível o documento fica "unavailable" (UI explica) em vez
+    # de "Aguardando processamento" para sempre.
+    storage_path = _tenant_storage_path(payload.file_url, tenant_id)
+    document.parse_status = "processing" if storage_path else "unavailable"
     db.add(document)
     doc = await _commit_refresh(db, document)
+    if storage_path:
+        background_tasks.add_task(
+            _download_and_parse_background,
+            doc.id,
+            storage_path,
+            doc.name,
+            tenant_id,
+        )
     # Fire-and-forget webhook dispatch for document.uploaded
     await _webhook_svc.dispatch_event(
         db=db,
@@ -1034,20 +1193,21 @@ async def create_document(
         event="document.uploaded",
         data={"id": str(doc.id), "name": doc.name, "client_id": str(doc.client_id)},
     )
-    return doc
+    return (await _documents_out([doc], tenant_id))[0]
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentResponse)
 async def update_document(
     document_id: uuid.UUID,
     payload: DocumentUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
     document = await _get_item_or_404(db, ClientDocument, tenant_id, document_id, "Document not found")
     _apply_updates(document, payload)
-    return await _commit_refresh(db, document)
+    doc = await _commit_refresh(db, document)
+    return (await _documents_out([doc], tenant_id))[0]
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1088,10 +1248,15 @@ async def upload_document_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    """Faz upload de arquivo para Supabase Storage e retorna a URL publica."""
+    """Sobe o arquivo para o bucket privado `documents`.
+
+    Devolve `url` = referência do storage (`documents/<tenant>/<arquivo>`), que o
+    frontend grava em `file_url` no POST /documents; a leitura troca por URL
+    assinada. `signed_url` serve para pré-visualizar logo após o upload.
+    """
     import uuid as _uuid
+    from app.core import storage as _storage
     from app.core.config import settings
-    from app.core.http_client import request_with_retry
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         raise HTTPException(
@@ -1105,10 +1270,8 @@ async def upload_document_file(
     if file.filename and "." in file.filename:
         file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
 
-    # Antes aceitava qualquer tipo e tamanho (lido inteiro na memória de uma
-    # máquina de 512 MB). Certificado .pfx/.p12 fica de fora: com chave privada,
-    # não pode ir para bucket com URL pública. ponytail: allowlist por extensão + teto de tamanho;
-    # checagem por assinatura (validate_file_mime) quando os tipos estabilizarem.
+    # Allowlist por extensão + teto de tamanho. Certificado .pfx/.p12 fica de
+    # fora (chave privada não vai para este bucket).
     if file_ext not in _DOC_UPLOAD_EXTS:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -1116,7 +1279,6 @@ async def upload_document_file(
         )
 
     unique_name = f"{tenant_id}/{_uuid.uuid4().hex}{file_ext}"
-    bucket = "documents"
 
     file_bytes = await file.read(_DOC_UPLOAD_MAX_BYTES + 1)
     if not file_bytes:
@@ -1128,38 +1290,23 @@ async def upload_document_file(
         )
     content_type = file.content_type or "application/octet-stream"
 
-    # Upload para Supabase Storage via REST
-    storage_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{unique_name}"
-
-    # Supabase Storage aceita tanto o JWT service role quanto as novas chaves
-    # sb_secret_* — ambos os headers sao necessarios para compatibilidade
-    # Não idempotente (x-upsert=false): só repete se a conexão nem abriu.
-    # Falha de rede vira ExternalServiceError → 503 com mensagem clara.
-    resp = await request_with_retry(
-        "POST",
-        storage_url,
-        service="supabase_storage",
-        idempotent=False,
-        read_timeout=30.0,
-        content=file_bytes,
-        headers={
-            "apikey": settings.SUPABASE_SECRET_KEY,
-            "Authorization": f"Bearer {settings.SUPABASE_SECRET_KEY}",
-            "Content-Type": content_type,
-            "x-upsert": "false",
-        },
-    )
-
-    if resp.status_code not in (200, 201):
-        logger.error("Supabase Storage upload failed: %s %s", resp.status_code, resp.text)
+    try:
+        await _storage.upload_bytes(DOCUMENTS_BUCKET, unique_name, file_bytes, content_type)
+    except RuntimeError:
+        logger.exception("Supabase Storage upload failed (%s)", unique_name)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to upload file to storage",
         )
 
-    # URL publica
-    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket}/{unique_name}"
-    return {"url": public_url, "path": unique_name}
+    ref = storage_ref(unique_name)
+    try:
+        signed_url: str | None = await _storage.get_signed_url(
+            DOCUMENTS_BUCKET, unique_name, ttl=SIGNED_URL_TTL
+        )
+    except RuntimeError:
+        signed_url = None
+    return {"url": ref, "path": unique_name, "signed_url": signed_url}
 
 
 @router.get("/certificates", response_model=list[CertificateResponse])
@@ -1260,14 +1407,24 @@ async def block_certificate(
         certificate_id,
         "Certificate not found",
     )
+    return await _revoke_certificate(db, current_user, certificate, reason)
+
+
+async def _revoke_certificate(
+    db: AsyncSession,
+    current_user: User,
+    certificate: DigitalCertificate,
+    reason: str,
+) -> DigitalCertificate:
+    """Bloqueia/revoga o certificado (status `revoked`) e registra auditoria."""
     certificate.bloqueado = True
     certificate.motivo_bloqueio = reason
     certificate.status = "revoked"
-    
+
     # Audit log
     await log_audit_event(
         db=db,
-        tenant_id=tenant_id,
+        tenant_id=certificate.tenant_id,
         actor_user_id=current_user.id,
         actor_role=current_user.role.value,
         action="certificate.blocked",
@@ -1275,8 +1432,31 @@ async def block_certificate(
         entity_id=certificate.id,
         after_data={"bloqueado": True, "motivo_bloqueio": reason},
     )
-    
+
     return await _commit_refresh(db, certificate)
+
+
+@router.delete("/certificates/{certificate_id}", response_model=CertificateResponse)
+async def revoke_certificate(
+    certificate_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica do certificado: mesma semântica de `/block` (status `revoked`).
+
+    Idempotente: certificado já revogado é devolvido como está.
+    """
+    tenant_id = _tenant_id(current_user)
+    certificate = await _get_item_or_404(
+        db,
+        DigitalCertificate,
+        tenant_id,
+        certificate_id,
+        "Certificate not found",
+    )
+    if certificate.status == "revoked":
+        return certificate
+    return await _revoke_certificate(db, current_user, certificate, "Excluído pelo usuário")
 
 
 @router.get("/certificates/{certificate_id}/usage-trail")
@@ -1320,7 +1500,7 @@ async def get_certificate_usage_trail(
 async def list_receivables(
     client_id: uuid.UUID | None = None,
     status_filter: str | None = Query(default=None, alias="status", max_length=32),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1336,7 +1516,7 @@ async def list_receivables(
 @router.get("/receivables/{receivable_id}", response_model=ReceivableResponse)
 async def get_receivable(
     receivable_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ) -> ReceivableResponse:
     """Buscar conta a receber especifica por ID."""
@@ -1353,7 +1533,7 @@ async def get_receivable(
 @router.post("/receivables", response_model=ReceivableResponse, status_code=status.HTTP_201_CREATED)
 async def create_receivable(
     payload: ReceivableCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1367,7 +1547,7 @@ async def create_receivable(
 async def update_receivable(
     receivable_id: uuid.UUID,
     payload: ReceivableUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = _tenant_id(current_user)
@@ -1382,6 +1562,30 @@ async def update_receivable(
     if payload.status == "paid" and receivable.paid_at is None:
         receivable.paid_at = datetime.now(timezone.utc)
     return await _commit_refresh(db, receivable)
+
+
+@router.delete("/receivables/{receivable_id}", response_model=ReceivableResponse)
+async def cancel_receivable(
+    receivable_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica da cobrança (status `cancelled`)."""
+    tenant_id = _tenant_id(current_user)
+    receivable = await _get_item_or_404(
+        db,
+        AccountReceivable,
+        tenant_id,
+        receivable_id,
+        "Receivable not found",
+    )
+    return await _soft_delete(
+        db, request, current_user, receivable,
+        terminal_status="cancelled",
+        blocked_statuses={"paid": "Cobrança já paga não pode ser excluída."},
+        entity_type="receivable",
+    )
 
 
 @router.post("/receivables/generate-monthly")
@@ -1417,11 +1621,14 @@ async def generate_monthly_billing(
 
     for client in clients:
         # Checar se já existe fatura para este mês
+        # limit(1): com duas faturas do mês (ex.: ajuste manual) o
+        # scalar_one_or_none() estourava MultipleResultsFound (500).
         existing = await db.execute(
-            select(AccountReceivable).where(
-                (AccountReceivable.client_id == client.id)
+            select(AccountReceivable.id).where(
+                (AccountReceivable.tenant_id == tenant_id)
+                & (AccountReceivable.client_id == client.id)
                 & (AccountReceivable.description.like(f"Honorários - {year_month}%"))
-            )
+            ).limit(1)
         )
 
         if existing.scalar_one_or_none():
@@ -1644,8 +1851,7 @@ async def upload_client_document(
     # Antes gravava uma URL de exemplo (storage.example.com) e nunca guardava o
     # arquivo, mas marcava o documento como disponível (TEN-6). Agora sobe de
     # verdade, com as mesmas regras do /documents/upload.
-    from app.core.config import settings
-    from app.core.storage import upload_bytes
+    from app.core import storage as _storage
 
     file_ext = Path(file.filename).suffix.lower() if file.filename else ""
     if file_ext not in _DOC_UPLOAD_EXTS:
@@ -1662,10 +1868,11 @@ async def upload_client_document(
             detail=f"Arquivo maior que {_DOC_UPLOAD_MAX_BYTES // (1024 * 1024)} MB",
         )
     storage_path = f"{tenant_id}/{uuid.uuid4().hex}{file_ext}"
-    await upload_bytes(
-        "documents", storage_path, content, file.content_type or "application/octet-stream"
+    await _storage.upload_bytes(
+        DOCUMENTS_BUCKET, storage_path, content, file.content_type or "application/octet-stream"
     )
-    file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/documents/{storage_path}"
+    # Bucket privado: grava a referência; a resposta devolve URL assinada.
+    file_url = storage_ref(storage_path)
 
     # Salvar arquivo temporário para parsing
     with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
@@ -1698,6 +1905,17 @@ async def upload_client_document(
         ip_address=request.client.host if request and request.client else None,
         user_agent=request.headers.get("User-Agent") if request else None,
     )
+    await _webhook_svc.dispatch_event(
+        db=db,
+        tenant_id=tenant_id,
+        event="document.uploaded",
+        data={
+            "id": str(document.id),
+            "name": document.name,
+            "client_id": str(client_id),
+            "document_type": document.document_type,
+        },
+    )
 
     # Agendar parsing em background
     background_tasks.add_task(
@@ -1708,22 +1926,24 @@ async def upload_client_document(
         tenant_id,
     )
 
-    return DocumentResponse.from_orm(document)
+    return (await _documents_out([document], tenant_id))[0]
 
 
 @router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
 async def list_client_documents(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     """Lista documentos de um cliente."""
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, client_id)
 
-    stmt = select(ClientDocument).where(ClientDocument.client_id == client_id)
-    result = await db.execute(stmt.order_by(ClientDocument.id.desc()))
-    return list(result.scalars().all())
+    stmt = select(ClientDocument).where(
+        ClientDocument.client_id == client_id, ClientDocument.tenant_id == tenant_id
+    )
+    result = await db.execute(stmt.order_by(ClientDocument.created_at.desc()))
+    return await _documents_out(result.scalars().all(), tenant_id)
 
 
 async def _parse_document_background(
@@ -1753,9 +1973,17 @@ async def _parse_document_background(
             document = result.scalar_one_or_none()
 
             if document:
+                skipped_reason = is_skipped(parsed_data)
                 if error:
                     document.parse_status = "failed"
                     document.parse_error = error
+                elif skipped_reason:
+                    # Formato aceito que o parser não lê (imagem sem OCR, .doc):
+                    # não é falha — registra o motivo e não chama a IA.
+                    document.parse_status = "skipped"
+                    document.parse_error = skipped_reason
+                    document.parsed_data = parsed_data
+                    document.parsed_at = datetime.now(timezone.utc)
                 else:
                     ai_classification = await classify_fiscal_document(
                         parsed_data,

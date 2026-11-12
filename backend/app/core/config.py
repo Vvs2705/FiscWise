@@ -197,6 +197,23 @@ class Settings(BaseSettings):
     RESEND_ENABLED: bool = False
     # URL do frontend (para as back_urls do checkout).
     APP_URL: str = "https://www.fiscwise.com.br"
+    # URL do portal do cliente (links em e-mails). Vazio → APP_URL + "/portal".
+    PORTAL_URL: str = ""
+
+    # Monitor Fiscal (situação cadastral do CNPJ): "brasilapi" | "mock".
+    # "brasilapi" consulta a API pública e gratuita da BrasilAPI; "mock" é só
+    # para testes e responde 503 em produção/staging.
+    FISCAL_MONITOR_PROVIDER: str = "brasilapi"
+    BRASILAPI_BASE_URL: str = "https://brasilapi.com.br/api"
+    BRASILAPI_TIMEOUT_SECONDS: float = 10.0
+
+    # e-CAC (situação fiscal: pendências/débitos/certidão): "mock" | "integra_contador".
+    # Em produção/staging com "mock" o /refresh responde 503 (sem gravar nada).
+    ECAC_PROVIDER: str = "mock"
+
+    # NFS-e: "mock" | "nacional". Em produção/staging com "mock" emitir/cancelar
+    # responde 503 e a nota não muda de status.
+    NFSE_PROVIDER: str = "mock"
 
     # Fiscal mailbox (e-CAC / DTE) provider: "mock" | "serpro"
     # "serpro" uses the Integra Contador gateway (Caixa Postal) and requires
@@ -262,6 +279,11 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 200
     TOP_K_RESULTS: int = 5
     EMBEDDING_DIMENSIONS: int = 1024
+
+    @property
+    def portal_url(self) -> str:
+        """Client portal base URL (no trailing slash)."""
+        return (self.PORTAL_URL or f"{self.APP_URL.rstrip('/')}/portal").rstrip("/")
 
     @property
     def allowed_origins_list(self) -> List[str]:

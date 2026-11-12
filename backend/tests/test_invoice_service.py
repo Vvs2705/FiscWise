@@ -151,7 +151,8 @@ async def test_invoice_emission_state_machine_and_provider(test_db):
     assert invoice.numero == "1"
     assert invoice.provider_protocol is not None
     assert invoice.xml_content is not None
-    assert invoice.pdf_storage_path is not None
+    # Sem arquivo real no storage: nao grava caminho inventado (PDF e gerado sob demanda).
+    assert invoice.pdf_storage_path is None
 
     # 4. Cancel invoice
     invoice = await service.cancel_invoice(invoice.id, tenant_id, "Erro no preenchimento", provider)

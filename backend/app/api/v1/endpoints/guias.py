@@ -4,7 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_principal, get_current_user, get_db
 from app.models.user import User
 from app.domain.guias.service import TaxGuideService
 from app.domain.guias.repository import TaxGuideRepository
@@ -18,7 +18,7 @@ def _tenant_id(current_user: User) -> uuid.UUID:
 @router.post("", response_model=TaxGuideResponse, status_code=status.HTTP_201_CREATED)
 async def create_guide(
     payload: TaxGuideCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = TaxGuideRepository(db)
@@ -31,7 +31,7 @@ async def list_guides(
     status_filter: Optional[str] = Query(None, alias="status"),
     competencia: Optional[date] = Query(None),
     client_id: Optional[uuid.UUID] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = TaxGuideRepository(db)
@@ -46,7 +46,7 @@ async def list_guides(
 
 @router.get("/pending-receipt", response_model=List[TaxGuideResponse])
 async def list_pending_receipts(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = TaxGuideRepository(db)
@@ -56,7 +56,7 @@ async def list_pending_receipts(
 @router.get("/{id}", response_model=TaxGuideResponse)
 async def get_guide(
     id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = TaxGuideRepository(db)
@@ -67,7 +67,7 @@ async def get_guide(
 async def update_guide(
     id: uuid.UUID,
     payload: TaxGuideUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_principal),
     db: AsyncSession = Depends(get_db),
 ):
     repo = TaxGuideRepository(db)

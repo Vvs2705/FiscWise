@@ -1,324 +1,290 @@
 """
 Fiscal Monitor Service for FiscWise.
-Handles CNPJ registry status checks, CND downloads, debt alerts, and NF-e retrieval.
+
+Situação cadastral do CNPJ consultada de verdade na BrasilAPI (pública e
+gratuita). Débitos, CND e NF-e dependem da integração com a Receita (SERPRO),
+que não está contratada: esses blocos ficam explicitamente "indisponíveis" —
+nada é inventado nem gravado como real.
 """
 
+import asyncio
 import uuid
 import logging
-import random
-from datetime import datetime, date, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, Optional
 
-from sqlalchemy import select, delete, func
+import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.fiscal_monitor import FiscalMonitorSummary, FiscalNFe
+from app.core.config import settings
+from app.core.integration_mode import mock_blocked, normalize_provider
+from app.models.fiscal_monitor import FiscalMonitorSummary
 from app.models.operations import AccountingClient, ClientDocument, DeadlineItem
 from app.models.audit import AuditEvent
 
 logger = logging.getLogger(__name__)
 
+UNAVAILABLE_MESSAGE = (
+    "Consulta de débitos/CND/NF-e exige integração com a Receita (SERPRO) — não configurada"
+)
+NOT_CONSULTED = "NAO_CONSULTADO"
 
-def _generate_mock_access_key() -> str:
-    """Generates a realistic 44-digit NF-e access key."""
-    # State code (35 = SP) + date (2605) + random digits to complete 44 chars
-    state = "35"
-    date_part = "2605"
-    random_digits = "".join(str(random.randint(0, 9)) for _ in range(40))
-    return (state + date_part + random_digits)[:44]
+# Marcas deixadas pelo Monitor Fiscal simulado antigo (para limpeza segura).
+LEGACY_FAKE_URL_PREFIX = "https://fiscwise.storage/"
+_LEGACY_TASK_TITLE_PREFIX = "Regularizar DAS Simples Nacional - Competência "
+_LEGACY_TASK_DESCRIPTION_PREFIX = "Alerta automático de irregularidade identificado na Receita Federal."
+_LEGACY_CND_NOTES = "Download automático realizado pelo Monitor Fiscal da Receita Federal."
+
+# Campos úteis da BrasilAPI guardados em situation_details.
+_BRASILAPI_FIELDS = (
+    "razao_social",
+    "nome_fantasia",
+    "descricao_situacao_cadastral",
+    "data_situacao_cadastral",
+    "motivo_situacao_cadastral",
+    "cnae_fiscal",
+    "cnae_fiscal_descricao",
+    "natureza_juridica",
+    "codigo_natureza_juridica",
+    "opcao_pelo_simples",
+    "data_opcao_pelo_simples",
+    "opcao_pelo_mei",
+    "data_opcao_pelo_mei",
+    "data_inicio_atividade",
+    "uf",
+    "municipio",
+)
+
+# Permite aos testes injetar um httpx.AsyncClient com MockTransport.
+_http_client_override: Optional[httpx.AsyncClient] = None
+
+
+class FiscalMonitorNotConfiguredError(RuntimeError):
+    """Provider mock em produção/staging, ou provider desconhecido."""
+
+
+class CnpjLookupError(RuntimeError):
+    """Falha ao consultar a situação cadastral (rede, 4xx/5xx, CNPJ inválido)."""
+
+
+def _digits(value: Optional[str]) -> str:
+    return "".join(ch for ch in (value or "") if ch.isdigit())
+
+
+async def _get_with_retry(client: httpx.AsyncClient, url: str) -> httpx.Response:
+    """GET com 1 retry (backoff curto) para erro de rede ou 5xx/429."""
+    last_exc: Optional[Exception] = None
+    for attempt in range(2):
+        try:
+            response = await client.get(url)
+            if response.status_code >= 500 or response.status_code == 429:
+                last_exc = CnpjLookupError(f"BrasilAPI respondeu HTTP {response.status_code}")
+            else:
+                return response
+        except httpx.HTTPError as exc:
+            last_exc = exc
+        if attempt == 0:
+            await asyncio.sleep(0.5)
+    raise CnpjLookupError(f"Falha ao consultar a BrasilAPI: {last_exc}")
+
+
+async def fetch_cnpj_brasilapi(
+    cnpj: str, http_client: Optional[httpx.AsyncClient] = None
+) -> Dict[str, Any]:
+    digits = _digits(cnpj)
+    if len(digits) != 14:
+        raise CnpjLookupError("Cliente sem CNPJ válido (14 dígitos) para consulta cadastral.")
+    url = f"{settings.BRASILAPI_BASE_URL.rstrip('/')}/cnpj/v1/{digits}"
+    client = http_client or _http_client_override
+    if client is not None:
+        response = await _get_with_retry(client, url)
+    else:
+        async with httpx.AsyncClient(timeout=settings.BRASILAPI_TIMEOUT_SECONDS) as owned:
+            response = await _get_with_retry(owned, url)
+    if response.status_code == 404:
+        raise CnpjLookupError("CNPJ não encontrado na base da Receita (BrasilAPI).")
+    if response.status_code >= 400:
+        raise CnpjLookupError(f"BrasilAPI respondeu HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise CnpjLookupError("Resposta inválida da BrasilAPI.") from exc
+
+
+def _mock_registry(client: AccountingClient) -> Dict[str, Any]:
+    """Somente testes/dev: dados cadastrais determinísticos, marcados como mock."""
+    return {
+        "razao_social": client.name,
+        "descricao_situacao_cadastral": "ATIVA",
+        "data_situacao_cadastral": "2020-01-01",
+        "cnae_fiscal": 6920601,
+        "cnae_fiscal_descricao": "Atividades de contabilidade",
+        "natureza_juridica": "Sociedade Empresária Limitada",
+        "opcao_pelo_simples": True,
+        "opcao_pelo_mei": False,
+        "data_inicio_atividade": "2020-01-01",
+    }
+
+
+async def _lookup_registry(client: AccountingClient, provider: str) -> Dict[str, Any]:
+    if provider == "mock":
+        return _mock_registry(client)
+    if provider == "brasilapi":
+        return await fetch_cnpj_brasilapi(client.document or "")
+    raise FiscalMonitorNotConfiguredError(f"FISCAL_MONITOR_PROVIDER desconhecido: {provider}")
+
+
+async def _retire_legacy_fake_records(
+    db: AsyncSession, client_id: uuid.UUID, tenant_id: uuid.UUID
+) -> Dict[str, int]:
+    """Neutraliza registros criados pelo Monitor Fiscal simulado antigo.
+
+    Nada é apagado fisicamente (regra offline): prazos falsos viram
+    ``cancelled`` e CNDs com URL inventada viram ``missing`` sem link.
+    Só toca o que tem as marcas exatas do mock antigo.
+    """
+    tasks = (
+        await db.execute(
+            select(DeadlineItem).where(
+                (DeadlineItem.tenant_id == tenant_id)
+                & (DeadlineItem.client_id == client_id)
+                & (DeadlineItem.category == "fiscal")
+                & (DeadlineItem.title.like(f"{_LEGACY_TASK_TITLE_PREFIX}%"))
+                & (DeadlineItem.status != "cancelled")
+            )
+        )
+    ).scalars().all()
+    now = datetime.now(timezone.utc)
+    cancelled = 0
+    for task in tasks:
+        if not (task.description or "").startswith(_LEGACY_TASK_DESCRIPTION_PREFIX):
+            continue
+        if task.status == "completed":
+            continue
+        task.status = "cancelled"
+        task.updated_at = now
+        cancelled += 1
+
+    docs = (
+        await db.execute(
+            select(ClientDocument).where(
+                (ClientDocument.tenant_id == tenant_id)
+                & (ClientDocument.client_id == client_id)
+                & (ClientDocument.document_type == "certidao_negativa")
+                & (ClientDocument.file_url.like(f"{LEGACY_FAKE_URL_PREFIX}%"))
+            )
+        )
+    ).scalars().all()
+    for doc in docs:
+        doc.status = "missing"
+        doc.file_url = None
+        doc.notes = (
+            "Registro simulado pelo Monitor Fiscal antigo — não há certidão real. "
+            "Emita a CND no portal da Receita."
+        )
+        doc.updated_at = now
+
+    return {"cancelled_tasks": cancelled, "retired_cnds": len(docs)}
 
 
 async def sync_client_fiscal_status(
     db: AsyncSession,
     client_id: uuid.UUID,
     tenant_id: uuid.UUID,
-) -> tuple[FiscalMonitorSummary, int]:
+) -> tuple[FiscalMonitorSummary, Optional[str]]:
+    """Atualiza a situação cadastral real do cliente.
+
+    Retorna ``(summary, erro)``; ``erro`` é None quando a consulta funcionou.
+    Em caso de falha nada é inventado: os dados cadastrais anteriores (se
+    houver) são mantidos e o erro fica registrado em ``situation_details``.
     """
-    Sincroniza a situação fiscal do CNPJ do cliente.
-    Realiza consultas simuladas a Receita Federal, baixa CNDs e obtém NF-es.
-    Se débitos forem identificados, cria tarefas de alerta automaticamente.
-    """
-    # 1. Verify client exists and belongs to this tenant
-    stmt_client = select(AccountingClient).where(
-        (AccountingClient.id == client_id) &
-        (AccountingClient.tenant_id == tenant_id)
-    )
-    res_client = await db.execute(stmt_client)
-    client = res_client.scalar_one_or_none()
+    provider = normalize_provider(settings.FISCAL_MONITOR_PROVIDER, "brasilapi")
+    if mock_blocked(provider):
+        raise FiscalMonitorNotConfiguredError(
+            "Integração do Monitor Fiscal não configurada (provider mock em produção)."
+        )
+
+    client = (
+        await db.execute(
+            select(AccountingClient).where(
+                (AccountingClient.id == client_id) & (AccountingClient.tenant_id == tenant_id)
+            )
+        )
+    ).scalar_one_or_none()
     if not client:
         raise ValueError("Cliente não encontrado ou não pertence a este inquilino.")
 
-    # 2. Get or create FiscalMonitorSummary
-    stmt_summary = select(FiscalMonitorSummary).where(
-        (FiscalMonitorSummary.client_id == client_id) &
-        (FiscalMonitorSummary.tenant_id == tenant_id)
-    )
-    res_summary = await db.execute(stmt_summary)
-    summary = res_summary.scalar_one_or_none()
-
+    summary = (
+        await db.execute(
+            select(FiscalMonitorSummary).where(
+                (FiscalMonitorSummary.client_id == client_id)
+                & (FiscalMonitorSummary.tenant_id == tenant_id)
+            )
+        )
+    ).scalar_one_or_none()
     if not summary:
         summary = FiscalMonitorSummary(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
             client_id=client_id,
-            cnpj_status="REGULAR",
-            cnd_status="REGULAR",
-            has_debts=False,
-            debt_count=0,
-            total_debt_value=Decimal("0.00"),
-            debts_list={"debts": []}
+            cnpj_status="PENDENTE",
         )
         db.add(summary)
-        await db.flush()
 
-    # 3. Simulate CNPJ Situation Query
-    # 95% regular, 5% irregular
-    doc_digits = "".join(filter(str.isdigit, client.document or ""))
-    is_irregular_mock = len(doc_digits) > 0 and doc_digits[-1] in ("9", "7")
-    
-    if is_irregular_mock:
-        summary.cnpj_status = "SUSPENSO"
-        summary.situation_details = {
-            "situacao_cadastral": "SUSPENSA",
-            "motivo_situacao_cadastral": "OMISSÃO DE DECLARAÇÕES",
-            "data_situacao_cadastral": str(date.today() - timedelta(days=30)),
-            "nome_empresarial": client.name,
-            "natureza_juridica": "206-2 - Sociedade Limitada",
-            "atividade_principal": [{"code": "62.01-5-01", "text": "Desenvolvimento de programas de computador sob encomenda"}]
-        }
-    else:
-        summary.cnpj_status = "REGULAR"
-        summary.situation_details = {
-            "situacao_cadastral": "ATIVA",
-            "motivo_situacao_cadastral": "REGULARIDADE FISCAL",
-            "data_situacao_cadastral": str(date.today() - timedelta(days=365)),
-            "nome_empresarial": client.name,
-            "natureza_juridica": "206-2 - Sociedade Limitada",
-            "atividade_principal": [{"code": "69.20-6-01", "text": "Atividades de contabilidade"}]
-        }
+    now = datetime.now(timezone.utc)
+    error: Optional[str] = None
+    previous = summary.situation_details or {}
+    try:
+        data = await _lookup_registry(client, provider)
+        details = {key: data.get(key) for key in _BRASILAPI_FIELDS if key in data}
+        details["source"] = provider
+        details["consulted_at"] = now.isoformat()
+        summary.situation_details = details
+        situacao = (data.get("descricao_situacao_cadastral") or "").strip().upper()
+        summary.cnpj_status = situacao or "DESCONHECIDA"
+    except CnpjLookupError as exc:
+        error = str(exc)
+        logger.warning("Monitor Fiscal: falha na consulta cadastral (client=%s): %s", client_id, exc)
+        kept = dict(previous) if previous.get("source") in ("brasilapi", "mock") else {}
+        kept["status"] = "error"
+        kept["last_error"] = error
+        kept["last_error_at"] = now.isoformat()
+        summary.situation_details = kept
+        if not kept.get("source"):
+            summary.cnpj_status = "ERRO_CONSULTA"
 
-    # 4. Simulate Debts Check
-    # If the document ends in a specific digit or CNPJ status is irregular, simulate debts
-    has_debts_mock = is_irregular_mock or (len(doc_digits) > 0 and doc_digits[-1] in ("5", "6"))
-    
-    if has_debts_mock:
-        debts = [
-            {
-                "id": str(uuid.uuid4()),
-                "type": "FEDERAL",
-                "description": "DAS Simples Nacional - Competência 03/2026",
-                "value": 350.00,
-                "due_date": str(date.today() - timedelta(days=25))
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "type": "FEDERAL",
-                "description": "DAS Simples Nacional - Competência 04/2026",
-                "value": 412.50,
-                "due_date": str(date.today() - timedelta(days=5))
-            }
-        ]
-        total_val = sum(d["value"] for d in debts)
-        
-        summary.has_debts = True
-        summary.debt_count = len(debts)
-        summary.total_debt_value = Decimal(f"{total_val:.2f}")
-        summary.debts_list = {"debts": debts}
-        summary.cnd_status = "COM_PENDENCIAS"
-
-        # Create automated alert task (DeadlineItem) for each simulated debt
-        for debt in debts:
-            # Check if this task already exists to avoid duplication
-            task_title = f"Regularizar {debt['description']}"
-            stmt_task = select(DeadlineItem).where(
-                (DeadlineItem.client_id == client_id) &
-                (DeadlineItem.tenant_id == tenant_id) &
-                (DeadlineItem.title == task_title)
-            )
-            res_task = await db.execute(stmt_task)
-            existing_task = res_task.scalar_one_or_none()
-
-            if not existing_task:
-                new_task = DeadlineItem(
-                    id=uuid.uuid4(),
-                    tenant_id=tenant_id,
-                    client_id=client_id,
-                    title=task_title,
-                    category="fiscal",
-                    due_date=date.today() + timedelta(days=5),
-                    status="pending",
-                    priority="high",
-                    description=(
-                        f"Alerta automático de irregularidade identificado na Receita Federal.\n\n"
-                        f"- Tipo: {debt['type']}\n"
-                        f"- Pendência: {debt['description']}\n"
-                        f"- Valor do Débito: R$ {debt['value']:.2f}\n"
-                        f"- Vencimento original: {debt['due_date']}"
-                    )
-                )
-                db.add(new_task)
-                
-                # Audit event
-                audit_evt = AuditEvent(
-                    id=uuid.uuid4(),
-                    tenant_id=tenant_id,
-                    action="fiscal_monitor.debt_alert",
-                    entity_type="deadline_item",
-                    entity_id=new_task.id,
-                    after_data={"title": task_title, "amount": debt["value"]}
-                )
-                db.add(audit_evt)
-    else:
-        summary.has_debts = False
-        summary.debt_count = 0
-        summary.total_debt_value = Decimal("0.00")
-        summary.debts_list = {"debts": []}
-        summary.cnd_status = "REGULAR"
-
-    # 5. Simulate CND Certificate Download
-    # If client is regular, download CND. Otherwise, positive certificate with negative effect or pending.
-    cnd_name = f"Certidao Negativa de Debitos Federais - {datetime.now().strftime('%Y%m%d')}.pdf"
-    
-    # Save CND as ClientDocument
-    cnd_doc = ClientDocument(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        client_id=client_id,
-        name=cnd_name,
-        document_type="certidao_negativa",
-        status="available",
-        file_url=f"https://fiscwise.storage/cnd/federal-{uuid.uuid4()}.pdf",
-        issued_at=date.today(),
-        expires_at=date.today() + timedelta(days=180),
-        notes="Download automático realizado pelo Monitor Fiscal da Receita Federal.",
-        parse_status="pending"
-    )
-    db.add(cnd_doc)
+    # Débitos, CND e NF-e: não consultados (exigem SERPRO). Zera o que o mock
+    # antigo tenha deixado gravado.
+    summary.has_debts = False
+    summary.debt_count = 0
+    summary.total_debt_value = Decimal("0.00")
+    summary.debts_list = None
+    summary.cnd_status = NOT_CONSULTED
+    summary.last_cnd_document_id = None
+    summary.last_cnd_download_at = None
+    summary.last_sync_at = now
+    summary.updated_at = now
     await db.flush()
 
-    summary.last_cnd_document_id = cnd_doc.id
-    summary.last_cnd_download_at = func.now()
+    cleanup = await _retire_legacy_fake_records(db, client_id, tenant_id)
 
-    # 6. Simulate NF-e invoice query (fetch recent invoices)
-    # Generate 3 recent invoices
-    nfe_count = 0
-    client_cnpj = client.document or "12345678000100"
-    
-    issuers = [
-        {"name": "Distribuidora de Materiais Aliança Ltda", "doc": "09876543000199"},
-        {"name": "Tech Solutions Brasil S/A", "doc": "55443322000188"},
-        {"name": "Posto Shell Avenida Central", "doc": "11223344000177"}
-    ]
-    
-    for i, issuer in enumerate(issuers):
-        key = _generate_mock_access_key()
-        # Verify unique key
-        stmt_key = select(FiscalNFe).where(FiscalNFe.access_key == key)
-        res_key = await db.execute(stmt_key)
-        existing_nfe = res_key.scalar_one_or_none()
-        
-        if not existing_nfe:
-            nfe = FiscalNFe(
-                id=uuid.uuid4(),
-                tenant_id=tenant_id,
-                client_id=client_id,
-                access_key=key,
-                nfe_number=str(random.randint(10000, 99999)),
-                nfe_type="ENTRADA" if i % 2 == 0 else "SAIDA",
-                issuer_name=issuer["name"] if i % 2 == 0 else client.name,
-                issuer_document=issuer["doc"] if i % 2 == 0 else client_cnpj,
-                recipient_name=client.name if i % 2 == 0 else issuer["name"],
-                recipient_document=client_cnpj if i % 2 == 0 else issuer["doc"],
-                value=Decimal(f"{random.uniform(150.00, 8500.00):.2f}"),
-                issued_at=datetime.now() - timedelta(days=random.randint(1, 10)),
-                retrieved_at=datetime.now(),
-                xml_url=f"https://fiscwise.storage/nfe/{key}.xml",
-                status="AUTORIZADA"
-            )
-            db.add(nfe)
-            nfe_count += 1
-
-    summary.last_sync_at = func.now()
-    summary.updated_at = func.now()
-
-    # Log audit event
-    audit_sync = AuditEvent(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        action="fiscal_monitor.sync",
-        entity_type="fiscal_monitor_summary",
-        entity_id=summary.id,
-        after_data={
-            "cnpj_status": summary.cnpj_status,
-            "cnd_status": summary.cnd_status,
-            "has_debts": summary.has_debts,
-            "nfes_fetched": nfe_count
-        }
+    db.add(
+        AuditEvent(
+            id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            action="fiscal_monitor.sync",
+            entity_type="fiscal_monitor_summary",
+            entity_id=summary.id,
+            after_data={
+                "provider": provider,
+                "cnpj_status": summary.cnpj_status,
+                "error": error,
+                **cleanup,
+            },
+        )
     )
-    db.add(audit_sync)
-
     await db.commit()
     await db.refresh(summary)
-    
-    return summary, nfe_count
-
-
-async def import_external_nfe(
-    db: AsyncSession,
-    tenant_id: uuid.UUID,
-    client_id: uuid.UUID,
-    access_key: str,
-    nfe_number: str,
-    nfe_type: str,
-    issuer_name: str,
-    issuer_document: str,
-    recipient_name: str,
-    recipient_document: str,
-    value: Decimal,
-    issued_at: datetime,
-) -> FiscalNFe:
-    """
-    Imports a single NF-e, typically triggered via partner webhook.
-    """
-    # Check if access key exists
-    stmt_key = select(FiscalNFe).where(FiscalNFe.access_key == access_key)
-    res_key = await db.execute(stmt_key)
-    existing_nfe = res_key.scalar_one_or_none()
-    
-    if existing_nfe:
-        return existing_nfe
-
-    new_nfe = FiscalNFe(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        client_id=client_id,
-        access_key=access_key,
-        nfe_number=nfe_number,
-        nfe_type=nfe_type,
-        issuer_name=issuer_name,
-        issuer_document=issuer_document,
-        recipient_name=recipient_name,
-        recipient_document=recipient_document,
-        value=value,
-        issued_at=issued_at,
-        retrieved_at=datetime.now(),
-        xml_url=f"https://fiscwise.storage/nfe/{access_key}.xml",
-        status="AUTORIZADA"
-    )
-    db.add(new_nfe)
-    
-    # Audit log
-    audit_evt = AuditEvent(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        action="fiscal_monitor.nfe_import",
-        entity_type="fiscal_nfe",
-        entity_id=new_nfe.id,
-        after_data={"access_key": access_key, "value": float(value)}
-    )
-    db.add(audit_evt)
-
-    await db.commit()
-    await db.refresh(new_nfe)
-    return new_nfe
+    return summary, error

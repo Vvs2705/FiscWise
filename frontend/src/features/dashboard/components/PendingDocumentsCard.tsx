@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Upload, CheckCircle2, XCircle } from 'lucide-react';
 import { fadeIn } from '../../../lib/motion';
 
@@ -52,6 +53,7 @@ export function PendingDocumentsCard({
   totalPending,
   isLoading,
 }: PendingDocumentsCardProps) {
+  const navigate = useNavigate();
   if (isLoading) {
     return (
       <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
@@ -107,7 +109,17 @@ export function PendingDocumentsCard({
           return (
             <div
               key={doc.id}
-              className="bg-muted border border-border rounded-lg p-4 hover:border-primary/30 transition-all cursor-pointer group"
+              role="button"
+              tabIndex={0}
+              aria-label={`Abrir fechamento mensal: ${doc.documentType} de ${doc.clientName}`}
+              onClick={() => navigate('/fechamento')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate('/fechamento');
+                }
+              }}
+              className="bg-muted border border-border rounded-lg p-4 hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -144,8 +156,11 @@ export function PendingDocumentsCard({
       </div>
 
       {totalPending > documents.length && (
-        <button className="w-full mt-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
-          Ver todos os {totalPending} documentos
+        <button
+          type="button"
+          onClick={() => navigate('/fechamento')}
+          className="w-full mt-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+          Ver todos os {totalPending} documentos no fechamento mensal
         </button>
       )}
     </motion.div>

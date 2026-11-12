@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapPortalPreview } from './api';
+import { describePortalAccessResult, mapPortalPreview } from './api';
 
 describe('mapPortalPreview', () => {
   it('converte requested_at para requestedAt e mantém o resto', () => {
@@ -16,5 +16,27 @@ describe('mapPortalPreview', () => {
     ]);
     expect(mapped.closing?.score).toBe(40);
     expect(mapped.guides[0]?.value).toBe(120.5);
+  });
+});
+
+describe('describePortalAccessResult', () => {
+  const base = { email: 'c@x.com', expires_at: '2026-11-13T00:00:00Z' };
+
+  it('enviado por e-mail não expõe link', () => {
+    const out = describePortalAccessResult({ ...base, sent: true, delivery: 'email' });
+    expect(out).toEqual({ kind: 'sent', message: 'Link de acesso enviado para c@x.com.' });
+  });
+
+  it('modo manual devolve o link para copiar', () => {
+    const out = describePortalAccessResult({
+      ...base, sent: false, delivery: 'manual', portal_link: 'https://x/portal/login?token=t',
+    });
+    expect(out.kind).toBe('manual');
+    expect(out.kind === 'manual' && out.link).toBe('https://x/portal/login?token=t');
+  });
+
+  it('falha do provedor mostra o motivo', () => {
+    const out = describePortalAccessResult({ ...base, sent: false, delivery: 'email', reason: 'Recusado' });
+    expect(out).toEqual({ kind: 'failed', message: 'Recusado' });
   });
 });

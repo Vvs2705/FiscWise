@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { api, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { Plus, Trash2, LayoutGrid, List, Search, Bell, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CertificateCard } from '@/components/ui/Card';
@@ -32,6 +32,7 @@ import {
   type CertificateCreate,
   type CertificateStatus,
 } from '@/lib/hooks/useOperations';
+import { describeClientEmailResult, useCertExpiryWarning } from '@/lib/hooks/useNotifications';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -130,26 +131,28 @@ export function CertificatesPage() {
     }
   }
 
+  const certWarning = useCertExpiryWarning();
   const handleWarnClient = (
     clientId: string,
     clientName: string,
     certLabel: string,
     daysLeft: number,
-  ) => (e: React.MouseEvent) => {
+  ) => async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toast.promise(
-      api.post('/api/v1/notifications/cert-expiry-warning', {
+    if (certWarning.isPending) return;
+    const toastId = toast.loading(`Enviando aviso de vencimento para ${clientName}...`);
+    try {
+      const result = await certWarning.mutateAsync({
         client_id: clientId,
         client_name: clientName,
         cert_label: certLabel,
         days_until_expiry: daysLeft,
-      }),
-      {
-        loading: `Enviando aviso de vencimento para ${clientName}...`,
-        success: `Aviso do certificado "${certLabel}" enviado com sucesso!`,
-        error: (err) => getApiErrorMessage(err, 'Erro ao enviar aviso.'),
-      }
-    );
+      });
+      const t = describeClientEmailResult(result);
+      toast[t.kind](t.message, { id: toastId });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao enviar aviso.'), { id: toastId });
+    }
   };
 
   const total = certificates?.length ?? 0;

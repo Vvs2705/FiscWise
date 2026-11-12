@@ -221,50 +221,100 @@ class CertExpiryWarningRequest(BaseModel):
     days_until_expiry: int
 
 
-class CertExpiryWarningResponse(BaseModel):
-    queued: bool
+class ClientEmailResult(BaseModel):
+    """Outcome of an e-mail to a client — always the truth.
+
+    sent=True only when the provider accepted the message. reason is set when
+    sent=False: email_disabled (sending is off in this installation),
+    no_recipient (client has no e-mail), provider_error (provider refused).
+    """
+    queued: bool = False
+    sent: bool
+    status: str
+    reason: Optional[str] = None
+    recipient: Optional[str] = None
+    notification_id: uuid.UUID
     message: str
 
 
-@router.post("/cert-expiry-warning", response_model=CertExpiryWarningResponse, status_code=202)
+_REASON_MESSAGES = {
+    "email_disabled": "E-mail desligado nesta instalação: configure RESEND_ENABLED e RESEND_API_KEY.",
+    "no_recipient": "O cliente não tem e-mail cadastrado.",
+    "provider_error": "O provedor de e-mail recusou o envio. Tente novamente mais tarde.",
+}
+
+
+async def _load_client(db: AsyncSession, tenant_id: uuid.UUID, client_id: uuid.UUID):
+    from app.models.operations import AccountingClient
+
+    await ensure_client_in_tenant(db, tenant_id, client_id)
+    return await db.scalar(
+        select(AccountingClient).where(
+            AccountingClient.id == client_id, AccountingClient.tenant_id == tenant_id
+        )
+    )
+
+
+def _email_result(msg: NotificationMessage, ok_message: str) -> ClientEmailResult:
+    sent = msg.status == "sent"
+    return ClientEmailResult(
+        sent=sent,
+        status=msg.status,
+        reason=None if sent else msg.error_message,
+        recipient=msg.recipient or None,
+        notification_id=msg.id,
+        message=ok_message if sent else _REASON_MESSAGES.get(
+            msg.error_message or "", "O e-mail não foi enviado."
+        ),
+    )
+
+
+@router.post("/cert-expiry-warning", response_model=ClientEmailResult)
 async def send_cert_expiry_warning(
     body: CertExpiryWarningRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> ClientEmailResult:
+    """Send the client an e-mail about a certificate that is about to expire.
+
+    Recorded in notification_messages with the real outcome (sent / skipped /
+    failed). The response never claims a delivery that did not happen.
     """
-    Queue a certificate expiry warning notification for a specific client.
-    Records the notification in the audit log; actual delivery is handled
-    by the notification worker (WhatsApp / email based on client preference).
-    """
-    from datetime import datetime, timezone
-    from app.models.notification import NotificationMessage
+    from app.services.notification_engine import deliver_client_email
 
     _require_admin_or_owner(current_user)
+    client = await _load_client(db, current_user.tenant_id, body.client_id)
+    client_name = client.name if client else body.client_name
 
-    await ensure_client_in_tenant(db, current_user.tenant_id, body.client_id)
-
-    # Record the notification attempt
-    notif = NotificationMessage(
-        id=uuid.uuid4(),
+    days = body.days_until_expiry
+    if days > 0:
+        when = f"vence em {days} dia(s)"
+    elif days == 0:
+        when = "vence hoje"
+    else:
+        when = f"venceu há {-days} dia(s)"
+    subject = f"Certificado digital '{body.cert_label}' {when}"
+    text = (
+        f"Olá {client_name},\n\n"
+        f"O certificado digital \"{body.cert_label}\" {when}. "
+        f"Sem ele não conseguimos emitir notas nem acessar os sistemas da Receita "
+        f"em seu nome.\n\n"
+        f"Por favor, providencie a renovação e nos envie o novo certificado.\n\n"
+        f"Atenciosamente,\nSeu escritório contábil"
+    )
+    msg = await deliver_client_email(
+        db,
         tenant_id=current_user.tenant_id,
         client_id=body.client_id,
-        channel="system",
-        recipient=str(current_user.tenant_id),
-        subject=f"Certificado '{body.cert_label}' vence em {body.days_until_expiry} dias",
-        status="pending",
-        provider="internal",
-        sent_at=None,
+        recipient=client.email if client else None,
+        subject=subject,
+        body=text,
     )
-    db.add(notif)
     await db.commit()
 
     logger.info(
-        "cert_expiry_warning_queued tenant=%s client=%s cert=%s days=%s",
-        current_user.tenant_id, body.client_id, body.cert_label, body.days_until_expiry,
+        "cert_expiry_warning tenant=%s client=%s cert=%s days=%s status=%s reason=%s",
+        current_user.tenant_id, body.client_id, body.cert_label, days,
+        msg.status, msg.error_message,
     )
-
-    return CertExpiryWarningResponse(
-        queued=True,
-        message=f"Aviso de vencimento para '{body.client_name}' enviado com sucesso.",
-    )
+    return _email_result(msg, f"Aviso de vencimento enviado para {client_name}.")

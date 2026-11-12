@@ -74,3 +74,58 @@ export function useTriggerPendingDocNotifications() {
     },
   });
 }
+
+// ─── E-mail ao cliente (aviso de certificado, lembretes) ─────────────────────
+
+/** Resposta do backend para qualquer e-mail enviado a um cliente: sempre a verdade. */
+export interface ClientEmailResult {
+  queued: boolean;
+  sent: boolean;
+  status: 'sent' | 'skipped' | 'failed' | string;
+  reason: 'email_disabled' | 'no_recipient' | 'provider_error' | string | null;
+  recipient: string | null;
+  notification_id: string;
+  message: string;
+}
+
+export type ClientEmailToast = { kind: 'success' | 'warning' | 'error'; message: string };
+
+/** Traduz o resultado em um toast honesto: sucesso só quando o provedor aceitou. */
+export function describeClientEmailResult(result: ClientEmailResult): ClientEmailToast {
+  if (result.sent) {
+    return { kind: 'success', message: result.message || 'E-mail enviado ao cliente.' };
+  }
+  if (result.reason === 'email_disabled') {
+    return {
+      kind: 'warning',
+      message: 'E-mail desligado nesta instalação: configure RESEND_ENABLED e RESEND_API_KEY.',
+    };
+  }
+  if (result.reason === 'no_recipient') {
+    return { kind: 'warning', message: 'O cliente não tem e-mail cadastrado. Nada foi enviado.' };
+  }
+  return { kind: 'error', message: result.message || 'O e-mail não foi enviado.' };
+}
+
+export interface CertExpiryWarningInput {
+  client_id: string;
+  client_name: string;
+  cert_label: string;
+  days_until_expiry: number;
+}
+
+export function useCertExpiryWarning() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CertExpiryWarningInput) => {
+      const { data } = await api.post<ClientEmailResult>(
+        '/api/v1/notifications/cert-expiry-warning',
+        input
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: notifKey });
+    },
+  });
+}

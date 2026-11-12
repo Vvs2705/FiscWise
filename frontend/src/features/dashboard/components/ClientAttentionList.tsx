@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Clock, FileWarning, Shield } from 'lucide-react';
 import { staggerContainer, fadeIn } from '../../../lib/motion';
 
 interface ClientAttentionItem {
   id: string;
+  clientId?: string;
   name: string;
   reason: string;
   risk: 'Alto' | 'Médio' | 'Baixo' | 'Regular';
@@ -30,6 +32,10 @@ const iconMap = {
 };
 
 export function ClientAttentionList({ clients, isLoading }: ClientAttentionListProps) {
+  const navigate = useNavigate();
+  const openClient = (clientId?: string) =>
+    navigate(clientId ? `/clientes?id=${encodeURIComponent(clientId)}` : '/clientes');
+
   if (isLoading) {
     return (
       <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
@@ -80,7 +86,17 @@ export function ClientAttentionList({ clients, isLoading }: ClientAttentionListP
             <motion.div
               key={client.id}
               variants={fadeIn}
-              className="bg-muted border border-border rounded-lg p-4 hover:border-primary/30 transition-all cursor-pointer group"
+              role="button"
+              tabIndex={0}
+              aria-label={`Abrir cliente ${client.name}`}
+              onClick={() => openClient(client.clientId)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openClient(client.clientId);
+                }
+              }}
+              className="bg-muted border border-border rounded-lg p-4 hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all cursor-pointer group"
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1 min-w-0">

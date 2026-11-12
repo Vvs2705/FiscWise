@@ -215,3 +215,63 @@ async def test_reports_invalid_competence(client_with_auth_a):
     http, user, client, db = client_with_auth_a
     resp = http.get("/api/v1/reports/operational", params={"competence": "2026-13"})
     assert resp.status_code == 400
+
+
+
+def _xlsx_rows(content: bytes, sheet: str) -> dict[tuple[str, str], object]:
+    import io as _io
+    from openpyxl import load_workbook
+
+    wb = load_workbook(_io.BytesIO(content))
+    ws = wb[sheet]
+    rows = {}
+    for row in ws.iter_rows(min_row=4, values_only=True):
+        if sheet == "Operacional":
+            rows[(row[0], row[1])] = row[2]
+        else:
+            rows[(row[0], "")] = row[1]
+    return rows
+
+
+@pytest.mark.asyncio
+async def test_reports_xlsx_matches_json_aggregations(client_with_auth_a):
+    http, user, client, db = client_with_auth_a
+    await _seed_tenant_a(db, user.tenant_id, client.id)
+
+    resp = http.get("/api/v1/reports/operational.xlsx", params={"competence": COMPETENCE})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert f"relatorio-fiscwise-{COMPETENCE}.xlsx" in resp.headers["content-disposition"]
+
+    op = _xlsx_rows(resp.content, "Operacional")
+    assert op[("Obrigações", "Entregues")] == 1
+    assert op[("Obrigações", "Total")] == 3
+    assert op[("Guias", "Vencidas")] == 1
+    assert op[("Clientes", "Inativos")] == 1
+    assert op[("Procurações a vencer", "Total")] == 2
+
+    fin = _xlsx_rows(resp.content, "Financeiro")
+    assert Decimal(str(fin[("Receita faturada (R$)", "")])) == Decimal("1700")
+    assert Decimal(str(fin[("Inadimplência em aberto (R$)", "")])) == Decimal("500")
+    assert fin[("Clientes inadimplentes", "")] == 1
+
+
+@pytest.mark.asyncio
+async def test_reports_xlsx_member_has_no_financial_sheet(client_with_auth_b):
+    import io as _io
+    from openpyxl import load_workbook
+
+    http, user, client, db = client_with_auth_b
+    resp = http.get("/api/v1/reports/operational.xlsx", params={"competence": COMPETENCE})
+    assert resp.status_code == 200
+    wb = load_workbook(_io.BytesIO(resp.content))
+    assert wb.sheetnames == ["Operacional"]
+
+
+@pytest.mark.asyncio
+async def test_reports_xlsx_invalid_competence(client_with_auth_a):
+    http, user, client, db = client_with_auth_a
+    resp = http.get("/api/v1/reports/operational.xlsx", params={"competence": "2026-13"})
+    assert resp.status_code == 400

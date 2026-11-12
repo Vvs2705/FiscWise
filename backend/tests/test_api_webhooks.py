@@ -254,6 +254,8 @@ class TestWebhookDispatch:
                 event="client.created",
                 data={"id": str(uuid.uuid4()), "name": "Empresa Teste"}
             )
+            await webhook_service.wait_for_deliveries()
+            mock_client_cls.return_value.post.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_dispatch_event_skips_inactive_subscriptions(self, test_db, tenant_a):
@@ -279,6 +281,7 @@ class TestWebhookDispatch:
                 event="client.created",
                 data={"id": "xxx"}
             )
+            await webhook_service.wait_for_deliveries()
             # post should NOT have been called
             mock_client_cls.return_value.post.assert_not_called()
 
@@ -301,4 +304,5 @@ class TestWebhookDispatch:
                 event="client.created",  # Not in subscription events
                 data={}
             )
+            await webhook_service.wait_for_deliveries()
             mock_client_cls.return_value.post.assert_not_called()

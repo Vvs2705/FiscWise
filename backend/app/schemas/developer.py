@@ -69,11 +69,14 @@ class WebhookSubscriptionResponse(BaseModel):
     events: List[str]
     is_active: bool
     created_at: datetime
+    signature_scheme: str = "hmac-sha256-v1"
 
 
 class WebhookSubscriptionCreatedResponse(WebhookSubscriptionResponse):
     """Returned once after creation — includes the signing secret. Never shown again."""
     signing_secret: str
+    signature_header: str = "X-FiscWise-Signature"
+    signature_format: str = "t=<unix_ts>,v1=<hex HMAC-SHA256(signing_secret, f'{t}.' + raw_body)>"
 
 
 # ──────────────────────────────────────────────────────────
@@ -88,6 +91,7 @@ class WebhookDeliveryLogResponse(BaseModel):
     event: str
     url: str
     status_code: Optional[int]
+    response_body: Optional[str] = None
     success: bool
     duration_ms: int
     created_at: datetime

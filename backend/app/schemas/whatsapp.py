@@ -19,6 +19,7 @@ class WhatsAppMessageOut(BaseModel):
     body: Optional[str] = None
     media_url: Optional[str] = None
     external_message_id: Optional[str] = None
+    error_message: Optional[str] = None
     status: str
     created_at: datetime
 
@@ -38,6 +39,8 @@ class WhatsAppInboxOut(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+    # Não há provedor de WhatsApp: envios não chegam ao cliente.
+    simulated: bool = True
 
     class Config:
         from_attributes = True

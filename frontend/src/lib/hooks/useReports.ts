@@ -94,3 +94,19 @@ export function useReportsSummary(competence: string, enabled = true) {
     retry: false, // gracefully skip if user lacks permission (403)
   });
 }
+
+/** Baixa a planilha XLSX (mesmas agregações de /reports/operational e /summary). */
+export async function downloadReportsXlsx(competence: string): Promise<void> {
+  const { data } = await api.get<Blob>('/api/v1/reports/operational.xlsx', {
+    params: { competence },
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `relatorio-fiscwise-${competence}.xlsx`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}

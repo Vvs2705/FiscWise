@@ -23,6 +23,10 @@ import {
   useDocuments,
 } from '@/lib/hooks/useOperations';
 import { startTour } from '@/lib/tours';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import { fetchTenant } from '@/lib/auth';
+import { getProfileMissingFields } from '@/lib/profile';
 
 export function LearningPage() {
   const navigate = useNavigate();
@@ -35,7 +39,14 @@ export function LearningPage() {
   const { data: receivables } = useReceivables();
   const { data: documents } = useDocuments();
 
-  const isProfileComplete = true; // Simulating email verify/profile setup as complete
+  const user = useAuthStore((state) => state.user);
+  const { data: tenant } = useQuery({ queryKey: ['tenant'], queryFn: fetchTenant, staleTime: 5 * 60_000 });
+  const profileMissing = getProfileMissingFields(user, tenant);
+  const isProfileComplete = tenant !== undefined && profileMissing.length === 0;
+  const profileDescription =
+    tenant === undefined || profileMissing.length === 0
+      ? 'Defina suas preferências de segurança e dados contábeis.'
+      : `Falta preencher: ${profileMissing.join(', ')}.`;
   const hasClients = (clients?.length ?? 0) > 0;
   const hasCertificates = (certificates?.length ?? 0) > 0;
   const hasReceivables = (receivables?.length ?? 0) > 0;
@@ -46,7 +57,7 @@ export function LearningPage() {
     {
       id: 'profile',
       title: 'Configurar Perfil',
-      description: 'Defina suas preferências de segurança e dados contábeis.',
+      description: profileDescription,
       completed: isProfileComplete,
       actionLabel: 'Ir para configurações',
       action: () => navigate('/configuracoes'),
@@ -83,7 +94,7 @@ export function LearningPage() {
       actionLabel: 'Enviar arquivo',
       action: () => navigate('/documentos'),
     },
-  ], [isProfileComplete, hasClients, hasCertificates, hasReceivables, hasDocuments, navigate]);
+  ], [isProfileComplete, profileDescription, hasClients, hasCertificates, hasReceivables, hasDocuments, navigate]);
 
   const completedCount = checklistItems.filter((i) => i.completed).length;
   const progressPercent = Math.round((completedCount / checklistItems.length) * 100);

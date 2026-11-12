@@ -23,6 +23,7 @@ Environment / Settings (all optional):
   RESEND_ENABLED   — 'true' to enable real sending. Anything else → fallback.
 """
 
+import html as _html
 import os
 import logging
 import uuid
@@ -64,9 +65,13 @@ def _is_enabled() -> bool:
     return bool(flag) or os.getenv("RESEND_ENABLED", "") == "true"
 
 
-def email_delivery_available() -> bool:
-    """Há envio real de e-mail nesta instalação? (RESEND_ENABLED + chave)."""
+def is_configured() -> bool:
+    """True when real sending is on (RESEND_ENABLED + RESEND_API_KEY)."""
     return _is_enabled() and bool(_get_api_key())
+
+
+# Nome usado pelo fluxo de senha/2FA (B-07); mesmo critério de is_configured().
+email_delivery_available = is_configured
 
 
 async def send_email(
@@ -251,5 +256,65 @@ def render_lgpd_deletion_email(deadline_business_days: int = 15) -> str:
 <p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
   Observação: documentos fiscais podem ser retidos por até <strong style="color:{_INK};">5 anos</strong>,
   conforme exigência da Receita Federal (legislação tributária brasileira).
+</p>"""
+    return _base_layout(inner)
+
+
+def _text_to_html(text: str) -> str:
+    """Escape plain text and keep its line breaks."""
+    return _html.escape(text or "").replace("\n", "<br>")
+
+
+def render_client_message_email(title: str, text: str) -> str:
+    """HTML for a plain-text message to an accounting client (reminders, notices).
+
+    The text is escaped — it can carry user-typed content.
+    """
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(title)}</h1>
+<p style="margin:0;font-size:14px;line-height:1.6;color:{_MUTED};">{_text_to_html(text)}</p>"""
+    return _base_layout(inner)
+
+
+def render_payment_reminder_email(
+    client_name: str,
+    description: str,
+    amount: str,
+    due_date_label: str,
+    days_from_due: int,
+    office_name: str,
+) -> tuple[str, str]:
+    """Plain-text body and HTML for a payment (honorários) reminder.
+
+    days_from_due < 0 → vence em N dias; 0 → vence hoje; > 0 → vencida há N dias.
+    """
+    if days_from_due < 0:
+        when = f"vence em {-days_from_due} dia(s), em {due_date_label}"
+    elif days_from_due == 0:
+        when = f"vence hoje, {due_date_label}"
+    else:
+        when = f"venceu em {due_date_label} (há {days_from_due} dia(s))"
+    text = (
+        f"Olá {client_name},\n\n"
+        f"Lembramos que a cobrança \"{description}\" no valor de R$ {amount} {when}.\n\n"
+        f"Se o pagamento já foi feito, desconsidere esta mensagem.\n\n"
+        f"Atenciosamente,\n{office_name}"
+    )
+    return text, render_client_message_email("Lembrete de pagamento", text)
+
+
+def render_portal_magic_link_email(link: str) -> str:
+    """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">Seu acesso ao portal do cliente</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Clique no botão abaixo para entrar no portal do seu escritório contábil.
+  O link vale por 24 horas e só pode ser usado uma vez.
+</p>
+<div style="text-align:center;margin:0 0 20px 0;">
+  <a href="{link}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Acessar o portal</a>
+</div>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Se você não pediu este acesso, ignore este e-mail. Não compartilhe este link.
 </p>"""
     return _base_layout(inner)

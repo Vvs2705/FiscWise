@@ -44,7 +44,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getApiErrorMessage } from '@/lib/api';
+import { api, getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -95,6 +95,11 @@ import {
   type WebhookSubscriptionCreated,
 } from '@/lib/hooks/useDeveloper';
 import { formatLocalDate } from '@/lib/dates';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Dialog } from '@/components/ui/Dialog';
+import { FeatureGate } from '@/components/ui/FeatureGate';
+import { isFeatureEnabled } from '@/lib/featureFlags';
+import { formatPlanPrice, planFeatureList } from '@/features/subscription/planFeatures';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -127,31 +132,14 @@ type TenantValues = z.infer<typeof tenantSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 
 // ─── Plans config ───────────────────────────────────────────────────────────
+// Preços, limites e recursos vêm de GET /subscription/plans e /subscription/usage.
+// Aqui só ficam cor e destaque visual por slug.
 
-const PLANS = [
-  {
-    slug: 'free',
-    label: 'Gratuito',
-    price: 'Grátis',
-    color: 'text-muted-foreground',
-    features: ['Até 10 clientes', '2 usuários', 'Calculadora fiscal', 'Documentos e prazos', 'Suporte por e-mail'],
-  },
-  {
-    slug: 'intermediario',
-    label: 'Intermediário',
-    price: 'R$ 149/mês',
-    color: 'text-primary',
-    popular: true,
-    features: ['Até 80 clientes', '5 usuários', 'IA Fiscal (20 msgs/mês)', 'Motor de obrigações', 'Portal do cliente', 'Suporte prioritário'],
-  },
-  {
-    slug: 'premium',
-    label: 'Premium',
-    price: 'R$ 299/mês',
-    color: 'text-warning',
-    features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
-  },
-];
+const PLAN_STYLE: Record<string, { color: string; popular?: boolean }> = {
+  free: { color: 'text-muted-foreground' },
+  intermediario: { color: 'text-primary', popular: true },
+  premium: { color: 'text-warning' },
+};
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
 
@@ -168,6 +156,11 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+// A aba Desenvolvedor depende da API pública, desligada por feature flag.
+const VISIBLE_TABS = TABS.filter(
+  (tab) => tab.id !== 'desenvolvedor' || isFeatureEnabled('feature_public_api'),
+);
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -183,7 +176,6 @@ export function SettingsPage() {
       .finally(() => setLoadingTenant(false));
   }, []);
 
-  const currentPlan = PLANS.find((p) => p.slug === (tenant?.plan_slug ?? 'free')) ?? PLANS[0];
 
   return (
     <div className="space-y-6">
@@ -197,7 +189,7 @@ export function SettingsPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 overflow-x-auto rounded-xl border bg-muted/40 p-1">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {VISIBLE_TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
@@ -230,7 +222,7 @@ export function SettingsPage() {
           />
         )}
         {activeTab === 'plano' && (
-          <PlanoTab currentPlan={currentPlan} tenant={tenant} />
+          <PlanoTab tenant={tenant} />
         )}
         {activeTab === 'seguranca' && <SegurancaTab />}
         {activeTab === 'base_conhecimento' && (
@@ -241,7 +233,11 @@ export function SettingsPage() {
         )}
         {activeTab === 'pagamento' && <PagamentoTab onNavigateToPlans={() => setActiveTab('plano')} />}
         {activeTab === 'notificacoes' && <NotificacoesTab />}
-        {activeTab === 'desenvolvedor' && <DesenvolvedorTab />}
+        {activeTab === 'desenvolvedor' && (
+          <FeatureGate feature="feature_public_api">
+            <DesenvolvedorTab />
+          </FeatureGate>
+        )}
       </div>
     </div>
   );
@@ -343,7 +339,123 @@ function ProfileTab({
           </form>
         </CardContent>
       </Card>
+
+      <PrivacyDataCard isOwner={user?.role === 'owner'} />
     </div>
+  );
+}
+
+// ─── LGPD: exportação e exclusão de dados ────────────────────────────────────
+
+function PrivacyDataCard({ isOwner }: { isOwner: boolean }) {
+  const [exporting, setExporting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [deletionInfo, setDeletionInfo] = useState<string | null>(null);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { data } = await api.get('/api/v1/account/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `fiscwise-meus-dados-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Exportação concluída.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível exportar seus dados.'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeletionRequest() {
+    setRequesting(true);
+    try {
+      const { data } = await api.post<{ status: string; message: string }>('/api/v1/account/delete');
+      setDeletionInfo(data.message);
+      toast.success(
+        data.status === 'already_requested'
+          ? 'Sua solicitação já estava registrada.'
+          : 'Solicitação de exclusão registrada.',
+      );
+      setConfirmOpen(false);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível registrar a solicitação.'));
+    } finally {
+      setRequesting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Privacidade e dados (LGPD)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Exportar meus dados</p>
+            <p className="text-xs text-muted-foreground">
+              Baixa um arquivo JSON com seu perfil{isOwner ? ', os dados do escritório e a contagem de registros' : ''}.
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+            {exporting ? 'Exportando...' : 'Exportar meus dados'}
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Solicitar exclusão da conta</p>
+            <p className="text-xs text-muted-foreground">
+              {isOwner
+                ? 'Registra um pedido de exclusão dos dados do escritório para análise da equipe.'
+                : 'Somente o proprietário do escritório pode solicitar a exclusão. Fale com ele para remover seu usuário.'}
+            </p>
+            {deletionInfo && <p className="mt-2 text-xs text-success">{deletionInfo}</p>}
+          </div>
+          {isOwner && (
+            <Button variant="outline" className="text-destructive" onClick={() => setConfirmOpen(true)}>
+              Solicitar exclusão da conta
+            </Button>
+          )}
+        </div>
+      </CardContent>
+
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Solicitar exclusão da conta"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={requesting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeletionRequest} disabled={requesting}>
+              {requesting ? 'Enviando...' : 'Confirmar solicitação'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            A conta <strong className="text-foreground">não é apagada na hora</strong>. O pedido fica registrado e a
+            equipe do FiscWise o analisa em até 15 dias úteis, conforme a LGPD (Art. 18, VI).
+          </p>
+          <p>
+            Documentos fiscais podem ser mantidos por até 5 anos por exigência da legislação tributária.
+            Você recebe a confirmação por e-mail quando o envio de e-mails estiver configurado.
+          </p>
+          <p>Até a conclusão, o acesso continua normal.</p>
+        </div>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -492,16 +604,12 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   );
 }
 
-function PlanoTab({
-  currentPlan,
-  tenant,
-}: {
-  currentPlan: (typeof PLANS)[number];
-  tenant: TenantData | null;
-}) {
+function PlanoTab({ tenant }: { tenant: TenantData | null }) {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const { data: usage } = useSubscriptionUsage();
   const { data: dbPlans, isLoading: loadingPlans } = useAvailablePlans();
+  // usage.plan_slug é o plano efetivo (já degradado se a assinatura estiver suspensa).
+  const currentSlug = usage?.plan_slug ?? tenant?.plan_slug ?? 'free';
 
   const statusLabel: Record<string, string> = {
     trial: 'Trial',
@@ -519,42 +627,11 @@ function PlanoTab({
     expired: 'default',
   };
 
-  const planMeta: Record<string, { color: string; popular?: boolean; features: string[] }> = {
-    free: {
-      color: 'text-muted-foreground',
-      features: ['Até 10 clientes', '2 usuários', 'Calculadora fiscal', 'Documentos e prazos', 'Suporte por e-mail'],
-    },
-    intermediario: {
-      color: 'text-primary',
-      popular: true,
-      features: ['Até 80 clientes', '5 usuários', 'IA Fiscal (20 msgs/mês)', 'Motor de obrigações', 'Portal do cliente', 'Suporte prioritário'],
-    },
-    premium: {
-      color: 'text-warning',
-      features: ['Clientes ilimitados', 'Usuários ilimitados', 'IA Fiscal ilimitada', 'Export PDF', 'Todas as funcionalidades', 'Suporte dedicado'],
-    },
-  };
-
-  const activeDbPlan = dbPlans?.find((plan) => plan.slug === currentPlan.slug) ?? null;
-
-  function getPlanFeatures(plan: Plan) {
-    const meta = planMeta[plan.slug];
-    if (meta) return meta.features;
-    return [
-      plan.max_clients ? `Até ${plan.max_clients} clientes` : 'Clientes ilimitados',
-      plan.max_users ? `Até ${plan.max_users} usuários` : 'Usuários ilimitados',
-      plan.max_ai_calls_month ? `${plan.max_ai_calls_month} mensagens IA/mês` : 'IA conforme configuração do plano',
-    ];
-  }
-
-  function getPlanPrice(plan: Plan) {
-    return plan.price_monthly === 0 || plan.price_monthly === null
-      ? 'Grátis'
-      : `R$ ${Number(plan.price_monthly).toLocaleString('pt-BR')}/mês`;
-  }
+  const activeDbPlan = dbPlans?.find((plan) => plan.slug === currentSlug) ?? null;
+  const currentPlanName = activeDbPlan?.name ?? usage?.plan_name ?? currentSlug;
 
   function getPlanIntent(plan: Plan) {
-    if (plan.slug === currentPlan.slug) return 'current';
+    if (plan.slug === currentSlug) return 'current';
     if (plan.price_monthly === null || activeDbPlan === null || activeDbPlan.price_monthly === null) {
       return 'change';
     }
@@ -597,8 +674,10 @@ function PlanoTab({
         <CardContent className="flex items-center justify-between gap-4 pt-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Plano atual</p>
-            <p className="mt-0.5 text-2xl font-bold">{currentPlan.label}</p>
-            <p className="text-sm text-muted-foreground">{currentPlan.price}</p>
+            <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
+            {activeDbPlan && (
+              <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
+            )}
           </div>
           <div className="text-right">
             <Badge variant={statusTone[tenant?.subscription_status ?? 'trial'] ?? 'warning'}>
@@ -629,7 +708,7 @@ function PlanoTab({
           <div className="space-y-2">
             <p className="text-sm font-semibold text-foreground">Próximo passo recomendado</p>
             <p className="text-sm text-muted-foreground">
-              {currentPlan.slug === 'free'
+              {currentSlug === 'free'
                 ? 'Ative um plano pago para liberar faturamento recorrente, automações e operação comercial completa.'
                 : 'Compare os planos abaixo para ampliar capacidade, liberar mais IA e ajustar o nível de suporte do escritório.'}
             </p>
@@ -655,9 +734,9 @@ function PlanoTab({
       {/* All plans */}
       <div className="grid gap-4 md:grid-cols-3">
         {(dbPlans || []).map((plan) => {
-          const isActive = plan.slug === currentPlan.slug;
-          const meta = planMeta[plan.slug] || { color: 'text-foreground', features: getPlanFeatures(plan) };
-          const priceDisplay = getPlanPrice(plan);
+          const isActive = plan.slug === currentSlug;
+          const meta = PLAN_STYLE[plan.slug] ?? { color: 'text-foreground' };
+          const priceDisplay = formatPlanPrice(plan.price_monthly);
           const intent = getPlanIntent(plan);
           const aiLabel = plan.max_ai_calls_month === null
             ? 'IA sem limite explícito'
@@ -707,7 +786,7 @@ function PlanoTab({
                   {aiLabel}
                 </div>
                 <ul className="space-y-2">
-                  {getPlanFeatures(plan).map((f) => (
+                  {planFeatureList(plan).map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                       {f}
@@ -1251,6 +1330,20 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
     cancelled: 'bg-muted text-muted-foreground hover:bg-muted/80',
   };
 
+  const providerLabel: Record<string, string> = {
+    mercadopago: 'Mercado Pago',
+    mercado_pago: 'Mercado Pago',
+    manual: 'Manual',
+  };
+
+  const statusTitle: Record<string, string> = {
+    trialing: 'Assinatura em período de teste',
+    active: 'Assinatura ativa',
+    past_due: 'Assinatura com pagamento em atraso',
+    suspended: 'Assinatura suspensa',
+    cancelled: 'Assinatura cancelada',
+  };
+
   const statusLabel: Record<string, string> = {
     trialing: 'Período de Teste (Trial)',
     active: 'Assinatura Ativa',
@@ -1275,7 +1368,9 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
           <Card className="border-primary/20 bg-card">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Assinatura Ativa</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  {statusTitle[subscription.status] ?? 'Sua assinatura'}
+                </CardTitle>
                 <Badge className={statusColors[subscription.status] || 'bg-primary/10 text-primary'}>
                   {statusLabel[subscription.status] || subscription.status}
                 </Badge>
@@ -1290,7 +1385,9 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
                 <div className="rounded-lg bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">Provedor de Pagamento</p>
                   <p className="mt-1 text-sm font-semibold uppercase text-foreground">
-                    {subscription.billing_provider || 'Manual'}
+                    {subscription.billing_provider
+                      ? providerLabel[subscription.billing_provider] ?? subscription.billing_provider
+                      : 'Manual'}
                   </p>
                 </div>
                 <div className="rounded-lg bg-muted/40 p-3">
@@ -1303,16 +1400,16 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
                 </div>
               </div>
 
-              {isOwner && (
-                <div className="flex justify-end pt-2">
-                  <a
-                    href="https://www.asaas.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition hover:bg-primary/90"
-                  >
-                    Gerenciar no Asaas
-                  </a>
+              {(subscription.status === 'past_due' || subscription.status === 'suspended') && (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">
+                  {subscription.status === 'past_due'
+                    ? 'Há um pagamento pendente. Regularize para evitar a suspensão do acesso.'
+                    : 'O acesso está suspenso por falta de pagamento. Renove o plano para reativar os recursos pagos.'}
+                  {isOwner && (
+                    <Button size="sm" variant="outline" className="ml-3" onClick={onNavigateToPlans}>
+                      Renovar plano
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -1330,8 +1427,8 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
                     <CreditCard className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Cobrança Direta (Asaas)</p>
-                    <p className="text-xs text-muted-foreground">As faturas são emitidas via Boleto/Pix direto para o seu e-mail cadastrado.</p>
+                    <p className="text-sm font-medium text-foreground">Mercado Pago</p>
+                    <p className="text-xs text-muted-foreground">A forma de pagamento (Pix ou cartão) é escolhida no checkout ao contratar ou renovar o plano.</p>
                   </div>
                 </div>
               </div>
@@ -1365,20 +1462,18 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
           <CardTitle className="text-base">Histórico de faturas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm font-medium text-muted-foreground">Nenhuma fatura disponível</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Seu histórico de cobranças aparecerá aqui quando as faturas do Asaas forem geradas.
-            </p>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="Nenhuma fatura ainda"
+            description="O histórico de faturas aparecerá aqui após a primeira cobrança."
+          />
         </CardContent>
       </Card>
 
       <p className="text-center text-xs text-muted-foreground">
         Dúvidas sobre cobrança?{' '}
         <a href="mailto:contato@vstack-solutions.com.br" className="text-primary hover:underline">
-          faturamento@vstack-solutions.com.br
+          contato@vstack-solutions.com.br
         </a>
       </p>
     </div>
@@ -2295,10 +2390,18 @@ function DesenvolvedorTab() {
           <HelpCircle className="h-5 w-5 shrink-0 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Consulte a{' '}
-            <a href="/docs" target="_blank" rel="noopener" className="text-primary hover:underline font-medium">
+            <a
+              href={`${String(api.defaults.baseURL ?? '').replace(/\/$/, '')}/docs`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
+            >
               documentação da API
             </a>{' '}
             para exemplos de integração, verificação de assinatura HMAC, e referência de todos os campos disponíveis.
+            <span className="mt-1 block text-xs">
+              A documentação interativa só fica disponível fora do ambiente de produção.
+            </span>
           </p>
         </CardContent>
       </Card>

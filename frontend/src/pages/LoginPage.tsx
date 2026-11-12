@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { passwordResetAvailable } from '@/lib/auth';
 import { LoginBrandPanel, LoginValueSummary } from '@/features/auth/components/LoginBrandPanel';
 import { OtpInput } from '@/features/auth/components/OtpInput';
 
@@ -184,6 +185,16 @@ function LoginForm({
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
+  // Link "Esqueci minha senha" só aparece quando o backend tem e-mail
+  // configurado (GET /auth/password-reset/available); sem isso, nada muda.
+  const [resetAvailable, setResetAvailable] = useState(false);
+  useEffect(() => {
+    let active = true;
+    passwordResetAvailable()
+      .then((ok) => { if (active) setResetAvailable(ok); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,9 +255,19 @@ function LoginForm({
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="text-sm font-medium text-foreground">
-            Senha
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium text-foreground">
+              Senha
+            </label>
+            {resetAvailable && (
+              <Link
+                to="/esqueci-senha"
+                className="rounded-md text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Esqueci minha senha
+              </Link>
+            )}
+          </div>
           <div className="relative">
             <Input
               id="password"

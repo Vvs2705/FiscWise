@@ -31,6 +31,8 @@ const SettingsPage     = lazy(() => import('@/pages/SettingsPage').then(m => ({ 
 const CalculatorPage   = lazy(() => import('@/pages/Calculator').then(m => ({ default: m.CalculatorPage })));
 const ObrigacoesPage   = lazy(() => import('@/pages/ObrigacoesPage').then(m => ({ default: m.ObrigacoesPage })));
 const PortalLoginPage  = lazy(() => import('@/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage  = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
@@ -145,6 +147,8 @@ function App() {
               <Route path="/login"       element={<GoogleAuthProvider><LoginPage /></GoogleAuthProvider>} />
               <Route path="/register"    element={<GoogleAuthProvider><RegisterPage /></GoogleAuthProvider>} />
               <Route path="/portal/login" element={<PortalLoginPage />} />
+              <Route path="/esqueci-senha"   element={<ForgotPasswordPage />} />
+              <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
               <Route path="/404"         element={<NotFoundPage />} />

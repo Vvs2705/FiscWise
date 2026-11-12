@@ -64,6 +64,11 @@ def _is_enabled() -> bool:
     return bool(flag) or os.getenv("RESEND_ENABLED", "") == "true"
 
 
+def email_delivery_available() -> bool:
+    """Há envio real de e-mail nesta instalação? (RESEND_ENABLED + chave)."""
+    return _is_enabled() and bool(_get_api_key())
+
+
 async def send_email(
     to: str,
     subject: str,
@@ -214,14 +219,14 @@ def render_otp_email(code: str) -> str:
 def render_password_reset_email(reset_link: str) -> str:
     """HTML for a password reset email (link-based).
 
-    Provided for when a reset-password endpoint is added; not currently wired
-    because the codebase has no reset flow yet.
+    Used by POST /auth/password-reset/request; the link is valid for 1 hour
+    and only once.
     """
     inner = f"""\
 <h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">Redefinição de senha</h1>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
   Recebemos um pedido para redefinir a sua senha. Clique no botão abaixo para
-  criar uma nova senha. O link expira em breve.
+  criar uma nova senha. O link vale por 1 hora e pode ser usado uma única vez.
 </p>
 <div style="text-align:center;margin:0 0 20px 0;">
   <a href="{reset_link}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Redefinir senha</a>

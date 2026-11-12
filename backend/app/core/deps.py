@@ -203,6 +203,11 @@ async def get_current_user(
             algorithms=[settings.JWT_ALGORITHM]
         )
         
+        # Só access token entra nas rotas normais: token de propósito único
+        # (reset de senha) ou de desafio 2FA (type=mfa) é recusado aqui.
+        if payload.get("purpose", "access") != "access" or payload.get("type") not in (None, "access"):
+            raise credentials_exception
+
         # Extract user_id from token payload
         user_id_str: str = payload.get("sub")
         if user_id_str is None:

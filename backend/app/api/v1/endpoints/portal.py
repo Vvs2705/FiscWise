@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import AliasChoices, BaseModel, EmailStr, Field
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -347,6 +347,45 @@ async def get_my_data(
 # ---------------------------------------------------------------------------
 
 
+# Status de ClientDocument que significam "o escritório pediu e falta o arquivo".
+_DOCUMENT_REQUESTED = ("missing", "expired")
+# Itens do checklist ainda em aberto (rejeitado = cliente precisa reenviar).
+_CHECKLIST_OPEN = ("pending", "rejected")
+
+
+async def _sign_portal_files(tenant_id: uuid.UUID, documents: list, guides: list) -> tuple[dict, dict]:
+    """URLs assinadas (curtas) para o cliente baixar documentos e guias.
+
+    Falha do storage não derruba o portal: o item só fica sem link.
+    """
+    from app.core import storage as _storage
+    from app.core.document_links import DOCUMENTS_BUCKET, SIGNED_URL_TTL, object_path_for
+
+    doc_urls: dict[int, str] = {}
+    doc_paths = {i: object_path_for(d.file_url, tenant_id) for i, d in enumerate(documents)}
+    doc_paths = {i: p for i, p in doc_paths.items() if p}
+    if doc_paths:
+        try:
+            signed = await _storage.get_signed_urls(
+                DOCUMENTS_BUCKET, list(doc_paths.values()), ttl=SIGNED_URL_TTL
+            )
+            doc_urls = {i: signed[p] for i, p in doc_paths.items() if p in signed}
+        except Exception:  # noqa: BLE001
+            logger.exception("Portal: falha ao assinar documentos (tenant %s)", tenant_id)
+
+    guide_urls: dict[str, str] = {}
+    guide_paths = [
+        g.pdf_storage_path for g in guides
+        if g.pdf_storage_path and ".." not in g.pdf_storage_path.split("/")
+    ]
+    if guide_paths:
+        try:
+            guide_urls = await _storage.get_signed_urls("guides", guide_paths, ttl=SIGNED_URL_TTL)
+        except Exception:  # noqa: BLE001
+            logger.exception("Portal: falha ao assinar guias (tenant %s)", tenant_id)
+    return doc_urls, guide_urls
+
+
 async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: AccountingClient) -> dict:
     """Agrega o que o portal mostra de UM cliente.
 
@@ -354,6 +393,7 @@ async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: Accoun
     `client` dentro do escritório certo, e aqui nada vaza de outro cliente.
     """
     from app.models.operations import ClientDocument, DeadlineItem
+    from app.models.obligation import DocumentChecklistItem
     from app.domain.guias.models import TaxGuide
     from app.domain.monthly_closing.models import MonthlyClosing
 
@@ -385,6 +425,22 @@ async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: Accoun
     )
     documents = list(docs_result.scalars().all())
 
+    # Documentos que o escritório pediu pelo checklist do mês (o mesmo que o
+    # lembrete por e-mail cobra). Só os em aberto: o recebido vira ClientDocument.
+    checklist_result = await db.execute(
+        select(DocumentChecklistItem)
+        .where(
+            and_(
+                DocumentChecklistItem.client_id == client_id,
+                DocumentChecklistItem.tenant_id == tenant_id,
+                DocumentChecklistItem.status.in_(_CHECKLIST_OPEN),
+            )
+        )
+        .order_by(DocumentChecklistItem.competence_month.desc())
+        .limit(20)
+    )
+    checklist = list(checklist_result.scalars().all())
+
     guides_result = await db.execute(
         select(TaxGuide)
         .where(
@@ -412,6 +468,8 @@ async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: Accoun
     )
     pendencies = list(pendencies_result.scalars().all())
 
+    doc_urls, guide_urls = await _sign_portal_files(tenant_id, documents, guides)
+
     return {
         "client": {
             "id": str(client.id),
@@ -430,12 +488,32 @@ async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: Accoun
         ),
         "documents": [
             {
+                "id": str(c.id),
+                "kind": "checklist",
+                "name": c.document_name,
+                # "pending" do checklist = documento pedido e ainda não enviado.
+                "status": "missing" if c.status == "pending" else c.status,
+                "requested_at": c.created_at.isoformat() if c.created_at else None,
+                "competence": c.competence_month.isoformat()[:7] if c.competence_month else None,
+                "notes": c.notes,
+                "file_url": None,
+                "can_upload": True,
+            }
+            for c in checklist
+        ]
+        + [
+            {
                 "id": str(d.id),
+                "kind": "document",
                 "name": d.name,
                 "status": d.status,
                 "requested_at": d.created_at.isoformat() if d.created_at else None,
+                "competence": None,
+                "notes": d.notes,
+                "file_url": doc_urls.get(i),
+                "can_upload": d.status in _DOCUMENT_REQUESTED,
             }
-            for d in documents
+            for i, d in enumerate(documents)
         ],
         "guides": [
             {
@@ -445,6 +523,7 @@ async def _portal_payload(db: AsyncSession, tenant_id: uuid.UUID, client: Accoun
                 "value": float(g.valor) if g.valor is not None else 0.0,
                 "due": g.vencimento.isoformat() if g.vencimento else None,
                 "status": g.status,
+                "pdf_url": guide_urls.get(g.pdf_storage_path) if g.pdf_storage_path else None,
             }
             for g in guides
         ],
@@ -525,6 +604,169 @@ async def get_my_overview(
         )
 
     return await _portal_payload(db, current_user.tenant_id, client)
+
+
+async def _my_client(db: AsyncSession, current_user: User) -> AccountingClient:
+    """Cliente do escritório ligado ao usuário CLIENT logado (ou 403/404)."""
+    if current_user.role != UserRole.CLIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is only for client users",
+        )
+    client = (
+        await db.execute(
+            select(AccountingClient).where(
+                and_(
+                    AccountingClient.portal_user_id == current_user.id,
+                    AccountingClient.tenant_id == current_user.tenant_id,
+                )
+            )
+        )
+    ).scalar_one_or_none()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No client data found for this user",
+        )
+    return client
+
+
+@router.post("/my-documents", status_code=status.HTTP_201_CREATED, summary="Cliente envia um documento")
+async def upload_my_document(
+    request: Request,
+    file: UploadFile = File(...),
+    request_id: Optional[uuid.UUID] = Form(None),
+    kind: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """O cliente final manda o arquivo de um pedido do escritório (ou um avulso).
+
+    - kind="checklist" + request_id: item do checklist do mês → vira "received"
+      e o arquivo entra como documento "review" para o escritório conferir;
+    - kind="document" + request_id: documento "missing"/"expired" recebe o
+      arquivo e passa a "review";
+    - sem request_id: documento novo, "review".
+    Tudo filtrado pelo cliente do usuário logado: não há como gravar em outro.
+    """
+    from app.core import storage as _storage
+    from app.core.document_links import DOCUMENTS_BUCKET, storage_ref
+    from app.api.v1.endpoints.operations import _DOC_UPLOAD_EXTS, _DOC_UPLOAD_MAX_BYTES
+    from app.models.operations import ClientDocument
+    from app.models.obligation import DocumentChecklistItem
+    from app.services.audit import log_audit_event
+
+    client = await _my_client(db, current_user)
+    tenant_id = current_user.tenant_id
+
+    if request_id is not None and kind not in ("checklist", "document"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "kind deve ser 'checklist' ou 'document'")
+
+    checklist_item = None
+    target_doc = None
+    if request_id is not None and kind == "checklist":
+        checklist_item = (
+            await db.execute(
+                select(DocumentChecklistItem).where(
+                    and_(
+                        DocumentChecklistItem.id == request_id,
+                        DocumentChecklistItem.client_id == client.id,
+                        DocumentChecklistItem.tenant_id == tenant_id,
+                    )
+                )
+            )
+        ).scalar_one_or_none()
+        if not checklist_item:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido de documento não encontrado")
+        if checklist_item.status not in _CHECKLIST_OPEN:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Este documento já foi enviado")
+    elif request_id is not None:
+        target_doc = (
+            await db.execute(
+                select(ClientDocument).where(
+                    and_(
+                        ClientDocument.id == request_id,
+                        ClientDocument.client_id == client.id,
+                        ClientDocument.tenant_id == tenant_id,
+                    )
+                )
+            )
+        ).scalar_one_or_none()
+        if not target_doc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido de documento não encontrado")
+        if target_doc.status not in _DOCUMENT_REQUESTED:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Este documento já foi enviado")
+
+    file_ext = ""
+    if file.filename and "." in file.filename:
+        file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
+    if file_ext not in _DOC_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo não aceito. Use: {', '.join(sorted(_DOC_UPLOAD_EXTS))}",
+        )
+    content = await file.read(_DOC_UPLOAD_MAX_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Arquivo vazio")
+    if len(content) > _DOC_UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Arquivo maior que {_DOC_UPLOAD_MAX_BYTES // (1024 * 1024)} MB",
+        )
+
+    storage_path = f"{tenant_id}/{uuid.uuid4().hex}{file_ext}"
+    try:
+        await _storage.upload_bytes(
+            DOCUMENTS_BUCKET, storage_path, content, file.content_type or "application/octet-stream"
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Portal: upload do cliente falhou (%s)", storage_path)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível guardar o arquivo agora. Tente novamente em instantes.",
+        )
+    file_url = storage_ref(storage_path)
+    original_name = (file.filename or "Documento").strip()[:255] or "Documento"
+
+    if target_doc is not None:
+        document = target_doc
+        document.file_url = file_url
+        document.status = "review"
+        document.updated_at = _now()
+    else:
+        name = checklist_item.document_name[:255] if checklist_item is not None else original_name
+        document = ClientDocument(
+            tenant_id=tenant_id,
+            client_id=client.id,
+            name=name if len(name) >= 2 else f"Documento {name}",
+            document_type="Portal do cliente",
+            status="review",
+            file_url=file_url,
+            parse_status="pending",
+            notes=f"Enviado pelo cliente no portal ({original_name})",
+        )
+    if checklist_item is not None:
+        checklist_item.status = "received"
+        checklist_item.received_at = _now()
+        db.add(checklist_item)
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    await log_audit_event(
+        db=db,
+        tenant_id=tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="portal.document.upload",
+        entity_type="document",
+        entity_id=document.id,
+        after_data={"name": document.name, "request_id": str(request_id) if request_id else None, "kind": kind},
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    return {"id": str(document.id), "name": document.name, "status": document.status}
 
 
 # ---------------------------------------------------------------------------

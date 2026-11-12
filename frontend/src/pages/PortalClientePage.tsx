@@ -10,7 +10,7 @@ import { MetricCard } from '@/components/ui/OperationalStates';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { useClients } from '@/lib/hooks/useOperations';
-import { fetchPortalPreview } from '@/features/portal/api';
+import { fetchPortalPreview, isAwaitingClient } from '@/features/portal/api';
 import { PortalAccessButton } from '@/features/portal/PortalAccessButton';
 import { cn } from '@/lib/utils';
 import { formatLocalDate } from '@/lib/dates';
@@ -56,7 +56,7 @@ export function PortalClientePage() {
   });
 
   const pendingDocuments = useMemo(
-    () => (preview?.documents ?? []).filter(d => d.status === 'pending').length,
+    () => (preview?.documents ?? []).filter(isAwaitingClient).length,
     [preview?.documents],
   );
   const openGuides = useMemo(
@@ -202,12 +202,12 @@ export function PortalClientePage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">Nenhum documento registrado para este cliente.</p>
                 ) : (
                   preview.documents.map(doc => (
-                    <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
+                    <div key={`${doc.kind}-${doc.id}`} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
                       <div className={cn(
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                        doc.status === 'pending' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success',
+                        isAwaitingClient(doc) ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success',
                       )}>
-                        {doc.status === 'pending' ? <Clock className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {isAwaitingClient(doc) ? <Clock className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">{doc.name}</p>

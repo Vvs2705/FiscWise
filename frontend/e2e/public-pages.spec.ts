@@ -13,8 +13,8 @@ const pages = [
   {
     path: '/login',
     title: /Entrar/,
-    ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: /Bem-vindo de volta/ }),
-    field: (p: import('@playwright/test').Page) => p.getByPlaceholder('voce@seudominio.com'),
+    ready: (p: import('@playwright/test').Page) => p.getByRole('heading', { name: 'Entrar no FiscWise' }),
+    field: (p: import('@playwright/test').Page) => p.getByLabel('E-mail'),
   },
   {
     path: '/register',

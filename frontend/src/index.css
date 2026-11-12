@@ -6,7 +6,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Tokens — tema claro (DESIGN.md §2, §5, §6) ─────────────────── */
+/* ─── Tokens — tema claro (SISTEMA_DE_DESIGN.md §2, §5, §6) ─────────────────── */
 @layer base {
   :root {
     --background: 210 20% 98%;
@@ -159,7 +159,7 @@
   }
 }
 
-/* ─── Movimento (DESIGN.md §7) ───────────────────────────────────── */
+/* ─── Movimento (SISTEMA_DE_SISTEMA_DE_DESIGN.md §7) ───────────────────────────────────── */
 @layer utilities {
   @keyframes fade-in {
     from { opacity: 0; }

@@ -18,7 +18,7 @@
   <path d="M33.02 14.02 L40.99 8.02" stroke="white" stroke-width="2.21"
         stroke-linecap="round" fill="none" opacity="0.88"/>
 
-  <!-- Wordmark: Geist 600, tracking -0.02em, sem tagline (DESIGN.md §12) -->
+  <!-- Wordmark: Geist 600, tracking -0.02em, sem tagline (SISTEMA_DE_DESIGN.md §12) -->
   <text x="62.4" y="24" dominant-baseline="central"
         font-family="Geist Variable, Geist, system-ui, sans-serif"
         font-size="26.88" font-weight="600" letter-spacing="-0.02em"

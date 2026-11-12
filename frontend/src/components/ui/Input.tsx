@@ -1,7 +1,7 @@
 import { type InputHTMLAttributes, type TextareaHTMLAttributes, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
-/** Classes compartilhadas por Input, Select e Textarea (DESIGN.md §8). */
+/** Classes compartilhadas por Input, Select e Textarea (SISTEMA_DE_DESIGN.md §8). */
 export const fieldBaseClasses =
   'w-full rounded-md border border-input bg-card px-3 text-sm text-foreground transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-muted-foreground hover:border-muted-foreground/40 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-input aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/25';
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text, UUID as SQLUUID
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text, UniqueConstraint, UUID as SQLUUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -23,12 +23,14 @@ class Plan(Base):
     """
 
     __tablename__ = "plans"
+    # Unicidade só pela constraint (o antigo ix_ unique duplicava o uq_).
+    __table_args__ = (UniqueConstraint("slug", name="uq_plans_slug"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     slug: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True, index=True,
+        String(50), nullable=False,
         comment="Plan identifier: free | intermediario | premium",
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)

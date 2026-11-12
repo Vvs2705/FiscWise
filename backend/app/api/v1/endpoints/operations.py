@@ -140,6 +140,48 @@ async def _commit_refresh(db: AsyncSession, instance: Any) -> Any:
     return instance
 
 
+async def _soft_delete(
+    db: AsyncSession,
+    request: Request,
+    current_user: User,
+    item: Any,
+    *,
+    terminal_status: str,
+    blocked_statuses: dict[str, str],
+    entity_type: str,
+) -> Any:
+    """Exclusão lógica: leva `item` ao status terminal e registra auditoria.
+
+    Idempotente: se já está no status terminal, devolve o item como está.
+    Status em `blocked_statuses` (ex.: concluído/pago) são terminais e não
+    podem ser excluídos — responde 409 com a mensagem associada.
+    """
+    if item.status == terminal_status:
+        return item
+    if item.status in blocked_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=blocked_statuses[item.status],
+        )
+    before_status = item.status
+    item.status = terminal_status
+    item = await _commit_refresh(db, item)
+    await log_audit_event(
+        db=db,
+        tenant_id=item.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action=f"{entity_type}.{terminal_status}",
+        entity_type=entity_type,
+        entity_id=item.id,
+        before_data={"status": before_status},
+        after_data={"status": terminal_status},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("User-Agent") if request else None,
+    )
+    return item
+
+
 async def _generate_client_code(db: AsyncSession, tenant_id: uuid.UUID) -> str:
     """Gera codigo de 4 digitos unico para o tenant. Retry em caso de colisao."""
     for attempt in range(20):
@@ -991,6 +1033,24 @@ async def update_deadline(
     return await _commit_refresh(db, item)
 
 
+@router.delete("/deadlines/{deadline_id}", response_model=DeadlineResponse)
+async def cancel_deadline(
+    deadline_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica do prazo (status `cancelled`)."""
+    tenant_id = _tenant_id(current_user)
+    item = await _get_item_or_404(db, DeadlineItem, tenant_id, deadline_id, "Deadline not found")
+    return await _soft_delete(
+        db, request, current_user, item,
+        terminal_status="cancelled",
+        blocked_statuses={"completed": "Prazo já concluído não pode ser excluído."},
+        entity_type="deadline",
+    )
+
+
 
 @router.get("/documents", response_model=list[DocumentResponse])
 async def list_documents(
@@ -1256,14 +1316,24 @@ async def block_certificate(
         certificate_id,
         "Certificate not found",
     )
+    return await _revoke_certificate(db, current_user, certificate, reason)
+
+
+async def _revoke_certificate(
+    db: AsyncSession,
+    current_user: User,
+    certificate: DigitalCertificate,
+    reason: str,
+) -> DigitalCertificate:
+    """Bloqueia/revoga o certificado (status `revoked`) e registra auditoria."""
     certificate.bloqueado = True
     certificate.motivo_bloqueio = reason
     certificate.status = "revoked"
-    
+
     # Audit log
     await log_audit_event(
         db=db,
-        tenant_id=tenant_id,
+        tenant_id=certificate.tenant_id,
         actor_user_id=current_user.id,
         actor_role=current_user.role.value,
         action="certificate.blocked",
@@ -1271,8 +1341,31 @@ async def block_certificate(
         entity_id=certificate.id,
         after_data={"bloqueado": True, "motivo_bloqueio": reason},
     )
-    
+
     return await _commit_refresh(db, certificate)
+
+
+@router.delete("/certificates/{certificate_id}", response_model=CertificateResponse)
+async def revoke_certificate(
+    certificate_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica do certificado: mesma semântica de `/block` (status `revoked`).
+
+    Idempotente: certificado já revogado é devolvido como está.
+    """
+    tenant_id = _tenant_id(current_user)
+    certificate = await _get_item_or_404(
+        db,
+        DigitalCertificate,
+        tenant_id,
+        certificate_id,
+        "Certificate not found",
+    )
+    if certificate.status == "revoked":
+        return certificate
+    return await _revoke_certificate(db, current_user, certificate, "Excluído pelo usuário")
 
 
 @router.get("/certificates/{certificate_id}/usage-trail")
@@ -1378,6 +1471,30 @@ async def update_receivable(
     if payload.status == "paid" and receivable.paid_at is None:
         receivable.paid_at = datetime.now(timezone.utc)
     return await _commit_refresh(db, receivable)
+
+
+@router.delete("/receivables/{receivable_id}", response_model=ReceivableResponse)
+async def cancel_receivable(
+    receivable_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclusão lógica da cobrança (status `cancelled`)."""
+    tenant_id = _tenant_id(current_user)
+    receivable = await _get_item_or_404(
+        db,
+        AccountReceivable,
+        tenant_id,
+        receivable_id,
+        "Receivable not found",
+    )
+    return await _soft_delete(
+        db, request, current_user, receivable,
+        terminal_status="cancelled",
+        blocked_statuses={"paid": "Cobrança já paga não pode ser excluída."},
+        entity_type="receivable",
+    )
 
 
 @router.post("/receivables/generate-monthly")

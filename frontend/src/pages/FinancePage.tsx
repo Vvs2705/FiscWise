@@ -146,12 +146,12 @@ export function FinancePage() {
   }
 
   async function handleDelete(id: string, description: string) {
-    if (!confirm(`Excluir cobranca "${description}"?`)) return;
+    if (!confirm(`Excluir a cobrança "${description}"? Ela fica no histórico como Cancelada.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Cobranca removida');
+      toast.success('Cobrança cancelada');
     } catch {
-      toast.error('Erro ao remover cobranca');
+      toast.error('Erro ao cancelar cobrança');
     }
   }
 
@@ -383,14 +383,16 @@ export function FinancePage() {
                       Pago
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(r.id, r.description)}
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {(r.status === 'pending' || r.status === 'overdue') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(r.id, r.description)}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </Card>
             );
@@ -451,15 +453,17 @@ export function FinancePage() {
                           <span>Pago</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(r.id, r.description)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir cobrança"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {(r.status === 'pending' || r.status === 'overdue') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(r.id, r.description)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir cobrança"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

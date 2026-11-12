@@ -31,7 +31,7 @@ from app.models.obligation import DocumentChecklistItem, ObligationInstance
 from app.domain.monthly_closing.models import MonthlyClosing
 from app.models.user import User
 from app.services.ai_fiscal import classify_fiscal_document, generate_client_operational_summary
-from app.services.document_parser import parse_document
+from app.services.document_parser import is_skipped, parse_document
 from app.services import webhook_service as _webhook_svc
 from app.schemas.operations import (
     AccountingClientCreate,
@@ -1753,9 +1753,17 @@ async def _parse_document_background(
             document = result.scalar_one_or_none()
 
             if document:
+                skipped_reason = is_skipped(parsed_data)
                 if error:
                     document.parse_status = "failed"
                     document.parse_error = error
+                elif skipped_reason:
+                    # Formato aceito que o parser não lê (imagem sem OCR, .doc):
+                    # não é falha — registra o motivo e não chama a IA.
+                    document.parse_status = "skipped"
+                    document.parse_error = skipped_reason
+                    document.parsed_data = parsed_data
+                    document.parsed_at = datetime.now(timezone.utc)
                 else:
                     ai_classification = await classify_fiscal_document(
                         parsed_data,

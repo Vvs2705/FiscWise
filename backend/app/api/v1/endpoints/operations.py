@@ -6,7 +6,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ from app.schemas.operations import (
     DeadlineUpdate,
     DocumentCreate,
     DocumentResponse,
+    DocumentUploadResponse,
     DocumentUpdate,
     InadimplenciaReport,
     MonthlyData,
@@ -1838,9 +1839,11 @@ async def upload_client_document(
     document_type: str = Query(..., max_length=80, description="Tipo: contract, secret_sheet, certificate, etc"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
-) -> DocumentResponse:
-    """Upload de arquivo para cliente (PDF, Excel, Word)."""
+) -> DocumentUploadResponse:
+    """Upload de arquivo para cliente (PDF, Excel, Word).
+
+    Resposta igual à de antes, mais `job_id` (status em GET /api/v1/jobs/{id}).
+    """
     import tempfile
 
     tenant_id = _tenant_id(current_user)
@@ -1917,16 +1920,30 @@ async def upload_client_document(
         },
     )
 
-    # Agendar parsing em background
-    background_tasks.add_task(
-        _parse_document_background,
-        document.id,
-        tmp_path,
-        file.filename or "file",
-        tenant_id,
-    )
+    # Parsing na fila em Postgres (antes: BackgroundTasks, que morria quando o
+    # Cloud Run desligava a instância). Tenta já, numa task; se a instância cair,
+    # o tick horário retoma baixando o arquivo do Storage.
+    from app.services import job_queue
+    from app.services.job_handlers import DOCUMENT_PARSE, document_parse_key
 
-    return (await _documents_out([document], tenant_id))[0]
+    job = await job_queue.enqueue(
+        db,
+        DOCUMENT_PARSE,
+        {
+            "document_id": str(document.id),
+            "storage_path": storage_path,
+            "file_name": file.filename or "file",
+            "tmp_path": tmp_path,
+        },
+        tenant_id=tenant_id,
+        idempotency_key=document_parse_key(document.id),
+    )
+    job_id = job.id
+    await db.commit()
+    job_queue.kick()
+
+    out = (await _documents_out([document], tenant_id))[0]
+    return DocumentUploadResponse(**out.model_dump(), job_id=job_id)
 
 
 @router.get("/clients/{client_id}/documents", response_model=list[DocumentResponse])
@@ -1946,62 +1963,91 @@ async def list_client_documents(
     return await _documents_out(result.scalars().all(), tenant_id)
 
 
+async def apply_document_parse(
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    file_path: str,
+    file_name: str,
+) -> Optional[str]:
+    """Faz o parse e grava o resultado no documento. Levanta em erro inesperado
+    (a fila decide o retry). Retorna o parse_status final, ou None se o
+    documento não existe mais."""
+    parsed_data, error = await parse_document(file_path, file_name)
+
+    result = await db.execute(
+        select(ClientDocument).where(
+            (ClientDocument.id == document_id)
+            & (ClientDocument.tenant_id == tenant_id)
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        return None
+
+    skipped_reason = None if error else is_skipped(parsed_data)
+    if error:
+        document.parse_status = "failed"
+        document.parse_error = error
+    elif skipped_reason:
+        # Formato aceito que o parser não lê (imagem sem OCR, .doc):
+        # não é falha — registra o motivo e não chama a IA.
+        document.parse_status = "skipped"
+        document.parse_error = skipped_reason
+        document.parsed_data = parsed_data
+        document.parsed_at = datetime.now(timezone.utc)
+    else:
+        ai_classification = await classify_fiscal_document(
+            parsed_data,
+            file_name=file_name,
+            declared_document_type=document.document_type,
+        )
+        if ai_classification:
+            parsed_data = {
+                **(parsed_data or {}),
+                "ai_classification": ai_classification,
+            }
+
+        document.parse_status = "completed"
+        document.parsed_data = parsed_data
+        document.parsed_at = datetime.now(timezone.utc)
+
+    db.add(document)
+    await db.commit()
+    return document.parse_status
+
+
+async def mark_document_parse_failed(
+    db: AsyncSession, document_id: uuid.UUID, tenant_id: uuid.UUID, error: str
+) -> None:
+    """Falha definitiva do job: o documento não fica preso em 'processing'."""
+    result = await db.execute(
+        select(ClientDocument).where(
+            (ClientDocument.id == document_id) & (ClientDocument.tenant_id == tenant_id)
+        )
+    )
+    document = result.scalar_one_or_none()
+    if document and document.parse_status in ("processing", "pending"):
+        document.parse_status = "failed"
+        document.parse_error = error
+        await db.commit()
+
+
 async def _parse_document_background(
     document_id: uuid.UUID,
     file_path: str,
     file_name: str,
     tenant_id: uuid.UUID,
 ) -> None:
-    """Background task to parse document asynchronously."""
+    """Parse em BackgroundTasks (ainda usado pela coleta via WhatsApp)."""
     import os
     from app.core.deps import _set_current_tenant_context, get_sessionmaker
 
     try:
-        parsed_data, error = await parse_document(file_path, file_name)
-
         async_session = get_sessionmaker()
         async with async_session() as db:
             await _set_current_tenant_context(db, tenant_id)
-
-            # Get document from DB
-            result = await db.execute(
-                select(ClientDocument).where(
-                    (ClientDocument.id == document_id)
-                    & (ClientDocument.tenant_id == tenant_id)
-                )
-            )
-            document = result.scalar_one_or_none()
-
-            if document:
-                skipped_reason = is_skipped(parsed_data)
-                if error:
-                    document.parse_status = "failed"
-                    document.parse_error = error
-                elif skipped_reason:
-                    # Formato aceito que o parser não lê (imagem sem OCR, .doc):
-                    # não é falha — registra o motivo e não chama a IA.
-                    document.parse_status = "skipped"
-                    document.parse_error = skipped_reason
-                    document.parsed_data = parsed_data
-                    document.parsed_at = datetime.now(timezone.utc)
-                else:
-                    ai_classification = await classify_fiscal_document(
-                        parsed_data,
-                        file_name=file_name,
-                        declared_document_type=document.document_type,
-                    )
-                    if ai_classification:
-                        parsed_data = {
-                            **(parsed_data or {}),
-                            "ai_classification": ai_classification,
-                        }
-
-                    document.parse_status = "completed"
-                    document.parsed_data = parsed_data
-                    document.parsed_at = datetime.now(timezone.utc)
-
-                db.add(document)
-                await db.commit()
+            await apply_document_parse(db, document_id, tenant_id, file_path, file_name)
 
     except Exception as e:
         logger.error(f"Background parsing error for document {document_id}: {str(e)}")

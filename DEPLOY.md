@@ -31,6 +31,53 @@ dentro do processo não serve. Com `SCHEDULER_MODE=external`:
 
 Em desenvolvimento e no `docker-compose`, o padrão continua `SCHEDULER_MODE=internal`.
 
+## Fila de trabalho em segundo plano (`background_jobs`)
+
+Trabalho que não cabe na requisição (parse de documento, emissão de NFS-e) vai
+para a tabela `background_jobs` no Postgres, não para o `BackgroundTasks` do
+FastAPI (que morre quando o Cloud Run desliga a instância). Sem Redis, sem
+worker fixo, custo zero. Código: `backend/app/services/job_queue.py`.
+
+- **Disparo:** logo após o commit do `enqueue`, a API tenta processar numa task
+  própria (best-effort). O que sobrar é processado pela rotina
+  `process_job_queue` em todo tick horário (orçamento de 5 min; o deadline do
+  Scheduler é 900 s).
+- **Concorrência:** `SELECT ... FOR UPDATE SKIP LOCKED`; job `running` há mais de
+  15 min é considerado abandonado e volta a rodar.
+- **Status:** `GET /api/v1/jobs/{id}` e `GET /api/v1/jobs?status=&limit=` (só do
+  escritório do usuário). Front: `useJob(id)` / `useJobs()` em
+  `frontend/src/lib/hooks/useJobs.ts`.
+
+Contrato para registrar um novo tipo de job:
+
+```python
+from app.services.job_queue import JobContext, job_handler
+
+@job_handler("dominio.acao")
+async def handler(ctx: JobContext) -> dict | None:
+    ...  # ctx.db já tem o contexto RLS de ctx.tenant_id
+```
+
+| Regra | Valor |
+|---|---|
+| `kind` | `"<domínio>.<ação>"`; o módulo do handler entra em `HANDLER_MODULES` |
+| `payload` | JSON pequeno, só IDs |
+| `idempotency_key` | `"<kind>:<id>"`; repetir o `enqueue` devolve o mesmo job |
+| Retry | exceção → nova tentativa em 1 min, 5 min, 25 min (`max_attempts` = 3); `JobRetry(delay_s)` escolhe o atraso; `PermanentJobError` falha sem retry |
+| Idempotência do handler | obrigatória: o job pode rodar de novo se a instância morrer no meio |
+
+Kinds existentes:
+
+| kind | payload | chave | o que faz |
+|---|---|---|---|
+| `document.parse` | `{"document_id", "storage_path", "file_name", "tmp_path"}` | `document.parse:<document_id>` | parse do upload em `POST /clients/{id}/documents` (a resposta traz `job_id`) |
+| `invoice.emit` | `{"invoice_id", "tenant_id"}` | `invoice.emit:<invoice_id>` | emite a nota que está em status **`queued`** pelo `InvoiceService.process_emission_sync` (provedor atual: simulação). Nota fora de `queued` é ignorada. Falha de conexão com o provedor devolve a nota para `queued` (evento `emit_retry`) e agenda retry; rejeição segue o domínio (`invoice_rejections` + evento) |
+
+Varredor: em todo tick, `drain_queued_invoices` enfileira `invoice.emit` para
+toda nota em `queued` há mais de 10 min sem job pendente (a chave impede
+duplicar). Quem põe a nota em `queued` (ex.: `/sync/push` offline) não precisa
+enfileirar: basta deixá-la em `queued`. Offline nunca autoriza a emissão.
+
 ## Passo a passo
 
 Os comandos abaixo usam o `gcloud` (Cloud Shell no navegador já vem com ele).

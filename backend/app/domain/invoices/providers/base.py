@@ -1,5 +1,11 @@
 from abc import ABC, abstractmethod
 
+
+class TransientEmissionError(Exception):
+    """O provedor não recebeu o pedido (falha de conexão): a nota volta para
+    `queued` e a fila tenta de novo. Nenhum provedor atual levanta isto direto;
+    o handler `invoice.emit` converte falhas de conexão nela."""
+
 class NfseProvider(ABC):
     @abstractmethod
     async def emit(self, invoice_data: dict) -> dict:

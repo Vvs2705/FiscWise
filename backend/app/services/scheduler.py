@@ -52,6 +52,12 @@ def _job_definitions():
         ("cleanup_auth_rate_limiter", "Auth Rate Limiter Cleanup",
          cleanup_auth_rate_limiter,
          CronTrigger(minute=0, timezone=pytz.UTC)),
+        # Fila de trabalho em Postgres: toda hora varre notas em `queued` e
+        # processa os jobs pendentes (o que o kick pós-requisição não terminou
+        # porque a instância foi desligada). Orçamento de ~5 min por tick.
+        ("process_job_queue", "Process Background Job Queue",
+         process_job_queue,
+         CronTrigger(minute=0, timezone=pytz.UTC)),
         # Payment reminders daily at 8:00 (Brasília)
         ("send_payment_reminders", "Send Payment Reminders",
          send_payment_reminders_scheduled,
@@ -408,3 +414,12 @@ async def send_payment_reminders_scheduled():
             )
     except Exception as e:
         logger.error(f"Error in scheduled payment reminders: {str(e)}")
+
+
+async def process_job_queue():
+    """Processa a fila `background_jobs` (ver app/services/job_queue.py)."""
+    from app.services.job_queue import run_tick
+
+    summary = await run_tick()
+    logger.info("Job queue tick: %s", summary)
+    return summary

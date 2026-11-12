@@ -1487,11 +1487,14 @@ async def generate_monthly_billing(
 
     for client in clients:
         # Checar se já existe fatura para este mês
+        # limit(1): com duas faturas do mês (ex.: ajuste manual) o
+        # scalar_one_or_none() estourava MultipleResultsFound (500).
         existing = await db.execute(
-            select(AccountReceivable).where(
-                (AccountReceivable.client_id == client.id)
+            select(AccountReceivable.id).where(
+                (AccountReceivable.tenant_id == tenant_id)
+                & (AccountReceivable.client_id == client.id)
                 & (AccountReceivable.description.like(f"Honorários - {year_month}%"))
-            )
+            ).limit(1)
         )
 
         if existing.scalar_one_or_none():

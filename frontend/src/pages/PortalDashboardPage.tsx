@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import {
   Globe, FileText, CheckCircle2, Clock,
-  AlertTriangle, Coins, Bell, Loader2, LogOut,
+  AlertTriangle, Coins, Bell, Loader2, LogOut, Upload, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { MetricCard } from '@/components/ui/OperationalStates';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuthStore } from '@/stores/authStore';
-import { fetchMyPortal } from '@/features/portal/api';
+import {
+  fetchMyPortal, isAwaitingClient, useUploadMyDocument, type PortalPreviewDocument,
+} from '@/features/portal/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { PORTAL_LOGIN } from '@/features/portal/access';
 import { cn } from '@/lib/utils';
 
@@ -44,9 +48,47 @@ function initials(name: string): string {
     .join('');
 }
 
+/** Mesmo filtro do backend (operations._DOC_UPLOAD_EXTS). */
+const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.xml,.ofx,.csv,.txt,.xls,.xlsx,.doc,.docx,.zip';
+
 export function PortalDashboardPage() {
   const [activeTab, setActiveTab] = useState<PortalTab>('overview');
   const logout = useAuthStore((state) => state.logout);
+  const upload = useUploadMyDocument();
+  const fileInput = useRef<HTMLInputElement>(null);
+  // Pedido que receberá o próximo arquivo escolhido (null = envio avulso).
+  const uploadTarget = useRef<PortalPreviewDocument | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  const pickFile = (doc: PortalPreviewDocument | null) => {
+    uploadTarget.current = doc;
+    if (fileInput.current) {
+      fileInput.current.value = '';
+      fileInput.current.click();
+    }
+  };
+
+  const onFileChosen = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const target = uploadTarget.current;
+    setUploadingId(target?.id ?? 'free');
+    try {
+      await upload.mutateAsync({
+        file,
+        ...(target ? { requestId: target.id, kind: target.kind } : {}),
+      });
+      toast.success(
+        target
+          ? `"${target.name}" enviado. Seu escritório vai conferir.`
+          : 'Documento enviado. Seu escritório vai conferir.',
+      );
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível enviar o arquivo. Tente novamente.'));
+    } finally {
+      setUploadingId(null);
+    }
+  };
 
   const { data: portal, isLoading, error } = useQuery({
     queryKey: ['portal-my-overview'],
@@ -54,7 +96,7 @@ export function PortalDashboardPage() {
   });
 
   const pendingDocuments = useMemo(
-    () => (portal?.documents ?? []).filter(d => d.status === 'pending').length,
+    () => (portal?.documents ?? []).filter(isAwaitingClient).length,
     [portal?.documents],
   );
   const openGuides = useMemo(
@@ -169,30 +211,80 @@ export function PortalDashboardPage() {
 
             {activeTab === 'documents' && (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Documentos registrados pelo seu escritório.</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Documentos pedidos pelo seu escritório e os que você já enviou.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={upload.isPending}
+                    onClick={() => pickFile(null)}
+                  >
+                    {uploadingId === 'free' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    Enviar outro documento
+                  </Button>
+                </div>
                 {portal.documents.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">Nenhum documento registrado.</p>
                 ) : (
-                  portal.documents.map(doc => (
-                    <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-                      <div className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                        doc.status === 'pending' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success',
-                      )}>
-                        {doc.status === 'pending' ? <Clock className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                        {doc.requestedAt && (
+                  portal.documents.map(doc => {
+                    const awaiting = isAwaitingClient(doc);
+                    return (
+                      <div
+                        key={`${doc.kind}-${doc.id}`}
+                        className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4"
+                      >
+                        <div className={cn(
+                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                          awaiting ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success',
+                        )}>
+                          {awaiting ? <Clock className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground">{doc.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Registrado em {new Date(doc.requestedAt).toLocaleDateString('pt-BR')}
+                            {doc.competence && `Competência ${competenceLabel(doc.competence)} · `}
+                            {doc.requestedAt &&
+                              `${awaiting ? 'Pedido em' : 'Registrado em'} ${new Date(doc.requestedAt).toLocaleDateString('pt-BR')}`}
                           </p>
-                        )}
+                          {doc.notes && awaiting && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">{doc.notes}</p>
+                          )}
+                        </div>
+                        <StatusBadge status={doc.status} />
+                        {doc.canUpload ? (
+                          <Button
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={upload.isPending}
+                            onClick={() => pickFile(doc)}
+                          >
+                            {uploadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                            Enviar arquivo
+                          </Button>
+                        ) : doc.fileUrl ? (
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                              <Download className="h-3.5 w-3.5" />
+                              Baixar
+                            </a>
+                        ) : null}
                       </div>
-                      <StatusBadge status={doc.status} />
-                    </div>
-                  ))
+                    );
+                  })
                 )}
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  className="hidden"
+                  aria-label="Escolher arquivo para enviar"
+                  onChange={e => void onFileChosen(e)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Aceitamos PDF, imagens, planilhas, XML, OFX e ZIP de até 20 MB.
+                </p>
               </div>
             )}
 
@@ -217,6 +309,12 @@ export function PortalDashboardPage() {
                       <p className="text-sm font-semibold tabular-nums text-foreground">
                         {guide.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
+                      {guide.pdf_url && (
+                        <a href={guide.pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                            <Download className="h-3.5 w-3.5" />
+                            Guia
+                          </a>
+                      )}
                     </div>
                   ))
                 )}

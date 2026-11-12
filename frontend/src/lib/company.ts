@@ -1,8 +1,13 @@
 /**
  * Dados cadastrais da empresa responsável pelo FiscWise.
- * O CNPJ vem de VITE_COMPANY_CNPJ; vazio → as telas omitem a menção ao CNPJ
- * (nunca exibir número inventado ou placeholder "XX.XXX...").
+ * Conferidos em consulta pública ao CNPJ (2026-11-12): empresário individual,
+ * situação ativa, sede em Caieiras/SP. VITE_COMPANY_CNPJ, se definido, sobrepõe o padrão.
  */
-export const COMPANY_LEGAL_NAME = 'VStack Solutions Ltda';
 
-export const COMPANY_CNPJ: string = String(import.meta.env.VITE_COMPANY_CNPJ ?? '').trim();
+/** Como a empresa é identificada nos textos legais (nome comercial + natureza). */
+export const COMPANY_LEGAL_NAME = 'VStack Solutions';
+
+export const COMPANY_CNPJ: string =
+  String(import.meta.env.VITE_COMPANY_CNPJ ?? '').trim() || '40.204.602/0001-85';
+
+export const COMPANY_CITY = 'Caieiras/SP';

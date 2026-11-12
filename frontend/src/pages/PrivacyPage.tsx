@@ -6,6 +6,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
 
 export function PrivacyPage() {
   return (
@@ -42,7 +43,8 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold">1. Controlador de Dados</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              <strong>VStack Solutions Ltda</strong> é a controladora dos dados pessoais coletados
+              <strong>{COMPANY_LEGAL_NAME}</strong>, nome comercial do empresário individual inscrito
+              no CNPJ {COMPANY_CNPJ}, com sede em {COMPANY_CITY}, é a controladora dos dados pessoais coletados
               pelo FiscWise. Para questões relacionadas à privacidade, entre em contato com nosso
               DPO (Encarregado de Proteção de Dados) pelo e-mail{' '}
               <a href="mailto:privacidade@fiscwise.com.br" className="text-primary hover:underline">

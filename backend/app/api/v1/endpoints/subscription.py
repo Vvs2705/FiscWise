@@ -8,16 +8,16 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.core.pagination import Page, page_params, paginate
+from app.core.pagination import Page, page_params, paginate_list
 from app.core.plan_access import resolve_tenant_plan
 from app.models.operations import AccountingClient
-from app.models.plan import Plan
+from app.services.catalog_cache import get_active_plans, get_plan_by_slug
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -77,15 +77,18 @@ def _usage_item(used: int, limit: Optional[int]) -> UsageItem:
 # ---------------------------------------------------------------------------
 
 @router.get("/plans", response_model=list[PlanOut], summary="List available subscription plans")
-async def list_plans(page: Page = Depends(page_params), db: AsyncSession = Depends(get_db)):
-    """Return all active subscription plans (public, no auth required)."""
+async def list_plans(
+    response: Response, page: Page = Depends(page_params), db: AsyncSession = Depends(get_db)
+):
+    """Return all active subscription plans (public, no auth required).
+
+    Catálogo global, igual para todos (sem dado de tenant): cache de 5 min na
+    API e no navegador/CDN.
+    """
     from app.core.pricing import tabela_precos
 
-    plans = await paginate(
-        db,
-        select(Plan).where(Plan.active == True).order_by(Plan.price_monthly.nullsfirst(), Plan.id),
-        page,
-    )
+    plans = paginate_list(await get_active_plans(db), page)
+    response.headers["Cache-Control"] = "public, max-age=300"
     out = []
     for p in plans:
         item = PlanOut.model_validate(p)
@@ -110,8 +113,7 @@ async def get_subscription_usage(
     effective_slug = resolve_tenant_plan(tenant, current_user.email) or "free"
 
     # Load plan definition
-    plan_result = await db.execute(select(Plan).where(Plan.slug == effective_slug))
-    plan = plan_result.scalar_one_or_none()
+    plan = await get_plan_by_slug(db, effective_slug)
 
     if not plan:
         # Fallback: use free plan limits if plan not found in DB
@@ -195,8 +197,7 @@ async def check_limits(
     tenant = tenant_result.scalar_one_or_none()
     effective_slug = resolve_tenant_plan(tenant, current_user.email) or "free"
 
-    plan_result = await db.execute(select(Plan).where(Plan.slug == effective_slug))
-    plan = plan_result.scalar_one_or_none()
+    plan = await get_plan_by_slug(db, effective_slug)
 
     if resource == "client":
         if not plan or plan.max_clients is None:

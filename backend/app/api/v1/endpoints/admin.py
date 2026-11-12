@@ -108,6 +108,20 @@ async def set_plan_by_email(
     }
 
 
+@router.post("/cache/invalidate", summary="Admin: limpa o cache de planos e regras")
+async def invalidate_catalog_cache(
+    request: Request,
+    token: str = Depends(verify_admin_token),
+):
+    """Use depois de alterar `plans` ou `obligation_rules` direto no banco (seed,
+    SQL manual). Sem isso, a mudança aparece em até 5 minutos."""
+    from app.core.ttl_cache import invalidate_all
+
+    invalidate_all()
+    logger.info("[ADMIN] cache de catálogo invalidado por %s", _get_client_ip(request))
+    return {"status": "invalidated", "caches": ["plans", "obligation_rules"]}
+
+
 @router.get("/tenant-by-email", summary="Admin: Get tenant info by user email")
 async def get_tenant_by_email(
     email: str,

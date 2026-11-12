@@ -24,7 +24,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
-from app.core.pagination import Page, page_params, paginate
+from app.core.pagination import Page, page_params, paginate, paginate_list
 from app.core.tenant_guard import ensure_client_in_tenant
 from app.models.obligation import (
     ClientObligationProfile,
@@ -182,11 +182,10 @@ async def list_obligation_rules(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all available global obligation rules."""
-    stmt = select(ObligationRule)
-    if active_only:
-        stmt = stmt.where(ObligationRule.active == True)
-    return await paginate(db, stmt.order_by(ObligationRule.jurisdiction, ObligationRule.code), page)
+    """List all available global obligation rules (catálogo global, cache de 5 min)."""
+    from app.services.catalog_cache import get_obligation_rules
+
+    return paginate_list(await get_obligation_rules(db, active_only), page)
 
 
 # ---------------------------------------------------------------------------

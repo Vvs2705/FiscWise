@@ -47,3 +47,10 @@ async def paginate(db: AsyncSession, statement: Select, page: Page) -> list:
     if page.response is not None:
         page.response.headers[TOTAL_COUNT_HEADER] = str(total)
     return rows
+
+
+def paginate_list(items: list, page: Page) -> list:
+    """Mesma paginação para listas já carregadas (catálogos em cache)."""
+    if page.response is not None:
+        page.response.headers[TOTAL_COUNT_HEADER] = str(len(items))
+    return list(items[page.offset : page.offset + page.limit])

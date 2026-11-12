@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List, Optional, Any
 from datetime import date
@@ -10,10 +11,15 @@ from app.models.user import User
 from app.domain.ecac.service import EcacService
 from app.domain.ecac.repository import EcacRepository
 from app.domain.ecac.schemas import EcacProxyCreate, EcacProxyUpdate, EcacProxyResponse, EcacFiscalSituationResponse
-from app.domain.ecac.integrations.mock import MockEcacIntegrationProvider
+from app.domain.ecac.integrations.integra_contador import IntegraContadorProvider
+from app.domain.ecac.integrations.factory import (
+    EcacProviderNotConfiguredError,
+    build_ecac_provider,
+)
 from app.models.operations import AccountingClient
 from app.schemas.operations import AccountingClientResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ecac", tags=["e-CAC"])
 
 def _tenant_id(current_user: User) -> uuid.UUID:
@@ -24,11 +30,15 @@ async def refresh_fiscal_situation_background(client_id: uuid.UUID, tenant_id: u
     async with async_session() as db:
         repo = EcacRepository(db)
         service = EcacService(repo)
-        provider = MockEcacIntegrationProvider()
         try:
+            provider = build_ecac_provider()
             await service.refresh_fiscal_situation_sync(client_id, tenant_id, provider)
-        except Exception as e:
-            print("ERROR IN BACKGROUND TASK:", str(e))
+        except Exception:
+            logger.exception(
+                "Falha ao consultar a situação fiscal no e-CAC (client=%s tenant=%s)",
+                client_id,
+                tenant_id,
+            )
 
 @router.get("/proxies", response_model=List[EcacProxyResponse])
 async def list_proxies(
@@ -137,6 +147,17 @@ async def refresh_fiscal_situation(
     )
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Client not found")
+
+    # Valida o provider antes de enfileirar: em produção com mock, 503 sem gravar.
+    try:
+        provider = build_ecac_provider()
+    except EcacProviderNotConfiguredError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    if isinstance(provider, IntegraContadorProvider):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Integração e-CAC via SERPRO Integra Contador ainda não implementada.",
+        )
 
     background_tasks.add_task(refresh_fiscal_situation_background, client_id, _tenant_id(current_user))
     return {"status": "queued", "message": "e-CAC fiscal situation query queued successfully"}

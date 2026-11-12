@@ -1,7 +1,8 @@
+import logging
 import uuid
 from typing import List, Optional
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
@@ -11,7 +12,10 @@ def _tenant_id(current_user: User) -> uuid.UUID:
     return current_user.tenant_id
 from app.domain.invoices.service import InvoiceService
 from app.domain.invoices.repository import InvoiceRepository
-from app.domain.invoices.providers.mock import MockNfseProvider
+from app.domain.invoices.providers.factory import (
+    NfseProviderNotConfiguredError,
+    build_nfse_provider,
+)
 from app.domain.invoices.schemas import (
     InvoiceIssuerCreate,
     InvoiceIssuerResponse,
@@ -23,18 +27,33 @@ from app.domain.invoices.schemas import (
 )
 from app.core.deps import get_sessionmaker
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
+
+
+def _provider_or_503():
+    """Em produção com provider mock: 503 antes de qualquer mudança de status."""
+    try:
+        return build_nfse_provider()
+    except NfseProviderNotConfiguredError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+
 
 async def process_emission_background(invoice_id: uuid.UUID, tenant_id: uuid.UUID):
     async_session = get_sessionmaker()
     async with async_session() as db:
         repo = InvoiceRepository(db)
         service = InvoiceService(repo)
-        provider = MockNfseProvider()
         try:
+            provider = build_nfse_provider()
             await service.process_emission_sync(invoice_id, tenant_id, provider)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.exception("Falha ao processar emissão da NFS-e %s", invoice_id)
+            try:
+                await db.rollback()
+                await service.record_background_failure(invoice_id, tenant_id, str(exc))
+            except Exception:
+                logger.exception("Falha ao registrar a rejeição da NFS-e %s", invoice_id)
 
 @router.post("/issuers", response_model=InvoiceIssuerResponse, status_code=status.HTTP_201_CREATED)
 async def create_issuer(
@@ -99,9 +118,13 @@ async def emit_invoice(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    _provider_or_503()
     repo = InvoiceRepository(db)
     service = InvoiceService(repo)
-    invoice = await service.queue_emission(id, _tenant_id(current_user))
+    try:
+        invoice = await service.queue_emission(id, _tenant_id(current_user))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     background_tasks.add_task(process_emission_background, id, _tenant_id(current_user))
     return invoice
 
@@ -112,10 +135,13 @@ async def cancel_invoice(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    provider = _provider_or_503()
     repo = InvoiceRepository(db)
     service = InvoiceService(repo)
-    provider = MockNfseProvider()
-    return await service.cancel_invoice(id, _tenant_id(current_user), payload.reason, provider)
+    try:
+        return await service.cancel_invoice(id, _tenant_id(current_user), payload.reason, provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 @router.get("/{id}/pdf")
 async def get_pdf(
@@ -125,8 +151,12 @@ async def get_pdf(
 ):
     repo = InvoiceRepository(db)
     service = InvoiceService(repo)
-    url = await service.get_pdf_signed_url(id, _tenant_id(current_user))
-    return {"url": url}
+    content, filename = await service.get_pdf_bytes(id, _tenant_id(current_user))
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @router.get("/{id}/xml")
 async def get_xml(
@@ -136,8 +166,12 @@ async def get_xml(
 ):
     repo = InvoiceRepository(db)
     service = InvoiceService(repo)
-    url = await service.get_xml_signed_url(id, _tenant_id(current_user))
-    return {"url": url}
+    xml, filename = await service.get_xml_content(id, _tenant_id(current_user))
+    return Response(
+        content=xml.encode("utf-8"),
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @router.get("/{id}/events", response_model=List[InvoiceEventResponse])
 async def list_events(

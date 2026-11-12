@@ -4,9 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Search, RefreshCw, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge, RiskBadge } from '@/components/ui/StatusBadge';
-import { EmptyState, ErrorState, SkeletonTable } from '@/components/ui/OperationalStates';
+import { EmptyState, ErrorState, SimulationNotice, SkeletonTable } from '@/components/ui/OperationalStates';
 import { FeatureGate } from '@/components/ui/FeatureGate';
-import { fetchMailboxMessages, markMessageResolved, syncMailboxMessages } from '@/features/fiscal-mailbox/api';
+import {
+  fetchMailboxMessages,
+  fetchMailboxProviderStatus,
+  markMessageResolved,
+  syncMailboxMessages,
+} from '@/features/fiscal-mailbox/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { MailboxMessage } from '@/features/fiscal-mailbox/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -40,6 +46,15 @@ export function FiscalMailboxPage() {
     queryFn: () => fetchMailboxMessages({ risk: riskFilter, status: statusFilter }),
   });
 
+  const { data: providerStatus } = useQuery({
+    queryKey: ['fiscal-mailbox', 'provider-status'],
+    queryFn: fetchMailboxProviderStatus,
+    staleTime: 5 * 60_000,
+  });
+  const showSimulation =
+    Boolean(providerStatus?.simulated) || (messages ?? []).some(m => m.simulated);
+  const syncAvailable = providerStatus?.syncAvailable ?? true;
+
   const resolveMutation = useMutation({
     mutationFn: markMessageResolved,
     onSuccess: () => {
@@ -60,7 +75,7 @@ export function FiscalMailboxPage() {
           : 'Caixa postal já está atualizada',
       );
     },
-    onError: () => toast.error('Erro ao sincronizar a caixa postal'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Erro ao sincronizar a caixa postal')),
   });
 
   const debouncedSearch = useDebouncedValue(search);
@@ -85,6 +100,7 @@ export function FiscalMailboxPage() {
           icon={<Mail className="h-5 w-5" />}
           breadcrumb={[{ label: 'Caixa Postal Fiscal' }]}
           actions={
+            syncAvailable && (
             <button
               type="button"
               onClick={() => syncMutation.mutate()}
@@ -95,8 +111,17 @@ export function FiscalMailboxPage() {
               <RefreshCw className={cn('h-4 w-4', syncMutation.isPending && 'animate-spin')} />
               <span className="hidden sm:inline">{syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}</span>
             </button>
+            )
           }
         />
+
+        {showSimulation && (
+          <SimulationNotice>
+            {syncAvailable
+              ? 'A caixa postal está ligada a um provedor simulado: as mensagens abaixo são exemplos e não vieram da Receita Federal.'
+              : `${providerStatus?.message ?? 'Caixa postal exige SERPRO (não configurado)'}. Mensagens marcadas como simuladas não vieram da Receita Federal.`}
+          </SimulationNotice>
+        )}
 
         {/* Alert banners */}
         {criticalCount > 0 && (

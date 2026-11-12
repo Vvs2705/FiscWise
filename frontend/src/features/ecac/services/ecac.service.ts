@@ -35,8 +35,9 @@ export interface EcacFiscalSituationResponse {
   debitos?: unknown;
   certidao_status?: string;
   certidao_validade?: string;
-  raw_response?: unknown;
   consultado_em: string;
+  /** Consulta feita pelo provider simulado: não reflete a Receita. */
+  simulated?: boolean;
 }
 
 export const ecacService = {

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -29,6 +28,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn, formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -42,9 +42,10 @@ import { ClientWhatsAppWidget } from './ClientWhatsAppWidget';
 import { PortalAccessButton } from '@/features/portal/PortalAccessButton';
 import {
   useFiscalMonitorStatus,
-  useFiscalNFes,
   useSyncFiscalMonitor,
 } from '@/lib/hooks/useFiscalMonitor';
+import { formatOption, formatRegistryDate, registryBadge } from '@/lib/fiscalRegistry';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   useUpdateClient,
   usePartners,
@@ -137,7 +138,6 @@ const partnerSchema = z.object({
 
 type PartnerFormValues = z.infer<typeof partnerSchema>;
 type MessageTemplate = 'das' | 'documentos' | 'certificado' | 'personalizado';
-type NfeTypeFilter = 'ALL' | 'ENTRADA' | 'SAIDA';
 
 const statusLabel: Record<ClientStatus, string> = {
   active: 'Ativo',
@@ -198,25 +198,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
 
   // Fiscal Monitor Queries & Mutations
   const { data: monitorSummary, refetch: refetchMonitor } = useFiscalMonitorStatus(clientId);
-  const { data: monitorNfes = [], refetch: refetchNfes, isLoading: isLoadingNfes } = useFiscalNFes(clientId);
   const syncMonitorMutation = useSyncFiscalMonitor(clientId);
-
-  const [nfeSearchQuery, setNfeSearchQuery] = useState('');
-  const [nfeTypeFilter, setNfeTypeFilter] = useState<NfeTypeFilter>('ALL');
-  // Busca de emitente/destinatário com debounce; filtro memoizado.
-  const debouncedNfeSearch = useDebouncedValue(nfeSearchQuery);
-  const filteredNfes = useMemo(() => {
-    const q = debouncedNfeSearch.toLowerCase();
-    return monitorNfes.filter((nfe) => {
-      const matchesSearch =
-        nfe.issuer_name.toLowerCase().includes(q) ||
-        nfe.recipient_name.toLowerCase().includes(q) ||
-        nfe.access_key.includes(debouncedNfeSearch) ||
-        nfe.nfe_number.includes(debouncedNfeSearch);
-      const matchesType = nfeTypeFilter === 'ALL' || nfe.nfe_type === nfeTypeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [monitorNfes, debouncedNfeSearch, nfeTypeFilter]);
 
   const { data: billingConfig } = useClientBillingConfig(clientId);
   const updateBillingConfigMutation = useUpdateClientBillingConfig();
@@ -290,9 +272,8 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
       refetchDas();
       refetchDeadlines();
       refetchMonitor();
-      refetchNfes();
     }
-  }, [client, resetClient, refetchPartners, refetchDocs, refetchDas, refetchDeadlines, refetchMonitor, refetchNfes]);
+  }, [client, resetClient, refetchPartners, refetchDocs, refetchDas, refetchDeadlines, refetchMonitor]);
 
   // Partner editor effect
   useEffect(() => {
@@ -1505,14 +1486,14 @@ FiscWise`,
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
               <div>
                 <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
-                  Monitoramento Fiscal & Notas Fiscais
+                  Monitor Fiscal
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {monitorSummary?.last_sync_at
-                    ? `Última sincronização com a Receita Federal em: ${new Date(
+                    ? `Última consulta cadastral em: ${new Date(
                         monitorSummary.last_sync_at
                       ).toLocaleString('pt-BR')}`
-                    : 'Este CNPJ ainda não foi sincronizado com a Receita Federal.'}
+                    : 'A situação cadastral deste CNPJ ainda não foi consultada.'}
                 </p>
               </div>
               <Button
@@ -1522,12 +1503,14 @@ FiscWise`,
                 onClick={async () => {
                   try {
                     const res = await syncMonitorMutation.mutateAsync();
-                    toast.success(
-                      `Sincronização concluída! ${res.nfes_fetched} notas fiscais importadas.`
-                    );
+                    if (res.status === 'error') {
+                      toast.error(res.message);
+                    } else {
+                      toast.success('Situação cadastral atualizada.');
+                    }
                     refetchDocs();
-                  } catch {
-                    toast.error('Erro ao sincronizar dados fiscais.');
+                  } catch (err) {
+                    toast.error(getApiErrorMessage(err, 'Erro ao consultar a situação cadastral.'));
                   }
                 }}
                 className="gap-2 shrink-0 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-glow-sm"
@@ -1538,277 +1521,94 @@ FiscWise`,
                     syncMonitorMutation.isPending && 'animate-spin'
                   )}
                 />
-                {syncMonitorMutation.isPending ? 'Sincronizando...' : 'Sincronizar Agora'}
+                {syncMonitorMutation.isPending ? 'Consultando...' : 'Consultar situação cadastral'}
               </Button>
             </div>
 
-            {/* Grid de Informações Principais (CNPJ + CND) */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Cadastro CNPJ Card */}
-              <Card className="p-5 space-y-4 border border-border/80 bg-card/20 relative overflow-hidden">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Cadastro CNPJ (Receita Federal)
-                    </h4>
-                    <p className="text-sm font-bold text-foreground mt-1">
-                      {client.name}
-                    </p>
-                    <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                      CNPJ: {client.document || 'Não informado'}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      monitorSummary?.cnpj_status === 'REGULAR'
-                        ? 'success'
-                        : monitorSummary?.cnpj_status === 'PENDENTE'
-                        ? 'default'
-                        : 'error'
-                    }
-                  >
-                    {monitorSummary?.cnpj_status || 'PENDENTE'}
-                  </Badge>
-                </div>
-
-                <div className="border-t border-border/60 pt-3 space-y-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Natureza Jurídica:</span>
-                    <p className="font-medium text-foreground">
-                      {monitorSummary?.situation_details?.natureza_juridica || 'Não informada'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Atividade Econômica Principal:</span>
-                    <p className="font-medium text-foreground">
-                      {monitorSummary?.situation_details?.atividade_principal?.[0]?.text ||
-                        'Não informada'}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Certidão Negativa (CND) Card */}
-              <Card className="p-5 space-y-4 border border-border/80 bg-card/20 relative overflow-hidden">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Certidão Negativa de Débitos (CND)
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Situação de regularidade perante a Fazenda Nacional.
-                    </p>
-                    {monitorSummary?.last_cnd_download_at && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Download CND: {new Date(monitorSummary.last_cnd_download_at).toLocaleString('pt-BR')}
+            {/* Situação cadastral real (BrasilAPI) */}
+            {(() => {
+              const details = monitorSummary?.situation_details ?? null;
+              const badge = registryBadge(monitorSummary?.cnpj_status);
+              const situationDate = formatRegistryDate(details?.data_situacao_cadastral);
+              const openedAt = formatRegistryDate(details?.data_inicio_atividade);
+              return (
+                <Card className="p-5 space-y-4 border border-border/80 bg-card/20 relative overflow-hidden">
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Situação cadastral do CNPJ
+                      </h4>
+                      <p className="text-sm font-bold text-foreground mt-1">
+                        {details?.razao_social || client.name}
                       </p>
-                    )}
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                        CNPJ: {client.document || 'Não informado'}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <Badge variant={badge.tone}>{badge.label}</Badge>
+                      {situationDate && (
+                        <p className="text-[10px] text-muted-foreground mt-1">desde {situationDate}</p>
+                      )}
+                    </div>
                   </div>
-                  <Badge
-                    variant={
-                      monitorSummary?.cnd_status === 'REGULAR'
-                        ? 'success'
-                        : monitorSummary?.cnd_status === 'PENDENTE'
-                        ? 'default'
-                        : 'error'
-                    }
-                  >
-                    {monitorSummary?.cnd_status === 'REGULAR'
-                      ? 'SEM PENDÊNCIAS'
-                      : monitorSummary?.cnd_status === 'PENDENTE'
-                      ? 'PENDENTE'
-                      : 'COM PENDÊNCIAS'}
-                  </Badge>
-                </div>
 
-                <div className="border-t border-border/60 pt-4 flex items-center justify-between">
-                  <div className="text-xs">
-                    <span className="text-muted-foreground block">Validade CND:</span>
-                    <span className="font-medium text-foreground">
-                      {monitorSummary?.last_sync_at
-                        ? `Validade estimada: 180 dias`
-                        : 'Pendente de sincronização'}
-                    </span>
-                  </div>
-                  {monitorSummary?.last_cnd_document_id && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const doc = parsedClientDocs.find((d) => d.id === monitorSummary.last_cnd_document_id) || 
-                                    companyDocs.find((d) => d.id === monitorSummary.last_cnd_document_id);
-                        // Antes caía num endereço inventado (fiscwise.storage) quando o arquivo não existia.
-                        if (!doc?.file_url) {
-                          toast.error('Arquivo da CND não encontrado nos documentos do cliente.');
-                          return;
-                        }
-                        window.open(doc.file_url, '_blank', 'noopener');
-                      }}
-                      className="gap-1.5 text-xs h-8"
-                    >
-                      <FileDown className="h-4 w-4" /> Baixar CND PDF
-                    </Button>
+                  {details?.status === 'error' && (
+                    <p className="text-xs text-warning">
+                      Última consulta falhou: {details.last_error}. Os dados abaixo são da consulta anterior, se houver.
+                    </p>
                   )}
-                </div>
-              </Card>
-            </div>
 
-            {/* Débitos e Irregularidades */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-1">
-                Débitos & Pendências Identificados
-              </h3>
-              {!monitorSummary || !monitorSummary.has_debts || (monitorSummary.debts_list?.debts || []).length === 0 ? (
-                <div className="text-center py-8 border border-dashed rounded-xl text-muted-foreground text-xs">
-                  Nenhum débito ou pendência fiscal ativa identificada na Receita Federal.
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {(monitorSummary.debts_list?.debts || []).map((debt) => (
-                    <div
-                      key={debt.id}
-                      className="fiscwise-surface flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-xl border border-destructive/20 bg-destructive/5 gap-3"
-                    >
+                  {monitorSummary?.registry_source ? (
+                    <div className="border-t border-border/60 pt-3 grid gap-3 text-xs sm:grid-cols-2">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-foreground text-sm">{debt.description}</span>
-                          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-destructive/20 text-destructive">
-                            {debt.type}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                          Vencimento original: {new Date(debt.due_date).toLocaleDateString('pt-BR')}
+                        <span className="text-muted-foreground">Atividade principal (CNAE):</span>
+                        <p className="font-medium text-foreground">
+                          {details?.cnae_fiscal
+                            ? `${details.cnae_fiscal} — ${details.cnae_fiscal_descricao || ''}`
+                            : 'Não informada'}
                         </p>
                       </div>
-                      <div className="flex items-center gap-4 justify-between sm:justify-end shrink-0">
-                        <span className="font-bold text-destructive font-mono text-sm">
-                          R$ {debt.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            toast.info("Guia de regularização sendo emitida pelo parceiro...");
-                          }}
-                          className="h-8 text-xs border-destructive/20 hover:bg-destructive/10 text-destructive"
-                        >
-                          Emitir Guia
-                        </Button>
+                      <div>
+                        <span className="text-muted-foreground">Natureza jurídica:</span>
+                        <p className="font-medium text-foreground">
+                          {details?.natureza_juridica || 'Não informada'}
+                        </p>
                       </div>
+                      <div>
+                        <span className="text-muted-foreground">Optante pelo Simples / MEI:</span>
+                        <p className="font-medium text-foreground">
+                          Simples: {formatOption(details?.opcao_pelo_simples)} · MEI:{' '}
+                          {formatOption(details?.opcao_pelo_mei)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Início de atividade:</span>
+                        <p className="font-medium text-foreground">{openedAt || 'Não informado'}</p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground sm:col-span-2">
+                        Fonte: {monitorSummary.registry_source === 'brasilapi' ? 'BrasilAPI (dados públicos da Receita Federal)' : 'simulação de teste'}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  ) : (
+                    <p className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                      Clique em “Consultar situação cadastral” para buscar os dados públicos do CNPJ.
+                    </p>
+                  )}
+                </Card>
+              );
+            })()}
 
-            {/* Listagem de Notas Fiscais (NF-e) */}
-            <div className="space-y-4 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-2">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Notas Fiscais Capturadas (Receita Federal)
-                </h3>
-
-                {/* Filtros NF-e */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <Input
-                    placeholder="Buscar emitente / chave..."
-                    value={nfeSearchQuery}
-                    onChange={(e) => setNfeSearchQuery(e.target.value)}
-                    className="h-8 text-xs w-44 md:w-56"
-                  />
-                  <Select
-                    value={nfeTypeFilter}
-                    onChange={(e) => setNfeTypeFilter(e.target.value as NfeTypeFilter)}
-                    className="h-8 text-xs w-28"
-                  >
-                    <option value="ALL">Todas</option>
-                    <option value="ENTRADA">Entradas</option>
-                    <option value="SAIDA">Saídas</option>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Tabela NF-e */}
-              {isLoadingNfes ? (
-                <div className="py-6 text-center text-xs text-muted-foreground">
-                  Buscando histórico de notas fiscais...
-                </div>
-              ) : monitorNfes.length === 0 ? (
-                <div className="text-center py-10 border border-dashed rounded-xl text-muted-foreground text-xs">
-                  Nenhuma nota fiscal eletrônica capturada para este cliente. Clique em Sincronizar.
-                </div>
-              ) : (() => {
-                if (filteredNfes.length === 0) {
-                  return (
-                    <div className="text-center py-6 text-xs text-muted-foreground">
-                      Nenhuma nota atende aos filtros aplicados.
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="overflow-x-auto rounded-xl border border-border bg-card/10">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/20 font-semibold text-muted-foreground">
-                          <th className="p-3">Data Emissão</th>
-                          <th className="p-3">Número / Chave</th>
-                          <th className="p-3">Operação</th>
-                          <th className="p-3">Parceiro Comercial</th>
-                          <th className="p-3 text-right">Valor</th>
-                          <th className="p-3 text-center">XML</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredNfes.map((nfe) => {
-                          const isIncoming = nfe.nfe_type === 'ENTRADA';
-                          const partnerName = isIncoming ? nfe.issuer_name : nfe.recipient_name;
-                          const partnerDoc = isIncoming ? nfe.issuer_document : nfe.recipient_document;
-
-                          return (
-                            <tr key={nfe.id} className="border-b border-border/60 hover:bg-muted/10 transition-colors">
-                              <td className="p-3 font-medium whitespace-nowrap">
-                                {new Date(nfe.issued_at).toLocaleDateString('pt-BR')}
-                              </td>
-                              <td className="p-3">
-                                <span className="font-semibold block">{nfe.nfe_number}</span>
-                                <span className="text-[10px] text-muted-foreground font-mono block select-all truncate max-w-[180px]">
-                                  {nfe.access_key}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <Badge variant={isIncoming ? 'success' : 'default'} className="text-[9px] px-1.5 py-0.5">
-                                  {isIncoming ? 'ENTRADA' : 'SAÍDA'}
-                                </Badge>
-                              </td>
-                              <td className="p-3">
-                                <span className="font-semibold block truncate max-w-[200px]">{partnerName}</span>
-                                <span className="text-[10px] text-muted-foreground font-mono">{partnerDoc}</span>
-                              </td>
-                              <td className="p-3 text-right font-mono font-bold text-foreground">
-                                R$ {nfe.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3 text-center">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0 hover:bg-primary/10 hover:text-primary"
-                                  onClick={() => {
-                                    window.open(nfe.xml_url || '#', '_blank');
-                                  }}
-                                >
-                                  <FileDown className="h-4.5 w-4.5" />
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
+            {/* Débitos, CND e NF-e: dependem do SERPRO (não contratado) */}
+            <EmptyState
+              icon={Lock}
+              title="Débitos, CND e NF-e indisponíveis"
+              description={
+                monitorSummary?.message ||
+                'Consulta de débitos/CND/NF-e exige integração com a Receita (SERPRO) — não configurada'
+              }
+              className="max-w-none"
+            />
           </div>
         )}
 

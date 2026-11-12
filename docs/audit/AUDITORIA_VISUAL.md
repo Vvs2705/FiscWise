@@ -29,7 +29,7 @@ tempo e pouca hierarquia. Nada está quebrado, mas nada parece decidido.
 
 | Item | Achado | Impacto |
 |---|---|---|
-| Dependências mortas **empacotadas** | `recharts`, `react-hot-toast`, `date-fns`, `embla-carousel-react`, `@tanstack/react-table` têm 0 imports mas entram via `manualChunks` | `vendor-utils` 75 kB (27,6 kB gz), chunk `vendor-charts` |
+| Dependências mortas | `recharts`, `react-hot-toast`, `date-fns`, `embla-carousel-react`, `@tanstack/react-table`, 3 pacotes `@radix-ui` têm 0 imports (o Rollup já não os empacotava; removidos para encolher `npm ci`, `npm audit` e o lockfile) | 55 pacotes a menos no `node_modules` |
 | framer-motion no login | 128 kB (42 kB gz) carregado na rota pública só para fade-in | LCP do login |
 | Fontes | 2 requisições bloqueantes ao Google Fonts, 10 pesos | FOUT/LCP; dependência externa |
 | Efeitos de GPU | `backdrop-filter` em todos os cards + `background-attachment: fixed` | jank em celular fraco |

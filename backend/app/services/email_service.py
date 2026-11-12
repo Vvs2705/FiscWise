@@ -62,6 +62,11 @@ def _is_enabled() -> bool:
     return bool(flag) or os.getenv("RESEND_ENABLED", "") == "true"
 
 
+def is_configured() -> bool:
+    """True quando o envio real está ligado E há chave (senão send_email só loga)."""
+    return _is_enabled() and bool(_get_api_key())
+
+
 async def send_email(
     to: str,
     subject: str,
@@ -241,5 +246,22 @@ def render_lgpd_deletion_email(deadline_business_days: int = 15) -> str:
 <p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
   Observação: documentos fiscais podem ser retidos por até <strong style="color:{_INK};">5 anos</strong>,
   conforme exigência da Receita Federal (legislação tributária brasileira).
+</p>"""
+    return _base_layout(inner)
+
+
+def render_portal_magic_link_email(link: str) -> str:
+    """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">Seu acesso ao portal do cliente</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Clique no botão abaixo para entrar no portal do seu escritório contábil.
+  O link vale por 24 horas e só pode ser usado uma vez.
+</p>
+<div style="text-align:center;margin:0 0 20px 0;">
+  <a href="{link}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Acessar o portal</a>
+</div>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Se você não pediu este acesso, ignore este e-mail. Não compartilhe este link.
 </p>"""
     return _base_layout(inner)

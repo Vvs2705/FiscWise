@@ -31,6 +31,8 @@ from typing import Optional
 
 import httpx
 
+from app.core.http_client import ExternalServiceError, request_with_retry
+
 logger = logging.getLogger(__name__)
 
 # Try to import settings, but degrade gracefully if it is unavailable for any
@@ -113,8 +115,11 @@ async def send_email(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
-            resp = await client.post(RESEND_API_URL, json=payload, headers=headers)
+        # Resend honra o Idempotency-Key: reenvio não duplica o e-mail.
+        resp = await request_with_retry(
+            "POST", RESEND_API_URL, service="resend", idempotent=True,
+            read_timeout=_HTTP_TIMEOUT_SECONDS, json=payload, headers=headers,
+        )
 
         if 200 <= resp.status_code < 300:
             # Log only non-sensitive metadata (no body, no OTP).
@@ -141,7 +146,7 @@ async def send_email(
         )
         return False
 
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ExternalServiceError) as exc:
         logger.warning(
             "Resend request failed (network/timeout). to=%s subject=%r error=%s",
             to,

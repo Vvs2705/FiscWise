@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,16 +11,52 @@ interface DialogProps {
   className?: string;
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Dialog({ open, onClose, title, children, footer, className }: DialogProps) {
-  // Close on Escape
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Esc fecha, Tab fica preso no painel e o foco volta ao elemento de origem.
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+
+    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+    (first ?? panel)?.focus();
+
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !panel) return;
+      const nodes = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (nodes.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstNode = nodes[0];
+      const lastNode = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === firstNode) {
+        e.preventDefault();
+        lastNode.focus();
+      } else if (!e.shiftKey && document.activeElement === lastNode) {
+        e.preventDefault();
+        firstNode.focus();
+      }
     };
+
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener('keydown', handler);
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -29,45 +65,45 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
     >
-      {/* Backdrop */}
+      {/* Backdrop: sem blur */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-foreground/40 animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
+      {/* Painel */}
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cn(
-          'relative z-10 flex w-full max-w-lg flex-col rounded-lg border bg-background shadow-token',
-          'max-h-[90vh]',
+          'relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg border border-border bg-card text-card-foreground shadow-lg outline-none',
+          'animate-fade-in-up',
           className
         )}
       >
-        {/* Header — fixed */}
-        <div className="flex shrink-0 items-center justify-between border-b px-6 py-4">
-          <h2 id="dialog-title" className="text-base font-semibold">
+        {/* Cabeçalho fixo */}
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-4">
+          <h2 id={titleId} className="text-base font-semibold text-foreground">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-mr-1.5 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Fechar"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Body — scrollable */}
-        <div className="overflow-y-auto px-6 py-4">{children}</div>
+        {/* Corpo rolável */}
+        <div className="overflow-y-auto px-5 py-4">{children}</div>
 
-        {/* Footer — fixed at bottom */}
-        {footer && (
-          <div className="shrink-0 border-t px-6 py-4">{footer}</div>
-        )}
+        {/* Rodapé fixo */}
+        {footer && <div className="shrink-0 border-t border-border px-5 py-4">{footer}</div>}
       </div>
     </div>
   );

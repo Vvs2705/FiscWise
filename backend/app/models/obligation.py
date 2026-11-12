@@ -35,12 +35,14 @@ class ObligationRule(Base):
     """
 
     __tablename__ = "obligation_rules"
+    # Unicidade só pela constraint (o antigo ix_ unique duplicava o uq_).
+    __table_args__ = (UniqueConstraint("code", name="uq_obligation_rules_code"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     code: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True, index=True,
+        String(50), nullable=False,
         comment="Unique identifier (e.g. DAS, DEFIS, DCTFWEB)",
     )
     name: Mapped[str] = mapped_column(
@@ -126,8 +128,8 @@ class ClientObligationProfile(Base, TenantBase):
     client_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("accounting_clients.id", ondelete="CASCADE"),
-        nullable=False, index=True,
-        comment="One profile per client",
+        nullable=False,
+        comment="One profile per client (índice vem de uq_client_obligation_profiles_client_id)",
     )
 
     tax_regime: Mapped[Optional[str]] = mapped_column(
@@ -179,7 +181,7 @@ class ObligationInstance(Base, TenantBase):
     rule_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("obligation_rules.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
         comment="The rule that generated this instance. NULL = manual obligation.",
     )
 
@@ -201,7 +203,7 @@ class ObligationInstance(Base, TenantBase):
     assigned_to: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
 
     delivery_proof: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
@@ -242,7 +244,7 @@ class DocumentChecklistItem(Base, TenantBase):
     obligation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("obligation_instances.id", ondelete="SET NULL"),
-        nullable=True,
+        nullable=True, index=True,
     )
 
     competence_month: Mapped[date] = mapped_column(Date, nullable=False, index=True)

@@ -11,7 +11,7 @@ linhas, inclusive as globais (tenant_id NULL). Sem a flag, uma requisição sem
 contexto não vê nada.
 
 Revision ID: o0a1b2c3d4e5
-Revises: n9h6ab38fj5
+Revises: o1a7bc49gk6
 Create Date: 2026-11-12
 """
 
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "o0a1b2c3d4e5"
-down_revision = "n9h6ab38fj5"
+down_revision = "o1a7bc49gk6"
 branch_labels = None
 depends_on = None
 

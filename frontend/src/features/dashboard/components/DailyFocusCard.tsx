@@ -35,7 +35,7 @@ export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocus
     <div className="rounded-card border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/80">
+          <p className="text-xs font-medium text-muted-foreground">
             Foco de hoje
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-foreground">
@@ -68,7 +68,7 @@ export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocus
       </div>
 
       <div className="mt-5 rounded-card border border-border bg-muted px-4 py-4">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Próximo passo</p>
+        <p className="text-xs font-medium text-muted-foreground">Próximo passo</p>
         <p className="mt-2 text-sm leading-6 text-foreground">
           Comece o Modo Foco para resolver as pendências críticas ordenadamente, ou acesse a agenda fiscal.
         </p>

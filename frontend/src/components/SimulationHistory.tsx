@@ -210,7 +210,7 @@ export function SimulationHistory({ userPlan = 'FREE' }: Props = {}) {
                   className="overflow-hidden"
                 >
                   <div className="border-t border-border px-4 py-3 bg-muted/10">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-3">
                       Cenários comparados
                     </p>
                     <div className="grid gap-2 sm:grid-cols-3">

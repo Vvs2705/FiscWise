@@ -24,7 +24,7 @@ export function DashboardHero({ isError, onStartFocusMode }: DashboardHeroProps)
   return (
     <div className="p-6 md:p-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">
+        <p className="text-xs font-medium text-muted-foreground">
           Painel
         </p>
         <h1

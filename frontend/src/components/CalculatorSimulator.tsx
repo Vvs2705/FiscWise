@@ -80,7 +80,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} data-plan={userPlan} className="space-y-5 rounded-xl border border-border bg-card p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-sm font-medium text-muted-foreground">
           Dados da simulação
         </h3>
 
@@ -212,7 +212,7 @@ export function CalculatorSimulator({ userPlan = 'FREE' }: Props = {}) {
             transition={{ duration: 0.4 }}
             className="space-y-4"
           >
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <h3 className="text-sm font-medium text-muted-foreground">
               Resultado da simulação
             </h3>
 

@@ -668,7 +668,7 @@ export function FatorRCalculator() {
             transition={{ duration: 0.4 }}
             className="space-y-5"
           >
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <h3 className="text-sm font-medium text-muted-foreground">
               Resultado do Fator R
             </h3>
 

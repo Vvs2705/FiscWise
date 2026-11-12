@@ -81,6 +81,8 @@ import {
   type ClientAiSummary,
 } from '@/lib/aiDocuments';
 import { daysUntilLocal, formatLocalDate } from '@/lib/dates';
+import { useNavigate } from 'react-router-dom';
+import type { GuiasLocationState } from '@/features/guias/pages/GuiasListPage';
 
 interface ClientDetailCockpitProps {
   clientId: string;
@@ -194,6 +196,15 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
 
   // Fiscal Monitor Queries & Mutations
   const { data: monitorSummary, refetch: refetchMonitor } = useFiscalMonitorStatus(clientId);
+  const navigate = useNavigate();
+  // Validade real do arquivo da CND (se o documento tiver data de validade); sem ela, não exibimos.
+  const cndExpiresAt = useMemo(() => {
+    const id = monitorSummary?.last_cnd_document_id;
+    if (!id) return null;
+    const parsed = parsedClientDocs.find((d) => d.id === id);
+    if (parsed?.expires_at) return parsed.expires_at;
+    return companyDocs.find((d) => d.id === id)?.expiration_date ?? null;
+  }, [monitorSummary?.last_cnd_document_id, parsedClientDocs, companyDocs]);
   const { data: monitorNfes = [], refetch: refetchNfes, isLoading: isLoadingNfes } = useFiscalNFes(clientId);
   const syncMonitorMutation = useSyncFiscalMonitor(clientId);
 
@@ -1575,14 +1586,16 @@ FiscWise`,
                 </div>
 
                 <div className="border-t border-border/60 pt-4 flex items-center justify-between">
-                  <div className="text-xs">
-                    <span className="text-muted-foreground block">Validade CND:</span>
-                    <span className="font-medium text-foreground">
-                      {monitorSummary?.last_sync_at
-                        ? `Validade estimada: 180 dias`
-                        : 'Pendente de sincronização'}
-                    </span>
-                  </div>
+                  {(!monitorSummary?.last_sync_at || cndExpiresAt) && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground block">Validade CND:</span>
+                      <span className="font-medium text-foreground">
+                        {!monitorSummary?.last_sync_at
+                          ? 'Pendente de sincronização'
+                          : `Válida até ${formatLocalDate(cndExpiresAt)}`}
+                      </span>
+                    </div>
+                  )}
                   {monitorSummary?.last_cnd_document_id && (
                     <Button
                       size="sm"
@@ -1641,7 +1654,14 @@ FiscWise`,
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            toast.info("Guia de regularização sendo emitida pelo parceiro...");
+                            // Abre "Registrar Guia" com cliente e valor do débito; a emissão
+                            // do documento de arrecadação continua no portal do órgão.
+                            navigate('/guias', {
+                              state: {
+                                openCreate: true,
+                                prefill: { client_id: clientId, valor: debt.value },
+                              } satisfies GuiasLocationState,
+                            });
                           }}
                           className="h-8 text-xs border-destructive/20 hover:bg-destructive/10 text-destructive"
                         >

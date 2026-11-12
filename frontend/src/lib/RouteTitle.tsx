@@ -5,7 +5,7 @@ import { matchPath, useLocation } from 'react-router-dom';
  * Per-route document title management.
  *
  * The SPA only had the static <title> from index.html, so every internal
- * screen showed "FiscWise — Gestão Contábil Inteligente" (bad for browser
+ * screen showed "FiscWise — Notas fiscais sem complicação" (bad for browser
  * tabs, history and bookmarks — CORRECOES.md, audit of internal routes).
  *
  * This component maps the current pathname to a friendly title and updates
@@ -66,15 +66,15 @@ export function resolveTitle(pathname: string): string {
     }
   }
   // Fallback: keep the brand title for unmapped routes.
-  return `${SUFFIX} — Gestão Contábil Inteligente`;
+  return `${SUFFIX} — Notas fiscais sem complicação`;
 }
 
 const SITE = 'https://www.fiscwise.com.br';
 
 /** Páginas públicas indexáveis: caminho → descrição única. */
 const PUBLIC_META: Readonly<Record<string, string>> = {
-  '/login': 'Entre no FiscWise, o sistema de gestão contábil para contadores e escritórios: clientes, prazos fiscais, guias e documentos em um só lugar.',
-  '/register': 'Crie sua conta no FiscWise e organize clientes, obrigações fiscais, guias, certificados e financeiro do seu escritório contábil.',
+  '/login': 'Entre no FiscWise, notas fiscais sem complicação para empresas e contadores: clientes, prazos fiscais, guias e documentos em um só lugar.',
+  '/register': 'Crie sua conta no FiscWise: notas fiscais, clientes, obrigações fiscais, guias e certificados em um só lugar, simples para a empresa e organizado para o contador.',
   '/termos': 'Termos de uso do FiscWise, sistema de gestão contábil da Vstack Solutions.',
   '/privacidade': 'Política de privacidade do FiscWise: como tratamos dados pessoais conforme a LGPD.',
 };

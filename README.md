@@ -6,7 +6,7 @@
 
 ## 1. O que é o FiscWise
 
-O FiscWise é a central operacional do contador: organiza a carteira de clientes, documentos, obrigações, guias, honorários e o fechamento mensal em um único sistema, com IA fiscal de apoio. Elimina controles paralelos (planilhas) e reduz risco de perda de prazo.
+O FiscWise ajuda a empresa a emitir notas fiscais sem complicação e dá ao contador um painel organizado ("simples para a sua empresa, organizado para o seu contador"). Hoje é a central operacional do contador: organiza a carteira de clientes, documentos, obrigações, guias, honorários e o fechamento mensal em um único sistema, com IA fiscal de apoio. Elimina controles paralelos (planilhas) e reduz risco de perda de prazo.
 
 As **integrações governamentais** (emissão NFS-e, consulta e-CAC/Receita, Caixa Postal SERPRO, envio WhatsApp oficial) estão no roadmap e dependem de credenciais/contratos externos — o estado atual de cada módulo está marcado na tabela abaixo. O FiscWise **não** apresenta dado governamental simulado como oficial em produção.
 

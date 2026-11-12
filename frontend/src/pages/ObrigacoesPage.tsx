@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -469,7 +470,6 @@ export function ObrigacoesPage() {
 
   // Filters + Views
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
@@ -482,13 +482,8 @@ export function ObrigacoesPage() {
     }
   }, [location.state]);
 
-  // Search Debouncing
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+  // Debounce da busca (300 ms) — o filtro usa o valor atrasado
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   const clientMap = useMemo(() => {
     const m = new Map<string, Client>();
@@ -527,7 +522,6 @@ export function ObrigacoesPage() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setDebouncedSearchQuery('');
     setPriorityFilter('');
     setStatusFilter('');
   };

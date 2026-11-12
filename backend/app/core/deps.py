@@ -22,7 +22,11 @@ from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 
 
-_CLIENT_PORTAL_PATHS = frozenset({"/api/v1/portal/my-data", "/api/v1/portal/my-overview"})
+_CLIENT_PORTAL_PATHS = frozenset({
+    "/api/v1/portal/my-data",
+    "/api/v1/portal/my-overview",
+    "/api/v1/portal/my-documents",
+})
 
 
 def _client_path_allowed(path: str) -> bool:

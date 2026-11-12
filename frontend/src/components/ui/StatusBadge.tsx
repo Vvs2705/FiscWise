@@ -41,6 +41,19 @@ const STATUS_CONFIGS: Record<string, { label: string; color: string }> = {
   ready_for_review: { label: 'Pronto p/ revisão', color: T.info },
   completed: { label: 'Concluído', color: T.success },
   reopened: { label: 'Reaberto', color: T.warning },
+  // Documentos do cliente (dossiê e checklist)
+  available: { label: 'Recebido', color: T.success },
+  missing: { label: 'Aguardando envio', color: T.warning },
+  review: { label: 'Em análise', color: T.info },
+  received: { label: 'Recebido', color: T.success },
+  approved: { label: 'Aprovado', color: T.success },
+  // Guias (valores em português gravados pelo módulo de guias)
+  pendente: { label: 'Pendente', color: T.warning },
+  enviada: { label: 'Enviada', color: T.info },
+  atrasada: { label: 'Atrasada', color: T.danger },
+  paga: { label: 'Paga', color: T.success },
+  vencida: { label: 'Vencida', color: T.danger },
+  cancelada: { label: 'Cancelada', color: T.neutral },
 };
 
 interface StatusBadgeProps {

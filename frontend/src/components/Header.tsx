@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { LogOut, Moon, Sun } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { useTheme } from '@/lib/hooks/useTheme';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from './ui/Button';
 import { SyncIndicator } from './SyncIndicator';
 import { useSyncStore } from '@/lib/offline/status';
@@ -36,23 +36,6 @@ function getSectionTitle(pathname: string): string {
     ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
   return match?.[1] ?? 'FiscWise';
-}
-
-function ThemeToggle() {
-  const { theme, toggle } = useTheme();
-  const isDark = theme === 'dark';
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
-      title={isDark ? 'Modo claro' : 'Modo escuro'}
-      className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      {isDark ? <Sun className="h-[18px] w-[18px]" aria-hidden="true" /> : <Moon className="h-[18px] w-[18px]" aria-hidden="true" />}
-    </button>
-  );
 }
 
 export function Header() {

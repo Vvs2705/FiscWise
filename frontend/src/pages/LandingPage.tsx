@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { LoginFooter, LoginLogo } from '@/features/auth/components/LoginShell';
 import { cn } from '@/lib/utils';
@@ -168,6 +169,7 @@ function TopBar() {
           <a href="/faq/" className={cn(NAV_LINK, 'hidden md:inline-flex')}>
             Perguntas frequentes
           </a>
+          <ThemeToggle />
           <Link to="/login" className={NAV_LINK}>
             Entrar
           </Link>

@@ -16,10 +16,11 @@ import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import httpx
+import httpx  # noqa: F401 — mantido: testes fazem patch em webhook_service.httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.http_client import request_with_retry
 from app.models.api_webhooks import WebhookSubscription, WebhookDeliveryLog
 from app.schemas.developer import WebhookSubscriptionCreate, WebhookSubscriptionUpdate, VALID_EVENTS
 
@@ -190,12 +191,18 @@ async def _dispatch_single(
     start = time.monotonic()
 
     try:
-        async with httpx.AsyncClient(timeout=WEBHOOK_TIMEOUT_SECONDS) as client:
-            resp = await client.post(
-                subscription.url,
-                content=payload_bytes,
-                headers=headers,
-            )
+        # Sem retry ambíguo: o destino é de terceiros e não há garantia de
+        # deduplicação. Só repete se a conexão nem abriu; o log de entrega
+        # registra a falha (não havia retry próprio aqui antes).
+        resp = await request_with_retry(
+            "POST",
+            subscription.url,
+            service="webhook",
+            idempotent=False,
+            read_timeout=WEBHOOK_TIMEOUT_SECONDS,
+            content=payload_bytes,
+            headers=headers,
+        )
         status_code = resp.status_code
         response_body = resp.text[:4096]
         success = 200 <= status_code < 300

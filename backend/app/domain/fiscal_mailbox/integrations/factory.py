@@ -2,7 +2,7 @@
 
 ``mock`` (default) keeps the deterministic provider; ``serpro`` wires the
 Integra Contador client with the tenant's active accounting clients as
-contribuintes. Fail-closed: an unknown or under-configured provider raises
+contribuintes. In production/staging ``mock`` is refused (503). Fail-closed: an unknown or under-configured provider raises
 ``ProviderNotConfiguredError`` so the API can answer 503 instead of silently
 syncing fake data in production.
 """
@@ -13,6 +13,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.integration_mode import is_production_like
 from app.models.operations import AccountingClient
 from app.domain.fiscal_mailbox.integrations.base import (
     FiscalMailboxProvider,
@@ -28,6 +29,9 @@ async def build_fiscal_mailbox_provider(
     name = (settings.FISCAL_MAILBOX_PROVIDER or "mock").strip().lower()
 
     if name == "mock":
+        if is_production_like():
+            # Nunca gravar mensagens simuladas como reais em produção/staging.
+            raise ProviderNotConfiguredError("Caixa postal exige SERPRO (não configurado)")
         return MockFiscalMailboxProvider()
 
     if name == "serpro":
@@ -77,3 +81,7 @@ async def build_fiscal_mailbox_provider(
         )
 
     raise ProviderNotConfiguredError(f"Unknown FISCAL_MAILBOX_PROVIDER: {name}")
+
+
+def current_provider_name() -> str:
+    return (settings.FISCAL_MAILBOX_PROVIDER or "mock").strip().lower()

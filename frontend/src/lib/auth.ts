@@ -1,4 +1,5 @@
 import { api } from './api';
+import { clearApiCache, wipeLocalDb } from './offline/db';
 
 export interface LoginCredentials {
   email: string;
@@ -130,11 +131,24 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   return response.data;
 }
 
+/**
+ * Logout explícito: apaga também o banco local offline do escritório e o cache
+ * de API do service worker (computador compartilhado — OFFLINE_SYNC.md, seção 9).
+ * O redirecionamento espera a limpeza (com teto de 2 s para nunca travar a saída).
+ */
 export function logout(redirectTo = '/login'): void {
+  const tenantId = localStorage.getItem('tenant_id');
   localStorage.removeItem('access_token');
   localStorage.removeItem('tenant_id');
   localStorage.removeItem('user');
-  window.location.href = redirectTo;
+
+  const wipe = Promise.all([tenantId ? wipeLocalDb(tenantId) : Promise.resolve(), clearApiCache()]).catch(
+    () => undefined,
+  );
+  const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+  void Promise.race([wipe, timeout]).finally(() => {
+    window.location.href = redirectTo;
+  });
 }
 
 export function isAuthenticated(): boolean {

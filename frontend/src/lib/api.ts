@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -17,7 +17,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('access_token');
     const tenantId = localStorage.getItem('tenant_id');
     
-    if (token) {
+    // Chamadas com token de dispositivo (/sync/push, /sync/pull, /sync/devices/token)
+    // já trazem o próprio Authorization: não sobrescrever.
+    if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
@@ -70,11 +72,65 @@ export function getApiErrorMessage(
   return fallback;
 }
 
+// ─── Renovação do token de acesso pelo token de dispositivo (offline-first) ───
+// A camada offline (src/lib/offline) registra aqui como renovar o token comum
+// usando o token de dispositivo (POST /api/v1/sync/devices/token). Assim quem
+// volta de um período offline não é expulso para o login (OFFLINE_SYNC.md 5.1.3).
+type AccessTokenRenewer = () => Promise<string | null>;
+let accessTokenRenewer: AccessTokenRenewer | null = null;
+let renewing: Promise<string | null> | null = null;
+
+export function setAccessTokenRenewer(fn: AccessTokenRenewer | null): void {
+  accessTokenRenewer = fn;
+}
+
+async function renewAccessTokenOnce(): Promise<string | null> {
+  if (!accessTokenRenewer) return null;
+  if (!renewing) {
+    renewing = accessTokenRenewer()
+      .catch(() => null)
+      .finally(() => {
+        renewing = null;
+      });
+  }
+  return renewing;
+}
+
+/** Endpoints autenticados pelo token de dispositivo: tratados pela engine de sync. */
+function isDeviceTokenEndpoint(url: string | undefined): boolean {
+  return !!url && /\/api\/v1\/sync\/(push|pull|devices\/token)(\?|$)/.test(url);
+}
+
+/** Login, 2FA etc.: 401 ali é credencial errada, não sessão vencida. */
+function isAuthEndpoint(url: string | undefined): boolean {
+  return !!url && /\/api\/v1\/auth\/(login|google|register|login\/verify-2fa)/.test(url);
+}
+
+type RetriableConfig = InternalAxiosRequestConfig & { _fiscwiseRetried?: boolean };
+
 // Response interceptor to handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    // Sem resposta (rede caiu, offline): NUNCA deslogar.
+    if (!axios.isAxiosError(error) || !error.response) {
+      return Promise.reject(error);
+    }
+
+    const config = error.config as RetriableConfig | undefined;
+
+    if (error.response.status === 401 && !isDeviceTokenEndpoint(config?.url)) {
+      // Tenta UMA vez renovar com o token de dispositivo e repetir a requisição.
+      if (config && !config._fiscwiseRetried && !isAuthEndpoint(config.url)) {
+        config._fiscwiseRetried = true;
+        const renewed = await renewAccessTokenOnce();
+        if (renewed) {
+          localStorage.setItem('access_token', renewed);
+          config.headers.Authorization = `Bearer ${renewed}`;
+          return api(config);
+        }
+      }
+
       let wasPortalClient = false;
       try {
         wasPortalClient = JSON.parse(localStorage.getItem('user') ?? 'null')?.role === 'client';
@@ -82,7 +138,7 @@ api.interceptors.response.use(
         // user corrompido no storage: trata como equipe
       }
 
-      // Clear auth data
+      // Clear auth data (o banco local fica: pode haver alterações não enviadas)
       localStorage.removeItem('access_token');
       localStorage.removeItem('tenant_id');
       localStorage.removeItem('user');

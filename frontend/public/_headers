@@ -9,3 +9,11 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Service worker e manifest do PWA: sempre revalidar (senão a atualização do app trava).
+/sw.js
+  Cache-Control: no-cache
+/sw-sync.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache

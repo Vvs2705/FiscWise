@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/lib/hooks/useTheme';
 import { Button } from './ui/Button';
 import { cn } from '@/lib/utils';
+import { SyncIndicator } from './SyncIndicator';
+import { useSyncStore } from '@/lib/offline/status';
 
 const sectionTitles: Record<string, string> = {
   '/dashboard':      'Painel',
@@ -17,6 +19,7 @@ const sectionTitles: Record<string, string> = {
   '/das-mensal':     'Guias e DAS',
   '/obrigacoes':     'Obrigações',
   '/configuracoes':  'Configurações',
+  '/sincronizacao':  'Sincronização',
 };
 
 function ThemeToggle() {
@@ -58,6 +61,21 @@ function ThemeToggle() {
 export function Header() {
   const { user, logout } = useAuthStore();
   const location = useLocation();
+  const pendingChanges = useSyncStore((s) => s.pending + s.errors);
+
+  // Logout explícito apaga o banco local: avisar se há alterações não enviadas.
+  const handleLogout = () => {
+    if (
+      pendingChanges > 0 &&
+      !window.confirm(
+        `Há ${pendingChanges} ${pendingChanges === 1 ? 'alteração não sincronizada' : 'alterações não sincronizadas'} neste dispositivo. ` +
+          'Ao sair, elas serão apagadas. Deseja sair mesmo assim?',
+      )
+    ) {
+      return;
+    }
+    logout();
+  };
 
   const sectionTitle = useMemo(
     () => sectionTitles[location.pathname] ?? 'FiscWise',
@@ -87,6 +105,9 @@ export function Header() {
 
       {/* Direita: controles */}
       <div className="flex shrink-0 items-center gap-2 md:gap-3">
+        {/* Indicador permanente de sincronização (offline-first) */}
+        <SyncIndicator />
+
         {/* Toggle de tema */}
         <ThemeToggle />
 
@@ -108,7 +129,7 @@ export function Header() {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => logout()}
+          onClick={handleLogout}
           aria-label="Sair da conta"
           className="text-muted-foreground hover:text-foreground"
         >

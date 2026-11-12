@@ -6,20 +6,42 @@ import { Button } from '@/components/ui/Button';
 import { PageSpinner, EmptyState } from '@/components/ui/StateViews';
 import { ArrowLeft, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { SimulationNotice } from '@/components/ui/OperationalStates';
+import { SimulationNotice, WarningPanel } from '@/components/ui/OperationalStates';
+import { OFFLINE_EMISSION_NOTICE, isNetworkError, useOfflineEmission } from '../hooks/useOfflineEmission';
 
 export function InvoiceEmitPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { data: invoice, isLoading } = useInvoice(id);
   const emitInvoice = useInvoiceEmission();
+  const offline = useOfflineEmission(invoice);
+
+  const queueEmission = async () => {
+    try {
+      await offline.enqueueEmission();
+      toast.success('Nota marcada como Pendente de transmissão. Será enviada quando a conexão voltar.');
+      navigate(`/notas-fiscais/${id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível enfileirar a nota.');
+    }
+  };
 
   const handleEmit = async () => {
+    if (offline.isOffline) {
+      await queueEmission();
+      return;
+    }
     try {
       await emitInvoice.mutateAsync(id);
       toast.success('Nota enviada para a fila de processamento!');
       navigate(`/notas-fiscais/${id}`);
-    } catch {
+    } catch (err) {
+      // A conexão caiu no meio da chamada: guarda o pedido em vez de perdê-lo
+      // (o servidor deduplica o emit_requested se o primeiro tiver chegado).
+      if (isNetworkError(err) && offline.canQueue) {
+        await queueEmission();
+        return;
+      }
       toast.error('Erro ao solicitar emissão da NFS-e.');
     }
   };
@@ -144,15 +166,30 @@ export function InvoiceEmitPage() {
                 ))}
               </ul>
 
-              <div className="border-t border-border/40 pt-4 mt-4">
-                <Button
-                  onClick={handleEmit}
-                  disabled={!canEmit || emitInvoice.isPending}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  <Send className="h-4 w-4" />
-                  {emitInvoice.isPending ? 'Transmitindo...' : 'Transmitir NFS-e'}
-                </Button>
+              <div className="border-t border-border/40 pt-4 mt-4 space-y-3">
+                {offline.isOffline && (
+                  <WarningPanel title="Sem conexão com a internet" description={OFFLINE_EMISSION_NOTICE} />
+                )}
+                {offline.pendingTransmission ? (
+                  <WarningPanel
+                    variant="info"
+                    title="Pendente de transmissão"
+                    description="O pedido já está guardado neste dispositivo e será enviado quando a conexão voltar."
+                  />
+                ) : (
+                  <Button
+                    onClick={handleEmit}
+                    disabled={!canEmit || emitInvoice.isPending || (offline.isOffline && !offline.canQueue)}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {offline.isOffline
+                      ? 'Enfileirar para transmissão'
+                      : emitInvoice.isPending
+                        ? 'Transmitindo...'
+                        : 'Transmitir NFS-e'}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

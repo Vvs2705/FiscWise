@@ -17,6 +17,7 @@ import {
   BarChart3,
   BookOpen,
   Settings,
+  RefreshCw,
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -82,6 +83,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Aprender',       href: '/aprender',      icon: BookOpen },
       { name: 'Configurações',  href: '/configuracoes', icon: Settings },
+      { name: 'Sincronização',  href: '/sincronizacao', icon: RefreshCw },
     ],
   },
 ];

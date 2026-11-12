@@ -2,12 +2,20 @@ import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 
 interface InvoiceStatusBadgeProps {
   status: string;
+  /**
+   * `issued_at` vindo do servidor. Quando informado como null/vazio, uma nota
+   * com status `issued` NÃO é mostrada como "Emitida" (OFFLINE_SYNC.md, seção 6.1).
+   */
+  issuedAt?: string | null;
 }
 
-export function InvoiceStatusBadge({ status }: InvoiceStatusBadgeProps) {
+export function InvoiceStatusBadge({ status, issuedAt }: InvoiceStatusBadgeProps) {
   const getBadgeConfig = (): { variant: BadgeVariant; label: string } => {
     switch (status.toLowerCase()) {
       case 'issued':
+        if (issuedAt === null || issuedAt === '') {
+          return { variant: 'warning', label: 'Aguardando confirmação' };
+        }
         return { variant: 'success', label: 'Emitida' };
       case 'cancelled':
         return { variant: 'error', label: 'Cancelada' };
@@ -17,6 +25,8 @@ export function InvoiceStatusBadge({ status }: InvoiceStatusBadgeProps) {
         return { variant: 'error', label: 'Falhou' };
       case 'draft':
         return { variant: 'default', label: 'Rascunho' };
+      case 'pending_transmission':
+        return { variant: 'warning', label: 'Pendente de transmissão' };
       case 'validating':
         return { variant: 'warning', label: 'Validando' };
       case 'queued':

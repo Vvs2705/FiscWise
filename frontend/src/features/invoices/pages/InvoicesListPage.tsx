@@ -243,7 +243,7 @@ export function InvoicesListPage() {
                         {inv.valor_servico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </td>
                       <td className="px-5 py-4">
-                        <InvoiceStatusBadge status={inv.status} />
+                        <InvoiceStatusBadge status={inv.status} issuedAt={inv.issued_at ?? null} />
                       </td>
                       <td className="px-5 py-4 text-muted-foreground">
                         {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString('pt-BR') : '—'}

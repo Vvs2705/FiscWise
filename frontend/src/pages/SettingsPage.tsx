@@ -44,6 +44,8 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
+import { InstallAppPrompt } from '@/components/InstallAppPrompt';
 import { getApiErrorMessage } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -1115,6 +1117,23 @@ function SegurancaTab() {
     <div className="space-y-6">
       {/* 2FA Card — NEW */}
       <TwoFactorCard />
+
+      {/* Offline-first: instalação do app e dispositivos (OFFLINE_SYNC.md, seções 7.1 e 9) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Aplicativo e dispositivos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Instale o FiscWise para usar sem internet. Os dispositivos conectados ao escritório podem ser
+            revogados na tela de sincronização; o dispositivo revogado apaga os dados locais no próximo contato.
+          </p>
+          <InstallAppPrompt />
+          <Link to="/sincronizacao" className="inline-block text-sm font-medium text-primary hover:underline">
+            Abrir Sincronização e Dispositivos
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

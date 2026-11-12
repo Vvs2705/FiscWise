@@ -14,6 +14,7 @@ import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { CommandMenu } from '@/components/ui/CommandMenu';
 import { RouteTitle } from '@/lib/RouteTitle';
 import { useAuthStore } from '@/stores/authStore';
+import { OfflineProvider } from '@/lib/offline/OfflineProvider';
 
 // ─── Existing pages (lazy) ──────────────────────────────────────────────────
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -31,6 +32,7 @@ const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ def
 const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
 const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
+const SyncPage          = lazy(() => import('@/pages/SyncPage').then(m => ({ default: m.SyncPage })));
 const WhatsAppInboxPage = lazy(() => import('@/pages/WhatsAppInboxPage').then(m => ({ default: m.WhatsAppInboxPage })));
 
 // ─── Feature pages (new) ────────────────────────────────────────────────────
@@ -121,6 +123,7 @@ function App() {
     <MotionConfig reducedMotion="user">
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <OfflineProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <RouteTitle />
           <StaffCommandMenu />
@@ -188,6 +191,7 @@ function App() {
                 {/* ── Sistema ──────────────────────────────────────────── */}
                 <Route path="aprender"     element={<LearningPage />} />
                 <Route path="configuracoes" element={<SettingsPage />} />
+                <Route path="sincronizacao" element={<SyncPage />} />
                 <Route path="calculadora"  element={<CalculatorPage />} />
 
                 {/* ── Legacy redirects ─────────────────────────────────── */}
@@ -201,6 +205,7 @@ function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </OfflineProvider>
         <Toaster position="top-right" theme="dark" richColors closeButton />
       </QueryClientProvider>
     </ErrorBoundary>

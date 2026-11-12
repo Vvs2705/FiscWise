@@ -20,6 +20,13 @@ import {
 } from 'lucide-react';
 import { invoicesService } from '../services/invoices.service';
 import { toast } from 'sonner';
+import { WarningPanel } from '@/components/ui/OperationalStates';
+import {
+  OFFLINE_CANCEL_NOTICE,
+  OFFLINE_EMISSION_NOTICE,
+  isNetworkError,
+  useOfflineEmission,
+} from '../hooks/useOfflineEmission';
 
 export function InvoiceDetailPage() {
   const { id = '' } = useParams();
@@ -33,18 +40,43 @@ export function InvoiceDetailPage() {
 
   const emitInvoice = useInvoiceEmission();
   const cancelInvoice = useCancelInvoice();
+  const offline = useOfflineEmission(invoice);
+
+  const queueEmission = async () => {
+    try {
+      await offline.enqueueEmission();
+      toast.success('Nota marcada como Pendente de transmissão. Será enviada quando a conexão voltar.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível enfileirar a nota.');
+    }
+  };
 
   const handleEmit = async () => {
+    if (offline.isOffline) {
+      await queueEmission();
+      return;
+    }
     try {
       await emitInvoice.mutateAsync(id);
       toast.success('Transmissão da NFS-e iniciada!');
-    } catch {
+    } catch (err) {
+      if (isNetworkError(err) && offline.canQueue) {
+        await queueEmission();
+        return;
+      }
       toast.error('Falha ao iniciar transmissão da nota.');
     }
   };
 
+  const emitLabel = (online: string, pending: string) =>
+    offline.isOffline ? 'Enfileirar para transmissão' : emitInvoice.isPending ? pending : online;
+
   const handleCancelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (offline.isOffline) {
+      toast.error(OFFLINE_CANCEL_NOTICE);
+      return;
+    }
     if (!cancelReason.trim()) {
       toast.error('Insira a justificativa do cancelamento.');
       return;
@@ -105,7 +137,7 @@ export function InvoiceDetailPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               {invoice.numero ? `NFS-e Nº ${invoice.numero}` : 'Rascunho de NFS-e'}
             </h1>
-            <InvoiceStatusBadge status={invoice.status} />
+            <InvoiceStatusBadge status={offline.displayStatus ?? invoice.status} issuedAt={invoice.issued_at ?? null} />
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Competência: {new Date(invoice.competencia + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
@@ -113,21 +145,21 @@ export function InvoiceDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {invoice.status === 'draft' && (
+          {invoice.status === 'draft' && !offline.pendingTransmission && (
             <Button onClick={handleEmit} disabled={emitInvoice.isPending} className="flex items-center gap-2">
               <Send className="h-4 w-4" />
-              {emitInvoice.isPending ? 'Emitindo...' : 'Transmitir NFS-e'}
+              {emitLabel('Transmitir NFS-e', 'Emitindo...')}
             </Button>
           )}
 
-          {invoice.status === 'rejected' && (
+          {invoice.status === 'rejected' && !offline.pendingTransmission && (
             <Button onClick={handleEmit} disabled={emitInvoice.isPending} className="flex items-center gap-2">
               <Send className="h-4 w-4" />
-              {emitInvoice.isPending ? 'Re-enviando...' : 'Corrigir e Transmitir'}
+              {emitLabel('Corrigir e Transmitir', 'Re-enviando...')}
             </Button>
           )}
 
-          {invoice.status === 'issued' && (
+          {invoice.status === 'issued' && !!invoice.issued_at && (
             <>
               <Button onClick={handleDownloadPdf} variant="outline" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -139,6 +171,8 @@ export function InvoiceDetailPage() {
               </Button>
               <Button
                 onClick={() => setOpenCancelModal(true)}
+                disabled={offline.isOffline}
+                title={offline.isOffline ? OFFLINE_CANCEL_NOTICE : undefined}
                 variant="ghost"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center gap-2"
               >
@@ -149,6 +183,20 @@ export function InvoiceDetailPage() {
           )}
         </div>
       </div>
+
+      {offline.isOffline && (invoice.status === 'draft' || invoice.status === 'rejected') && !offline.pendingTransmission && (
+        <WarningPanel title="Sem conexão com a internet" description={OFFLINE_EMISSION_NOTICE} />
+      )}
+      {offline.isOffline && invoice.status === 'issued' && (
+        <WarningPanel title="Cancelamento indisponível sem internet" description={OFFLINE_CANCEL_NOTICE} />
+      )}
+      {offline.pendingTransmission && (
+        <WarningPanel
+          variant="info"
+          title="Pendente de transmissão"
+          description="A nota ainda não foi emitida. O pedido está guardado neste dispositivo e será enviado quando a conexão voltar."
+        />
+      )}
 
       {rejections && rejections.length > 0 && (
         <InvoiceRejectionAlert rejections={rejections} />

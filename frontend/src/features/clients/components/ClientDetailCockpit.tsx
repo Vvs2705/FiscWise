@@ -39,6 +39,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing';
 import { FiscalTimeline, TimelineItem } from '@/components/ui/FiscalTimeline';
 import { ClientStatusReportModal } from './ClientStatusReportModal';
 import { ClientWhatsAppWidget } from './ClientWhatsAppWidget';
+import { PortalAccessButton } from '@/features/portal/PortalAccessButton';
 import {
   useFiscalMonitorStatus,
   useFiscalNFes,
@@ -1471,6 +1472,18 @@ FiscWise`,
                   </ul>
                 </Card>
               </div>
+            </div>
+
+            {/* Acesso ao portal do cliente (link mágico, sem senha) */}
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Portal do cliente</h4>
+                <p className="text-xs text-muted-foreground">
+                  Envie um link de uso único para o cliente entrar no portal e acompanhar guias,
+                  documentos e pendências.
+                </p>
+              </div>
+              <PortalAccessButton clientId={client.id} clientName={client.name} clientEmail={client.email} />
             </div>
           </div>
         )}

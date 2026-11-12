@@ -297,3 +297,20 @@ def render_payment_reminder_email(
         f"Atenciosamente,\n{office_name}"
     )
     return text, render_client_message_email("Lembrete de pagamento", text)
+
+
+def render_portal_magic_link_email(link: str) -> str:
+    """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">Seu acesso ao portal do cliente</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Clique no botão abaixo para entrar no portal do seu escritório contábil.
+  O link vale por 24 horas e só pode ser usado uma vez.
+</p>
+<div style="text-align:center;margin:0 0 20px 0;">
+  <a href="{link}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Acessar o portal</a>
+</div>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Se você não pediu este acesso, ignore este e-mail. Não compartilhe este link.
+</p>"""
+    return _base_layout(inner)

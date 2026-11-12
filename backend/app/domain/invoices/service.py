@@ -11,7 +11,7 @@ from app.domain.invoices.repository import InvoiceRepository
 from app.domain.invoices.schemas import InvoiceIssuerCreate, InvoiceCreate
 from app.domain.invoices.validators import validate_cpf_cnpj
 from app.domain.invoices.events import dispatch_invoice_event
-from app.domain.invoices.providers.base import NfseProvider
+from app.domain.invoices.providers.base import NfseProvider, TransientEmissionError
 from app.core.storage import get_signed_url
 from app.core.audit import audit_log
 
@@ -212,6 +212,14 @@ class InvoiceService:
                 )
                 await self.repo.create_rejection(rejection)
                 await dispatch_invoice_event(self.repo.db, invoice, "failed", {"error": res.get("descricao")})
+
+        except TransientEmissionError as e:
+            # Pedido não chegou ao provedor: nada foi emitido. A nota volta para a
+            # fila (a fila de trabalho agenda nova tentativa); sem rejeição.
+            invoice.status = "queued"
+            await self.repo.update_invoice(invoice)
+            await dispatch_invoice_event(self.repo.db, invoice, "emit_retry", {"error": str(e)})
+            raise
 
         except Exception as e:
             invoice.status = "failed"

@@ -82,3 +82,16 @@ async def get_signed_url(bucket: str, path: str, ttl: int = 300) -> str:
     if not signed:
         raise RuntimeError("Resposta de sign sem signedURL")
     return f"{settings.SUPABASE_URL}/storage/v1{signed}"
+
+
+async def download_bytes(bucket: str, path: str) -> bytes | None:
+    """Baixa `{bucket}/{path}` com a service key. None se storage não configurado (dev)."""
+    if not _config_or_degrade(f"download {bucket}/{path}"):
+        return None
+    url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}/{path}"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
+        resp = await client.get(url, headers=_headers())
+    if resp.status_code != 200:
+        logger.error("Supabase download falhou: %s %s/%s", resp.status_code, bucket, path)
+        raise RuntimeError(f"Falha ao baixar do storage ({resp.status_code})")
+    return resp.content

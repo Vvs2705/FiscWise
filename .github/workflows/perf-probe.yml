@@ -1,0 +1,112 @@
+name: Perf probe
+
+# Mede a latência real da API (Cloud Run SP) e do front (Cloudflare Pages)
+# a partir do runner do GitHub. Manual (Actions → Perf probe → Run workflow).
+# Sem segredos: só endpoints públicos. Resultado no resumo do job.
+#
+# "Fria" = 1ª chamada da rodada. Só é cold start de verdade se a instância do
+# Cloud Run estiver desligada (min-instances 0, ~15 min sem tráfego). As N
+# chamadas seguintes são "quentes".
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: URL da API
+        default: https://fiscwise-api-45ckqevl6a-rj.a.run.app
+        required: true
+      requests:
+        description: Chamadas quentes por endpoint
+        default: '20'
+        required: true
+      front_url:
+        description: URL do front
+        default: https://fiscwise.com.br/
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      REQUESTS: ${{ inputs.requests }}
+      FRONT_URL: ${{ inputs.front_url }}
+    steps:
+      - name: Validate inputs
+        run: |
+          case "$BASE_URL" in https://*) ;; *) echo "base_url precisa ser https://"; exit 1;; esac
+          case "$FRONT_URL" in https://*) ;; *) echo "front_url precisa ser https://"; exit 1;; esac
+          [[ "$REQUESTS" =~ ^[0-9]+$ ]] && [ "$REQUESTS" -ge 1 ] && [ "$REQUESTS" -le 200 ] \
+            || { echo "requests deve ser 1..200"; exit 1; }
+
+      - name: Probe API
+        run: |
+          set -euo pipefail
+          BASE_URL="${BASE_URL%/}"
+          # X-Tenant-ID nulo: sem ele o TenantMiddleware devolve 400 antes da
+          # autenticação. Com ele, /api/v1/clients sem token volta 401 e
+          # exercita toda a pilha de middlewares sem tocar no banco.
+          NULL_TENANT="X-Tenant-ID: 00000000-0000-0000-0000-000000000000"
+          probe() { # $1 = path, $2.. = curl extra
+            local path="$1"; shift
+            curl -sS -o /dev/null --max-time 60 -w '%{http_code} %{time_total}\n' "$@" "$BASE_URL$path"
+          }
+          stats() { # stdin: segundos, um por linha → "p50 p95 max" em ms
+            sort -n | awk '{v[NR]=$1} END {
+              if (NR==0) {print "- - -"; exit}
+              i50=int(0.50*NR+0.999); i95=int(0.95*NR+0.999);
+              if (i50<1) i50=1; if (i95<1) i95=1;
+              printf "%.0f %.0f %.0f\n", v[i50]*1000, v[i95]*1000, v[NR]*1000 }'
+          }
+          {
+            echo "### API \`$BASE_URL\` — $REQUESTS chamadas quentes por endpoint"
+            echo
+            echo "| Endpoint | Status | Fria (ms) | p50 (ms) | p95 (ms) | max (ms) |"
+            echo "|---|---|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for ep in /live /health /api/v1/health /api/v1/clients; do
+            extra=()
+            [ "$ep" = /api/v1/clients ] && extra=(-H "$NULL_TENANT")
+            sleep 0  # sem espera: a fria só é cold start se a instância estava desligada
+            read -r cold_code cold_t < <(probe "$ep" "${extra[@]}")
+            : > warm.txt; codes=""
+            for _ in $(seq 1 "$REQUESTS"); do
+              read -r code t < <(probe "$ep" "${extra[@]}")
+              echo "$t" >> warm.txt; codes="$codes $code"
+            done
+            read -r p50 p95 max < <(stats < warm.txt)
+            uniq_codes=$(echo "$cold_code $codes" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ')
+            cold_ms=$(awk -v t="$cold_t" 'BEGIN{printf "%.0f", t*1000}')
+            echo "| \`GET $ep\` | $uniq_codes | $cold_ms | $p50 | $p95 | $max |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Esperado: 200 nos três primeiros e 401 em \`/api/v1/clients\` (sem token)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Probe front
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo "### Front \`$FRONT_URL\`"
+            echo
+            echo "| Medida | Valor |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          out=$(curl -sS -o /dev/null --compressed --max-time 60 \
+            -w '%{http_code} %{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total} %{size_download}' \
+            "$FRONT_URL")
+          read -r code dns tcp tls ttfb total size <<< "$out"
+          ms() { awk -v t="$1" 'BEGIN{printf "%.0f", t*1000}'; }
+          {
+            echo "| Status | $code |"
+            echo "| DNS | $(ms "$dns") ms |"
+            echo "| TCP | $(ms "$tcp") ms |"
+            echo "| TLS | $(ms "$tls") ms |"
+            echo "| TTFB | $(ms "$ttfb") ms |"
+            echo "| Total | $(ms "$total") ms |"
+            echo "| Tamanho do HTML (transferido) | $size bytes |"
+          } >> "$GITHUB_STEP_SUMMARY"

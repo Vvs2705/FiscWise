@@ -223,6 +223,9 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
     SENTRY_PROFILES_SAMPLE_RATE: float = 0.0
+    # Log JSON por requisição (app/core/request_log.py). Sempre ligado em
+    # production/staging; em dev, só com REQUEST_LOG_JSON=true.
+    REQUEST_LOG_JSON: bool = False
     
     @field_validator("DEBUG", mode="before")
     @classmethod

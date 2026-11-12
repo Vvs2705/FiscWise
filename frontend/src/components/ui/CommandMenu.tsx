@@ -36,24 +36,25 @@ export function CommandMenu() {
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop blur */}
+      {/* Backdrop sem blur */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-[3px]"
+        className="absolute inset-0 bg-foreground/40 animate-fade-in"
+        aria-hidden="true"
         onClick={() => setOpen(false)}
       />
 
       {/* Command Palette Panel */}
       <Command
         className={cn(
-          'relative z-10 w-full max-w-lg overflow-hidden rounded-card border border-border/80 bg-card/95 text-card-foreground shadow-token backdrop-blur-md',
-          'animate-scale-in max-h-[50vh] flex flex-col'
+          'relative z-10 flex max-h-[60vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-lg',
+          'animate-fade-in-up'
         )}
       >
         <div className="flex items-center border-b px-4 py-3">
-          <Search className="w-5 h-5 text-muted-foreground mr-2" />
+          <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Command.Input
             placeholder="Digite para buscar clientes ou comandos..."
-            className="w-full bg-transparent text-sm text-foreground outline-none placeholder-muted-foreground"
+            className="h-6 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             autoFocus
           />
         </div>
@@ -63,45 +64,45 @@ export function CommandMenu() {
             Nenhum resultado encontrado.
           </Command.Empty>
 
-          <Command.Group heading="Ações rápidas" className="text-xs font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">
+          <Command.Group heading="Ações rápidas" className="px-1 py-1.5 text-xs font-medium text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1">
             <Command.Item
               onSelect={() => runCommand(() => navigate('/clientes'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <Plus className="w-4 h-4" />
-              <span>Cadastrar Novo Cliente</span>
+              <span>Cadastrar novo cliente</span>
             </Command.Item>
             <Command.Item
               onSelect={() => runCommand(() => navigate('/documentos'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <FileText className="w-4 h-4" />
-              <span>Subir Documento Fiscal</span>
+              <span>Enviar documento fiscal</span>
             </Command.Item>
             <Command.Item
-              onSelect={() => runCommand(() => navigate('/mensagens'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              onSelect={() => runCommand(() => navigate('/whatsapp'))}
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <MessageSquare className="w-4 h-4" />
-              <span>Abrir Central de Mensagens WhatsApp</span>
+              <span>Abrir WhatsApp</span>
             </Command.Item>
             <Command.Item
-              onSelect={() => runCommand(() => navigate('/agenda-prazos'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              onSelect={() => runCommand(() => navigate('/obrigacoes'))}
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <Calendar className="w-4 h-4" />
-              <span>Ver Agenda Fiscal</span>
+              <span>Ver obrigações</span>
             </Command.Item>
             <Command.Item
               onSelect={() => runCommand(() => navigate('/financeiro'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <Receipt className="w-4 h-4" />
-              <span>Gerenciar Financeiro</span>
+              <span>Abrir financeiro</span>
             </Command.Item>
             <Command.Item
               onSelect={() => runCommand(() => navigate('/configuracoes'))}
-              className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
             >
               <Settings className="w-4 h-4" />
               <span>Configurações</span>
@@ -109,12 +110,12 @@ export function CommandMenu() {
           </Command.Group>
 
           {clients && clients.length > 0 && (
-            <Command.Group heading="Clientes" className="text-xs font-semibold text-muted-foreground px-2 py-1.5 mt-2 uppercase tracking-wider">
+            <Command.Group heading="Clientes" className="mt-2 px-1 py-1.5 text-xs font-medium text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1">
               {clients.map((client) => (
                 <Command.Item
                   key={client.id}
                   onSelect={() => runCommand(() => navigate(`/clientes?id=${client.id}`))}
-                  className="flex items-center gap-3 px-3 py-2 text-sm text-foreground rounded-lg cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary"
+                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground transition-colors duration-100 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                 >
                   <User className="w-4 h-4" />
                   <div className="flex flex-col min-w-0">
@@ -127,13 +128,13 @@ export function CommandMenu() {
           )}
         </Command.List>
 
-        <div className="flex items-center justify-between border-t px-4 py-2 bg-muted/20 text-xs text-muted-foreground shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-t border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
           <span>
-            Pressione <kbd className="font-sans font-semibold border rounded px-1 bg-card">ESC</kbd> para fechar
+            Pressione <kbd className="rounded-sm border border-border bg-card px-1 font-mono text-[11px]">ESC</kbd> para fechar
           </span>
           <span className="flex items-center gap-1">
-            Navegue com <kbd className="font-sans font-semibold border rounded px-1 bg-card">↑</kbd>{' '}
-            <kbd className="font-sans font-semibold border rounded px-1 bg-card">↓</kbd>
+            Navegue com <kbd className="rounded-sm border border-border bg-card px-1 font-mono text-[11px]">↑</kbd>{' '}
+            <kbd className="rounded-sm border border-border bg-card px-1 font-mono text-[11px]">↓</kbd>
           </span>
         </div>
       </Command>

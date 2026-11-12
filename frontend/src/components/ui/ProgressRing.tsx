@@ -47,7 +47,7 @@ export function ProgressRing({
       <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
         {/* Background track */}
         <circle
-          className="text-border/40"
+          className="text-muted"
           strokeWidth={strokeWidth}
           stroke="currentColor"
           fill="none"
@@ -57,7 +57,7 @@ export function ProgressRing({
         />
         {/* Animated progressive ring */}
         <circle
-          className={cn('transition-all duration-700 ease-out', ringColor)}
+          className={cn('transition-[stroke-dashoffset] duration-200 ease-out', ringColor)}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -70,7 +70,7 @@ export function ProgressRing({
         />
       </svg>
       {showText && (
-        <div className={cn('absolute inset-0 flex items-center justify-center font-bold text-sm text-foreground rounded-full', ringBgColor)}>
+        <div className={cn('absolute inset-0 flex items-center justify-center font-semibold text-sm tabular-nums text-foreground rounded-full', ringBgColor)}>
           {score}
         </div>
       )}

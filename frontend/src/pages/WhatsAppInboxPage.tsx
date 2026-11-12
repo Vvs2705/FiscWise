@@ -165,7 +165,7 @@ export function WhatsAppInboxPage() {
       )}
     <div className="flex h-[calc(100vh-12rem)] gap-5 overflow-hidden">
       {/* LEFT COLUMN: INBOX THREADS */}
-      <Card className="flex w-80 shrink-0 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
+      <Card className="flex w-80 shrink-0 flex-col overflow-hidden">
         <div className="border-b border-white/5 p-4 space-y-3">
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
             WhatsApp Central
@@ -256,7 +256,7 @@ export function WhatsAppInboxPage() {
       </Card>
 
       {/* RIGHT COLUMN: ACTIVE CONVERSATION */}
-      <Card className="flex flex-1 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
+      <Card className="flex flex-1 flex-col overflow-hidden">
         {selectedInbox ? (
           <>
             {/* CONVERSATION HEADER */}

@@ -66,7 +66,7 @@ export function ClientStatusReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 overflow-y-auto">
       {/* Dynamic CSS styles for clean printing of the modal container only */}
       <style>{`
         @media print {

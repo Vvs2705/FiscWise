@@ -763,7 +763,7 @@ export function ObrigacoesPage() {
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}

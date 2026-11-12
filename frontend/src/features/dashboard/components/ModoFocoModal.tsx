@@ -304,7 +304,7 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
   const afterScore = Math.min(100, beforeScore + resolvedCount * 4 + snoozedCount * 2);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
       <div className="relative w-full max-w-2xl overflow-hidden rounded-panel border border-border bg-card shadow-token">
 
         {/* Header decoration */}
@@ -350,7 +350,6 @@ export function ModoFocoModal({ isOpen, onClose, beforeScore }: ModoFocoModalPro
             /* SUCCESS COMPLETION SCREEN */
             <div className="text-center py-6 space-y-6">
               <div className="relative inline-block">
-                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
                 <div className="relative border border-primary/30 bg-primary/10 p-5 rounded-full text-primary">
                   <CheckCircle className="h-12 w-12" />
                 </div>

@@ -32,7 +32,7 @@ function toneClasses(tone: FocusItem['tone']) {
 
 export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocusMode }: DailyFocusCardProps) {
   return (
-    <div className="rounded-card border border-border bg-card/90 p-5 backdrop-blur">
+    <div className="rounded-card border border-border bg-card p-5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary/80">

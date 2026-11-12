@@ -210,7 +210,7 @@ export function CertificatesPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card className="bg-card/45 border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Total Gerenciado
@@ -220,7 +220,7 @@ export function CertificatesPage() {
             <div className="text-3xl font-extrabold text-foreground">{isLoading ? '...' : total}</div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card className="bg-card/45 border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-warning uppercase tracking-wider">
               Vencendo em 30 dias
@@ -232,7 +232,7 @@ export function CertificatesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50 sm:col-span-2 lg:col-span-1">
+        <Card className="bg-card/45 border-border/50 sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Tipo A1
@@ -245,7 +245,7 @@ export function CertificatesPage() {
       </div>
 
       {/* Search and Filters toolbar */}
-      <Card className="p-4 bg-card/40 backdrop-blur-md border-border/50">
+      <Card className="p-4 bg-card/40 border-border/50">
         <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
           <div className="flex flex-1 flex-col sm:flex-row gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -331,7 +331,7 @@ export function CertificatesPage() {
           <LoadingCards count={6} />
         </div>
       ) : filteredCertificates.length === 0 ? (
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card className="bg-card/45 border-border/50">
           <CardContent className="pt-6">
             <EmptyState
               title="Nenhum certificado encontrado"

@@ -18,7 +18,9 @@ import {
   Download,
   AlertTriangle
 } from 'lucide-react';
-import { invoicesService } from '../services/invoices.service';
+import { downloadErrorMessage, invoicesService } from '../services/invoices.service';
+import { getApiErrorMessage } from '@/lib/api';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 import { toast } from 'sonner';
 
 export function InvoiceDetailPage() {
@@ -38,8 +40,8 @@ export function InvoiceDetailPage() {
     try {
       await emitInvoice.mutateAsync(id);
       toast.success('Transmissão da NFS-e iniciada!');
-    } catch {
-      toast.error('Falha ao iniciar transmissão da nota.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Falha ao iniciar transmissão da nota.'));
     }
   };
 
@@ -54,26 +56,24 @@ export function InvoiceDetailPage() {
       await cancelInvoice.mutateAsync({ id, reason: cancelReason });
       toast.success('Nota fiscal cancelada com sucesso!');
       setOpenCancelModal(false);
-    } catch {
-      toast.error('Erro ao solicitar cancelamento da nota.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao solicitar cancelamento da nota.'));
     }
   };
 
   const handleDownloadPdf = async () => {
     try {
-      const res = await invoicesService.getPdfUrl(id);
-      window.open(res.url, '_blank');
-    } catch {
-      toast.error('Erro ao obter PDF');
+      await invoicesService.downloadPdf(id, invoice?.numero);
+    } catch (err) {
+      toast.error(await downloadErrorMessage(err, 'Erro ao obter PDF'));
     }
   };
 
   const handleDownloadXml = async () => {
     try {
-      const res = await invoicesService.getXmlUrl(id);
-      window.open(res.url, '_blank');
-    } catch {
-      toast.error('Erro ao obter XML');
+      await invoicesService.downloadXml(id, invoice?.numero);
+    } catch (err) {
+      toast.error(await downloadErrorMessage(err, 'Erro ao obter XML'));
     }
   };
 
@@ -99,6 +99,13 @@ export function InvoiceDetailPage() {
         </Button>
       </div>
 
+      {invoice.simulated && (
+        <SimulationNotice>
+          Esta nota foi processada por um emissor simulado: não foi transmitida à prefeitura e não
+          tem valor fiscal.
+        </SimulationNotice>
+      )}
+
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <div className="flex items-center gap-3">
@@ -120,18 +127,11 @@ export function InvoiceDetailPage() {
             </Button>
           )}
 
-          {invoice.status === 'rejected' && (
-            <Button onClick={handleEmit} disabled={emitInvoice.isPending} className="flex items-center gap-2">
-              <Send className="h-4 w-4" />
-              {emitInvoice.isPending ? 'Re-enviando...' : 'Corrigir e Transmitir'}
-            </Button>
-          )}
-
           {invoice.status === 'issued' && (
             <>
               <Button onClick={handleDownloadPdf} variant="outline" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Visualizar PDF
+                Baixar PDF
               </Button>
               <Button onClick={handleDownloadXml} variant="outline" className="flex items-center gap-2">
                 <Download className="h-4 w-4" />

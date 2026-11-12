@@ -112,6 +112,9 @@ class AccountingClientUpdate(BaseModel):
 class AccountingClientResponse(AccountingClientCreate):
     model_config = ConfigDict(from_attributes=True)
 
+    # Versão da linha para a sincronização offline (OFFLINE_SYNC.md 4.1)
+    version: int = 1
+
     id: UUID
     tenant_id: UUID
     client_code: str
@@ -146,6 +149,9 @@ class DeadlineUpdate(BaseModel):
 
 class DeadlineResponse(DeadlineCreate):
     model_config = ConfigDict(from_attributes=True)
+
+    # Versão da linha para a sincronização offline (OFFLINE_SYNC.md 4.1)
+    version: int = 1
 
     id: UUID
     tenant_id: UUID
@@ -233,6 +239,9 @@ class CertificateUpdate(BaseModel):
 class CertificateResponse(CertificateCreate):
     model_config = ConfigDict(from_attributes=True)
 
+    # Versão da linha para a sincronização offline (OFFLINE_SYNC.md 4.1)
+    version: int = 1
+
     id: UUID
     tenant_id: UUID
     ultimo_uso: Optional[datetime] = None
@@ -265,6 +274,9 @@ class ReceivableUpdate(BaseModel):
 
 class ReceivableResponse(ReceivableCreate):
     model_config = ConfigDict(from_attributes=True)
+
+    # Versão da linha para a sincronização offline (OFFLINE_SYNC.md 4.1)
+    version: int = 1
 
     id: UUID
     tenant_id: UUID

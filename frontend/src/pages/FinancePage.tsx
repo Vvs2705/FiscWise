@@ -49,6 +49,7 @@ import {
   type ReceivableCreate,
   type ReceivableStatus,
 } from '@/lib/hooks/useOperations';
+import { SyncRowMarker } from '@/components/SyncRowMarker';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
 
@@ -339,7 +340,10 @@ export function FinancePage() {
               <Card key={r.id} className="relative group border border-border/50 hover:border-primary/30 p-5 bg-card/45 backdrop-blur-sm flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3 gap-2">
-                    <h4 className="font-bold text-foreground text-base leading-snug line-clamp-2">{r.description}</h4>
+                    <h4 className="font-bold text-foreground text-base leading-snug line-clamp-2">
+                      {r.description}
+                      <SyncRowMarker status={r._sync_status} error={r._sync_error} className="ml-1.5" />
+                    </h4>
                     <Badge variant={statusVariant[r.status]} className="shrink-0">
                       {statusLabel[r.status]}
                     </Badge>
@@ -417,7 +421,10 @@ export function FinancePage() {
               return (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <div className="font-semibold text-foreground">{r.description}</div>
+                    <div className="font-semibold text-foreground">
+                      {r.description}
+                      <SyncRowMarker status={r._sync_status} error={r._sync_error} className="ml-1.5" />
+                    </div>
                     {r.notes && (
                       <div className="text-xs text-muted-foreground max-w-[300px] truncate" title={r.notes}>
                         {r.notes}

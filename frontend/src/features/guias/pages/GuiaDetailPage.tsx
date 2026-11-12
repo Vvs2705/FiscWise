@@ -9,11 +9,13 @@ import { ArrowLeft, FileText, Download, CheckCircle, Upload } from 'lucide-react
 import { useClients } from '@/lib/hooks/useOperations';
 import { guiasService } from '../services/guias.service';
 import { toast } from 'sonner';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 
 export function GuiaDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { data: guide, isLoading, refetch } = useGuide(id);
+  const onlineOnly = useOnlineOnly();
   const { data: clients } = useClients();
   const uploadPdf = useUploadPdf();
   const markPaid = useMarkPaid();
@@ -172,11 +174,14 @@ export function GuiaDetailPage() {
               <span className="text-xs font-semibold text-muted-foreground uppercase">
                 {guide.pdf_storage_path ? 'Substituir Guia de Imposto (PDF)' : 'Anexar Guia de Imposto (PDF)'}
               </span>
-              <label className="flex items-center justify-between px-3 py-1.5 bg-background border border-input rounded-md text-xs cursor-pointer hover:bg-muted/10 mt-1">
+              <label
+                className={`flex items-center justify-between px-3 py-1.5 bg-background border border-input rounded-md text-xs hover:bg-muted/10 mt-1 ${onlineOnly.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                title={onlineOnly.title}
+              >
                 <span className="text-muted-foreground">
                   {guide.pdf_storage_path ? 'Alterar arquivo PDF' : 'Selecionar arquivo...'}
                 </span>
-                <input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
+                <input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} disabled={onlineOnly.disabled} />
                 <Upload className="h-3.5 w-3.5 text-muted-foreground" />
               </label>
             </div>

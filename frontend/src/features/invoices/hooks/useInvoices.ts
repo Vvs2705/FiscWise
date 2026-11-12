@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoicesService, type InvoiceIssuerCreate, type InvoiceCreate } from '../services/invoices.service';
+import axios from 'axios';
+import { invoicesService, type InvoiceIssuerCreate, type InvoiceCreate, type InvoiceResponse } from '../services/invoices.service';
+import { useLocalDb } from '@/lib/offline/hooks';
+import { createInvoiceDraft } from '@/lib/offline/repositories';
 
 export function useIssuers() {
   return useQuery({
@@ -25,18 +28,39 @@ export function useInvoices(filters?: { status?: string; client_id?: string; com
   });
 }
 
+/**
+ * Nota pela API; com banco local, se a API não responder (offline) ou ainda não
+ * conhecer a nota (rascunho criado offline, push pendente), usa a cópia local.
+ */
 export function useInvoice(id: string) {
+  const db = useLocalDb();
   return useQuery({
     queryKey: ['invoice', id],
-    queryFn: () => invoicesService.getInvoice(id),
+    queryFn: async (): Promise<InvoiceResponse> => {
+      try {
+        return await invoicesService.getInvoice(id);
+      } catch (error) {
+        const fallback = axios.isAxiosError(error) && (!error.response || error.response.status === 404);
+        if (db && fallback) {
+          const local = await db.invoices.get(id);
+          if (local) return local;
+        }
+        throw error;
+      }
+    },
     enabled: !!id,
+    networkMode: db ? 'always' : 'online',
   });
 }
 
+/** Rascunho local-first: com banco local o rascunho nasce offline e sobe pela outbox. */
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
+  const db = useLocalDb();
   return useMutation({
-    mutationFn: (data: InvoiceCreate) => invoicesService.createInvoice(data),
+    mutationFn: (data: InvoiceCreate): Promise<InvoiceResponse> =>
+      db ? createInvoiceDraft(db, data) : invoicesService.createInvoice(data),
+    networkMode: db ? 'always' : 'online',
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },

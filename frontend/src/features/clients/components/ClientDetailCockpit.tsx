@@ -75,6 +75,8 @@ import {
   type DigitalCertificate,
   type ClientStatus
 } from '@/lib/hooks/useOperations';
+import { SyncRowMarker } from '@/components/SyncRowMarker';
+import { OFFLINE_SERVER_NOTICE, useOnlineOnly } from '@/lib/offline/hooks';
 import {
   buildClientAiSummaryView,
   buildDocumentAiView,
@@ -182,6 +184,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
   const deleteDocMutation = useDeleteCompanyDocument(clientId);
   const generateAiSummaryMutation = useGenerateClientAiSummary();
   const uploadFileMutation = useUploadDocument();
+  const onlineOnly = useOnlineOnly();
 
   const { data: dasPayments = [], refetch: refetchDas } = useDasPayments(clientId);
   const payDasMutation = usePayDas();
@@ -779,7 +782,8 @@ FiscWise`,
                 size="sm"
                 variant={view.available ? 'outline' : 'default'}
                 onClick={handleGenerateAiSummary}
-                disabled={generateAiSummaryMutation.isPending}
+                disabled={generateAiSummaryMutation.isPending || onlineOnly.disabled}
+                title={onlineOnly.title}
                 className="gap-1.5"
               >
                 <Sparkles className="h-4 w-4" />
@@ -1091,8 +1095,8 @@ FiscWise`,
                 <Input id="doc_notes" placeholder="Ex: Exercício 2026" value={docNotes} onChange={(e) => setDocNotes(e.target.value)} />
               </FormField>
               <div className="flex justify-end">
-                <label className="cursor-pointer">
-                  <input type="file" className="sr-only" onChange={handleDocUpload} disabled={uploadingFile} />
+                <label className={onlineOnly.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} title={onlineOnly.title}>
+                  <input type="file" className="sr-only" onChange={handleDocUpload} disabled={uploadingFile || onlineOnly.disabled} />
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/95 transition-all">
                     <Upload className="h-4 w-4" />
                     {uploadingFile ? 'Enviando...' : 'Selecionar & Upload'}
@@ -1188,8 +1192,9 @@ FiscWise`,
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-foreground">{dl.title}</span>
-                        <Badge variant={dl.status === 'completed' ? 'success' : dl.status === 'overdue' ? 'error' : 'warning'}>
-                          {dl.status === 'completed' ? 'Concluído' : dl.status === 'overdue' ? 'Atrasado' : 'Pendente'}
+                        <SyncRowMarker status={dl._sync_status} error={dl._sync_error} />
+                        <Badge variant={dl.status === 'completed' ? 'success' : dl.status === 'overdue' ? 'error' : dl.status === 'cancelled' ? 'default' : 'warning'}>
+                          {dl.status === 'completed' ? 'Concluído' : dl.status === 'overdue' ? 'Atrasado' : dl.status === 'cancelled' ? 'Cancelado' : 'Pendente'}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -1292,7 +1297,10 @@ FiscWise`,
                     <Card key={cert.id} className="p-4 space-y-3">
                       <div>
                         <span className="text-[10px] uppercase font-bold text-primary">TIPO {cert.certificate_type.toUpperCase()}</span>
-                        <h4 className="font-bold text-foreground truncate">{cert.label}</h4>
+                        <h4 className="font-bold text-foreground truncate">
+                          {cert.label}
+                          <SyncRowMarker status={cert._sync_status} error={cert._sync_error} className="ml-1.5" />
+                        </h4>
                       </div>
                       <div>
                         <div className="flex justify-between items-center text-xs mb-1">
@@ -1477,7 +1485,8 @@ FiscWise`,
               <Button
                 size="sm"
                 variant="default"
-                disabled={syncMonitorMutation.isPending}
+                disabled={syncMonitorMutation.isPending || onlineOnly.disabled}
+                title={onlineOnly.disabled ? OFFLINE_SERVER_NOTICE : undefined}
                 onClick={async () => {
                   try {
                     const res = await syncMonitorMutation.mutateAsync();

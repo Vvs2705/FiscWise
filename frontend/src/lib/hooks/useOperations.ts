@@ -1,6 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { api } from '@/lib/api';
+import { META, getMeta, type AnyLocalRow, type FiscWiseLocalDb, type LocalRowMeta, type SyncEntityType } from '@/lib/offline/db';
+import { useLocalDb } from '@/lib/offline/hooks';
+import * as localRepo from '@/lib/offline/repositories';
 import type { ClientAiSummary, ClientDocument as AiClientDocument } from '@/lib/aiDocuments';
 
 export type ClientStatus = 'active' | 'inactive' | 'onboarding';
@@ -286,23 +289,11 @@ export function useProductivityOverview(year?: number, month?: number) {
 }
 
 export function useClients() {
-  return useQuery({
-    queryKey: [...operationsKey, 'clients'],
-    queryFn: async () => {
-      const { data } = await api.get<AccountingClient[]>('/api/v1/clients');
-      return data;
-    },
-  });
+  return useLocalFirstList<AccountingClient>('client');
 }
 
 export function useDeadlines() {
-  return useQuery({
-    queryKey: [...operationsKey, 'deadlines'],
-    queryFn: async () => {
-      const { data } = await api.get<DeadlineItem[]>('/api/v1/deadlines');
-      return data;
-    },
-  });
+  return useLocalFirstList<DeadlineItem>('deadline');
 }
 
 export function useDocuments() {
@@ -351,21 +342,204 @@ export function useGenerateClientAiSummary() {
 }
 
 export function useCertificates() {
+  return useLocalFirstList<DigitalCertificate>('certificate');
+}
+
+export function useReceivables() {
+  return useLocalFirstList<AccountReceivable>('receivable');
+}
+
+// ─── Local-first (OFFLINE_SYNC.md, seções 3.1, 5.4 e 12) ─────────────────────
+// Clientes, prazos, certificados e honorários: com banco local (escritório
+// logado) a leitura vem do IndexedDB e a escrita vai pelo repositório local +
+// outbox (o enqueue já agenda o syncNow em 2 s). Sem banco local (portal do
+// cliente, role `client`) tudo segue pela API REST.
+
+export type LocalFirstEntity = Extract<SyncEntityType, 'client' | 'deadline' | 'certificate' | 'receivable'>;
+
+/** Linha como a tela recebe: igual à da API, mais o estado de sincronização local. */
+export type WithSyncStatus<T> = T & Partial<Pick<LocalRowMeta, '_sync_status' | '_sync_error'>>;
+
+const LOCAL_FIRST_URL: Record<LocalFirstEntity, string> = {
+  client: '/api/v1/clients',
+  deadline: '/api/v1/deadlines',
+  certificate: '/api/v1/certificates',
+  receivable: '/api/v1/receivables',
+};
+
+const LOCAL_FIRST_KEY: Record<LocalFirstEntity, string> = {
+  client: 'clients',
+  deadline: 'deadlines',
+  certificate: 'certificates',
+  receivable: 'receivables',
+};
+
+function compareText(a: unknown, b: unknown): number {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR');
+}
+
+function compareIso(a: unknown, b: unknown): number {
+  const x = String(a ?? '');
+  const y = String(b ?? '');
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/** Mesma ordem das listagens REST (order_by em operations.py). */
+const LOCAL_FIRST_SORT: Record<LocalFirstEntity, (a: AnyLocalRow, b: AnyLocalRow) => number> = {
+  client: (a, b) => compareText(a.name, b.name),
+  deadline: (a, b) => compareIso(a.due_date, b.due_date),
+  certificate: (a, b) => compareIso(a.valid_until, b.valid_until),
+  receivable: (a, b) => compareIso(a.due_date, b.due_date),
+};
+
+/** Erro sem resposta do servidor (sem rede, DNS, servidor fora). */
+export function isNetworkFailure(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response;
+}
+
+/**
+ * Grava a resposta da API no banco local como `synced` enquanto a carga
+ * inicial (pull) ainda não terminou. Não sobrescreve edição local e desiste se
+ * o pull já gravou o cursor da entidade nesse meio-tempo.
+ */
+export async function seedLocalRows(db: FiscWiseLocalDb, entity: LocalFirstEntity, rows: { id: string }[]): Promise<void> {
+  const table = db.entityTable(entity);
+  await db.transaction('rw', table, db.sync_meta, async () => {
+    if ((await getMeta(db, META.cursor(entity))) !== undefined) return;
+    for (const row of rows) {
+      const local = await table.get(row.id);
+      if (local && local._sync_status !== 'synced') continue;
+      await table.put({
+        ...(row as Record<string, unknown>),
+        id: row.id,
+        version: (row as { version?: number }).version ?? local?.version ?? 1,
+        _sync_status: 'synced',
+        _sync_error: null,
+        _local_updated_at: null,
+      });
+    }
+  });
+}
+
+/**
+ * Lê a lista do banco local. Antes da carga inicial terminar (sem cursor da
+ * entidade) busca na API e semeia o banco; se a API falhar por rede devolve o
+ * que houver localmente.
+ */
+export async function loadLocalFirstList<T>(db: FiscWiseLocalDb, entity: LocalFirstEntity): Promise<WithSyncStatus<T>[]> {
+  const table = db.entityTable(entity);
+  const cursor = await getMeta(db, META.cursor(entity));
+  if (cursor === undefined) {
+    try {
+      const { data } = await api.get<{ id: string }[]>(LOCAL_FIRST_URL[entity]);
+      await seedLocalRows(db, entity, Array.isArray(data) ? data : []);
+    } catch (error) {
+      if (!isNetworkFailure(error) && (await table.count()) === 0) throw error;
+    }
+  }
+  const rows = await table.toArray();
+  return rows.sort(LOCAL_FIRST_SORT[entity]) as unknown as WithSyncStatus<T>[];
+}
+
+function useLocalFirstList<T>(entity: LocalFirstEntity) {
+  const db = useLocalDb();
   return useQuery({
-    queryKey: [...operationsKey, 'certificates'],
-    queryFn: async () => {
-      const { data } = await api.get<DigitalCertificate[]>('/api/v1/certificates');
+    queryKey: [...operationsKey, LOCAL_FIRST_KEY[entity]],
+    queryFn: async (): Promise<WithSyncStatus<T>[]> => {
+      if (db) return loadLocalFirstList<T>(db, entity);
+      const { data } = await api.get<WithSyncStatus<T>[]>(LOCAL_FIRST_URL[entity]);
       return data;
+    },
+    // Leitura local não depende de rede: não pausar a query offline.
+    networkMode: db ? 'always' : 'online',
+  });
+}
+
+/** Garante a linha no banco local antes de editar (pull ainda não trouxe). */
+async function ensureLocalRow(db: FiscWiseLocalDb, entity: LocalFirstEntity, id: string, queryClient: QueryClient): Promise<void> {
+  const table = db.entityTable(entity);
+  if (await table.get(id)) return;
+  const cached = queryClient
+    .getQueryData<{ id: string }[]>([...operationsKey, LOCAL_FIRST_KEY[entity]])
+    ?.find((row) => row.id === id);
+  let row: { id: string } | undefined = cached;
+  if (!row) {
+    try {
+      const { data } = await api.get<{ id: string }>(`${LOCAL_FIRST_URL[entity]}/${id}`);
+      row = data;
+    } catch (error) {
+      if (isNetworkFailure(error)) throw new Error('Registro ainda não baixado neste dispositivo. Conecte-se à internet e tente novamente.');
+      throw error;
+    }
+  }
+  if (!row) return;
+  await table.put({
+    ...(row as Record<string, unknown>),
+    id: row.id,
+    version: (row as { version?: number }).version ?? 1,
+    _sync_status: 'synced',
+    _sync_error: null,
+    _local_updated_at: null,
+  });
+}
+
+function useLocalFirstCreate<TPayload, TResponse>(
+  entity: LocalFirstEntity,
+  createLocal: (db: FiscWiseLocalDb, payload: TPayload) => Promise<unknown>,
+) {
+  const db = useLocalDb();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: TPayload): Promise<TResponse> => {
+      if (db) return (await createLocal(db, payload)) as TResponse;
+      const { data } = await api.post<TResponse>(LOCAL_FIRST_URL[entity], payload);
+      return data;
+    },
+    networkMode: db ? 'always' : 'online',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
     },
   });
 }
 
-export function useReceivables() {
-  return useQuery({
-    queryKey: [...operationsKey, 'receivables'],
-    queryFn: async () => {
-      const { data } = await api.get<AccountReceivable[]>('/api/v1/receivables');
+function useLocalFirstUpdate<TPayload, TResponse>(
+  entity: LocalFirstEntity,
+  updateLocal: (db: FiscWiseLocalDb, id: string, payload: Partial<TPayload>) => Promise<unknown>,
+  method: 'patch' | 'put' = 'patch',
+) {
+  const db = useLocalDb();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<TPayload> }): Promise<TResponse> => {
+      if (db) {
+        await ensureLocalRow(db, entity, id, queryClient);
+        return (await updateLocal(db, id, payload)) as TResponse;
+      }
+      const { data } = await api[method]<TResponse>(`${LOCAL_FIRST_URL[entity]}/${id}`, payload);
       return data;
+    },
+    networkMode: db ? 'always' : 'online',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
+    },
+  });
+}
+
+function useLocalFirstDelete(entity: LocalFirstEntity, softDeleteLocal: (db: FiscWiseLocalDb, id: string) => Promise<unknown>) {
+  const db = useLocalDb();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      if (db) {
+        await ensureLocalRow(db, entity, id, queryClient);
+        await softDeleteLocal(db, id);
+        return;
+      }
+      await api.delete(`${LOCAL_FIRST_URL[entity]}/${id}`);
+    },
+    networkMode: db ? 'always' : 'online',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operationsKey });
     },
   });
 }
@@ -412,11 +586,11 @@ function useDeleteMutation(endpoint: string) {
 }
 
 export function useCreateClient() {
-  return useCreateMutation<AccountingClientCreate, AccountingClient>('/api/v1/clients');
+  return useLocalFirstCreate<AccountingClientCreate, AccountingClient>('client', localRepo.createClient);
 }
 
 export function useCreateDeadline() {
-  return useCreateMutation<DeadlineCreate, DeadlineItem>('/api/v1/deadlines');
+  return useLocalFirstCreate<DeadlineCreate, DeadlineItem>('deadline', localRepo.createDeadline);
 }
 
 export function useCreateDocument() {
@@ -424,39 +598,49 @@ export function useCreateDocument() {
 }
 
 export function useCreateCertificate() {
-  return useCreateMutation<CertificateCreate, DigitalCertificate>('/api/v1/certificates');
+  return useLocalFirstCreate<CertificateCreate, DigitalCertificate>('certificate', localRepo.createCertificate);
 }
 
 export function useCreateReceivable() {
-  return useCreateMutation<ReceivableCreate, AccountReceivable>('/api/v1/receivables');
+  return useLocalFirstCreate<ReceivableCreate, AccountReceivable>('receivable', localRepo.createReceivable);
 }
 
 export function useUpdateReceivable() {
-  return useUpdateMutation<ReceivableCreate, AccountReceivable>('/api/v1/receivables');
+  return useLocalFirstUpdate<ReceivableCreate, AccountReceivable>('receivable', (db, id, payload) =>
+    localRepo.updateReceivable(db, id, payload.status === 'paid' && !payload.paid_at ? { ...payload, paid_at: new Date().toISOString() } : payload),
+  );
 }
 
+/** Sem exclusão física: desativa o cliente (status inactive). */
 export function useDeleteClient() {
-  return useDeleteMutation('/api/v1/clients');
+  return useLocalFirstDelete('client', localRepo.deactivateClient);
 }
 
+/** Sem exclusão física: cancela o prazo (status cancelled). */
 export function useDeleteDeadline() {
-  return useDeleteMutation('/api/v1/deadlines');
+  return useLocalFirstDelete('deadline', localRepo.cancelDeadline);
 }
 
 export function useUpdateDeadline() {
-  return useUpdateMutation<DeadlineCreate, DeadlineItem>('/api/v1/deadlines');
+  return useLocalFirstUpdate<DeadlineCreate, DeadlineItem>('deadline', (db, id, payload) =>
+    payload.status === 'completed' && !('completed_at' in payload)
+      ? localRepo.updateDeadline(db, id, { ...payload, completed_at: new Date().toISOString() } as Partial<DeadlineCreate>)
+      : localRepo.updateDeadline(db, id, payload),
+  );
 }
 
 export function useDeleteDocument() {
   return useDeleteMutation('/api/v1/documents');
 }
 
+/** Sem exclusão física: bloqueia o certificado (status revoked). */
 export function useDeleteCertificate() {
-  return useDeleteMutation('/api/v1/certificates');
+  return useLocalFirstDelete('certificate', localRepo.revokeCertificate);
 }
 
+/** Sem exclusão física: cancela a cobrança (status cancelled). */
 export function useDeleteReceivable() {
-  return useDeleteMutation('/api/v1/receivables');
+  return useLocalFirstDelete('receivable', localRepo.cancelReceivable);
 }
 
 export function useUploadDocument() {
@@ -535,17 +719,7 @@ export interface CompanyDocumentCreate {
 }
 
 export function useUpdateClient() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Partial<AccountingClientCreate> }) => {
-      const { data } = await api.put<AccountingClient>(`/api/v1/clients/${id}`, payload);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: operationsKey });
-    },
-  });
+  return useLocalFirstUpdate<AccountingClientCreate, AccountingClient>('client', localRepo.updateClient, 'put');
 }
 
 export function usePartners(clientId: string) {

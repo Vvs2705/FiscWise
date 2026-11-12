@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Lock, AlertCircle } from 'lucide-react';
 import { ChatMessage } from '../lib/types/calculator';
 import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 
 interface Props {
   userPlan?: 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
@@ -18,6 +19,7 @@ function normalisePlan(raw: string | undefined): 'FREE' | 'INTERMEDIARIO' | 'PRE
 
 export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
   const userPlan = normalisePlan(rawPlan);
+  const onlineOnly = useOnlineOnly();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -115,7 +117,7 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !loading) {
+    if (e.key === 'Enter' && !e.shiftKey && !loading && !onlineOnly.disabled) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -272,7 +274,8 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
           />
           <button
             onClick={handleSendMessage}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || onlineOnly.disabled}
+            title={onlineOnly.title}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             aria-label="Enviar mensagem"
           >

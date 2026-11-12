@@ -318,7 +318,12 @@ export function InvoiceDetailPage() {
             <Button type="button" variant="outline" onClick={() => setOpenCancelModal(false)}>
               Voltar
             </Button>
-            <Button type="submit" variant="destructive" disabled={cancelInvoice.isPending}>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={cancelInvoice.isPending || offline.isOffline}
+              title={offline.isOffline ? OFFLINE_CANCEL_NOTICE : undefined}
+            >
               {cancelInvoice.isPending ? 'Cancelando...' : 'Confirmar Cancelamento'}
             </Button>
           </div>

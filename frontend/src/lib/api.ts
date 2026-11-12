@@ -34,11 +34,18 @@ api.interceptors.request.use(
   }
 );
 
+export const NETWORK_ERROR_MESSAGE =
+  'Sem conexão com o servidor. Esta ação precisa de internet; tente novamente quando a conexão voltar.';
+
 export function getApiErrorMessage(
   error: unknown,
   fallback = 'Ocorreu um erro inesperado.'
 ): string {
   if (axios.isAxiosError(error)) {
+    // Sem resposta do servidor (offline/rede caiu): mensagem amigável, nunca "Network Error".
+    if (!error.response && error.code !== 'ERR_CANCELED') {
+      return NETWORK_ERROR_MESSAGE;
+    }
     const responseData = error.response?.data;
     if (
       responseData &&

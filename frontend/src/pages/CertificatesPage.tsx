@@ -32,6 +32,7 @@ import {
   type CertificateCreate,
   type CertificateStatus,
 } from '@/lib/hooks/useOperations';
+import { SyncRowMarker } from '@/components/SyncRowMarker';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -354,6 +355,7 @@ export function CertificatesPage() {
                   daysRemaining={days}
                   onWarnClient={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                 />
+                <SyncRowMarker status={cert._sync_status} error={cert._sync_error} className="absolute bottom-4 right-4 z-10" />
                 <button
                   type="button"
                   onClick={() => handleDelete(cert.id, cert.label)}
@@ -389,7 +391,10 @@ export function CertificatesPage() {
                 <TableRow key={cert.id}>
                   <TableCell>
                     <div className="font-semibold text-foreground">{clientName}</div>
-                    <div className="text-xs text-muted-foreground">{cert.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {cert.label}
+                      <SyncRowMarker status={cert._sync_status} error={cert._sync_error} className="ml-1.5" />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge className="bg-muted/50 text-foreground border-border/30">

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { startTour } from '@/lib/tours';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -549,6 +550,7 @@ export function DocumentsPage() {
 
   const isUploading = uploadMutation.isPending;
   const isBusy = isSubmitting || isUploading;
+  const onlineOnly = useOnlineOnly();
 
   // Filter Logic
   const filteredDocuments = useMemo(() => {
@@ -1014,7 +1016,7 @@ export function DocumentsPage() {
             <Button type="button" variant="outline" onClick={handleClose} disabled={isBusy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isBusy}>
+            <Button type="submit" disabled={isBusy || onlineOnly.disabled} title={onlineOnly.title}>
               {isUploading ? 'Enviando arquivo...' : isSubmitting ? 'Salvando...' : 'Salvar documento'}
             </Button>
           </div>

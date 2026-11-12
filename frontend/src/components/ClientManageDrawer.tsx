@@ -40,6 +40,7 @@ import {
   type AccountingClient,
   type CompanyPartner,
 } from '@/lib/hooks/useOperations';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 import {
   buildClientAiSummaryView,
   buildDocumentAiView,
@@ -111,6 +112,7 @@ interface ClientAiSummaryPanelProps {
 
 function ClientAiSummaryPanel({ summary, isGenerating, onGenerate }: ClientAiSummaryPanelProps) {
   const view = buildClientAiSummaryView(summary ?? null);
+  const onlineOnly = useOnlineOnly();
 
   return (
     <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
@@ -135,7 +137,8 @@ function ClientAiSummaryPanel({ summary, isGenerating, onGenerate }: ClientAiSum
         size="sm"
         variant={view.available ? 'outline' : 'default'}
         onClick={onGenerate}
-        disabled={isGenerating}
+        disabled={isGenerating || onlineOnly.disabled}
+        title={onlineOnly.title}
         className="gap-1.5"
       >
         <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -277,6 +280,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
   const deleteDocMutation = useDeleteCompanyDocument(client?.id ?? '');
   const generateAiSummaryMutation = useGenerateClientAiSummary();
   const uploadFileMutation = useUploadDocument();
+  const onlineOnly = useOnlineOnly();
 
   // React Hook Forms
   const {
@@ -919,13 +923,13 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                 </FormField>
 
                 <div className="flex justify-end pt-2">
-                  <label className="cursor-pointer">
+                  <label className={onlineOnly.disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} title={onlineOnly.title}>
                     <input
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
                       className="sr-only"
                       onChange={handleDocUpload}
-                      disabled={uploadingFile}
+                      disabled={uploadingFile || onlineOnly.disabled}
                     />
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/95 transition-colors">
                       <Upload className="h-4 w-4" />

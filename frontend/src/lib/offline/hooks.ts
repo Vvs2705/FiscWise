@@ -64,3 +64,16 @@ export function useCurrentDeviceId(): string | undefined {
   const db = useLocalDb();
   return useLiveQuery(() => (db ? getMeta<string>(db, META.deviceId) : Promise.resolve(undefined)), [db]);
 }
+
+/** Aviso padrão dos botões que dependem do servidor (OFFLINE_SYNC.md, seções 3.3 e 8). */
+export const OFFLINE_SERVER_NOTICE = 'Precisa de internet: esta ação depende do servidor.';
+export const OFFLINE_FISCAL_NOTICE = 'Precisa de internet: a autorização depende da SEFAZ/prefeitura.';
+
+/**
+ * Guarda de ação que exige rede: `disabled` para compor com o disabled atual e
+ * `title` com o aviso em português (undefined quando online).
+ */
+export function useOnlineOnly(notice: string = OFFLINE_SERVER_NOTICE) {
+  const { isOffline } = useSyncStatus();
+  return { isOffline, disabled: isOffline, title: isOffline ? notice : undefined };
+}

@@ -12,6 +12,7 @@ import { FeatureGate } from '@/components/ui/FeatureGate';
 import { fetchMonthlyClosing, updateChecklistItem, generateDossier, downloadDossierPdf } from '@/features/monthly-closing/api';
 import { ChecklistItem, MonthlyClosing } from '@/features/monthly-closing/types';
 import { cn } from '@/lib/utils';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 import { toast } from 'sonner';
 
 function ScoreRing({ score }: { score: number }) {
@@ -49,6 +50,7 @@ const CHECKLIST_STATUS_ICONS = {
 export function MonthlyClosingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [generatingDossier, setGeneratingDossier] = useState(false);
+  const onlineOnly = useOnlineOnly();
   const [activeTab, setActiveTab] = useState<'checklist' | 'notas' | 'guias' | 'obrigacoes' | 'ecac' | 'dossie'>('checklist');
 
   const qc = useQueryClient();
@@ -130,7 +132,8 @@ export function MonthlyClosingDetailPage() {
               <StatusBadge status={closing.status} />
               <button
                 onClick={handleGenerateDossier}
-                disabled={generatingDossier}
+                disabled={generatingDossier || onlineOnly.disabled}
+                title={onlineOnly.title}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {generatingDossier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -411,6 +414,7 @@ function TabDossie({
   onGenerate: () => void;
   generating: boolean;
 }) {
+  const onlineOnly = useOnlineOnly();
   return (
     <div className="rounded-xl border border-border bg-card p-6 space-y-4">
       <div className="flex items-center gap-3">
@@ -455,7 +459,8 @@ function TabDossie({
 
       <button
         onClick={onGenerate}
-        disabled={generating}
+        disabled={generating || onlineOnly.disabled}
+        title={onlineOnly.title}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
       >
         {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

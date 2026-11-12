@@ -3,6 +3,7 @@ import { useUploadComprovante } from '../hooks/useGuias';
 import { Button } from '@/components/ui/Button';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { useOnlineOnly } from '@/lib/offline/hooks';
 
 interface GuiaUploadComprovanteProps {
   guideId: string;
@@ -11,6 +12,7 @@ interface GuiaUploadComprovanteProps {
 
 export function GuiaUploadComprovante({ guideId, onSuccess }: GuiaUploadComprovanteProps) {
   const upload = useUploadComprovante();
+  const onlineOnly = useOnlineOnly();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +50,8 @@ export function GuiaUploadComprovante({ guideId, onSuccess }: GuiaUploadComprova
         <Button
           size="sm"
           onClick={handleUpload}
-          disabled={!selectedFile || upload.isPending}
+          disabled={!selectedFile || upload.isPending || onlineOnly.disabled}
+          title={onlineOnly.title}
           className="h-8 shrink-0"
         >
           {upload.isPending ? 'Enviando...' : 'Enviar'}

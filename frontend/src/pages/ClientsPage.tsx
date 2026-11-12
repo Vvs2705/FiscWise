@@ -52,7 +52,10 @@ import {
   type AccountingClientCreate,
   type ClientStatus,
   type DeadlineItem,
+  type WithSyncStatus,
 } from '@/lib/hooks/useOperations';
+import { SyncRowMarker } from '@/components/SyncRowMarker';
+import { useSyncStatus } from '@/lib/offline/hooks';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -128,6 +131,7 @@ interface CnpjWatcherProps {
 
 function CnpjWatcher({ control, setValue }: CnpjWatcherProps) {
   const document = useWatch({ control, name: 'document' });
+  const { isOffline } = useSyncStatus();
   const [loading, setLoading] = useState(false);
   const [filled, setFilled] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,7 +167,7 @@ function CnpjWatcher({ control, setValue }: CnpjWatcherProps) {
 
     const digits = (document ?? '').replace(/\D/g, '');
 
-    if (digits.length !== 14) return;
+    if (digits.length !== 14 || isOffline) return;
 
     timerRef.current = setTimeout(() => {
       doFetch(digits);
@@ -172,10 +176,17 @@ function CnpjWatcher({ control, setValue }: CnpjWatcherProps) {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [document, doFetch]);
+  }, [document, doFetch, isOffline]);
+
+  const isCnpj = (document ?? '').replace(/\D/g, '').length === 14;
 
   return (
     <>
+      {isOffline && isCnpj && (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          Precisa de internet: a consulta de CNPJ depende do servidor. Preencha os dados manualmente.
+        </span>
+      )}
       {loading && (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -321,7 +332,7 @@ type RegimeFilter = '' | 'Simples Nacional' | 'Lucro Presumido' | 'Lucro Real' |
 // ---------------------------------------------------------------------------
 
 interface ClientItemProps {
-  client: AccountingClient;
+  client: WithSyncStatus<AccountingClient>;
   deadlines: DeadlineItem[];
   onManage: () => void;
   onNotes: () => void;
@@ -357,7 +368,10 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
         </span>
       </TableCell>
       <TableCell>
-        <div className="font-bold text-foreground">{client.name}</div>
+        <div className="font-bold text-foreground">
+          {client.name}
+          <SyncRowMarker status={client._sync_status} error={client._sync_error} className="ml-1.5" />
+        </div>
         {client.document && <div className="text-xs text-muted-foreground font-mono">{client.document}</div>}
       </TableCell>
       <TableCell className="uppercase text-xs font-semibold text-muted-foreground">
@@ -460,6 +474,7 @@ function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: 
           </span>
           <h4 className="font-bold text-foreground text-base leading-tight mt-2 truncate" title={client.name}>
             {client.name}
+            <SyncRowMarker status={client._sync_status} error={client._sync_error} className="ml-1.5" />
           </h4>
           {client.document && (
             <p className="text-xs text-muted-foreground font-mono mt-1 truncate">{client.document}</p>

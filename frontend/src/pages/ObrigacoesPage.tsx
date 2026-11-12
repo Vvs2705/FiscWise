@@ -31,6 +31,7 @@ import { FormField } from '@/components/ui/FormField';
 import { EmptyState, PageSpinner, ErrorState } from '@/components/ui/StateViews';
 import { RequireRole } from '@/components/RequireRole';
 import { api } from '@/lib/api';
+import { useClients as useOperationClients } from '@/lib/hooks/useOperations';
 import {
   Table,
   TableHeader,
@@ -72,7 +73,7 @@ interface ObligationInstance {
 interface Client {
   id: string;
   name: string;
-  document: string | null;
+  document?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,14 +145,9 @@ function useObligationInstances(competenceMonth: string, clientId?: string) {
   });
 }
 
-function useClients() {
-  return useQuery<Client[]>({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const res = await api.get('/api/v1/clients');
-      return res.data;
-    },
-  });
+/** Lista de clientes local-first (banco local do escritório; API no portal). */
+function useClients(): { data: Client[] | undefined; isLoading: boolean } {
+  return useOperationClients();
 }
 
 function useUpdateObligationInstance() {

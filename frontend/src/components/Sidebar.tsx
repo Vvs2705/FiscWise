@@ -142,7 +142,7 @@ export function Sidebar() {
             <div key={group.label} className="mb-2 last:mb-0">
               {/* Group header */}
               <div className="mb-1 hidden h-6 items-center justify-between px-2.5 md:flex">
-                <p className="truncate text-[11px] font-medium uppercase tracking-wide text-sidebar-muted">
+                <p className="truncate text-[11px] font-medium text-sidebar-muted">
                   {group.label}
                 </p>
                 {group.collapsible && (

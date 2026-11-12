@@ -38,7 +38,7 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{metric.label}</p>
+                <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
                   {metric.value}
                 </p>

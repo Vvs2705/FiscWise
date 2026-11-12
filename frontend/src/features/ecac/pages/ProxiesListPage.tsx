@@ -128,7 +128,7 @@ export function ProxiesListPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <tr className="border-b border-border/80 bg-muted/30 text-xs font-semibold text-muted-foreground">
                       <th className="px-5 py-3">Outorgante</th>
                       <th className="px-5 py-3">Tipo</th>
                       <th className="px-5 py-3">Status</th>

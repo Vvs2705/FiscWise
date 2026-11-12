@@ -27,6 +27,7 @@ import {
   LayoutGrid,
   Eye,
   BookOpen,
+  CheckCircle2,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { startTour } from '@/lib/tours';
@@ -54,6 +55,7 @@ import {
   useDocuments,
   useCreateDocument,
   useDeleteDocument,
+  useUpdateDocument,
   useUploadDocument,
   type DocumentCreate,
   type DocumentStatus,
@@ -412,7 +414,7 @@ function DocumentAiCell({ document }: DocumentAiCellProps) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {aiView.parseError ?? 'Aguardando processamento.'}
+          {aiView.pendingMessage}
         </p>
       )}
     </div>
@@ -442,10 +444,11 @@ export function DocumentsPage() {
   const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<ClientDocument | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
 
-  const { data: documents, isLoading, isError } = useDocuments();
+  const { data: documents, isLoading, isError, refetch } = useDocuments();
   const { data: clients } = useClients();
   const createMutation = useCreateDocument();
   const deleteMutation = useDeleteDocument();
+  const updateMutation = useUpdateDocument();
   const uploadMutation = useUploadDocument();
 
   // Debounce da busca (300 ms) — o filtro usa o valor atrasado
@@ -526,6 +529,20 @@ export function DocumentsPage() {
     reset();
     setFile(null);
     setOpen(false);
+  }
+
+  // Conferido = documento recebido e revisado: sai de "Em revisão" (ou de
+  // "Pendente" quando já tem arquivo anexado) para "Disponível".
+  const canMarkReviewed = (doc: ClientDocument) =>
+    doc.status === 'review' || (doc.status === 'missing' && !!doc.file_url);
+
+  async function handleMarkReviewed(doc: ClientDocument) {
+    try {
+      await updateMutation.mutateAsync({ id: doc.id, payload: { status: 'available' } });
+      toast.success(`"${doc.name}" marcado como conferido`);
+    } catch {
+      toast.error('Não foi possível marcar como conferido');
+    }
   }
 
   async function handleDelete(id: string, name: string) {
@@ -610,13 +627,13 @@ export function DocumentsPage() {
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os documentos." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os documentos." onRetry={() => refetch()} />}
 
       {/* Contadores */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Disponiveis
             </CardTitle>
           </CardHeader>
@@ -626,7 +643,7 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Pendentes
             </CardTitle>
           </CardHeader>
@@ -636,7 +653,7 @@ export function DocumentsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Em revisao
             </CardTitle>
           </CardHeader>
@@ -733,7 +750,7 @@ export function DocumentsPage() {
             </div>
 
             {/* List vs Card Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
@@ -869,6 +886,20 @@ export function DocumentsPage() {
                                 </Button>
                               </a>
                             </>
+                          )}
+                          {canMarkReviewed(doc) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMarkReviewed(doc)}
+                              disabled={updateMutation.isPending}
+                              className="h-8 gap-1 text-success hover:text-success hover:bg-success/10"
+                              title="Marcar como conferido"
+                              aria-label={`Marcar ${doc.name} como conferido`}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="hidden xl:inline text-xs">Conferido</span>
+                            </Button>
                           )}
                           <Button
                             variant="ghost"

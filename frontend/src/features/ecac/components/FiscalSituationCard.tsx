@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { useFiscalSituation, useRefreshFiscalSituation } from '../hooks/useEcac';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api';
+import { SimulationNotice } from '@/components/ui/OperationalStates';
 
 interface FiscalSituationCardProps {
   clientId: string;
@@ -18,8 +20,8 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
       await refresh.mutateAsync(clientId);
       toast.success('Consulta fiscal solicitada no e-CAC!');
       refetch();
-    } catch {
-      toast.error('Erro ao consultar e-CAC.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao consultar e-CAC.'));
     }
   };
 
@@ -64,8 +66,15 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
 
   return (
     <Card className="border-border/60 bg-card">
+      {situation.simulated && (
+        <div className="px-6 pt-4">
+          <SimulationNotice>
+            Esta situação fiscal foi gerada por um provedor simulado e não reflete a Receita Federal.
+          </SimulationNotice>
+        </div>
+      )}
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+        <CardTitle className="text-sm font-semibold text-muted-foreground">
           Situação Fiscal Federal (e-CAC)
         </CardTitle>
         <Button
@@ -127,7 +136,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
           <div className="space-y-3 border-t border-border/40 pt-3">
             {pendencias && (
               <div>
-                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block">
                   Declarações Pendentes / Atrasadas
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">
@@ -142,7 +151,7 @@ export function FiscalSituationCard({ clientId }: FiscalSituationCardProps) {
 
             {debitos && (
               <div className="border-t border-border/30 pt-2">
-                <span className="text-xs font-semibold text-destructive block uppercase tracking-wider">
+                <span className="text-xs font-semibold text-destructive block">
                   Débitos Fiscais Ativos
                 </span>
                 <ul className="list-disc pl-4 text-xs space-y-1 mt-1 text-muted-foreground">

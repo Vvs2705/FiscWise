@@ -2,6 +2,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Button } from '@/components/ui/Button';
 import { Download, ExternalLink, FileText, Sparkles } from 'lucide-react';
 import { buildDocumentAiView } from '@/lib/aiDocuments';
+import { isImageUrl, isPdfUrl } from '@/lib/fileUrl';
 import { Badge } from '@/components/ui/Badge';
 import { dateBR, type ClientDocument } from '@/lib/hooks/useOperations';
 
@@ -14,13 +15,8 @@ interface DocumentPreviewDrawerProps {
 export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPreviewDrawerProps) {
   if (!document) return null;
 
-  const isPdf = document.file_url?.toLowerCase().endsWith('.pdf');
-  const isImage =
-    document.file_url?.toLowerCase().endsWith('.png') ||
-    document.file_url?.toLowerCase().endsWith('.jpg') ||
-    document.file_url?.toLowerCase().endsWith('.jpeg') ||
-    document.file_url?.toLowerCase().endsWith('.gif') ||
-    document.file_url?.toLowerCase().endsWith('.webp');
+  const isPdf = isPdfUrl(document.file_url);
+  const isImage = isImageUrl(document.file_url);
 
   const aiView = buildDocumentAiView(document);
 
@@ -114,7 +110,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">Extração IA</span>
+                  <span className="text-xs font-bold text-foreground">Extração IA</span>
                 </div>
                 <Badge variant={aiView.parseStatusVariant}>{aiView.parseStatusLabel}</Badge>
               </div>
@@ -165,7 +161,7 @@ export function DocumentPreviewDrawer({ document, isOpen, onClose }: DocumentPre
 
             {/* Standard Meta Info */}
             <div className="space-y-4 border-t pt-4 border-border/80">
-              <h5 className="text-xs font-bold text-foreground uppercase tracking-wide">Ficha do Documento</h5>
+              <h5 className="text-xs font-bold text-foreground">Ficha do Documento</h5>
               <div className="space-y-3 text-sm">
                 <div>
                   <span className="text-xs text-muted-foreground block">Vencimento</span>

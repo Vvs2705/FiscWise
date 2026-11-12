@@ -4,7 +4,7 @@ Manages scheduled tasks like automatic monthly billing generation.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
@@ -51,6 +51,12 @@ def _job_definitions():
         # Limpa entradas expiradas do rate limiter a cada hora (evita memory leak)
         ("cleanup_auth_rate_limiter", "Auth Rate Limiter Cleanup",
          cleanup_auth_rate_limiter,
+         CronTrigger(minute=0, timezone=pytz.UTC)),
+        # Fila de trabalho em Postgres: toda hora varre notas em `queued` e
+        # processa os jobs pendentes (o que o kick pós-requisição não terminou
+        # porque a instância foi desligada). Orçamento de ~5 min por tick.
+        ("process_job_queue", "Process Background Job Queue",
+         process_job_queue,
          CronTrigger(minute=0, timezone=pytz.UTC)),
         # Payment reminders daily at 8:00 (Brasília)
         ("send_payment_reminders", "Send Payment Reminders",
@@ -320,10 +326,22 @@ async def send_payment_reminders_scheduled():
             result = await db.execute(stmt)
             receivables = result.scalars().all()
 
-            # ponytail: ainda não envia nada ao cliente; só registra o evento
-            # payment.reminder em audit_events. Envio real fica para o
-            # notification_engine quando houver e-mail/WhatsApp de produção.
+            # Envio real ao cliente (e-mail via email_service) + NotificationMessage
+            # com o status verdadeiro; o audit payment.reminder continua.
+            # Idempotência: não reenvia se já existe mensagem do mesmo cliente com o
+            # mesmo assunto (cobrança + vencimento) criada hoje (exceto 'failed').
+            from app.core.deps import _set_current_tenant_context
+            from app.models.notification import NotificationMessage
+            from app.models.operations import AccountingClient
+            from app.models.tenant import Tenant
+            from app.services.email_service import render_payment_reminder_email
+            from app.services.notification_engine import deliver_client_email
+
+            today_start = TZ_BR.localize(
+                datetime(today.year, today.month, today.day)
+            ).astimezone(timezone.utc)
             reminders_logged = 0
+            counts = {"sent": 0, "skipped": 0, "failed": 0, "duplicate": 0}
             for receivable in receivables:
                 await audit_log(
                     action="payment.reminder",
@@ -338,9 +356,70 @@ async def send_payment_reminders_scheduled():
                 )
                 reminders_logged += 1
 
+                try:
+                    await _set_current_tenant_context(db, receivable.tenant_id)
+                    due_label = receivable.due_date.strftime("%d/%m/%Y")
+                    subject = (
+                        f"Lembrete de pagamento: {receivable.description} "
+                        f"(vencimento {due_label})"
+                    )
+                    already = await db.scalar(
+                        select(NotificationMessage.id).where(
+                            NotificationMessage.tenant_id == receivable.tenant_id,
+                            NotificationMessage.client_id == receivable.client_id,
+                            NotificationMessage.subject == subject,
+                            NotificationMessage.created_at >= today_start,
+                            NotificationMessage.status != "failed",
+                        ).limit(1)
+                    )
+                    if already is not None:
+                        counts["duplicate"] += 1
+                        continue
+
+                    client = await db.scalar(
+                        select(AccountingClient).where(
+                            AccountingClient.id == receivable.client_id,
+                            AccountingClient.tenant_id == receivable.tenant_id,
+                        )
+                    )
+                    tenant = await db.scalar(select(Tenant).where(Tenant.id == receivable.tenant_id))
+                    body, _html = render_payment_reminder_email(
+                        client_name=client.name if client else "cliente",
+                        description=receivable.description,
+                        amount=f"{receivable.amount:.2f}".replace(".", ","),
+                        due_date_label=due_label,
+                        days_from_due=(today - receivable.due_date).days,
+                        office_name=getattr(tenant, "name", None) or "Seu escritório contábil",
+                    )
+                    msg = await deliver_client_email(
+                        db,
+                        tenant_id=receivable.tenant_id,
+                        client_id=receivable.client_id,
+                        recipient=client.email if client else None,
+                        subject=subject,
+                        body=body,
+                    )
+                    await db.commit()
+                    counts[msg.status] = counts.get(msg.status, 0) + 1
+                except Exception as exc:  # um cliente com problema não para os demais
+                    await db.rollback()
+                    counts["failed"] += 1
+                    logger.error(
+                        "Payment reminder e-mail failed receivable=%s: %s", receivable.id, exc
+                    )
+
             logger.info(
                 f"Payment reminders scheduled task completed: "
-                f"{reminders_logged} lembretes registrados (envio ao cliente não implementado)."
+                f"{reminders_logged} lembretes; e-mail {counts}."
             )
     except Exception as e:
         logger.error(f"Error in scheduled payment reminders: {str(e)}")
+
+
+async def process_job_queue():
+    """Processa a fila `background_jobs` (ver app/services/job_queue.py)."""
+    from app.services.job_queue import run_tick
+
+    summary = await run_tick()
+    logger.info("Job queue tick: %s", summary)
+    return summary

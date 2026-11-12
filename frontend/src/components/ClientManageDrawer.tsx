@@ -46,6 +46,7 @@ import {
   type ClientAiSummary,
   type ClientDocument as ParsedClientDocument,
 } from '@/lib/aiDocuments';
+import { daysUntilLocal } from '@/lib/dates';
 
 interface ClientManageDrawerProps {
   open: boolean;
@@ -117,7 +118,7 @@ function ClientAiSummaryPanel({ summary, isGenerating, onGenerate }: ClientAiSum
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+          <h3 className="text-sm font-bold text-foreground">
             Resumo IA do Cliente
           </h3>
         </div>
@@ -462,27 +463,20 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
 
   // Expiration threshold alerts (30 days)
   const isExpiringSoon = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    const diffTime = expDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays >= 0 && diffDays <= 30;
   };
 
   const isExpired = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return expDate < today;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays < 0;
   };
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 z-40 bg-foreground/40 transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -560,7 +554,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
           {activeTab === 'info' && (
             <form onSubmit={handleSubmitClient(onClientSubmit)} className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Dados da Empresa
                 </h3>
                 <FormField
@@ -636,7 +630,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
               <div className="rounded-xl border border-muted bg-muted/20 p-5 space-y-4">
                 <div className="flex items-center gap-2">
                   <User className="h-4.5 w-4.5 text-primary" />
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                  <h3 className="text-sm font-bold text-foreground">
                     Responsável pelo CNPJ
                   </h3>
                 </div>
@@ -676,7 +670,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
           {activeTab === 'partners' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Quadro de Sócios e Administradores
                 </h3>
                 {!showPartnerForm && (
@@ -828,7 +822,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                           aria-label="Editar"
                         >
                           <Edit2 className="h-4 w-4" />
-                          <span className="text-[9px] font-medium uppercase tracking-wider">Editar</span>
+                          <span className="text-[9px] font-medium">Editar</span>
                         </button>
                         <button
                           type="button"
@@ -837,7 +831,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                           aria-label="Excluir"
                         >
                           <Trash2 className="h-4 w-4" />
-                          <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
+                          <span className="text-[9px] font-medium">Excluir</span>
                         </button>
                       </div>
                     </div>
@@ -872,7 +866,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
               />
 
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Documentos Operacionais com IA
                 </h3>
                 <ParsedDocumentsPanel documents={parsedClientDocs} isLoading={isLoadingParsedDocs} />
@@ -880,7 +874,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
 
               {/* Upload Document section */}
               <div className="rounded-xl border p-5 bg-card space-y-4">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Fazer Upload de Novo Documento
                 </h3>
 
@@ -937,7 +931,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
 
               {/* Uploaded Documents List */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
+                <h3 className="text-sm font-bold text-foreground">
                   Documentos Cadastrados
                 </h3>
 
@@ -1010,7 +1004,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                             title="Visualizar Documento"
                           >
                             <FileDown className="h-4.5 w-4.5" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Baixar</span>
+                            <span className="text-[9px] font-medium">Baixar</span>
                           </a>
                           <button
                             type="button"
@@ -1020,7 +1014,7 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
                             title="Excluir Documento"
                           >
                             <Trash2 className="h-4.5 w-4.5" />
-                            <span className="text-[9px] font-medium uppercase tracking-wider">Excluir</span>
+                            <span className="text-[9px] font-medium">Excluir</span>
                           </button>
                         </div>
                       </div>

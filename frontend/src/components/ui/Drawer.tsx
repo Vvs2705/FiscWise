@@ -3,7 +3,7 @@ import { Drawer as VaulDrawer } from 'vaul';
 import { cn } from '@/lib/utils';
 
 export function Drawer({
-  // Sem escala do fundo (DESIGN.md §7: nada de scale fora do toque em botões)
+  // Sem escala do fundo (SISTEMA_DE_SISTEMA_DE_DESIGN.md §7: nada de scale fora do toque em botões)
   shouldScaleBackground = false,
   ...props
 }: ComponentProps<typeof VaulDrawer.Root>) {

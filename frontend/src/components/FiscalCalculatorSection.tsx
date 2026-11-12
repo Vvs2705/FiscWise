@@ -61,7 +61,7 @@ export function FiscalCalculatorSection({ userPlan = 'FREE' }: Props = {}) {
           )}
 
           {activeTab === 'history' && (
-            <SimulationHistory />
+            <SimulationHistory userPlan={userPlan} />
           )}
         </div>
       </div>

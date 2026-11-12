@@ -21,6 +21,7 @@ import {
   Calendar,
   User,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, MetricCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -47,11 +48,14 @@ import {
   useUpdateReceivable,
   useDeleteReceivable,
   useInadimplenciaReport,
+  useGenerateMonthlyReceivables,
   type ReceivableCreate,
   type ReceivableStatus,
 } from '@/lib/hooks/useOperations';
 import { usePermission } from '@/lib/hooks/usePermission';
 import { formatCurrencyBRL, parseCurrencyBRL } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/api';
+import { competenceLabel, toCompetence } from '@/lib/dates';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -90,7 +94,7 @@ export function FinancePage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  const { data: receivables, isLoading, isError } = useReceivables();
+  const { data: receivables, isLoading, isError, refetch } = useReceivables();
   const { data: clients } = useClients();
   const { hasRole } = usePermission();
   const isAdminOrOwner = hasRole('admin');
@@ -108,6 +112,31 @@ export function FinancePage() {
   const createMutation = useCreateReceivable();
   const updateMutation = useUpdateReceivable();
   const deleteMutation = useDeleteReceivable();
+  const generateMonthly = useGenerateMonthlyReceivables();
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateMonth, setGenerateMonth] = useState(() => toCompetence(new Date()));
+  const generateMonthOptions = (() => {
+    const now = new Date();
+    return [1, 0, -1].map((offset) => toCompetence(new Date(now.getFullYear(), now.getMonth() + offset, 1)));
+  })();
+  const billableClients = (clients ?? []).filter(
+    (c) => c.status === 'active' && Number(c.monthly_fee ?? 0) > 0,
+  ).length;
+
+  async function handleGenerateMonthly() {
+    try {
+      const r = await generateMonthly.mutateAsync(generateMonth);
+      toast.success(
+        r.created > 0
+          ? `${r.created} mensalidade${r.created === 1 ? '' : 's'} gerada${r.created === 1 ? '' : 's'} para ${competenceLabel(r.year_month)}` +
+              (r.skipped_duplicates > 0 ? ` (${r.skipped_duplicates} já existia${r.skipped_duplicates === 1 ? '' : 'm'})` : '')
+          : `Nenhuma mensalidade nova: ${r.skipped_duplicates} cliente${r.skipped_duplicates === 1 ? '' : 's'} já tinha${r.skipped_duplicates === 1 ? '' : 'm'} cobrança em ${competenceLabel(r.year_month)}.`,
+      );
+      setGenerateOpen(false);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível gerar as mensalidades.'));
+    }
+  }
 
   const {
     register,
@@ -147,12 +176,12 @@ export function FinancePage() {
   }
 
   async function handleDelete(id: string, description: string) {
-    if (!confirm(`Excluir cobranca "${description}"?`)) return;
+    if (!confirm(`Excluir a cobrança "${description}"? Ela fica no histórico como Cancelada.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Cobranca removida');
+      toast.success('Cobrança cancelada');
     } catch {
-      toast.error('Erro ao remover cobranca');
+      toast.error('Erro ao cancelar cobrança');
     }
   }
 
@@ -194,7 +223,7 @@ export function FinancePage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Financeiro
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -212,14 +241,53 @@ export function FinancePage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
+          {isAdminOrOwner && (
+            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setGenerateOpen(true)}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              Gerar mensalidades do mês
+            </Button>
+          )}
+          <Button onClick={() => setOpen(true)} size="sm" className="shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Nova cobranca
           </Button>
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar as cobranças." />}
+      <Dialog
+        open={generateOpen}
+        onClose={() => setGenerateOpen(false)}
+        title="Gerar mensalidades do mês"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generateMonthly.isPending}>
+              Cancelar
+            </Button>
+            <Button onClick={handleGenerateMonthly} disabled={generateMonthly.isPending}>
+              {generateMonthly.isPending ? 'Gerando...' : 'Confirmar'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <FormField label="Competência" htmlFor="generate_month">
+            <Select id="generate_month" value={generateMonth} onChange={(e) => setGenerateMonth(e.target.value)}>
+              {generateMonthOptions.map((ym) => (
+                <option key={ym} value={ym}>
+                  {competenceLabel(ym)}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <p className="text-muted-foreground">
+            Cria uma cobrança "Honorários - {generateMonth}" para cada cliente ativo com honorário mensal
+            cadastrado ({billableClients} cliente{billableClients === 1 ? '' : 's'}), com vencimento no dia de
+            cobrança de cada um. Clientes que já têm a cobrança da competência são pulados — repetir não duplica.
+          </p>
+        </div>
+      </Dialog>
+
+      {isError && <ErrorState message="Nao foi possivel carregar as cobranças." onRetry={() => refetch()} />}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -227,30 +295,28 @@ export function FinancePage() {
           title="A receber"
           value={isLoading ? '...' : moneyBRL(openTotal)}
           icon={CreditCard}
-          className="bg-card/45 backdrop-blur-sm border-border/50"
         />
         <MetricCard
           title="Recebido"
           value={isLoading ? '...' : moneyBRL(paidTotal)}
           icon={DollarSign}
-          className="bg-card/45 backdrop-blur-sm border-border/50 text-success"
+          className="text-success"
         />
         <MetricCard
           title="Em atraso"
           value={isLoading ? '...' : moneyBRL(overdueTotal)}
           icon={AlertTriangle}
-          className="bg-card/45 backdrop-blur-sm border-border/50 text-destructive"
+          className="text-destructive"
         />
         <MetricCard
           title="Ticket Médio"
           value={isLoading ? '...' : moneyBRL(ticketMedio)}
           icon={BarChart3}
-          className="bg-card/45 backdrop-blur-sm border-border/50"
         />
       </div>
 
       {/* Filters Toolbar */}
-      <Card className="p-4 bg-card/40 backdrop-blur-md border-border/50">
+      <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
           <div className="flex flex-1 flex-col sm:flex-row gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -320,7 +386,7 @@ export function FinancePage() {
       {isLoading ? (
         <PageSpinner />
       ) : filteredReceivables.length === 0 ? (
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardContent className="pt-6">
             <EmptyState
               title="Nenhuma cobrança encontrada"
@@ -340,7 +406,7 @@ export function FinancePage() {
             const clientName = client?.name || 'Cliente Desconhecido';
 
             return (
-              <Card key={r.id} className="relative group border border-border/50 hover:border-primary/30 p-5 bg-card/45 backdrop-blur-sm flex flex-col justify-between">
+              <Card key={r.id} className="relative group hover:border-primary/30 p-5 flex flex-col justify-between">
                 <div>
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <h4 className="font-bold text-foreground text-base leading-snug line-clamp-2">{r.description}</h4>
@@ -387,14 +453,16 @@ export function FinancePage() {
                       Pago
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(r.id, r.description)}
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {(r.status === 'pending' || r.status === 'overdue') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(r.id, r.description)}
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </Card>
             );
@@ -455,15 +523,17 @@ export function FinancePage() {
                           <span>Pago</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(r.id, r.description)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir cobrança"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {(r.status === 'pending' || r.status === 'overdue') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(r.id, r.description)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir cobrança"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -531,7 +601,7 @@ export function FinancePage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar cobranca'}
             </Button>
           </div>
@@ -540,7 +610,7 @@ export function FinancePage() {
 
       {/* ── Inadimplência Report (owner/admin) ── */}
       {isAdminOrOwner && inadimplencia && inadimplencia.total_clients > 0 && (
-        <Card className="mt-8 border-destructive/20 dark:border-destructive/40 bg-card/45 backdrop-blur-sm">
+        <Card className="mt-8 border-destructive/20 dark:border-destructive/40 bg-card">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 border border-destructive/20">

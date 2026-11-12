@@ -292,7 +292,7 @@ export function PortfolioRiskCard({
       {/* Actionable recommendations tips */}
       {recommendations.length > 0 && (
         <div className="border-t border-border pt-4 space-y-2.5">
-          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
+          <h3 className="text-xs text-muted-foreground font-bold">
             Como melhorar o score:
           </h3>
           <div className="space-y-2">

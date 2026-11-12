@@ -22,7 +22,7 @@ const WORDMARK_EM_WIDTH = 4.2;
 export function Logo({ variant = 'full', theme = 'dark', size = 36, className }: LogoProps) {
   const id = `fw-logo-${++_uid}`;
 
-  // DESIGN.md §12: navy no claro, quase-branco no escuro
+  // SISTEMA_DE_DESIGN.md §12: navy no claro, quase-branco no escuro
   const textColor = theme === 'dark' ? '#EEF1FA' : '#1A2540';
 
   const iconW = size;

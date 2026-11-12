@@ -15,7 +15,7 @@ export interface ErrorStateProps {
   className?: string;
 }
 
-/** Estado de erro único do sistema (DESIGN.md §8). */
+/** Estado de erro único do sistema (SISTEMA_DE_DESIGN.md §8). */
 export function ErrorState({
   message,
   title,

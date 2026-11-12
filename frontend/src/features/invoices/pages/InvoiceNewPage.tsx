@@ -159,7 +159,7 @@ export function InvoiceNewPage() {
             </div>
 
             <div className="border-t border-border/40 pt-4">
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4">
                 Dados do Tomador
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -182,7 +182,7 @@ export function InvoiceNewPage() {
             </div>
 
             <div className="border-t border-border/40 pt-4">
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4">
                 Serviço e Valores
               </h3>
               <div className="grid gap-4 sm:grid-cols-3">

@@ -13,6 +13,8 @@ export interface WhatsAppInbox {
   status: string;
   created_at: string;
   updated_at: string;
+  /** Sem provedor de WhatsApp configurado: envios não chegam ao cliente. */
+  simulated?: boolean;
 }
 
 export interface WhatsAppMessage {

@@ -17,11 +17,13 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Dialog } from '@/components/ui/Dialog';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { getApiErrorMessage } from '@/lib/api';
+import { addLocalDays, toLocalISODate } from '@/lib/dates';
 
 interface ClientWhatsAppWidgetProps {
   clientId: string;
@@ -57,7 +59,7 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
 
   if (!clientPhone) {
     return (
-      <Card className="p-6 border border-border bg-card/30 text-center text-muted-foreground">
+      <Card className="p-6 border border-border bg-card text-center text-muted-foreground">
         <p className="text-xs">Este cliente não possui telefone celular cadastrado.</p>
         <p className="text-[10px] mt-1">Adicione um telefone no resumo cadastral para habilitar o WhatsApp.</p>
       </Card>
@@ -74,12 +76,12 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
 
   if (!inbox) {
     return (
-      <Card className="p-6 border border-border bg-card/30 text-center text-muted-foreground">
-        <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-xs">Nenhum histórico de mensagens associado a este telefone (+{clientPhone}).</p>
-        <p className="text-[10px] mt-1 max-w-xs mx-auto">
-          Escreva uma mensagem no compositor ao lado e use o atalho para abrir o WhatsApp Web, ou aguarde o primeiro contato do cliente para registrar a conversa aqui.
-        </p>
+      <Card className="border border-border bg-card">
+        <EmptyState
+          icon={Bot}
+          title="Sem conversa registrada"
+          description={`Nenhum histórico de mensagens associado a este telefone (+${clientPhone}). A conversa aparece aqui quando houver o primeiro contato registrado.`}
+        />
       </Card>
     );
   }
@@ -118,34 +120,39 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
   const openTaskModal = (msg: WhatsAppMessage) => {
     setSelectedMessage(msg);
     setTaskTitle(msg.body ? msg.body.substring(0, 55) + (msg.body.length > 55 ? '...' : '') : 'Ajustar pendência contábil');
-    setTaskDueDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setTaskDueDate(toLocalISODate(addLocalDays(new Date(), 2)));
     setTaskPriority('medium');
     setShowTaskModal(true);
   };
 
   return (
-    <Card className="flex flex-col h-[400px] border border-border bg-card/20 overflow-hidden">
+    <Card className="flex flex-col h-[400px] border border-border bg-card overflow-hidden">
       {/* HEADER */}
-      <div className="bg-card/50 px-4 py-2 border-b border-border flex items-center justify-between">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-          Histórico WhatsApp Live
+      <div className="bg-card px-4 py-2 border-b border-border flex items-center justify-between">
+        <span
+          className="text-[10px] font-bold text-warning flex items-center gap-1.5"
+          title="O envio pelo WhatsApp ainda não está conectado a um provedor. Mensagens marcadas como enviadas não chegam ao cliente."
+        >
+          <span className="h-2 w-2 rounded-full bg-warning" />
+          Envio simulado — provedor não configurado
         </span>
-        <Badge variant="success" className="text-[8px] py-0 px-1 font-mono">
+        <Badge variant="default" className="text-[8px] py-0 px-1 font-mono">
           +{inbox.phone_number}
         </Badge>
       </div>
 
       {/* MESSAGES BODY */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background/10 scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background scrollbar">
         {loadingMessages ? (
           <div className="flex h-full items-center justify-center">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-muted-foreground text-center">
-            <p className="text-[10px]">Chat vazio. Envie uma mensagem abaixo para iniciar.</p>
-          </div>
+          <EmptyState
+            icon={Bot}
+            title="Conversa vazia"
+            description="Nenhuma mensagem registrada nesta conversa ainda."
+          />
         ) : (
           messages.map((msg) => {
             const isOutbound = msg.direction === 'outbound';
@@ -162,7 +169,7 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
                     {msg.body && <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>}
                     
                     {msg.media_url && (
-                      <div className="mt-1 bg-background/40 p-2 rounded border border-border space-y-1">
+                      <div className="mt-1 bg-background p-2 rounded border border-border space-y-1">
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           {msg.message_type === 'image' ? <Image className="h-3 w-3 text-success" /> : <FileText className="h-3 w-3 text-success" />}
                           <span className="truncate max-w-[120px]">{msg.body || 'Arquivo'}</span>
@@ -202,14 +209,14 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
       </div>
 
       {/* QUICK REPLY COMPOSER FOOTER */}
-      <div className="p-2 border-t border-border bg-card/30">
+      <div className="p-2 border-t border-border bg-card">
         <form onSubmit={handleSendReply} className="flex gap-1.5">
           <input
             type="text"
             placeholder="Responder pelo WhatsApp..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            className="flex-1 rounded-lg border border-border bg-background/60 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <Button
             type="submit"
@@ -242,7 +249,7 @@ export function ClientWhatsAppWidget({ clientId, clientPhone }: ClientWhatsAppWi
         }
       >
         <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-background/60 p-3 text-[11px] text-muted-foreground font-mono italic">
+          <div className="rounded-xl border border-border bg-background p-3 text-[11px] text-muted-foreground font-mono italic">
             "{selectedMessage?.body}"
           </div>
           <FormField label="Título da Tarefa" htmlFor="widget_task_title">

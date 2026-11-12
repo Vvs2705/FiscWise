@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { ENABLED_FEATURES } from '@/lib/featureFlags';
 
@@ -11,11 +10,12 @@ interface FeatureGateProps {
 }
 
 function LockedFeature({ feature }: { feature: string }) {
-  const navigate = useNavigate();
   const labels: Record<string, string> = {
     feature_public_api: 'API Pública',
     feature_teams: 'Times e Carteiras',
     feature_advanced_audit: 'Auditoria Avançada',
+    feature_monthly_closing: 'Fechamento mensal',
+    feature_portal_client: 'Portal do cliente',
   };
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-8 text-center">
@@ -24,15 +24,12 @@ function LockedFeature({ feature }: { feature: string }) {
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">
-          {labels[feature] ?? 'Funcionalidade'} não disponível no seu plano
+          {labels[feature] ?? 'Este recurso'} ainda não está disponível
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Faça upgrade para desbloquear este recurso.
+          Estamos preparando esta parte do FiscWise. Ela aparece aqui assim que for liberada.
         </p>
       </div>
-      <button type="button" onClick={() => navigate('/configuracoes')} className="mt-1 inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors duration-100 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-        Ver planos
-      </button>
     </div>
   );
 }

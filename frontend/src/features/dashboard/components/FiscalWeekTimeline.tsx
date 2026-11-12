@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { staggerContainer, fadeIn } from '../../../lib/motion';
 
 interface TimelineItem {
   id: string;
   title: string;
+  clientId?: string;
   type: 'obligation' | 'task' | 'deadline';
   status: 'pending' | 'completed' | 'overdue';
   time?: string;
@@ -35,6 +37,9 @@ const statusIcons = {
 };
 
 export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelineProps) {
+  const navigate = useNavigate();
+  const openItem = () => navigate('/obrigacoes');
+
   if (isLoading) {
     return (
       <div className="bg-card border border-border rounded-card shadow-token-sm p-6">
@@ -112,7 +117,17 @@ export function FiscalWeekTimeline({ timeline, isLoading }: FiscalWeekTimelinePr
                   return (
                     <div
                       key={item.id}
-                      className="bg-muted border border-border rounded-lg p-3 hover:border-primary/30 transition-all cursor-pointer group"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Abrir obrigações: ${item.title}`}
+                      onClick={openItem}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openItem();
+                        }
+                      }}
+                      className="bg-muted border border-border rounded-lg p-3 hover:border-primary/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all cursor-pointer group"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">

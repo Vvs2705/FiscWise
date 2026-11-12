@@ -219,7 +219,7 @@ function AddCredentialButton({ onAdd }: AddCredentialButtonProps) {
       {/* Inline group picker — aparece acima do botão, sem float */}
       {open && (
         <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/50 border-b">
+          <p className="px-3 py-2 text-[10px] font-semibold text-muted-foreground bg-muted/50 border-b">
             Selecione o tipo de acesso
           </p>
           {PRESET_GROUPS.map((group) => (

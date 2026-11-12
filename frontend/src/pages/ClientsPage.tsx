@@ -22,6 +22,8 @@ import {
   LayoutList,
   LayoutGrid,
   BookOpen,
+  RotateCcw,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { startTour } from '@/lib/tours';
 import readXlsxFile from 'read-excel-file';
@@ -48,12 +50,20 @@ import {
   useClients,
   useCreateClient,
   useDeleteClient,
+  useUpdateClient,
   useDeadlines,
   type AccountingClient,
   type AccountingClientCreate,
   type ClientStatus,
   type DeadlineItem,
 } from '@/lib/hooks/useOperations';
+import { getApiErrorMessage } from '@/lib/api';
+import {
+  CLIENT_TEMPLATE_SHEET,
+  importClientRows,
+  parseClientRows,
+  type ImportRowResult,
+} from '@/features/clients/xlsxImport';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -253,7 +263,7 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
         return;
       }
 
-      toast.success('Dados importados do arquivo. Revise antes de salvar.');
+      toast.success('Formulário preenchido com a primeira linha do arquivo. Revise antes de salvar.');
     } catch {
       toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
     }
@@ -276,7 +286,7 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Importar dados do modelo XLSX"
+      aria-label="Preencher pelo modelo XLSX"
       className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors ${
         dragging
           ? 'border-primary bg-primary/5'
@@ -294,8 +304,10 @@ function XlsxUploader({ setValue }: XlsxUploaderProps) {
       onDrop={handleDrop}
     >
       <Upload className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-      <p className="text-sm font-medium">Importar do modelo XLSX</p>
-      <p className="text-xs text-muted-foreground">Arraste ou clique para selecionar</p>
+      <p className="text-sm font-medium">Preencher pelo modelo XLSX</p>
+      <p className="text-xs text-muted-foreground">
+        Usa a primeira linha preenchida. Para cadastrar vários clientes, use "Importar planilha".
+      </p>
       <input
         ref={inputRef}
         type="file"
@@ -327,10 +339,14 @@ interface ClientItemProps {
   onManage: () => void;
   onNotes: () => void;
   onDeactivate: () => void;
+  onReactivate: () => void;
 }
 
-function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
-  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate, onReactivate }: ClientItemProps) {
+  const clientDeadlines = useMemo(
+    () => deadlines.filter((d) => d.client_id === client.id && d.status !== 'cancelled'),
+    [deadlines, client.id],
+  );
   const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
   
   const lastAction = useMemo(() => {
@@ -401,7 +417,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
             title="Gerenciar Empresa"
           >
             <Briefcase className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Gerenciar</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Gerenciar</span>
           </Button>
           <Button
             variant="ghost"
@@ -411,7 +427,7 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
             title="Notas seguras"
           >
             <Lock className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Notas</span>
+            <span className="sr-only sm:not-sr-only text-[10px] font-bold">Notas</span>
           </Button>
           {client.status !== 'inactive' && (
             <Button
@@ -422,7 +438,19 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
               title="Desativar cliente"
             >
               <Archive className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only text-[10px] uppercase font-bold tracking-wider">Desativar</span>
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Desativar</span>
+            </Button>
+          )}
+          {client.status === 'inactive' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onReactivate}
+              className="h-8 gap-1 text-success hover:text-success hover:bg-success/10"
+              title="Reativar cliente"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only text-[10px] font-bold">Reativar</span>
             </Button>
           )}
         </div>
@@ -431,8 +459,11 @@ function ClientTableRow({ client, deadlines, onManage, onNotes, onDeactivate }: 
   );
 }
 
-function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: ClientItemProps) {
-  const clientDeadlines = useMemo(() => deadlines.filter((d) => d.client_id === client.id), [deadlines, client.id]);
+function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate, onReactivate }: ClientItemProps) {
+  const clientDeadlines = useMemo(
+    () => deadlines.filter((d) => d.client_id === client.id && d.status !== 'cancelled'),
+    [deadlines, client.id],
+  );
   const pendingCount = useMemo(() => clientDeadlines.filter((d) => d.status !== 'completed').length, [clientDeadlines]);
 
   const lastAction = useMemo(() => {
@@ -531,6 +562,18 @@ function ClientGridCard({ client, deadlines, onManage, onNotes, onDeactivate }: 
             <Archive className="h-3.5 w-3.5" />
           </Button>
         )}
+        {client.status === 'inactive' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onReactivate}
+            className="h-8 gap-1.5 text-success hover:bg-success/10 hover:text-success"
+            title="Reativar cliente"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Reativar</span>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
@@ -544,7 +587,7 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [secureNotes, setSecureNotes] = useState<{ id: string; name: string } | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const { data: clients, isLoading, isError } = useClients();
+  const { data: clients, isLoading, isError, refetch } = useClients();
   const { data: deadlines = [] } = useDeadlines();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -584,6 +627,48 @@ export function ClientsPage() {
 
   const createMutation = useCreateClient();
   const deleteMutation = useDeleteClient();
+  const updateMutation = useUpdateClient();
+  const bulkInputRef = useRef<HTMLInputElement>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResults, setBulkResults] = useState<ImportRowResult[] | null>(null);
+
+  async function handleBulkImport(file: File) {
+    if (file.name.split('.').pop()?.toLowerCase() !== 'xlsx') {
+      toast.error('Arquivo inválido. Use o modelo .xlsx disponibilizado.');
+      return;
+    }
+    setBulkImporting(true);
+    try {
+      const rows = await readXlsxFile(file, { sheet: CLIENT_TEMPLATE_SHEET });
+      const parsed = parseClientRows(rows as unknown[][]);
+      if (parsed.length === 0) {
+        toast.error('Nenhum cliente encontrado na planilha. Preencha a partir da linha 2.');
+        return;
+      }
+      const results = await importClientRows(
+        parsed,
+        (payload) => createMutation.mutateAsync(payload),
+        (err) => getApiErrorMessage(err, 'Erro ao cadastrar'),
+      );
+      setBulkResults(results);
+      const ok = results.filter((r) => r.ok).length;
+      if (ok === results.length) toast.success(`${ok} cliente${ok === 1 ? '' : 's'} importado${ok === 1 ? '' : 's'}.`);
+      else toast.warning(`${ok} de ${results.length} linhas importadas. Veja o relatório.`);
+    } catch {
+      toast.error('Erro ao ler o arquivo. Use o modelo .xlsx disponibilizado.');
+    } finally {
+      setBulkImporting(false);
+    }
+  }
+
+  async function handleReactivate(id: string, name: string) {
+    try {
+      await updateMutation.mutateAsync({ id, payload: { status: 'active' } });
+      toast.success(`Cliente "${name}" reativado`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao reativar cliente'));
+    }
+  }
 
   const {
     register,
@@ -701,6 +786,34 @@ export function ClientsPage() {
               Modelo XLSX
             </Button>
           </a>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => bulkInputRef.current?.click()}
+            disabled={bulkImporting}
+            title="Cadastra todos os clientes da planilha (modelo XLSX)"
+          >
+            {bulkImporting ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            )}
+            {bulkImporting ? 'Importando...' : 'Importar planilha'}
+          </Button>
+          <input
+            ref={bulkInputRef}
+            type="file"
+            accept=".xlsx"
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleBulkImport(file);
+              e.target.value = '';
+            }}
+          />
           <Button onClick={() => setOpen(true)} size="sm" className="h-9">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo cliente
@@ -709,14 +822,14 @@ export function ClientsPage() {
       </div>
 
       {isError && (
-        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." />
+        <ErrorState message="Nao foi possivel carregar os clientes. Verifique sua conexao." onRetry={() => refetch()} />
       )}
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Total de clientes
             </CardTitle>
           </CardHeader>
@@ -726,7 +839,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Carteira operacional
             </CardTitle>
           </CardHeader>
@@ -736,7 +849,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Em onboarding
             </CardTitle>
           </CardHeader>
@@ -746,7 +859,7 @@ export function ClientsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold text-muted-foreground">
               Desativados
             </CardTitle>
           </CardHeader>
@@ -757,7 +870,7 @@ export function ClientsPage() {
       </div>
 
       {!isLoading && !isError && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card/45 p-2 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-2">
           <div
             className="flex gap-1"
             role="tablist"
@@ -892,7 +1005,7 @@ export function ClientsPage() {
             </div>
 
             {/* List vs Card Toggle */}
-            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card/45 backdrop-blur-sm">
+            <div className="flex items-center gap-1 border border-border/80 rounded-lg p-1 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
@@ -1005,6 +1118,7 @@ export function ClientsPage() {
                     onManage={() => setSelectedClientId(client.id)}
                     onNotes={() => setSecureNotes({ id: client.id, name: client.name })}
                     onDeactivate={() => handleDeactivate(client.id, client.name)}
+                    onReactivate={() => handleReactivate(client.id, client.name)}
                   />
                 ))}
               </TableBody>
@@ -1019,12 +1133,38 @@ export function ClientsPage() {
                   onManage={() => setSelectedClientId(client.id)}
                   onNotes={() => setSecureNotes({ id: client.id, name: client.name })}
                   onDeactivate={() => handleDeactivate(client.id, client.name)}
+                  onReactivate={() => handleReactivate(client.id, client.name)}
                 />
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={bulkResults !== null}
+        onClose={() => setBulkResults(null)}
+        title="Resultado da importação"
+      >
+        {bulkResults && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {bulkResults.filter((r) => r.ok).length} cadastrado(s), {bulkResults.filter((r) => !r.ok).length} com erro.
+            </p>
+            <ul className="max-h-80 space-y-1 overflow-y-auto text-sm">
+              {bulkResults.map((r) => (
+                <li key={r.rowNumber} className="flex items-start justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="font-mono text-xs text-muted-foreground">Linha {r.rowNumber}</span>{' '}
+                    <span className="font-medium">{r.name || '(sem nome)'}</span>
+                  </span>
+                  <span className={r.ok ? 'text-success' : 'text-destructive'}>{r.message}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Dialog>
 
       {/* Secure notes drawer */}
       <SecureNotesDrawer

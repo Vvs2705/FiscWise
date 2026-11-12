@@ -213,3 +213,4 @@ COMO-FAZER*.md
 
 # Config local de MCP: pode conter connection string com senha. Nunca versionar.
 .mcp.json
+!docs/marketing/PLANO_MARKETING_FISCWISE.md

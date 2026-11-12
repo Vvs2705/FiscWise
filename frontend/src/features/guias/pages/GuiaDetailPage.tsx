@@ -120,7 +120,7 @@ export function GuiaDetailPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-border/60 bg-card">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Informações Tributárias
             </CardTitle>
           </CardHeader>
@@ -162,7 +162,7 @@ export function GuiaDetailPage() {
         {/* Upload documents card */}
         <Card className="border-border/60 bg-card">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Arquivos & Anexos
             </CardTitle>
           </CardHeader>

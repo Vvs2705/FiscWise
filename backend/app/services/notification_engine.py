@@ -2,22 +2,14 @@
 
 Scans pending document checklist items and queues/sends notifications to clients.
 
-Email sending is deferred: when an email provider (Resend, SendGrid, SMTP) is
-configured via environment variables, the engine dispatches real emails.
-Without a provider, messages are recorded as 'skipped' for audit purposes —
-the logic is provider-agnostic.
+E-mail goes through app.services.email_service (Resend via httpx). Without
+RESEND_ENABLED + RESEND_API_KEY nothing is sent and the message is recorded as
+'skipped' (reason: email_disabled); a provider error is recorded as 'failed'.
 
-Environment variables:
-  EMAIL_PROVIDER         — 'resend' | 'sendgrid' | 'smtp' | (unset = dry-run)
-  RESEND_API_KEY         — API key for Resend
-  SENDGRID_API_KEY       — API key for SendGrid
-  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD — SMTP settings
-  EMAIL_FROM             — Sender address (default: noreply@fiscwise.com.br)
-  PORTAL_URL             — Client portal URL (default: https://fiscwise.com.br/portal)
+Portal links use settings.portal_url (PORTAL_URL, default APP_URL + "/portal").
 """
 
 import logging
-import os
 from datetime import date, datetime, timezone
 from typing import Optional
 
@@ -28,13 +20,18 @@ from app.models.notification import NotificationMessage, NotificationTemplate
 from app.models.obligation import DocumentChecklistItem
 from app.models.operations import AccountingClient
 from app.models.tenant import Tenant, SubscriptionStatus
+from app.core.config import settings
 from app.core.deps import _set_current_tenant_context
+from app.services import email_service
 
 logger = logging.getLogger(__name__)
 
-_PORTAL_URL = os.getenv("PORTAL_URL", "https://fiscwise.com.br/portal")
-_EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@fiscwise.com.br")
-_EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "").lower().strip()
+EMAIL_PROVIDER = "resend"
+
+# Reasons recorded in NotificationMessage.error_message and returned by APIs.
+REASON_EMAIL_DISABLED = "email_disabled"
+REASON_NO_RECIPIENT = "no_recipient"
+REASON_PROVIDER_ERROR = "provider_error"
 
 
 async def _get_pending_document_template(db: AsyncSession) -> Optional[NotificationTemplate]:
@@ -51,34 +48,58 @@ async def _get_pending_document_template(db: AsyncSession) -> Optional[Notificat
 
 async def _send_email(recipient: str, subject: str, body: str) -> tuple[str, Optional[str]]:
     """
-    Dispatch an email via the configured provider.
+    Dispatch an email through email_service.
 
-    Returns (status, provider_message_id).
-    status is 'sent' on success, 'failed' on error, 'skipped' if no provider.
+    Returns (status, reason): ('sent', None) on success, ('skipped',
+    'email_disabled') when sending is off in this installation, ('failed',
+    'provider_error') when the provider refused / the network failed.
     """
-    if not _EMAIL_PROVIDER:
-        logger.info("No EMAIL_PROVIDER configured — message recorded as 'skipped' for %s", recipient)
-        return "skipped", None
+    if not recipient:
+        return "skipped", REASON_NO_RECIPIENT
+    sent = await email_service.send_email(
+        to=recipient,
+        subject=subject,
+        html=email_service.render_client_message_email(subject, body),
+    )
+    if sent:
+        return "sent", None
+    if not email_service.is_configured():
+        return "skipped", REASON_EMAIL_DISABLED
+    return "failed", REASON_PROVIDER_ERROR
 
-    if _EMAIL_PROVIDER == "resend":
-        try:
-            import resend  # type: ignore[import]
-            api_key = os.getenv("RESEND_API_KEY", "")
-            resend.api_key = api_key
-            resp = resend.Emails.send({
-                "from": _EMAIL_FROM,
-                "to": [recipient],
-                "subject": subject,
-                "text": body,
-            })
-            return "sent", resp.get("id")
-        except Exception as exc:
-            logger.error("Resend dispatch failed for %s: %s", recipient, exc)
-            return "failed", None
 
-    # Future providers: sendgrid, smtp
-    logger.warning("EMAIL_PROVIDER='%s' is not yet implemented — skipping", _EMAIL_PROVIDER)
-    return "skipped", None
+async def deliver_client_email(
+    db: AsyncSession,
+    *,
+    tenant_id,
+    client_id,
+    recipient: Optional[str],
+    subject: str,
+    body: str,
+    template_id=None,
+) -> NotificationMessage:
+    """Send one e-mail to a client and record it with its REAL outcome.
+
+    The NotificationMessage is added to the session (not committed): the caller
+    commits. status is 'sent' | 'skipped' | 'failed'; error_message holds the
+    reason (email_disabled | no_recipient | provider_error).
+    """
+    status, reason = await _send_email(recipient or "", subject, body)
+    msg = NotificationMessage(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        template_id=template_id,
+        channel="email",
+        recipient=recipient or "",
+        subject=subject,
+        body=body,
+        status=status,
+        provider=EMAIL_PROVIDER if status != "skipped" else None,
+        error_message=reason,
+        sent_at=datetime.now(timezone.utc) if status == "sent" else None,
+    )
+    db.add(msg)
+    return msg
 
 
 async def notify_pending_documents_for_tenant(
@@ -170,7 +191,7 @@ async def notify_pending_documents_for_tenant(
             "client_name": client_name,
             "competence_month": comp_label,
             "pending_items": pending_list,
-            "portal_link": f"{_PORTAL_URL}/login",
+            "portal_link": f"{settings.portal_url}/login",
             "office_name": office_name,
         }
 
@@ -182,28 +203,20 @@ async def notify_pending_documents_for_tenant(
                 f"Olá {client_name},\n\n"
                 f"Precisamos que você nos envie os seguintes documentos referentes a {comp_label}:\n\n"
                 f"{pending_list}\n\n"
-                f"Acesse o portal para enviar: {_PORTAL_URL}/login\n\n"
+                f"Acesse o portal para enviar: {settings.portal_url}/login\n\n"
                 f"Atenciosamente,\n{office_name}"
             )
 
-        # Dispatch
-        status, provider_msg_id = await _send_email(client_email, subject, body)
-
-        # Record in notification_messages
-        msg = NotificationMessage(
+        msg = await deliver_client_email(
+            db,
             tenant_id=tenant_id,
             client_id=client_id,
-            template_id=template.id if template else None,
-            channel="email",
             recipient=client_email,
             subject=subject,
             body=body,
-            status=status,
-            provider=_EMAIL_PROVIDER or None,
-            provider_message_id=provider_msg_id,
-            sent_at=datetime.now(timezone.utc) if status == "sent" else None,
+            template_id=template.id if template else None,
         )
-        db.add(msg)
+        status = msg.status
 
         if status == "sent":
             counts["sent"] += 1

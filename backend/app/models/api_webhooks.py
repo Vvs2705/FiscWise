@@ -40,6 +40,12 @@ class WebhookSubscription(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    @property
+    def signature_scheme(self) -> str:
+        """"hmac-sha256-v1" (verificável com o segredo cru) ou "legacy"
+        (criada antes do v1: só o hash foi guardado; rotacione o segredo)."""
+        return "hmac-sha256-v1" if (self.secret or "").startswith("enc:v1:") else "legacy"
+
 
 class WebhookDeliveryLog(Base):
     __tablename__ = "webhook_delivery_logs"

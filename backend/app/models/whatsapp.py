@@ -144,7 +144,7 @@ class WhatsAppMessage(Base, TenantBase):
         nullable=False,
         default="sent",
         index=True,
-        comment="status da entrega: sent | delivered | read | failed",
+        comment="status da entrega: simulated | sent | delivered | read | failed",
     )
     error_message: Mapped[Optional[str]] = mapped_column(
         Text,

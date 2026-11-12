@@ -125,6 +125,7 @@ async def list_das_payments(
     return das_list
 
 
+@router.patch("/{das_id}", response_model=DasPaymentResponse)
 @router.put("/{das_id}", response_model=DasPaymentResponse)
 async def update_das_payment(
     das_id: UUID,

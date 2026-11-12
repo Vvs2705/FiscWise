@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UUID as SQLUUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, UUID as SQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -28,6 +28,8 @@ class PortalMagicToken(Base):
     """
 
     __tablename__ = "portal_magic_tokens"
+    # Unicidade só pela constraint (o antigo ix_ unique duplicava o uq_).
+    __table_args__ = (UniqueConstraint("token_hash", name="uq_portal_magic_tokens_hash"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -35,7 +37,7 @@ class PortalMagicToken(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=False, index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
@@ -44,7 +46,7 @@ class PortalMagicToken(Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(
-        String(128), nullable=False, unique=True, index=True,
+        String(128), nullable=False,
         comment="SHA-256 hash of the raw token. Never store raw token.",
     )
     email: Mapped[str] = mapped_column(

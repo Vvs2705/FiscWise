@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { api, getApiErrorMessage } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api';
 import { Plus, Trash2, LayoutGrid, List, Search, Bell, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CertificateCard } from '@/components/ui/Card';
@@ -33,6 +33,7 @@ import {
   type CertificateCreate,
   type CertificateStatus,
 } from '@/lib/hooks/useOperations';
+import { describeClientEmailResult, useCertExpiryWarning } from '@/lib/hooks/useNotifications';
 
 const schema = z.object({
   client_id: z.string().min(1, 'Selecione um cliente'),
@@ -91,7 +92,7 @@ export function CertificatesPage() {
   const [selectedType, setSelectedType] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const { data: certificates, isLoading, isError } = useCertificates();
+  const { data: certificates, isLoading, isError, refetch } = useCertificates();
   const { data: clients } = useClients();
   const createMutation = useCreateCertificate();
   const deleteMutation = useDeleteCertificate();
@@ -122,35 +123,37 @@ export function CertificatesPage() {
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Excluir certificado "${label}"?`)) return;
+    if (!confirm(`Excluir o certificado "${label}"? Ele será marcado como Revogado.`)) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast.success('Certificado removido');
+      toast.success('Certificado revogado');
     } catch {
-      toast.error('Erro ao remover certificado');
+      toast.error('Erro ao revogar certificado');
     }
   }
 
+  const certWarning = useCertExpiryWarning();
   const handleWarnClient = (
     clientId: string,
     clientName: string,
     certLabel: string,
     daysLeft: number,
-  ) => (e: React.MouseEvent) => {
+  ) => async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toast.promise(
-      api.post('/api/v1/notifications/cert-expiry-warning', {
+    if (certWarning.isPending) return;
+    const toastId = toast.loading(`Enviando aviso de vencimento para ${clientName}...`);
+    try {
+      const result = await certWarning.mutateAsync({
         client_id: clientId,
         client_name: clientName,
         cert_label: certLabel,
         days_until_expiry: daysLeft,
-      }),
-      {
-        loading: `Enviando aviso de vencimento para ${clientName}...`,
-        success: `Aviso do certificado "${certLabel}" enviado com sucesso!`,
-        error: (err) => getApiErrorMessage(err, 'Erro ao enviar aviso.'),
-      }
-    );
+      });
+      const t = describeClientEmailResult(result);
+      toast[t.kind](t.message, { id: toastId });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Erro ao enviar aviso.'), { id: toastId });
+    }
   };
 
   const total = certificates?.length ?? 0;
@@ -178,7 +181,7 @@ export function CertificatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold md:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-primary/60">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Certificados Digitais
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -196,20 +199,20 @@ export function CertificatesPage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary shadow-token-sm">
+          <Button onClick={() => setOpen(true)} size="sm" className="shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Novo certificado
           </Button>
         </div>
       </div>
 
-      {isError && <ErrorState message="Nao foi possivel carregar os certificados." />}
+      {isError && <ErrorState message="Nao foi possivel carregar os certificados." onRetry={() => refetch()} />}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Total Gerenciado
             </CardTitle>
           </CardHeader>
@@ -217,9 +220,9 @@ export function CertificatesPage() {
             <div className="text-3xl font-extrabold text-foreground">{isLoading ? '...' : total}</div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-warning uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-warning">
               Vencendo em 30 dias
             </CardTitle>
           </CardHeader>
@@ -229,9 +232,9 @@ export function CertificatesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50 sm:col-span-2 lg:col-span-1">
+        <Card className="sm:col-span-2 lg:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-semibold text-muted-foreground">
               Tipo A1
             </CardTitle>
           </CardHeader>
@@ -242,7 +245,7 @@ export function CertificatesPage() {
       </div>
 
       {/* Search and Filters toolbar */}
-      <Card className="p-4 bg-card/40 backdrop-blur-md border-border/50">
+      <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
           <div className="flex flex-1 flex-col sm:flex-row gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -328,7 +331,7 @@ export function CertificatesPage() {
           <LoadingCards count={6} />
         </div>
       ) : filteredCertificates.length === 0 ? (
-        <Card className="bg-card/45 backdrop-blur-sm border-border/50">
+        <Card>
           <CardContent className="pt-6">
             <EmptyState
               title="Nenhum certificado encontrado"
@@ -347,7 +350,8 @@ export function CertificatesPage() {
             const client = clients?.find((c) => c.id === cert.client_id);
             const clientName = client?.name || 'Cliente Desconhecido';
             const days = daysUntil(cert.valid_until);
-            const displayLabel = `${clientName} - ${cert.label}`;
+            const isRevoked = cert.status === 'revoked';
+            const displayLabel = `${clientName} - ${cert.label}${isRevoked ? ' (revogado)' : ''}`;
 
             return (
               <div key={cert.id} className="relative group">
@@ -358,14 +362,16 @@ export function CertificatesPage() {
                   daysRemaining={days}
                   onWarnClient={handleWarnClient(cert.client_id, clientName, cert.label, days)}
                 />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(cert.id, cert.label)}
-                  className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                  aria-label={`Excluir certificado ${cert.label}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!isRevoked && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cert.id, cert.label)}
+                    className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-card border border-border/50 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    aria-label={`Excluir certificado ${cert.label}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -430,15 +436,17 @@ export function CertificatesPage() {
                           <span>Notificar</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(cert.id, cert.label)}
-                        className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir certificado"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {cert.status !== 'revoked' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(cert.id, cert.label)}
+                          className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir certificado"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -505,7 +513,7 @@ export function CertificatesPage() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-primary to-primary text-white">
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar certificado'}
             </Button>
           </div>

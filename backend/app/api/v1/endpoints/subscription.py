@@ -14,6 +14,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
+from app.core.pagination import Page, page_params, paginate_list
 from app.core.plan_access import resolve_tenant_plan
 from app.models.operations import AccountingClient
 from app.services.catalog_cache import get_active_plans, get_plan_by_slug
@@ -76,7 +77,9 @@ def _usage_item(used: int, limit: Optional[int]) -> UsageItem:
 # ---------------------------------------------------------------------------
 
 @router.get("/plans", response_model=list[PlanOut], summary="List available subscription plans")
-async def list_plans(response: Response, db: AsyncSession = Depends(get_db)):
+async def list_plans(
+    response: Response, page: Page = Depends(page_params), db: AsyncSession = Depends(get_db)
+):
     """Return all active subscription plans (public, no auth required).
 
     Catálogo global, igual para todos (sem dado de tenant): cache de 5 min na
@@ -84,7 +87,7 @@ async def list_plans(response: Response, db: AsyncSession = Depends(get_db)):
     """
     from app.core.pricing import tabela_precos
 
-    plans = await get_active_plans(db)
+    plans = paginate_list(await get_active_plans(db), page)
     response.headers["Cache-Control"] = "public, max-age=300"
     out = []
     for p in plans:

@@ -39,7 +39,7 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-/** Estado vazio único do sistema (DESIGN.md §8). */
+/** Estado vazio único do sistema (SISTEMA_DE_DESIGN.md §8). */
 export function EmptyState({
   title,
   description,

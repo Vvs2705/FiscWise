@@ -73,14 +73,21 @@ async def test_invoice_api_workflow(client_with_auth_a):
     assert data["status"] == "issued"
     assert data["numero"] == "1"
 
-    # 7. Get PDF and XML signed URLs
+    assert data["simulated"] is True
+    assert data["pdf_storage_path"] is None
+
+    # 7. PDF (DANFSe gerado sob demanda) e XML servido do banco
     response = http_client.get(f"/api/v1/invoices/{invoice_id}/pdf")
     assert response.status_code == status.HTTP_200_OK
-    assert "url" in response.json()
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+    assert 'filename="nfse-1.pdf"' in response.headers["content-disposition"]
 
     response = http_client.get(f"/api/v1/invoices/{invoice_id}/xml")
     assert response.status_code == status.HTTP_200_OK
-    assert "url" in response.json()
+    assert response.headers["content-type"].startswith("application/xml")
+    assert response.text == data["xml_content"]
+    assert 'filename="nfse-1.xml"' in response.headers["content-disposition"]
 
     # 8. Cancel Invoice
     response = http_client.post(f"/api/v1/invoices/{invoice_id}/cancel", json={"reason": "Erro no preenchimento"})
@@ -92,3 +99,79 @@ async def test_invoice_api_workflow(client_with_auth_a):
     assert response.status_code == status.HTTP_200_OK
     events = response.json()
     assert len(events) >= 1
+
+
+async def _draft_invoice(http_client, client) -> str:
+    issuer = http_client.post("/api/v1/invoices/issuers", json={
+        "cnpj": "10000000000145", "inscricao_municipal": "12345", "regime_tributario": "simples",
+        "municipio_ibge": "3550308", "cod_servico_lc116": "01.01", "aliquota_iss": 0.02,
+        "retencao_iss": False,
+    }).json()
+    inv = http_client.post("/api/v1/invoices", json={
+        "issuer_id": issuer["id"], "client_id": str(client.id),
+        "competencia": date.today().isoformat(), "valor_servico": 500.00,
+        "valor_deducoes": 0.00, "descricao_servico": "Consultoria",
+    }).json()
+    return inv["id"]
+
+
+@pytest.mark.asyncio
+async def test_emit_with_mock_in_production_returns_503_and_keeps_draft(
+    client_with_auth_a, test_db, monkeypatch
+):
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.domain.invoices.models import InvoiceEvent
+
+    http_client, _, client, _ = client_with_auth_a
+    invoice_id = await _draft_invoice(http_client, client)
+    monkeypatch.setattr(settings, "NFSE_PROVIDER", "mock")
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+
+    response = http_client.post(f"/api/v1/invoices/{invoice_id}/emit")
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert response.json()["detail"] == (
+        "Emissão de NFS-e não configurada (exige certificado A1 e homologação)"
+    )
+    data = http_client.get(f"/api/v1/invoices/{invoice_id}").json()
+    assert data["status"] == "draft"
+
+    # G2: nenhuma nota vira "issued" em produção com mock.
+    issued = (await test_db.execute(select(Invoice).where(Invoice.status == "issued"))).scalars().all()
+    assert issued == []
+    events = (await test_db.execute(select(InvoiceEvent))).scalars().all()
+    assert [e.event_type for e in events] == ["created"]
+
+    response = http_client.post(f"/api/v1/invoices/{invoice_id}/cancel", json={"reason": "Erro no preenchimento"})
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert http_client.get(f"/api/v1/invoices/{invoice_id}").json()["status"] == "draft"
+
+
+@pytest.mark.asyncio
+async def test_pdf_and_xml_before_emission_return_404(client_with_auth_a):
+    http_client, _, client, _ = client_with_auth_a
+    invoice_id = await _draft_invoice(http_client, client)
+    r = http_client.get(f"/api/v1/invoices/{invoice_id}/pdf")
+    assert r.status_code == 404 and "PDF ainda não gerado" in r.json()["detail"]
+    r = http_client.get(f"/api/v1/invoices/{invoice_id}/xml")
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_background_failure_is_logged_and_recorded(client_with_auth_a, test_db, monkeypatch):
+    from sqlalchemy import select
+    from app.domain.invoices.models import InvoiceRejection
+    from app.domain.invoices.service import InvoiceService
+
+    http_client, _, client, _ = client_with_auth_a
+    invoice_id = await _draft_invoice(http_client, client)
+
+    async def boom(self, *args, **kwargs):
+        raise RuntimeError("falha inesperada")
+
+    monkeypatch.setattr(InvoiceService, "process_emission_sync", boom)
+    assert http_client.post(f"/api/v1/invoices/{invoice_id}/emit").status_code == 200
+    data = http_client.get(f"/api/v1/invoices/{invoice_id}").json()
+    assert data["status"] == "failed"
+    rejections = (await test_db.execute(select(InvoiceRejection))).scalars().all()
+    assert rejections and rejections[0].codigo_rejeicao == "BACKGROUND"

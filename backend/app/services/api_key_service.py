@@ -9,7 +9,7 @@ import uuid
 import hashlib
 import secrets
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Key format: fw_live_<random 40 hex chars>
 KEY_PREFIX_STATIC = "fw_live_"
 KEY_RANDOM_BYTES = 24  # 48 hex chars
+LAST_USED_WRITE_INTERVAL = timedelta(seconds=60)
 
 
 def _generate_raw_key() -> str:
@@ -103,8 +104,11 @@ async def verify_api_key(db: AsyncSession, raw_key: str) -> Optional[TenantApiKe
     """
     Verify a raw API key from an incoming request.
     Returns the TenantApiKey if valid and active, else None.
-    Also updates last_used_at.
+    Also updates last_used_at (no máximo uma escrita por minuto por chave,
+    para não transformar cada leitura da integração numa escrita no banco).
     """
+    if not raw_key or not raw_key.startswith(KEY_PREFIX_STATIC):
+        return None
     key_hash = _hash_key(raw_key)
     stmt = select(TenantApiKey).where(
         (TenantApiKey.key_hash == key_hash) & (TenantApiKey.is_active == True)  # noqa: E712
@@ -112,6 +116,11 @@ async def verify_api_key(db: AsyncSession, raw_key: str) -> Optional[TenantApiKe
     result = await db.execute(stmt)
     key = result.scalar_one_or_none()
     if key:
-        key.last_used_at = datetime.now(timezone.utc)
-        await db.commit()
+        now = datetime.now(timezone.utc)  # coluna é timestamptz no Postgres
+        last = key.last_used_at
+        if last is not None and last.tzinfo is None:  # SQLite devolve sem fuso
+            last = last.replace(tzinfo=timezone.utc)
+        if last is None or now - last >= LAST_USED_WRITE_INTERVAL:
+            key.last_used_at = now
+            await db.commit()
     return key

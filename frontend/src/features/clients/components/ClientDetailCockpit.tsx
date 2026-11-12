@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -199,6 +200,20 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
 
   const [nfeSearchQuery, setNfeSearchQuery] = useState('');
   const [nfeTypeFilter, setNfeTypeFilter] = useState<NfeTypeFilter>('ALL');
+  // Busca de emitente/destinatário com debounce; filtro memoizado.
+  const debouncedNfeSearch = useDebouncedValue(nfeSearchQuery);
+  const filteredNfes = useMemo(() => {
+    const q = debouncedNfeSearch.toLowerCase();
+    return monitorNfes.filter((nfe) => {
+      const matchesSearch =
+        nfe.issuer_name.toLowerCase().includes(q) ||
+        nfe.recipient_name.toLowerCase().includes(q) ||
+        nfe.access_key.includes(debouncedNfeSearch) ||
+        nfe.nfe_number.includes(debouncedNfeSearch);
+      const matchesType = nfeTypeFilter === 'ALL' || nfe.nfe_type === nfeTypeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [monitorNfes, debouncedNfeSearch, nfeTypeFilter]);
 
   const { data: billingConfig } = useClientBillingConfig(clientId);
   const updateBillingConfigMutation = useUpdateClientBillingConfig();
@@ -1710,16 +1725,6 @@ FiscWise`,
                   Nenhuma nota fiscal eletrônica capturada para este cliente. Clique em Sincronizar.
                 </div>
               ) : (() => {
-                const filteredNfes = monitorNfes.filter((nfe) => {
-                  const matchesSearch =
-                    nfe.issuer_name.toLowerCase().includes(nfeSearchQuery.toLowerCase()) ||
-                    nfe.recipient_name.toLowerCase().includes(nfeSearchQuery.toLowerCase()) ||
-                    nfe.access_key.includes(nfeSearchQuery) ||
-                    nfe.nfe_number.includes(nfeSearchQuery);
-                  const matchesType = nfeTypeFilter === 'ALL' || nfe.nfe_type === nfeTypeFilter;
-                  return matchesSearch && matchesType;
-                });
-
                 if (filteredNfes.length === 0) {
                   return (
                     <div className="text-center py-6 text-xs text-muted-foreground">

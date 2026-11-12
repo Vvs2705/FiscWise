@@ -67,6 +67,8 @@ jobs:
           cp cloudrun.env.yaml /tmp/env.yaml
           echo "SUPABASE_URL: \"${{ vars.SUPABASE_URL }}\"" >> /tmp/env.yaml
           echo "GOOGLE_CLIENT_ID: \"${{ vars.GOOGLE_CLIENT_ID }}\"" >> /tmp/env.yaml
+          # Correlação log ↔ Cloud Trace no log por requisição (app/core/request_log.py).
+          echo "GOOGLE_CLOUD_PROJECT: \"$PROJECT_ID\"" >> /tmp/env.yaml
           SECRETS="$REQUIRED_SECRETS"
           if [ -n "$EXTRA_SECRETS" ]; then SECRETS="$SECRETS,$EXTRA_SECRETS"; fi
           echo "SECRETS=$SECRETS" >> "$GITHUB_ENV"

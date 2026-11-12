@@ -2,13 +2,19 @@ import { HTMLAttributes, forwardRef } from 'react';
 import { LucideIcon, ArrowUpRight, ArrowDownRight, FileText, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  /** Card clicável: borda e sombra média no hover, foco visível. */
+  interactive?: boolean;
+}
+
+export const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, interactive = false, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'fiscwise-surface rounded-card border border-border/70 bg-card/80 text-card-foreground',
-        'transition-all duration-200 ease-out',
+        'rounded-lg border border-border bg-card text-card-foreground',
+        interactive &&
+          'cursor-pointer transition-[border-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
       {...props}
@@ -19,7 +25,7 @@ Card.displayName = 'Card';
 
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
+    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-4 sm:p-5', className)} {...props} />
   ),
 );
 CardHeader.displayName = 'CardHeader';
@@ -28,7 +34,7 @@ export const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLHea
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-xl font-semibold leading-none tracking-tight', className)}
+      className={cn('text-base font-semibold leading-6 text-foreground', className)}
       {...props}
     />
   ),
@@ -45,14 +51,14 @@ CardDescription.displayName = 'CardDescription';
 
 export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+    <div ref={ref} className={cn('p-4 pt-0 sm:p-5 sm:pt-0', className)} {...props} />
   ),
 );
 CardContent.displayName = 'CardContent';
 
 export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex items-center p-6 pt-0', className)} {...props} />
+    <div ref={ref} className={cn('flex items-center p-4 pt-0 sm:p-5 sm:pt-0', className)} {...props} />
   ),
 );
 CardFooter.displayName = 'CardFooter';
@@ -72,25 +78,25 @@ interface MetricCardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const MetricCard = forwardRef<HTMLDivElement, MetricCardProps>(
   ({ className, title, value, detail, icon: Icon, trend, ...props }, ref) => (
-    <Card ref={ref} className={cn('p-6 relative overflow-hidden group hover:border-primary/45', className)} {...props}>
+    <Card ref={ref} className={cn('relative overflow-hidden p-5', className)} {...props}>
       <div className="flex justify-between items-start mb-4">
         <span className="text-sm font-medium text-muted-foreground">{title}</span>
         {Icon && (
-          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-            <Icon className="w-5 h-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
           </div>
         )}
       </div>
       <div>
-        <h3 className="text-3xl font-extrabold text-foreground tracking-tight mb-1">{value}</h3>
+        <p className="mb-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
         <div className="flex items-center gap-2">
           {trend && (
             <span
               className={cn(
-                'inline-flex items-center text-xs font-semibold gap-0.5 px-2 py-0.5 rounded-full border',
+                'inline-flex items-center gap-0.5 rounded-sm border px-1.5 py-0.5 text-xs font-medium tabular-nums',
                 trend.isPositive
-                  ? 'bg-success/10 text-success border-success/20'
-                  : 'bg-destructive/10 text-destructive border-destructive/20'
+                  ? 'border-success/25 bg-success/10 text-success'
+                  : 'border-destructive/25 bg-destructive/10 text-destructive'
               )}
             >
               {trend.isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
@@ -119,18 +125,16 @@ export const ActionCard = forwardRef<HTMLDivElement, ActionCardProps>(
     <Card
       ref={ref}
       onClick={onClick}
-      className={cn(
-        'p-6 cursor-pointer border border-border/70 hover:border-primary/45 hover:-translate-y-0.5 group active:translate-y-0',
-        className
-      )}
+      interactive
+      className={cn('group p-5', className)}
       {...props}
     >
-      <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-4 group-hover:scale-105 transition-transform">
-        <Icon className="w-6 h-6" />
+      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" aria-hidden="true" />
       </div>
-      <h3 className="text-lg font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{title}</h3>
+      <h3 className="mb-1 text-base font-semibold text-foreground">{title}</h3>
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
-      <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline underline-offset-4">
         {ctaText} →
       </span>
     </Card>
@@ -163,20 +167,20 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
         : 'text-destructive';
 
     return (
-      <Card ref={ref} className={cn('p-6', className)} {...props}>
+      <Card ref={ref} className={cn('p-5', className)} {...props}>
         <div className="flex items-center gap-4 mb-6">
           {/* Circular Progress Ring */}
           <div className="relative w-16 h-16 flex-shrink-0">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
               <path
-                className="text-border/40"
+                className="text-muted"
                 strokeWidth="3.5"
                 stroke="currentColor"
                 fill="none"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                className={cn('transition-all duration-500 ease-out', ringColor)}
+                className={cn('transition-[stroke-dasharray] duration-200 ease-out', ringColor)}
                 strokeWidth="3.5"
                 strokeDasharray={`${score}, 100`}
                 strokeLinecap="round"
@@ -185,12 +189,12 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-bold text-base text-foreground">
+            <div className="absolute inset-0 flex items-center justify-center font-semibold text-base tabular-nums text-foreground">
               {score}
             </div>
           </div>
           <div>
-            <h3 className="font-bold text-foreground">{label}</h3>
+            <h3 className="text-base font-semibold text-foreground">{label}</h3>
             <p className="text-xs text-muted-foreground">Score de saúde da carteira</p>
           </div>
         </div>
@@ -212,12 +216,12 @@ export const RiskCard = forwardRef<HTMLDivElement, RiskCardProps>(
                   />
                   {factor.label}
                 </span>
-                <span className="font-semibold text-foreground">{factor.impact} pts</span>
+                <span className="font-medium tabular-nums text-foreground">{factor.impact} pts</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-2 p-3 bg-success/10 text-success border border-success/20 rounded-xl text-xs">
+          <div className="flex items-center gap-2 p-3 rounded-md border border-success/25 bg-success/10 text-xs text-success">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>Nenhum fator de risco ativo. Parabéns!</span>
           </div>
@@ -240,10 +244,10 @@ interface DocumentCardProps extends HTMLAttributes<HTMLDivElement> {
 export const DocumentCard = forwardRef<HTMLDivElement, DocumentCardProps>(
   ({ className, name, type, date, status, onClick, ...props }, ref) => {
     const statusConfig = {
-      available: { label: 'Disponível', color: 'text-success border-success/20 bg-success/10' },
-      missing: { label: 'Pendente', color: 'text-warning border-warning/20 bg-warning/10' },
-      expired: { label: 'Expirado', color: 'text-destructive border-destructive/20 bg-destructive/10' },
-      review: { label: 'Em revisão', color: 'text-info border-info/20 bg-info/10' },
+      available: { label: 'Disponível', color: 'text-success border-success/25 bg-success/10' },
+      missing: { label: 'Pendente', color: 'text-warning border-warning/25 bg-warning/10' },
+      expired: { label: 'Expirado', color: 'text-destructive border-destructive/25 bg-destructive/10' },
+      review: { label: 'Em revisão', color: 'text-info border-info/25 bg-info/10' },
     };
 
     const config = statusConfig[status];
@@ -252,14 +256,12 @@ export const DocumentCard = forwardRef<HTMLDivElement, DocumentCardProps>(
       <Card
         ref={ref}
         onClick={onClick}
-        className={cn(
-          'p-4 flex items-center justify-between border border-border/70 hover:border-primary/45 transition-colors cursor-pointer group',
-          className
-        )}
+        interactive
+        className={cn('group flex items-center justify-between p-4', className)}
         {...props}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0 group-hover:text-primary transition-colors">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors duration-150 group-hover:text-primary">
             <FileText className="w-5 h-5" />
           </div>
           <div className="min-w-0">
@@ -268,10 +270,10 @@ export const DocumentCard = forwardRef<HTMLDivElement, DocumentCardProps>(
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <span className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-semibold border', config.color)}>
+          <span className={cn('rounded-sm border px-2 py-0.5 text-xs font-medium', config.color)}>
             {config.label}
           </span>
-          <span className="text-[10px] text-muted-foreground">{date}</span>
+          <span className="text-xs tabular-nums text-muted-foreground">{date}</span>
         </div>
       </Card>
     );
@@ -294,16 +296,16 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
     const isWarning = daysRemaining <= 30 && daysRemaining > 15;
 
     return (
-      <Card ref={ref} className={cn('p-5 hover:border-primary/40 relative group', className)} {...props}>
+      <Card ref={ref} className={cn('relative p-5', className)} {...props}>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <span className="text-[10px] uppercase tracking-wider font-extrabold text-primary mb-1 block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
               Certificado {type}
             </span>
-            <h4 className="font-bold text-foreground text-base leading-tight">{label}</h4>
+            <h4 className="text-base font-semibold leading-tight text-foreground">{label}</h4>
           </div>
           {(isCritical || isWarning) && (
-            <div className={cn('p-1.5 rounded-md', isCritical ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')}>
+            <div className={cn('rounded-md p-1.5', isCritical ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')}>
               <ShieldAlert className="w-5 h-5" />
             </div>
           )}
@@ -312,7 +314,7 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
         <div className="mb-4">
           <div className="flex justify-between items-center text-xs mb-1">
             <span className="text-muted-foreground">Validade: {expiryDate}</span>
-            <span className={cn('font-bold', isCritical ? 'text-destructive' : isWarning ? 'text-warning' : 'text-success')}>
+            <span className={cn('font-medium tabular-nums', isCritical ? 'text-destructive' : isWarning ? 'text-warning' : 'text-success')}>
               {daysRemaining} dias restantes
             </span>
           </div>
@@ -320,7 +322,7 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <div
               className={cn(
-                'h-full rounded-full transition-all duration-300',
+                'h-full rounded-full',
                 isCritical ? 'bg-destructive' : isWarning ? 'bg-warning' : 'bg-success'
               )}
               style={{ width: `${Math.min(100, (daysRemaining / 365) * 100)}%` }}
@@ -331,9 +333,9 @@ export const CertificateCard = forwardRef<HTMLDivElement, CertificateCardProps>(
         {onWarnClient && (isCritical || isWarning) && (
           <button
             onClick={onWarnClient}
-            className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 rounded-lg text-xs font-semibold hover:-translate-y-px active:translate-y-0 active:scale-[0.98] transition-all"
+            className="h-9 w-full rounded-md border border-primary/25 bg-primary/10 text-sm font-medium text-primary transition-colors duration-100 hover:bg-primary/15 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Avisar Cliente
+            Avisar cliente
           </button>
         )}
       </Card>

@@ -278,6 +278,16 @@ async def client_with_auth_b(test_db: AsyncSession, user_b: User, client_b: Acco
 
 
 @pytest.fixture(autouse=True)
+def _reset_catalog_cache():
+    """Cache de planos/regras é global: cada teste começa com ele vazio."""
+    from app.core.ttl_cache import invalidate_all
+
+    invalidate_all()
+    yield
+    invalidate_all()
+
+
+@pytest.fixture(autouse=True)
 def _reset_auth_rate_limiter():
     """Todos os testes usam o mesmo IP do TestClient: zera os contadores."""
     from app.core.auth_rate_limiter import auth_rate_limiter

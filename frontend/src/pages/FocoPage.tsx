@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useQuery } from '@tanstack/react-query';
 import {
   Target, AlertTriangle, Clock, Calendar, Users, Building2,
@@ -42,7 +43,8 @@ export function FocoPage() {
     queryFn: fetchFocusItems,
   });
 
-  const allItems = items ?? [];
+  const allItems = useMemo(() => items ?? [], [items]);
+  const debouncedSearch = useDebouncedValue(search);
 
   const handleRefresh = async () => {
     await refetch();
@@ -51,12 +53,15 @@ export function FocoPage() {
 
   const groups = Object.entries(GROUP_CONFIG) as [FocusGroup, typeof GROUP_CONFIG[FocusGroup]][];
 
-  const filtered = allItems.filter(item => {
-    if (activeGroup !== 'all' && item.group !== activeGroup) return false;
-    if (search && !item.title.toLowerCase().includes(search.toLowerCase()) &&
-        !item.client.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    return allItems.filter(item => {
+      if (activeGroup !== 'all' && item.group !== activeGroup) return false;
+      if (q && !item.title.toLowerCase().includes(q) &&
+          !item.client.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [allItems, activeGroup, debouncedSearch]);
 
   const criticalCount = allItems.filter(i => i.group === 'critical').length;
   const todayCount = allItems.filter(i => i.group === 'today').length;

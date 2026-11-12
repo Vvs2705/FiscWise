@@ -1,10 +1,12 @@
+// Só campos que o backend (RegimeSimulationCreate) aceita.
 export interface SimulationRequest {
   monthly_revenue: number;
   annual_cogs: number;
-  state: string;
-  regime: 'simples' | 'lucro_presumido' | 'lucro_real';
-  has_pis_cofins_credit: boolean;
+  /** CNAE com 7 dígitos; vazio = backend usa o anexo padrão de serviços. */
+  activity_code?: string;
 }
+
+export type CalculatorPlan = 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
 
 export interface TaxScenario {
   regime: string;
@@ -20,6 +22,7 @@ export interface SimulationResult {
   scenarios: TaxScenario[];
   recommended_regime: string;
   annual_savings: number;
+  ai_recommendation?: string | null;
 }
 
 export interface ChatMessage {

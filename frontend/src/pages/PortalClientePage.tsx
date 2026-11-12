@@ -11,7 +11,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { useClients } from '@/lib/hooks/useOperations';
 import { fetchPortalPreview } from '@/features/portal/api';
+import { PortalAccessButton } from '@/features/portal/PortalAccessButton';
 import { cn } from '@/lib/utils';
+import { formatLocalDate } from '@/lib/dates';
 
 const PORTAL_TABS = [
   { key: 'overview', label: 'Visão Geral', icon: Globe },
@@ -45,6 +47,7 @@ export function PortalClientePage() {
 
   const { data: clients, isLoading: clientsLoading } = useClients();
   const clientId = selectedClientId ?? clients?.[0]?.id ?? null;
+  const selectedClient = clients?.find(c => c.id === clientId) ?? null;
 
   const { data: preview, isLoading, error } = useQuery({
     queryKey: ['portal-preview', clientId],
@@ -102,7 +105,7 @@ export function PortalClientePage() {
         ) : (
           <>
             {/* Client preview banner */}
-            <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-sm">
                   {initials(preview.client.name)}
@@ -112,7 +115,15 @@ export function PortalClientePage() {
                   <p className="text-xs text-muted-foreground">{preview.client.document ?? 'Sem documento cadastrado'}</p>
                 </div>
               </div>
-              <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary">Modo preview</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <PortalAccessButton
+                  key={preview.client.id}
+                  clientId={preview.client.id}
+                  clientName={preview.client.name}
+                  clientEmail={selectedClient?.email}
+                />
+                <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary">Modo preview</span>
+              </div>
             </div>
 
             {/* Tabs */}
@@ -232,7 +243,7 @@ export function PortalClientePage() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {competenceLabel(guide.competence)}
-                          {guide.due && ` · Vencimento: ${new Date(guide.due).toLocaleDateString('pt-BR')}`}
+                          {guide.due && ` · Vencimento: ${formatLocalDate(guide.due)}`}
                         </p>
                       </div>
                       <div className="text-right">
@@ -263,7 +274,7 @@ export function PortalClientePage() {
                         <p className="text-sm font-medium text-foreground">{p.title}</p>
                         {p.deadline && (
                           <p className="text-xs text-muted-foreground">
-                            Prazo: {new Date(p.deadline).toLocaleDateString('pt-BR')}
+                            Prazo: {formatLocalDate(p.deadline)}
                           </p>
                         )}
                       </div>

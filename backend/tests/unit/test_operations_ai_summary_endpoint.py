@@ -41,6 +41,14 @@ class _FakeDb:
         self.committed = True
 
 
+@pytest.fixture(autouse=True)
+def _ai_configured(monkeypatch):
+    # Estes testes simulam a IA; sem chave o endpoint responde 503 antes da cota.
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
+
+
 def _user(plan_slug: str):
     tenant_id = uuid.uuid4()
     return SimpleNamespace(

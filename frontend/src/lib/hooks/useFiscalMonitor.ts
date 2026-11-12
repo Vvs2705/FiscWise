@@ -1,62 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-export interface FiscalDebt {
-  id: string;
-  type: 'FEDERAL' | 'STATE' | 'MUNICIPAL';
-  description: string;
-  value: number;
-  due_date: string;
+export interface FiscalRegistryDetails {
+  source?: 'brasilapi' | 'mock';
+  consulted_at?: string;
+  razao_social?: string | null;
+  nome_fantasia?: string | null;
+  descricao_situacao_cadastral?: string | null;
+  data_situacao_cadastral?: string | null;
+  motivo_situacao_cadastral?: number | string | null;
+  cnae_fiscal?: number | null;
+  cnae_fiscal_descricao?: string | null;
+  natureza_juridica?: string | null;
+  opcao_pelo_simples?: boolean | null;
+  opcao_pelo_mei?: boolean | null;
+  data_inicio_atividade?: string | null;
+  status?: 'error';
+  last_error?: string;
+  last_error_at?: string;
 }
 
+/**
+ * Situação cadastral real (BrasilAPI). Débitos, CND e NF-e não são consultados
+ * (exigem SERPRO): o backend devolve debts/cnd nulos, nfes vazio e
+ * source="unavailable" com a mensagem do que falta.
+ */
 export interface FiscalMonitorSummary {
   id: string;
   tenant_id: string;
   client_id: string;
   last_sync_at: string | null;
-  cnpj_status: 'REGULAR' | 'SUSPENSO' | 'INAPTA' | 'BAIXADA' | 'PENDENTE';
-  situation_details: {
-    situacao_cadastral?: string;
-    motivo_situacao_cadastral?: string;
-    data_situacao_cadastral?: string;
-    nome_empresarial?: string;
-    natureza_juridica?: string;
-    atividade_principal?: Array<{ code: string; text: string }>;
-  } | null;
-  has_debts: boolean;
-  debt_count: number;
-  total_debt_value: number;
-  debts_list: {
-    debts: FiscalDebt[];
-  } | null;
-  cnd_status: 'REGULAR' | 'COM_PENDENCIAS' | 'EXPIRADA' | 'PENDENTE';
-  last_cnd_download_at: string | null;
-  last_cnd_document_id: string | null;
-}
-
-export interface FiscalNFe {
-  id: string;
-  tenant_id: string;
-  client_id: string;
-  access_key: string;
-  nfe_number: string;
-  nfe_type: 'ENTRADA' | 'SAIDA';
-  issuer_name: string;
-  issuer_document: string;
-  recipient_name: string;
-  recipient_document: string;
-  value: number;
-  issued_at: string;
-  retrieved_at: string;
-  xml_url: string | null;
-  status: string;
+  /** Situação cadastral (ATIVA, BAIXADA, SUSPENSA, INAPTA, NULA) ou PENDENTE / ERRO_CONSULTA. */
+  cnpj_status: string;
+  situation_details: FiscalRegistryDetails | null;
+  registry_source: 'brasilapi' | 'mock' | null;
+  debts: null;
+  cnd: null;
+  nfes: never[];
+  source: 'unavailable';
+  message: string;
 }
 
 export interface SyncResponse {
   status: string;
   message: string;
   summary: FiscalMonitorSummary;
-  nfes_fetched: number;
 }
 
 const fmKey = ['fiscal-monitor'] as const;
@@ -76,23 +64,6 @@ export function useFiscalMonitorStatus(clientId?: string) {
   });
 }
 
-export function useFiscalNFes(clientId?: string, nfeType?: string, limit = 50) {
-  return useQuery({
-    queryKey: [...fmKey, 'nfes', clientId, { nfeType, limit }],
-    queryFn: async () => {
-      if (!clientId) return [];
-      let url = `/api/v1/fiscal-monitor/nfes/${clientId}?limit=${limit}`;
-      if (nfeType) {
-        url += `&nfe_type=${nfeType}`;
-      }
-      const { data } = await api.get<FiscalNFe[]>(url);
-      return data;
-    },
-    enabled: !!clientId,
-    staleTime: 30_000,
-  });
-}
-
 export function useSyncFiscalMonitor(clientId?: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -106,7 +77,7 @@ export function useSyncFiscalMonitor(clientId?: string) {
     onSuccess: () => {
       // Invalidate target queries to trigger updates across tabs and dashboard elements
       qc.invalidateQueries({ queryKey: [...fmKey, 'status', clientId] });
-      qc.invalidateQueries({ queryKey: [...fmKey, 'nfes', clientId] });
+      // O sync cancela prazos e CNDs falsos deixados pelo simulador antigo.
       qc.invalidateQueries({ queryKey: ['deadlines'] });
       qc.invalidateQueries({ queryKey: ['client-documents', clientId] });
       qc.invalidateQueries({ queryKey: ['clients'] });

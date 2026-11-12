@@ -162,3 +162,36 @@ async def test_monthly_closing_requires_auth(client):
         headers={"X-Tenant-ID": "9df4b224-c8dc-4cdf-9bb6-40af6d206e62"},
     )
     assert response.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_generate_closings_regeneration_only_adds_new_clients(client_with_auth_a, test_db):
+    """Gerar de novo (botao sempre visivel) so cria o fechamento de cliente novo."""
+    from app.models.operations import AccountingClient
+
+    http_client, user, client, db = client_with_auth_a
+    competence = "2026-07"
+
+    first = http_client.post("/api/v1/monthly-closing/generate", params={"competence": competence})
+    assert first.status_code == status.HTTP_200_OK
+    created_first = first.json()["created"]
+    assert created_first >= 1
+
+    db.add(
+        AccountingClient(
+            tenant_id=user.tenant_id,
+            name="Cliente Novo Ltda",
+            document="11222333000181",
+            status="active",
+        )
+    )
+    await db.commit()
+
+    second = http_client.post("/api/v1/monthly-closing/generate", params={"competence": competence})
+    assert second.status_code == status.HTTP_200_OK
+    assert second.json()["created"] == 1
+    assert second.json()["skipped"] == created_first
+
+    listed = http_client.get("/api/v1/monthly-closing", params={"competence": competence}).json()
+    assert len(listed) == created_first + 1
+    assert len({c["client_id"] for c in listed}) == len(listed)

@@ -12,7 +12,6 @@ from app.domain.invoices.schemas import InvoiceIssuerCreate, InvoiceCreate
 from app.domain.invoices.validators import validate_cpf_cnpj
 from app.domain.invoices.events import dispatch_invoice_event
 from app.domain.invoices.providers.base import NfseProvider, TransientEmissionError
-from app.core.storage import get_signed_url
 from app.core.audit import audit_log
 
 class InvoiceService:
@@ -167,8 +166,9 @@ class InvoiceService:
                 invoice.provider_protocol = res.get("protocol")
                 invoice.provider_response = res.get("raw")
                 invoice.xml_content = res.get("xml")
-                invoice.pdf_storage_path = f"invoices/{invoice.id}/pdf_{invoice.id}.pdf"
-                invoice.xml_storage_path = f"invoices/{invoice.id}/xml_{invoice.id}.xml"
+                # Nada é enviado ao storage: o XML fica em xml_content e o PDF
+                # (DANFSe) é gerado sob demanda. Não gravar caminhos de arquivos
+                # inexistentes.
                 invoice.issued_at = datetime.now(timezone.utc)
                 await self.repo.update_invoice(invoice)
                 
@@ -277,20 +277,46 @@ class InvoiceService:
 
         return invoice
 
-    async def get_pdf_signed_url(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
+    async def get_xml_content(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID) -> tuple[str, str]:
+        """XML da nota guardado no banco (xml_content) e o nome do arquivo."""
         invoice = await self.get_invoice(invoice_id, tenant_id)
-        if invoice.status != "issued" or not invoice.pdf_storage_path:
+        if not invoice.xml_content:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="PDF not available for this invoice."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="XML ainda não disponível para esta nota.",
             )
-        return await get_signed_url("invoices", invoice.pdf_storage_path, ttl=300)
+        return invoice.xml_content, f"nfse-{invoice.numero or invoice.id}.xml"
 
-    async def get_xml_signed_url(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
+    async def get_pdf_bytes(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID) -> tuple[bytes, str]:
+        """DANFSe simplificado gerado a partir dos dados da nota (só após emissão)."""
+        from app.domain.invoices.danfse_pdf import render_danfse_pdf
+
         invoice = await self.get_invoice(invoice_id, tenant_id)
-        if invoice.status != "issued" or not invoice.xml_storage_path:
+        if invoice.status not in ("issued", "cancelled", "cancel_requested") or not invoice.numero:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="XML not available for this invoice."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="PDF ainda não gerado: a nota não foi emitida.",
             )
-        return await get_signed_url("invoices", invoice.xml_storage_path, ttl=300)
+        return render_danfse_pdf(invoice), f"nfse-{invoice.numero}.pdf"
+
+    async def record_background_failure(
+        self, invoice_id: uuid.UUID, tenant_id: uuid.UUID, error: str
+    ) -> None:
+        """Registra rejeição + evento quando o processamento em segundo plano quebra
+        antes de chegar ao provider. Nunca marca a nota como emitida."""
+        invoice = await self.repo.get_by_id(invoice_id, tenant_id)
+        if not invoice:
+            return
+        if invoice.status in ("queued", "processing", "validating"):
+            invoice.status = "failed"
+            await self.repo.update_invoice(invoice)
+        await self.repo.create_rejection(
+            InvoiceRejection(
+                invoice_id=invoice.id,
+                tenant_id=tenant_id,
+                codigo_rejeicao="BACKGROUND",
+                descricao=f"Falha no processamento da emissão: {error}",
+                raw_response={"exception": error},
+            )
+        )
+        await dispatch_invoice_event(self.repo.db, invoice, "failed", {"exception": error})

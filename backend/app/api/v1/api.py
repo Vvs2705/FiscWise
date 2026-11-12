@@ -102,6 +102,10 @@ api_router.include_router(
     notifications.router,
     tags=["Notifications"]
 )
+api_router.include_router(
+    notifications.clients_router,
+    tags=["Notifications"]
+)
 
 # Include WhatsApp Inbox endpoints
 api_router.include_router(

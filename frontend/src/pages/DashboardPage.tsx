@@ -11,23 +11,7 @@ import { MonthlyClosingCard } from '@/features/dashboard/components/MonthlyClosi
 import { PortfolioRiskCard } from '@/features/dashboard/components/PortfolioRiskCard';
 import { ModoFocoModal } from '@/features/dashboard/components/ModoFocoModal';
 import { staggerContainer, fadeIn } from '@/lib/motion';
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
-function parseDate(value: string) {
-  const parsed = new Date(value);
-  parsed.setHours(0, 0, 0, 0);
-  return parsed;
-}
-
-function daysUntil(value: string) {
-  const diff = parseDate(value).getTime() - startOfToday().getTime();
-  return Math.round(diff / 86_400_000);
-}
+import { addLocalDays, daysUntilLocal, isSameLocalDay, localDayLabel, toLocalISODate } from '@/lib/dates';
 
 export function DashboardPage() {
   const [isModoFocoOpen, setIsModoFocoOpen] = useState(false);
@@ -44,7 +28,7 @@ export function DashboardPage() {
   );
 
   const todaysDeadlines = useMemo(
-    () => upcomingDeadlines.filter((item) => daysUntil(item.due_date) === 0),
+    () => upcomingDeadlines.filter((item) => daysUntilLocal(item.due_date) === 0),
     [upcomingDeadlines]
   );
 
@@ -125,6 +109,7 @@ export function DashboardPage() {
     const fromPending =
       prod?.clients_with_most_pending.map((client) => ({
         id: `pending-${client.client_id}`,
+        clientId: client.client_id,
         name: client.client_name,
         reason:
           client.pending_count === 1
@@ -138,6 +123,7 @@ export function DashboardPage() {
       .filter((item) => item.status === 'overdue')
       .map((item) => ({
         id: `receivable-${item.id}`,
+        clientId: item.client_id,
         name: item.client_name,
         reason: `Recebível em atraso de ${moneyBRL(item.amount)}`,
         risk: 'Médio' as const,
@@ -158,29 +144,25 @@ export function DashboardPage() {
 
   // Timeline for FiscalWeekTimeline
   const weekTimeline = useMemo(() => {
-    const days = ['Hoje', 'Amanhã', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     const today = new Date();
 
-    return days.slice(0, 5).map((day, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() + index);
+    return Array.from({ length: 5 }, (_, index) => {
+      const date = addLocalDays(today, index);
 
       const dayDeadlines = upcomingDeadlines
-        .filter((deadline) => {
-          const deadlineDate = parseDate(deadline.due_date);
-          return deadlineDate.toDateString() === date.toDateString();
-        })
+        .filter((deadline) => isSameLocalDay(deadline.due_date, date))
         .map((deadline) => ({
           id: deadline.id,
           title: deadline.title,
+          clientId: deadline.client_id,
           type: 'obligation' as const,
           status: deadline.status === 'completed' ? ('completed' as const) : ('pending' as const),
           time: undefined,
         }));
 
       return {
-        day,
-        date: dateBR(date.toISOString()),
+        day: localDayLabel(date, today),
+        date: dateBR(toLocalISODate(date)),
         isToday: index === 0,
         items: dayDeadlines,
       };

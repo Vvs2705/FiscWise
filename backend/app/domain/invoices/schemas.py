@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, Any, Dict, List
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, model_validator
 
 class InvoiceIssuerCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -80,6 +80,16 @@ class InvoiceResponse(BaseModel):
     cancelled_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    # Emitida/cancelada pelo provider simulado: sem valor fiscal.
+    simulated: bool = False
+
+    @model_validator(mode="after")
+    def _derive_simulated(self) -> "InvoiceResponse":
+        raw = self.provider_response or {}
+        self.simulated = raw.get("provider") == "mock" or bool(raw.get("mock")) or (
+            (self.provider_protocol or "").startswith("MOCK-")
+        )
+        return self
 
 
 class InvoiceEventResponse(BaseModel):

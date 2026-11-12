@@ -46,6 +46,7 @@ import {
   type ClientAiSummary,
   type ClientDocument as ParsedClientDocument,
 } from '@/lib/aiDocuments';
+import { daysUntilLocal } from '@/lib/dates';
 
 interface ClientManageDrawerProps {
   open: boolean;
@@ -462,20 +463,13 @@ export function ClientManageDrawer({ open, onClose, client }: ClientManageDrawer
 
   // Expiration threshold alerts (30 days)
   const isExpiringSoon = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    const diffTime = expDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays >= 0 && diffDays <= 30;
   };
 
   const isExpired = (expDateStr?: string | null) => {
-    if (!expDateStr) return false;
-    const expDate = new Date(expDateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return expDate < today;
+    const diffDays = daysUntilLocal(expDateStr);
+    return diffDays !== null && diffDays < 0;
   };
 
   return (

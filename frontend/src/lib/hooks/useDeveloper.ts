@@ -25,6 +25,8 @@ export interface WebhookSubscription {
   events: string[];
   is_active: boolean;
   created_at: string;
+  /** "hmac-sha256-v1" (verificável) ou "legacy" (criado antes; rotacione o segredo). */
+  signature_scheme?: 'hmac-sha256-v1' | 'legacy';
 }
 
 export interface WebhookSubscriptionCreated extends WebhookSubscription {
@@ -38,6 +40,7 @@ export interface WebhookDeliveryLog {
   event: string;
   url: string;
   status_code: number | null;
+  response_body?: string | null;
   success: boolean;
   duration_ms: number;
   created_at: string;
@@ -148,6 +151,26 @@ export function useUpdateWebhook() {
       qc.invalidateQueries({ queryKey: devKeys.webhooks });
     },
   });
+}
+
+export function useRotateWebhookSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (subId: string) => {
+      const { data } = await api.post<WebhookSubscriptionCreated>(
+        `/api/v1/developer/webhooks/${subId}/rotate-secret`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: devKeys.webhooks });
+    },
+  });
+}
+
+/** Base da API para os exemplos de integração. */
+export function apiBaseUrl(): string {
+  return (api.defaults.baseURL || window.location.origin).replace(/\/$/, '');
 }
 
 export function useDeleteWebhook() {

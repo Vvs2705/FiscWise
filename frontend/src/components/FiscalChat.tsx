@@ -1,23 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Send, Bot, User, Lock, AlertCircle } from 'lucide-react';
-import { ChatMessage } from '../lib/types/calculator';
-import { calculatorAPI } from '../lib/fiscwise-calculator-api';
+import { CalculatorPlan, ChatMessage } from '../lib/types/calculator';
+import { calculatorAPI, normalizeCalculatorPlan } from '../lib/fiscwise-calculator-api';
 
 interface Props {
-  userPlan?: 'FREE' | 'INTERMEDIARIO' | 'PREMIUM';
-}
-
-// Normalise plan slug coming from the backend (may be null / lowercase / uppercase)
-function normalisePlan(raw: string | undefined): 'FREE' | 'INTERMEDIARIO' | 'PREMIUM' {
-  if (!raw) return 'FREE';
-  const up = raw.toUpperCase();
-  if (up === 'PREMIUM') return 'PREMIUM';
-  if (up === 'INTERMEDIARIO') return 'INTERMEDIARIO';
-  return 'FREE';
+  userPlan?: CalculatorPlan;
 }
 
 export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
-  const userPlan = normalisePlan(rawPlan);
+  const userPlan = normalizeCalculatorPlan(rawPlan);
+  const navigate = useNavigate();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -99,6 +92,10 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
           'Você atingiu o limite de 20 mensagens mensais do plano Intermediário. Faça upgrade para o plano Premium para acesso ilimitado.';
       } else if (status === 403) {
         errorContent = 'Seu plano não permite acesso ao chat com IA.';
+      } else if (status === 503) {
+        const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
+        errorContent =
+          typeof detail === 'string' ? detail : 'Assistente de IA não configurado nesta instalação.';
       }
 
       const errorMessage: ChatMessage = {
@@ -136,6 +133,13 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
             <strong className="text-primary">Premium</strong> (ilimitado) para conversar com o assistente fiscal.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate('/configuracoes?aba=plano')}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+        >
+          Ver planos
+        </button>
       </div>
     );
   }

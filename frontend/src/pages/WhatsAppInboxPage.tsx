@@ -31,6 +31,7 @@ import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { getApiErrorMessage } from '@/lib/api';
+import { addLocalDays, toLocalISODate } from '@/lib/dates';
 
 export function WhatsAppInboxPage() {
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export function WhatsAppInboxPage() {
   const openTaskModal = (msg: WhatsAppMessage) => {
     setSelectedMessage(msg);
     setTaskTitle(msg.body ? msg.body.substring(0, 50) + (msg.body.length > 50 ? '...' : '') : 'Ajustar pendência contábil');
-    setTaskDueDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // Default 2 days from now
+    setTaskDueDate(toLocalISODate(addLocalDays(new Date(), 2))); // Default 2 days from now
     setTaskPriority('medium');
     setShowTaskModal(true);
   };
@@ -156,10 +157,12 @@ export function WhatsAppInboxPage() {
 
   return (
     <div className="space-y-3">
-      <SimulationNotice>
-        O envio pelo WhatsApp ainda não está conectado a um provedor. Mensagens marcadas como enviadas
-        não chegam ao cliente.
-      </SimulationNotice>
+      {(inboxes.length === 0 || inboxes.some((i) => i.simulated !== false)) && (
+        <SimulationNotice>
+          O envio pelo WhatsApp não está conectado a um provedor. Mensagens enviadas daqui ficam como
+          “simuladas” (ou “não enviadas”) e não chegam ao cliente.
+        </SimulationNotice>
+      )}
     <div className="flex h-[calc(100vh-12rem)] gap-5 overflow-hidden">
       {/* LEFT COLUMN: INBOX THREADS */}
       <Card className="flex w-80 shrink-0 flex-col overflow-hidden border border-white/5 bg-card backdrop-blur-xl">
@@ -391,6 +394,12 @@ export function WhatsAppInboxPage() {
                                 minute: '2-digit',
                               })}
                             </span>
+                            {isOutbound && msg.status === 'simulated' && (
+                              <span className="font-semibold text-warning">· simulada</span>
+                            )}
+                            {isOutbound && msg.status === 'failed' && (
+                              <span className="font-semibold text-destructive">· não enviada</span>
+                            )}
                           </div>
                         </div>
 

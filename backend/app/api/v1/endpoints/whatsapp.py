@@ -136,6 +136,7 @@ async def list_messages(
             body=m.body,
             media_url=m.media_url,
             external_message_id=m.external_message_id,
+            error_message=m.error_message,
             status=m.status,
             created_at=m.created_at,
         )
@@ -189,6 +190,7 @@ async def send_message(
         body=message.body,
         media_url=message.media_url,
         external_message_id=message.external_message_id,
+        error_message=message.error_message,
         status=message.status,
         created_at=message.created_at,
     )

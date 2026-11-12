@@ -69,3 +69,39 @@ async def test_fiscal_mailbox_requires_auth(client):
         headers={"X-Tenant-ID": "9df4b224-c8dc-4cdf-9bb6-40af6d206e62"},
     )
     assert response.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_mock_mailbox_in_production_returns_503_without_writing(
+    client_with_auth_a, test_db, monkeypatch
+):
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.domain.fiscal_mailbox.models import FiscalMailboxMessage
+
+    http_client, _, _, _ = client_with_auth_a
+    monkeypatch.setattr(settings, "FISCAL_MAILBOX_PROVIDER", "mock")
+    for env in ("production", "staging"):
+        monkeypatch.setattr(settings, "ENVIRONMENT", env)
+        response = http_client.post("/api/v1/fiscal-mailbox/sync")
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert response.json()["detail"] == "Caixa postal exige SERPRO (não configurado)"
+    assert (await test_db.execute(select(FiscalMailboxMessage))).scalars().all() == []
+
+    st = http_client.get("/api/v1/fiscal-mailbox/provider-status").json()
+    assert st == {
+        "provider": "mock",
+        "simulated": True,
+        "sync_available": False,
+        "message": "Caixa postal exige SERPRO (não configurado)",
+    }
+
+
+@pytest.mark.asyncio
+async def test_messages_flag_simulated_in_dev(client_with_auth_a):
+    http_client, _, _, _ = client_with_auth_a
+    assert http_client.post("/api/v1/fiscal-mailbox/sync").status_code == 200
+    messages = http_client.get("/api/v1/fiscal-mailbox/messages").json()
+    assert messages and all(m["simulated"] is True and m["provider"] == "mock" for m in messages)
+    st = http_client.get("/api/v1/fiscal-mailbox/provider-status").json()
+    assert st["simulated"] is True and st["sync_available"] is True

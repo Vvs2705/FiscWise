@@ -24,8 +24,11 @@ durante todo este roteiro.
    MERCADO_PAGO_PUBLIC_KEY=<public key do vendedor de teste>
    MERCADO_PAGO_WEBHOOK_SECRET=<passo 6>
    PUBLIC_URL=<URL do túnel, passo 5>
-   APP_URL=http://localhost:5173
+   APP_URL=https://www.fiscwise.com.br
    ```
+
+   `APP_URL` precisa ser um endereço público: o MP recusa `localhost` como
+   endereço de retorno ("Invalid value for back_url" e "auto_return invalid").
 
    Com `MERCADO_PAGO_WEBHOOK_SECRET` preenchido, a assinatura do webhook é
    sempre conferida, igual à produção. Não deixe esse campo vazio: em
@@ -40,7 +43,12 @@ durante todo este roteiro.
    `MERCADO_PAGO_WEBHOOK_SECRET`. Reiniciar o backend.
 7. Frontend local (`npm run dev`) apontando para `http://localhost:8000`.
    Entrar com um escritório de teste cujo dono usa o **e-mail do comprador de
-   teste**.
+   teste**. O painel não mostra esse e-mail: ele é
+   `test_user_<números do usuário>@testuser.com`, com os números do nome de
+   usuário (`TESTUSER2486...` → `test_user_2486...@testuser.com`), e **não** o
+   User ID. Com o e-mail errado a assinatura mensal volta `400 User bad request`.
+8. Pagar sempre numa **janela anônima**, entrando como o comprador de teste (a
+   conta real logada no navegador atrapalha o checkout).
 
 Para cada caso abaixo, anote: horário, id do pagamento/assinatura no MP e o
 resultado. Os itens marcados **[banco]** se conferem na tabela
@@ -59,7 +67,7 @@ resultado. Os itens marcados **[banco]** se conferem na tabela
 | # | Passo | Esperado |
 |---|---|---|
 | 2.1 | Configurações → Assinar plano Premium, ciclo **mensal** | Redireciona para o checkout do MP |
-| 2.2 | Pagar com cartão de teste aprovado (Mastercard `5031 4332 1540 6351`, CVV `123`, validade futura, titular `APRO`) | Volta para `/configuracoes?assinatura=ok` |
+| 2.2 | Pagar com cartão de teste aprovado (painel → **Cartões de teste**; ex.: Mastercard `5480 8328 0103 3311`, CVV `123`, validade `11/30`, titular `APRO`, CPF `12345678909`) | Volta para `/configuracoes?assinatura=ok` |
 | 2.3 | Esperar o webhook `subscription_preapproval` | **[banco]** `status=active`, `current_period_end` ≈ hoje + 30 dias, plano Premium liberado na tela |
 | 2.4 | Esperar o webhook `subscription_authorized_payment` (1ª cobrança) | **[banco]** `current_period_end` continua ≈ hoje + 30 (não vira 60) |
 | 2.5 | Repetir 2.1–2.2 com titular `OTHE` (recusado) num segundo escritório | Plano **não** é liberado |
@@ -83,6 +91,49 @@ resultado. Os itens marcados **[banco]** se conferem na tabela
 | 4.3 | Webhook `subscription_preapproval` com `cancelled` | **[banco]** `status` segue `active`, `cancelled_at` preenchido, `current_period_end` igual ao de antes |
 | 4.4 | Simular o fim do período: `update tenant_subscriptions set current_period_end = now() - interval '1 minute' where id = '<id>'` | Ao recarregar, plano volta para **Gratuito** |
 | 4.5 | Cancelar de novo | Resposta igual, sem erro (idempotente) |
+
+## Resultado — 13/11/2026 (sandbox, backend no PC)
+
+Vendedor de teste `3442108541`, comprador de teste `3442108543`.
+
+| Caso | Resultado | Evidência |
+|---|---|---|
+| 1.1 aviso assinado (produção) | OK: assinatura aceita às 17:13 UTC. Voltou 503 porque o id simulado `123456` não existe no MP (404 em `/v1/payments/123456`), não por assinatura | Cloud Logging `fiscwise-api` |
+| 1.2 sem assinatura | OK: 401 (no PC e em produção) | — |
+| 1.3 aviso repetido | OK: 200 `already_processed` | evento `homolog-pre-1` |
+| 2.1–2.2 assinatura mensal | OK: checkout criado e pago (R$ 349) | preapproval `144bca38fd264dd693855bf10d3ef92e`, pagamento `189445568616` `approved` |
+| 2.3 ativação | OK: `active`, fim do período 13/12/2026, Premium liberado | — |
+| 2.4 1ª cobrança | OK: fim do período continua 13/12 (não virou 60 dias) | authorized_payment `7033958264` |
+| 2.5 cartão recusado | Não rodado | — |
+| 3.1 Pix trimestral | OK: preferência criada | `3442108541-565c8c9c-14f1-461f-b4c1-2dd02b5c30ef` |
+| 3.2–3.3 pagamento avulso | Pendente: no sandbox o Pix não se aprova; testar com cartão (trimestral/cartão) | — |
+| 4.1–4.2 cancelar | OK: cancelado no MP (`cancelled`), acesso mantido | — |
+| 4.3 aviso de cancelamento | OK: segue `active`, `cancelled_at` preenchido, fim igual | evento `homolog-pre-cancel` |
+| 4.4 fim do período | OK: plano vira Gratuito; volta a Premium ao restaurar a data | `/subscription/usage` |
+| 4.5 cancelar de novo | OK: mesma resposta, sem erro | — |
+
+**Achados**
+
+- **Aviso de assinatura no sandbox.** O MP ignora o `notification_url` do
+  preapproval (volta `null` na consulta) e manda os avisos de
+  `subscription_*` só para a URL do painel de Webhooks. No modo de teste ele
+  não entregou esses avisos ao túnel. Para conferir o processamento, os avisos
+  foram enviados à mão para o backend local, com os ids reais acima; o backend
+  consultou o MP e processou certo. Em produção a URL do painel (modo
+  produtivo) tem **Pagamentos** e **Planos e assinaturas** marcados.
+- **Assinatura do webhook em produção.** A notificação simulada pelo painel às
+  12:45 voltou 401: o `MERCADO_PAGO_WEBHOOK_SECRET` do Secret Manager não era a
+  assinatura secreta. O dono adicionou a versão 2 às 14:09 (horário de
+  Brasília), o backend foi publicado de novo e a nova simulação passou na
+  conferência da assinatura (caso 1.1).
+- **Id inexistente vira 503.** Quando o MP avisa de um pagamento que não existe
+  (404), o webhook responde 503 e o MP tenta de novo. Funciona, mas gera
+  repetições inúteis; dá para responder 200 nesse caso específico.
+- **Mesmo escritório, dois checkouts.** Cada checkout reescreve `billing_cycle`
+  e `amount` na única linha de `tenant_subscriptions` do escritório. Quem abre
+  o mensal e depois o trimestral fica com `billing_cycle=trimestral` e o id do
+  preapproval antigo. Não quebrou nenhum caso acima, mas vale revisar antes do
+  lançamento.
 
 ## 5. Critério para ligar em produção
 

@@ -68,6 +68,11 @@ export function LoginFooter() {
           <Link to="/privacidade" className={link}>
             Privacidade
           </Link>
+          <span aria-hidden="true">·</span>
+          {/* Página estática (precos.html), fora do roteador do app. */}
+          <a href="/precos" className={link}>
+            Preços
+          </a>
         </span>
       </div>
     </footer>

@@ -1,8 +1,5 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://fiscwise-api-45ckqevl6a-rj.a.run.app');
+import { API_URL } from './apiUrl';
 
 export const api = axios.create({
   baseURL: API_URL,

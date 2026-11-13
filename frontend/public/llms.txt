@@ -27,7 +27,7 @@ O FiscWise não apresenta dado governamental simulado como se fosse oficial.
 
 ## Páginas
 - [Perguntas frequentes](https://www.fiscwise.com.br/faq/): respostas diretas sobre o produto
-- [Planos e preços](https://www.fiscwise.com.br/precos/): planos do FiscWise com os preços atuais
+- [Planos e preços](https://www.fiscwise.com.br/precos): planos do FiscWise com os preços atuais
 - [Criar conta](https://www.fiscwise.com.br/register)
 - [Entrar](https://www.fiscwise.com.br/login)
 - [Termos de uso](https://www.fiscwise.com.br/termos)

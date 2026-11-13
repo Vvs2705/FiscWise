@@ -172,6 +172,8 @@ const PUBLIC_ROUTES: Array<{ path: string; ready: (p: Page) => ReturnType<Page['
   { path: '/redefinir-senha?token=x', ready: (p) => p.getByRole('heading', { name: 'Criar nova senha' }) },
   // Sem token: estado de erro "link incompleto".
   { path: '/redefinir-senha', ready: (p) => p.getByRole('alert') },
+  // Página estática de preços (precos.html), com o catálogo simulado acima.
+  { path: '/precos', ready: (p) => p.getByRole('heading', { name: 'Planos e preços' }) },
   { path: '/termos', ready: (p) => p.getByRole('heading', { level: 1 }) },
   { path: '/privacidade', ready: (p) => p.getByRole('heading', { level: 1 }) },
   { path: '/404', ready: (p) => p.getByRole('heading', { level: 1 }) },

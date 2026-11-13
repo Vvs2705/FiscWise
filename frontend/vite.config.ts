@@ -3,6 +3,8 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { renderPlanCards, renderPlansFallback } from './src/features/subscription/precosHtml'
+import type { Plan } from './src/lib/hooks/useSubscription'
 
 /**
  * Cloudflare Web Analytics (grátis, sem cookies, inclui Core Web Vitals).
@@ -77,12 +79,50 @@ function guardaBuild(): Plugin {
   }
 }
 
+/**
+ * Pré-renderiza a página estática /precos (precos.html) com o catálogo que a
+ * API devolve no momento do build (GET /api/v1/subscription/plans), para
+ * buscadores e prévias de link lerem os planos sem rodar JavaScript. No
+ * navegador, src/precos.ts busca de novo e substitui: o preço exibido é sempre
+ * o do banco. Se a API não responder no build, sai o aviso de carregamento e
+ * o script preenche depois; o build não falha por isso.
+ */
+function precosPrerender(): Plugin {
+  let apiUrl = ''
+  let logger: { info(msg: string): void; warn(msg: string): void } = console
+  return {
+    name: 'fiscwise:precos-prerender',
+    apply: 'build',
+    configResolved(config) {
+      apiUrl = String(config.env.VITE_API_URL || 'https://fiscwise-api-45ckqevl6a-rj.a.run.app').replace(/\/+$/, '')
+      logger = config.logger
+    },
+    transformIndexHtml: {
+      order: 'pre',
+      async handler(html, ctx) {
+        if (!html.includes('<!--precos:planos-->')) return html
+        let cards = ''
+        try {
+          const res = await fetch(`${apiUrl}/api/v1/subscription/plans`, { signal: AbortSignal.timeout(8000) })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          cards = renderPlanCards((await res.json()) as Plan[])
+          logger.info(`[precos] ${path.basename(ctx.filename)} pré-renderizado com o catálogo de ${apiUrl}`)
+        } catch (err) {
+          logger.warn(`[precos] catálogo indisponível no build (${String(err)}); a página carrega os preços no navegador.`)
+        }
+        return html.replace('<!--precos:planos-->', cards || renderPlansFallback('loading'))
+      },
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     cloudflareBeacon(),
     guardaBuild(),
+    precosPrerender(),
     // PWA offline-first (docs/arquitetura/OFFLINE_SYNC.md, seção 7.1).
     // registerType 'prompt': a versão nova do app só assume quando o usuário
     // clica em "Atualizar" (src/lib/offline/pwa.ts). 'autoUpdate' recarregaria a
@@ -191,6 +231,11 @@ export default defineConfig({
     // but the total app may legitimately exceed 500 kB after splitting.
     chunkSizeWarningLimit: 600,
     rollupOptions: {
+      // Duas páginas: o app (index.html) e a página estática de preços.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        precos: path.resolve(__dirname, 'precos.html'),
+      },
       output: {
         // Aviso de autoria em cada arquivo JS do app (comentário /*! sobrevive à
         // minificação). Serve de prova de origem se o código aparecer copiado.

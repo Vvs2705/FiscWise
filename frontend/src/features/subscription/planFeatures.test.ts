@@ -35,7 +35,7 @@ describe('planFeatureList', () => {
 describe('formatPlanPrice', () => {
   it('usa o número do backend', () => {
     expect(formatPlanPrice(0)).toBe('Grátis');
-    expect(formatPlanPrice(null)).toBe('Grátis');
+    expect(formatPlanPrice(null)).toBe('Sob consulta');
     expect(formatPlanPrice(123.5)).toMatch(/123,50\/mês$/);
   });
 });

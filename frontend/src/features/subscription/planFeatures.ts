@@ -34,8 +34,27 @@ export function planFeatureList(plan: Pick<Plan, 'max_clients' | 'max_users' | '
   return items;
 }
 
-/** Preço vindo do backend; nenhum número fixo no frontend. */
+/** Texto aprovado de cada plano (mesmo da página inicial). O do banco é só reserva. */
+const PLAN_COPY: Record<string, string> = {
+  free: 'Para experimentar o FiscWise com uma carteira pequena.',
+  intermediario: 'Para escritórios em crescimento: portal do cliente, calendário de obrigações e IA fiscal.',
+  premium: 'Sem limite de clientes e usuários, com dossiê em PDF e IA fiscal sem limite mensal.',
+  enterprise: 'Para redes e grandes escritórios: migração assistida, SLA dedicado e contrato personalizado.',
+};
+
+export function planDescription(plan: Pick<Plan, 'slug' | 'description'>): string | null {
+  return PLAN_COPY[plan.slug] ?? plan.description ?? null;
+}
+
+/** Ordem da vitrine: Gratuito, pagos do mais barato ao mais caro, "sob consulta" por último. */
+export function sortPlans<T extends Pick<Plan, 'price_monthly'>>(plans: T[]): T[] {
+  const key = (p: T) => (p.price_monthly === null ? Number.POSITIVE_INFINITY : Number(p.price_monthly));
+  return [...plans].sort((a, b) => key(a) - key(b));
+}
+
+/** Preço vindo do backend; nenhum número fixo no frontend. Sem preço = sob consulta. */
 export function formatPlanPrice(price: number | string | null | undefined): string {
-  if (price === null || price === undefined || Number(price) === 0) return 'Grátis';
+  if (price === null || price === undefined) return 'Sob consulta';
+  if (Number(price) === 0) return 'Grátis';
   return `${Number(price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês`;
 }

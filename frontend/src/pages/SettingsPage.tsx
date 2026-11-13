@@ -21,7 +21,6 @@ import {
   FileText,
   Eye,
   EyeOff,
-  Star,
   Bell,
   Send,
   CheckCircle2,
@@ -106,7 +105,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Dialog } from '@/components/ui/Dialog';
 import { FeatureGate } from '@/components/ui/FeatureGate';
 import { isFeatureEnabled } from '@/lib/featureFlags';
-import { formatPlanPrice, planFeatureList } from '@/features/subscription/planFeatures';
+import { formatPlanPrice, planDescription, planFeatureList, sortPlans } from '@/features/subscription/planFeatures';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -142,11 +141,6 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 // Preços, limites e recursos vêm de GET /subscription/plans e /subscription/usage.
 // Aqui só ficam cor e destaque visual por slug.
 
-const PLAN_STYLE: Record<string, { color: string; popular?: boolean }> = {
-  free: { color: 'text-muted-foreground' },
-  intermediario: { color: 'text-primary', popular: true },
-  premium: { color: 'text-warning' },
-};
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
 
@@ -803,8 +797,8 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             <p className="text-sm font-semibold text-foreground">Próximo passo recomendado</p>
             <p className="text-sm text-muted-foreground">
               {currentSlug === 'free'
-                ? 'Ative um plano pago para liberar faturamento recorrente, automações e operação comercial completa.'
-                : 'Compare os planos abaixo para ampliar capacidade, liberar mais IA e ajustar o nível de suporte do escritório.'}
+                ? 'Assine um plano pago para atender mais clientes, liberar o portal do cliente, o calendário de obrigações e a IA fiscal.'
+                : 'Compare os planos abaixo se precisar de mais clientes, mais usuários ou do dossiê em PDF.'}
             </p>
             {nearLimitItems.length > 0 && (
               <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-sm text-warning">
@@ -829,63 +823,37 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
       <h3 id="planos-disponiveis" className="scroll-mt-20 text-base font-semibold text-foreground">
         Planos disponíveis
       </h3>
-      <div className="grid gap-4 md:grid-cols-3">
-        {(dbPlans || []).map((plan) => {
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {sortPlans(dbPlans ?? []).map((plan) => {
           const isActive = plan.slug === currentSlug;
-          const meta = PLAN_STYLE[plan.slug] ?? { color: 'text-foreground' };
-          const priceDisplay = formatPlanPrice(plan.price_monthly);
           const intent = getPlanIntent(plan);
-          const aiLabel = plan.max_ai_calls_month === null
-            ? 'IA sem limite explícito'
-            : plan.max_ai_calls_month === 0
-            ? 'Sem franquia de IA'
-            : `${plan.max_ai_calls_month} mensagens IA/mês`;
+          const pixAnual = plan.tabela_precos?.find((l) => l.ciclo === 'anual');
+          const description = planDescription(plan);
 
           return (
             <Card
               key={plan.slug}
-              className={cn(
-                'relative transition-all duration-200',
-                isActive ? 'border-primary shadow-token-sm' : 'hover:border-primary/50',
-              )}
+              className={cn('flex flex-col', isActive ? 'border-primary shadow-token-sm' : 'border-border')}
             >
-              {meta.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-                    <Star className="h-3 w-3" />
-                    Popular
-                  </span>
-                </div>
-              )}
               <CardHeader className="pb-3 pt-5">
-                <CardTitle className={cn('text-xl', meta.color)}>{plan.name}</CardTitle>
-                <p className="text-2xl font-bold">{priceDisplay}</p>
-                {plan.description && (
-                  <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  {isActive && <Badge variant="default">Seu plano</Badge>}
+                </div>
+                <p className="text-2xl font-bold">{formatPlanPrice(plan.price_monthly)}</p>
+                {pixAnual && pixAnual.desconto_pix_pct > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    ou {pixAnual.pix_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por ano
+                    no Pix ({pixAnual.desconto_pix_pct}% de desconto)
+                  </p>
                 )}
+                {description && <p className="text-sm text-muted-foreground">{description}</p>}
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-muted/40 p-2">
-                    <p className="text-muted-foreground">Clientes</p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      {plan.max_clients === null ? 'Ilimitado' : plan.max_clients}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-muted/40 p-2">
-                    <p className="text-muted-foreground">Usuários</p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      {plan.max_users === null ? 'Ilimitado' : plan.max_users}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                  {aiLabel}
-                </div>
-                <ul className="space-y-2">
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <ul className="flex-1 space-y-2">
                   {planFeatureList(plan).map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                    <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
                       {f}
                     </li>
                   ))}
@@ -901,7 +869,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
                   <Button
                     size="lg"
                     className="w-full"
-                    variant={isActive && !cancelScheduled ? 'outline' : 'default'}
+                    variant={(isActive && !cancelScheduled) || Number(plan.price_monthly) === 0 ? 'outline' : 'default'}
                     disabled={(isActive && !cancelScheduled) || !isOwner || Number(plan.price_monthly) === 0}
                     onClick={() => setSelectedPlan(plan)}
                   >

@@ -126,20 +126,20 @@ Vendedor de teste `3442108541`, comprador de teste `3442108543`.
   assinatura secreta. O dono adicionou a versão 2 às 14:09 (horário de
   Brasília), o backend foi publicado de novo e a nova simulação passou na
   conferência da assinatura (caso 1.1).
-- **Aviso de pagamento em dobro.** O MP manda o mesmo pagamento em dois
-  formatos (`?data.id=…&type=payment` e `?id=…&topic=payment`), com ids de
-  notificação diferentes, e o backend processa os dois. O resultado final é o
-  mesmo (o período é recalculado a partir de agora), mas a deduplicação poderia
-  usar `payment:<id>` em vez do id da notificação. Os avisos `merchant_order`
-  são gravados e ignorados.
-- **Id inexistente vira 503.** Quando o MP avisa de um pagamento que não existe
-  (404), o webhook responde 503 e o MP tenta de novo. Funciona, mas gera
-  repetições inúteis; dá para responder 200 nesse caso específico.
-- **Mesmo escritório, dois checkouts.** Cada checkout reescreve `billing_cycle`
-  e `amount` na única linha de `tenant_subscriptions` do escritório. Quem abre
-  o mensal e depois o trimestral fica com `billing_cycle=trimestral` e o id do
-  preapproval antigo. Não quebrou nenhum caso acima, mas vale revisar antes do
-  lançamento.
+- **Corrigido em 13/11 (PR #109), três pontos:**
+  - **Aviso de pagamento em dobro.** O MP manda o mesmo pagamento em dois
+    formatos (`?data.id=…&type=payment` e `?id=…&topic=payment`), com ids de
+    notificação diferentes. Agora cada pagamento aprovado é aplicado uma vez
+    (trava por recurso + status); um estorno posterior ainda é processado. Os
+    avisos `merchant_order` são gravados e ignorados.
+  - **Id inexistente.** Simulação do painel com id inventado (404,
+    `live_mode: false`) responde 200 e fica registrada. Notificação real com
+    404 continua em 503 para o MP repetir.
+  - **Mesmo escritório, dois checkouts.** Abrir um checkout não muda mais o que
+    está pago. Plano e ciclo pedidos vão no `external_reference`
+    (`<assinatura>|<plano>|<ciclo>`) e só valem quando o pagamento é
+    confirmado. Trocar de plano ou ciclo pago cancela a recorrência antiga, para
+    o cliente não pagar duas vezes.
 
 ## 5. Critério para ligar em produção
 

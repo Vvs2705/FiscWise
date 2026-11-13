@@ -35,6 +35,13 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-ci-at-least-32-chars-long")
 os.environ.setdefault("OPENAI_API_KEY", "test")
 
+# A suíte inteira sai do mesmo IP (testclient): o limite geral da API não pode
+# interferir; tests/test_rate_limit_api.py testa os limites com app própria.
+from app.core.config import settings as _settings  # noqa: E402
+
+_settings.RATE_LIMIT_USER_PER_MINUTE = 1_000_000
+_settings.RATE_LIMIT_ANON_PER_MINUTE = 1_000_000
+
 
 # ============================================================================
 # Async Database Fixtures

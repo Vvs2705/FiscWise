@@ -104,10 +104,14 @@ class Settings(BaseSettings):
             ))
         return v
 
-    # Redis — optional; not used in the current MVP feature set.
-    # When rate-limiting or caching is added, set this secret in Fly.io.
+    # Redis — opcional. Sem ele o rate limit conta em memória do processo
+    # (exato com uma instância no Cloud Run). Configurar só quando o serviço
+    # passar de uma instância, para o contador valer para todas.
     REDIS_URL: str = ""
     RATE_LIMIT_STRICT: bool = False
+    # Rate limit geral da API (app/core/rate_limit.py), por minuto.
+    RATE_LIMIT_USER_PER_MINUTE: int = 300  # por usuário logado ou chave de API
+    RATE_LIMIT_ANON_PER_MINUTE: int = 120  # por IP, sem credencial válida
 
     # Rotinas agendadas: "internal" = APScheduler no próprio processo (dev,
     # servidor sempre ligado); "external" = Cloud Scheduler chama

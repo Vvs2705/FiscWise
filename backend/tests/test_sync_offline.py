@@ -146,6 +146,58 @@ async def test_renovacao_do_token_de_dispositivo(ctx):
     assert http.get("/api/v1/clients", headers=comum).status_code == 200
 
 
+async def test_renovacao_herda_inicio_da_cadeia_e_respeita_teto_de_180_dias(ctx):
+    from jose import jwt as jose_jwt
+
+    from app.core.config import settings
+    from app.core.security import DEVICE_TOKEN_MAX_LIFETIME_DAYS
+
+    http = ctx["http"]
+    tenant_id = ctx["tenant_id"]
+    args = (str(ctx["user_id"]), str(tenant_id), "owner", str(ctx["device_id"]))
+
+    def _claims(token):
+        return jose_jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+
+    def _claims_or_none(token):
+        try:
+            return _claims(token)
+        except jose_jwt.ExpiredSignatureError:
+            return None
+
+    # cadeia começou há 170 dias: renova, mas o exp para no dia 180 e o fia é herdado
+    inicio = datetime.now(timezone.utc) - timedelta(days=170)
+    velho = create_device_token(*args, first_issued_at=inicio)
+    resp = http.post("/api/v1/sync/devices/token", headers=_dev_headers(velho, tenant_id))
+    assert resp.status_code == 200, resp.text
+    claims = _claims(resp.json()["device_token"])
+    assert claims["fia"] == int(inicio.timestamp())
+    teto = inicio + timedelta(days=DEVICE_TOKEN_MAX_LIFETIME_DAYS)
+    assert abs(claims["exp"] - int(teto.timestamp())) <= 1
+
+    # o emissor nunca passa do teto: cadeia de 181 dias já nasce vencida
+    assert _claims_or_none(create_device_token(*args, first_issued_at=inicio - timedelta(days=11))) is None
+
+    # token forjado/antigo com exp válido mas cadeia > 180 dias: 401 device_token_expired
+    agora = datetime.now(timezone.utc)
+    vencido = jose_jwt.encode(
+        {"sub": args[0], "tenant_id": args[1], "role": "owner", "device_id": args[3], "type": "device",
+         "iat": agora, "exp": agora + timedelta(days=30), "fia": int((agora - timedelta(days=181)).timestamp())},
+        settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM,
+    )
+    for resp in (
+        http.post("/api/v1/sync/devices/token", headers=_dev_headers(vencido, tenant_id)),
+        http.get("/api/v1/sync/pull?entity=clients", headers=_dev_headers(vencido, tenant_id)),
+    ):
+        assert resp.status_code == 401
+        assert resp.json()["code"] == "device_token_expired"
+
+    # novo login online (re-registro) recomeça a cadeia
+    _dev, novo = _register(http, device_id=ctx["device_id"])
+    assert abs(_claims(novo)["fia"] - int(datetime.now(timezone.utc).timestamp())) <= 5
+    assert http.post("/api/v1/sync/devices/token", headers=_dev_headers(novo, tenant_id)).status_code == 200
+
+
 async def test_dispositivo_revogado_outro_tenant_e_outro_device(ctx, client_with_auth_b, test_db):
     http = ctx["http"]
     # evento com device_id de outro dispositivo → rejected (sem gravar)
@@ -487,3 +539,53 @@ async def test_retencao_apaga_sync_events_antigos(ctx, test_db):
     remaining = set((await test_db.execute(select(SyncEvent.event_id))).scalars())
     assert novo in remaining and velho not in remaining
     assert "purge_sync_events" in scheduler.due_job_ids(datetime(2026, 11, 4, 7, 30, tzinfo=timezone.utc))
+
+
+async def test_listar_e_resolver_conflitos_no_servidor(ctx, client_with_auth_b, test_db):
+    http = ctx["http"]
+    entity_id = uuid.uuid4()
+    _push(http, ctx["headers"], _event(ctx["device_id"], "client", entity_id, "create", {"name": "Cliente Base"}))
+    _push(http, ctx["headers"], _event(ctx["device_id"], "client", entity_id, "update", {"name": "Nome 1"}, base_version=1))
+    dev2, token2 = _register(http, name="PWA Android")
+    ack = _push(http, _dev_headers(token2, ctx["tenant_id"]),
+                _event(dev2, "client", entity_id, "update", {"name": "Nome 2"}, base_version=1)).json()["acks"][0]
+    assert ack["conflict"] is True
+
+    abertos = http.get("/api/v1/sync/conflicts").json()
+    assert len(abertos) == 1
+    conflito = abertos[0]
+    assert conflito["entity_id"] == str(entity_id) and conflito["device_id"] == str(dev2)
+    assert conflito["fields_overwritten"]["name"] == {"server": "Nome 1", "client": "Nome 2"}
+    assert http.get(f"/api/v1/sync/conflicts?entity_type=deadline").json() == []
+
+    # outro escritório não vê nem resolve
+    http_b = client_with_auth_b[0]
+    tenant_b = client_with_auth_b[1].tenant_id
+    headers_b = dict(http_b.headers)
+    assert http.get("/api/v1/sync/conflicts", headers=headers_b).json() == []
+    assert http.post(f"/api/v1/sync/conflicts/{conflito['id']}/resolve", headers=headers_b).status_code == 404
+    assert tenant_b != ctx["tenant_id"]
+
+    # membro só vê conflitos dos próprios dispositivos
+    membro = User(
+        id=uuid.uuid4(), email=f"membro-{uuid.uuid4().hex[:6]}@firma-a.com",
+        hashed_password=get_password_hash("password123"), full_name="Membro",
+        tenant_id=ctx["tenant_id"], role=UserRole.MEMBER, is_active=True,
+    )
+    test_db.add(membro)
+    await test_db.commit()
+    membro_headers = {
+        "Authorization": f"Bearer {create_access_token(str(membro.id), str(ctx['tenant_id']), 'member')}",
+        "X-Tenant-ID": str(ctx["tenant_id"]),
+    }
+    assert http.get("/api/v1/sync/conflicts", headers=membro_headers).json() == []
+    assert http.post(f"/api/v1/sync/conflicts/{conflito['id']}/resolve", headers=membro_headers).status_code == 404
+
+    # dono resolve (idempotente) e o conflito sai da lista de abertos
+    resp = http.post(f"/api/v1/sync/conflicts/{conflito['id']}/resolve")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["resolved_by"] == str(ctx["user_id"]) and resp.json()["resolved_at"]
+    assert http.post(f"/api/v1/sync/conflicts/{conflito['id']}/resolve").json()["resolved_at"] == resp.json()["resolved_at"]
+    assert http.get("/api/v1/sync/conflicts").json() == []
+    assert [c["id"] for c in http.get("/api/v1/sync/conflicts?resolved=true").json()] == [conflito["id"]]
+    assert await _count(test_db, AuditEvent, AuditEvent.action == "sync.conflict.resolve") == 1

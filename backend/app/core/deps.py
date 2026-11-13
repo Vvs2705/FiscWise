@@ -7,7 +7,7 @@ FastAPI dependencies for database sessions, authentication, and authorization.
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -414,6 +414,20 @@ async def get_current_device(
             valid_after = valid_after.replace(tzinfo=timezone.utc)
         if token_iat is None or token_iat < int(valid_after.timestamp()):
             raise _device_auth_error("Sessão expirada. Entre novamente.", "device_token_expired")
+
+    # Teto de 180 dias da cadeia de renovações: depois disso só um login
+    # online registra o dispositivo de novo (POST /sync/devices).
+    from app.core.security import DEVICE_TOKEN_MAX_LIFETIME_DAYS, device_chain_started_at
+
+    chain_started_at = device_chain_started_at(payload, fallback=device.created_at)
+    if chain_started_at is not None and datetime.now(timezone.utc) - chain_started_at > timedelta(
+        days=DEVICE_TOKEN_MAX_LIFETIME_DAYS
+    ):
+        raise _device_auth_error(
+            "O acesso offline deste dispositivo venceu. Entre novamente com a internet ligada.",
+            "device_token_expired",
+        )
+    request.state.device_chain_started_at = chain_started_at
 
     tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
     ensure_signup_complete(tenant, request.url.path)

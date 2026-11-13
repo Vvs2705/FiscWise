@@ -128,10 +128,11 @@ No Google Cloud, criar um alerta de orçamento de US$ 5
    IPv6, então a conexão direta do Supabase não funciona.
 4. Copiar `SUPABASE_URL` e a chave secreta (service role) para `SUPABASE_SECRET_KEY`.
 
-### 3. Upstash
+### 3. Upstash (opcional)
 
-Banco Redis na região **São Paulo (sa-east-1)**. Copiar a URL `rediss://...`
-para `REDIS_URL`.
+Só quando o Cloud Run passar de uma instância: com uma instância o rate limit
+conta em memória. Banco Redis na região **São Paulo (sa-east-1)**. Copiar a URL
+`rediss://...` para `REDIS_URL`.
 
 ### 4. Google Cloud
 
@@ -189,7 +190,7 @@ openssl rand -hex 32 | tr -d '\n' | gcloud secrets create CRON_SECRET --data-fil
 ```
 
 Opcionais (crie quando for usar e liste em `CLOUD_RUN_EXTRA_SECRETS`, passo 6):
-`REDIS_URL` (sem ele o rate limit por Redis fica desligado e vale só o limite em memória do login), `OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `MERCADO_PAGO_ACCESS_TOKEN`,
+`REDIS_URL` (só quando o serviço passar de uma instância; sem ele o rate limit da API inteira conta em memória do processo), `OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `MERCADO_PAGO_ACCESS_TOKEN`,
 `MERCADO_PAGO_WEBHOOK_SECRET`, `WHATSAPP_WEBHOOK_SECRET`.
 
 Nunca coloque esses valores em `.env` versionado, `.mcp.json`, README ou chat.

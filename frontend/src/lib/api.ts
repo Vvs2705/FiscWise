@@ -1,4 +1,5 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { clearApiCache } from './offline/apiCache';
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -169,13 +170,18 @@ api.interceptors.response.use(
         // user corrompido no storage: trata como equipe
       }
 
-      // Clear auth data (o banco local fica: pode haver alterações não enviadas)
+      // Clear auth data (o banco local fica: pode haver alterações não enviadas).
+      // O cache HTTP do service worker sai junto: é chaveado só pela URL e não
+      // pode servir dados deste escritório para quem entrar depois.
       localStorage.removeItem('access_token');
       localStorage.removeItem('tenant_id');
       localStorage.removeItem('user');
-      
+
       // Cliente do portal entra por link mágico, não pela tela da equipe
-      window.location.href = wasPortalClient ? '/portal/login' : '/login';
+      const target = wasPortalClient ? '/portal/login' : '/login';
+      const timeout = new Promise((resolve) => setTimeout(resolve, 1500));
+      await Promise.race([clearApiCache(), timeout]);
+      window.location.href = target;
     }
     
     return Promise.reject(error);

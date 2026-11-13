@@ -7,6 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuthStore } from '@/stores/authStore';
 import { getTenantId } from '@/lib/auth';
 import { META, getMeta, openLocalDb, type FiscWiseLocalDb, type LocalConflict, type OutboxEvent } from './db';
+import { decryptConflict, decryptEvent } from './fieldCrypto';
 import { listUnsynced } from './outbox';
 import { requestSync } from './runtime';
 import { formatSyncIndicator, isEffectivelyOffline, syncIndicatorTone, useSyncStore } from './status';
@@ -48,14 +49,21 @@ export function useLocalDb(): FiscWiseLocalDb | null {
 /** Eventos ainda não confirmados (pending, syncing, error), na ordem da fila. */
 export function usePendingChanges(): OutboxEvent[] | undefined {
   const db = useLocalDb();
-  return useLiveQuery(() => (db ? listUnsynced(db) : Promise.resolve([] as OutboxEvent[])), [db]);
+  return useLiveQuery(
+    async () => (db ? Promise.all((await listUnsynced(db)).map((e) => decryptEvent(db, e))) : ([] as OutboxEvent[])),
+    [db],
+  );
 }
 
 /** Conflitos LWW ainda não revisados. */
 export function useConflicts(): LocalConflict[] | undefined {
   const db = useLocalDb();
   return useLiveQuery(
-    () => (db ? db.sync_conflicts.where('resolved').equals(0).reverse().sortBy('created_at') : Promise.resolve([] as LocalConflict[])),
+    async () => {
+      if (!db) return [] as LocalConflict[];
+      const rows = await db.sync_conflicts.where('resolved').equals(0).reverse().sortBy('created_at');
+      return Promise.all(rows.map((c) => decryptConflict(db, c)));
+    },
     [db],
   );
 }

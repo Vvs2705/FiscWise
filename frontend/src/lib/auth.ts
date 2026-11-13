@@ -1,5 +1,6 @@
 import { api } from './api';
 import { clearApiCache, wipeLocalDb } from './offline/db';
+import { clearApiCacheIfTenantChanged } from './offline/apiCache';
 
 export interface LoginCredentials {
   email: string;
@@ -111,7 +112,12 @@ export interface CompleteSignupData {
   terms_accepted: boolean;
 }
 
-function storeSession({ access_token, tenant_id, user }: AuthResponse): void {
+/**
+ * Grava a sessão. Se o escritório é outro que o último neste navegador, apaga
+ * antes o cache de API do service worker (navegador compartilhado).
+ */
+export async function storeSession({ access_token, tenant_id, user }: AuthResponse): Promise<void> {
+  await clearApiCacheIfTenantChanged(tenant_id);
   localStorage.setItem('access_token', access_token);
   localStorage.setItem('tenant_id', tenant_id);
   localStorage.setItem('user', JSON.stringify(user));
@@ -119,7 +125,7 @@ function storeSession({ access_token, tenant_id, user }: AuthResponse): void {
 
 export async function registerWithGoogle(data: GoogleRegisterData): Promise<AuthResponse> {
   const response = await api.post<AuthResponse>('/api/v1/onboarding/register-google', data);
-  storeSession(response.data);
+  await storeSession(response.data);
   clearGoogleSignup();
   return response.data;
 }
@@ -191,10 +197,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
     return data;
   }
 
-  const { access_token, tenant_id, user } = data as AuthResponse;
-  localStorage.setItem('access_token', access_token);
-  localStorage.setItem('tenant_id', tenant_id);
-  localStorage.setItem('user', JSON.stringify(user));
+  await storeSession(data as AuthResponse);
 
   return data;
 }
@@ -202,11 +205,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 export async function register(data: RegisterData): Promise<AuthResponse> {
   const response = await api.post<AuthResponse>('/api/v1/onboarding/register', data);
 
-  const { access_token, tenant_id, user } = response.data;
-
-  localStorage.setItem('access_token', access_token);
-  localStorage.setItem('tenant_id', tenant_id);
-  localStorage.setItem('user', JSON.stringify(user));
+  await storeSession(response.data);
 
   return response.data;
 }
@@ -261,10 +260,7 @@ export async function loginWithGoogle(credential: string): Promise<GoogleLoginRe
     return data;
   }
 
-  const { access_token, tenant_id, user } = data as AuthResponse;
-  localStorage.setItem('access_token', access_token);
-  localStorage.setItem('tenant_id', tenant_id);
-  localStorage.setItem('user', JSON.stringify(user));
+  await storeSession(data as AuthResponse);
 
   return data;
 }
@@ -276,10 +272,7 @@ export async function verify2FA(mfaToken: string, otpCode: string): Promise<Auth
     otp_code: otpCode,
   });
 
-  const { access_token, tenant_id, user } = response.data;
-  localStorage.setItem('access_token', access_token);
-  localStorage.setItem('tenant_id', tenant_id);
-  localStorage.setItem('user', JSON.stringify(user));
+  await storeSession(response.data);
 
   return response.data;
 }

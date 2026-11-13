@@ -25,17 +25,17 @@ PR e sem caminho de exploração no contexto.
 - Descrição: o token de dispositivo fica no IndexedDB, legível por qualquer script da origem. Hoje o token de acesso (30 min) já fica no localStorage, mas o novo token vale 30 dias e renova em janela deslizante, então um XSS passa a render acesso longo ao `/sync/pull` (dados de clientes do escritório). Não há `dangerouslySetInnerHTML` com dado de usuário no diff; o risco depende de um XSS futuro ou de dependência comprometida.
 - Correção sugerida: publicar a CSP já prevista em `public/_headers` (`default-src 'self'; connect-src 'self' https://fiscwise-api-45ckqevl6a-rj.a.run.app https://accounts.google.com; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-src https://accounts.google.com`) e validar no preview do Cloudflare Pages. Independe deste PR, mas o PR aumenta o valor do alvo.
 
-### [BAIXO] Renovação do token de dispositivo sem tempo de vida máximo
+### [BAIXO] Renovação do token de dispositivo sem tempo de vida máximo — CORRIGIDO em 2026-11-13 (teto de 180 dias, claim `fia`)
 - Arquivo: `backend/app/api/v1/endpoints/sync.py:670` (`renew_device_token`)
 - Descrição: cada renovação emite um token novo de 30 dias a partir de um token ainda válido; um token roubado e renovado antes de vencer vale indefinidamente até a revogação do dispositivo ou troca de senha (`tokens_valid_after`).
 - Correção sugerida: guardar `first_issued_at` no payload (ou em `sync_devices.created_at`) e recusar renovação depois de 180 dias, exigindo novo login online.
 
-### [BAIXO] Cache HTTP do service worker chaveado só pela URL
+### [BAIXO] Cache HTTP do service worker chaveado só pela URL — CORRIGIDO em 2026-11-13 (limpo no 401 e na troca de escritório)
 - Arquivo: `frontend/vite.config.ts:46-65` (cache `fiscwise-api`, 7 dias)
 - Descrição: respostas GET de `/api/v1/*` (dados pessoais de clientes) ficam no Cache Storage até 7 dias. O cache é apagado no logout explícito e na revogação, mas não quando a sessão cai por 401 automático; num navegador compartilhado por dois escritórios o segundo usuário, offline, poderia ver a resposta em cache do primeiro para a mesma URL.
 - Correção sugerida: apagar `fiscwise-api` também no 401 que desloga (`api.ts`) e, no login, se o `tenant_id` mudou em relação ao último gravado (`localStorage`), limpar o cache antes de abrir a sessão.
 
-### [BAIXO] Campos sensíveis em claro no IndexedDB (LGPD, já registrado como pendência)
+### [BAIXO] Campos sensíveis em claro no IndexedDB (LGPD) — CORRIGIDO no PWA em 2026-11-13 (AES-GCM, chave não exportável; desktop segue com SQLCipher na fase 2)
 - Arquivo: `frontend/src/lib/offline/db.ts` (stores `clients`, `receivables`)
 - Descrição: CPF/CNPJ, e-mail e telefone dos clientes do escritório ficam no banco local sem criptografia; a proteção é o perfil do navegador e a criptografia de disco do sistema. Já documentado em `docs/arquitetura/OFFLINE_SYNC.md` seção 9 como decisão em aberto.
 - Correção sugerida: desktop com SQLCipher (fase 2); no PWA avaliar cifrar `document`, `email`, `phone`, `responsible_cpf` com WebCrypto e chave derivada por sessão.

@@ -145,15 +145,7 @@ export async function wipeLocalDb(tenantId: string): Promise<void> {
 }
 
 /** Cache do service worker com respostas da API (seção 7.1); apagado junto com o banco. */
-export const API_CACHE_NAME = 'fiscwise-api';
-
-export async function clearApiCache(): Promise<void> {
-  try {
-    if (typeof caches !== 'undefined') await caches.delete(API_CACHE_NAME);
-  } catch {
-    // sem Cache Storage (contexto inseguro/teste): nada a limpar
-  }
-}
+export { API_CACHE_NAME, clearApiCache } from './apiCache';
 
 // ─── sync_meta ───────────────────────────────────────────────────────────────
 
@@ -176,5 +168,7 @@ export const META = {
   lastSyncAt: 'last_sync_at',
   lastError: 'last_error',
   storagePersistRequested: 'storage_persist_requested',
+  /** CryptoKey AES-GCM não exportável dos campos sensíveis (fieldCrypto.ts) */
+  localKey: 'local_key',
   cursor: (entity: SyncEntityType) => `cursor:${entity}`,
 } as const;

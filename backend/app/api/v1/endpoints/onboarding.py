@@ -6,7 +6,10 @@ Creates tenant and owner user in a single atomic transaction.
 """
 
 import logging
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -14,13 +17,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
-from app.core.deps import get_db
-from app.core.security import get_password_hash, create_access_token
+from app.core.deps import get_current_user, get_db, signup_complete
+from app.core.security import create_access_token, get_password_hash, verify_google_signup_token
 from app.models.billing import TenantSubscription
 from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
-from app.schemas.onboarding import TenantRegistrationRequest
+from app.schemas.onboarding import (
+    CompleteSignupRequest,
+    GoogleTenantRegistrationRequest,
+    TenantRegistrationRequest,
+)
+from app.services.audit import log_audit_event
 from app.schemas.token import AuthResponse, UserInfo
 
 
@@ -30,6 +38,124 @@ logger = logging.getLogger(__name__)
 # Trial honesto: o plano escolhido vale por 14 dias; sem pagamento, o
 # enforcement (plan_access.effective_plan_slug) degrada para free sozinho.
 TRIAL_DAYS = 14
+
+
+TERMS_VERSION = "v1.1"
+
+
+async def _resolve_signup_plan(db: AsyncSession, plan_slug: Optional[str]) -> tuple[str, Optional[Plan]]:
+    """Plano escolhido no cadastro (validado contra os planos ativos).
+
+    Pago = trial de 14 dias (TenantSubscription trialing); free = sem trial,
+    sem assinatura (nunca degrada). NUNCA concede plano pago sem essa janela
+    de trial — pós-trial, só webhook de pagamento/admin mantém o plano.
+    """
+    chosen_slug = (plan_slug or "free").strip().lower()
+    if chosen_slug == "free":
+        return chosen_slug, None
+    chosen_plan = (await db.execute(
+        select(Plan).where(Plan.slug == chosen_slug, Plan.active.is_(True))
+    )).scalar_one_or_none()
+    if chosen_plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Plano '{chosen_slug}' inválido ou indisponível",
+            headers={"X-Error-Code": "INVALID_PLAN"},
+        )
+    return chosen_slug, chosen_plan
+
+
+def _add_trial_subscription(db: AsyncSession, tenant_id, plan: Plan, now_utc: datetime) -> None:
+    db.add(TenantSubscription(
+        tenant_id=tenant_id,
+        plan_id=plan.id,
+        status="trialing",
+        trial_ends_at=now_utc + timedelta(days=TRIAL_DAYS),
+        billing_cycle="mensal",
+        amount=plan.price_monthly,
+        currency="BRL",
+    ))
+
+
+async def _create_tenant_and_owner(
+    db: AsyncSession,
+    *,
+    company_name: str,
+    document: Optional[str],
+    plan_slug: Optional[str],
+    owner_email: str,
+    hashed_password: str,
+    owner_full_name: Optional[str],
+    owner_phone: Optional[str],
+) -> AuthResponse:
+    """Cria escritório + dono numa transação só. Os termos já foram aceitos
+    (o schema recusa terms_accepted=false)."""
+    chosen_slug, chosen_plan = await _resolve_signup_plan(db, plan_slug)
+
+    try:
+        now_utc = datetime.now(timezone.utc)
+        new_tenant = Tenant(
+            name=company_name,
+            document=(document or None),
+            subscription_status=SubscriptionStatus.TRIAL,
+            plan_slug=chosen_slug,
+            terms_accepted_at=now_utc,
+            terms_version=TERMS_VERSION,
+        )
+        db.add(new_tenant)
+        await db.flush()
+
+        if chosen_plan is not None:
+            _add_trial_subscription(db, new_tenant.id, chosen_plan, now_utc)
+
+        new_owner = User(
+            tenant_id=new_tenant.id,
+            email=owner_email,
+            hashed_password=hashed_password,
+            full_name=owner_full_name,
+            phone=owner_phone,
+            role=UserRole.OWNER,
+            is_active=True,
+        )
+        db.add(new_owner)
+        await db.commit()
+        await db.refresh(new_tenant)
+        await db.refresh(new_owner)
+
+        access_token = create_access_token(
+            user_id=str(new_owner.id),
+            tenant_id=str(new_tenant.id),
+            role=new_owner.role.value,
+        )
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            tenant_id=str(new_tenant.id),
+            user=UserInfo(
+                id=str(new_owner.id),
+                email=new_owner.email,
+                full_name=owner_full_name,
+                phone=owner_phone,
+                role=new_owner.role.value,
+            ),
+        )
+
+    except IntegrityError:
+        await db.rollback()
+        logger.warning("Tenant registration failed due to integrity constraint", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration data conflicts with an existing record.",
+            headers={"X-Error-Code": "REGISTRATION_CONFLICT"}
+        )
+    except Exception:
+        await db.rollback()
+        logger.error("Tenant registration failed", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create tenant and owner user. Please try again.",
+            headers={"X-Error-Code": "REGISTRATION_FAILED"}
+        )
 
 
 @router.post("/register", response_model=AuthResponse, summary="Register New Tenant")
@@ -81,116 +207,128 @@ async def register_tenant(
             headers={"X-Error-Code": "EMAIL_ALREADY_EXISTS"}
         )
 
-    # Step 1b: Resolve chosen plan (validated against active plans in DB).
-    # Paid plan = 14-day trial (TenantSubscription trialing); free = no trial,
-    # no subscription row (never degrades). NUNCA concede plano pago sem essa
-    # janela de trial — pós-trial, só webhook de pagamento/admin mantém o plano.
-    chosen_slug = (registration.plan_slug or "free").strip().lower()
-    chosen_plan = None
-    if chosen_slug != "free":
-        plan_query = await db.execute(
-            select(Plan).where(Plan.slug == chosen_slug, Plan.active.is_(True))
-        )
-        chosen_plan = plan_query.scalar_one_or_none()
-        if chosen_plan is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plano '{chosen_slug}' inválido ou indisponível",
-                headers={"X-Error-Code": "INVALID_PLAN"},
-            )
+    return await _create_tenant_and_owner(
+        db,
+        company_name=registration.company_name,
+        document=registration.document,
+        plan_slug=registration.plan_slug,
+        owner_email=registration.owner_email,
+        hashed_password=get_password_hash(registration.owner_password),
+        owner_full_name=registration.owner_full_name,
+        owner_phone=registration.owner_phone,
+    )
 
-    try:
-        # Step 2: Create Tenant instance
-        now_utc = datetime.now(timezone.utc)
-        new_tenant = Tenant(
-            name=registration.company_name,
-            document=registration.document,
-            subscription_status=SubscriptionStatus.TRIAL,
-            plan_slug=chosen_slug,
-            terms_accepted_at=now_utc if registration.terms_accepted else None,
-            terms_version="v1.1",
-        )
 
-        db.add(new_tenant)
+@router.post("/register-google", response_model=AuthResponse, summary="Register New Tenant (Google)")
+async def register_tenant_google(
+    registration: GoogleTenantRegistrationRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> AuthResponse:
+    """Conclui o primeiro acesso com Google: cria escritório + dono.
 
-        # Flush to generate tenant.id without committing the transaction
-        await db.flush()
+    O e-mail vem do signup_token (emitido por /auth/google só depois de o
+    Google confirmar o e-mail), nunca do corpo da requisição.
+    """
+    rl_key = f"register:{get_client_ip(request)}"
+    auth_rate_limiter.check_login_ip(rl_key)
+    auth_rate_limiter.record_login_failure(rl_key)
 
-        # Step 2b: Paid plan chosen → trial subscription of 14 days.
-        if chosen_plan is not None:
-            db.add(TenantSubscription(
-                tenant_id=new_tenant.id,
-                plan_id=chosen_plan.id,
-                status="trialing",
-                trial_ends_at=now_utc + timedelta(days=TRIAL_DAYS),
-                billing_cycle="mensal",
-                amount=chosen_plan.price_monthly,
-                currency="BRL",
-            ))
-        
-        # Step 3: Hash the owner password
-        hashed_password = get_password_hash(registration.owner_password)
-        
-        # Step 4: Create Owner User instance linked to the new tenant
-        new_owner = User(
-            tenant_id=new_tenant.id,
-            email=registration.owner_email,
-            hashed_password=hashed_password,
-            full_name=registration.owner_full_name,
-            phone=registration.owner_phone,
-            role=UserRole.OWNER,
-            is_active=True
+    verified = verify_google_signup_token(registration.signup_token)
+    if verified is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão do Google expirada. Entre com o Google novamente.",
+            headers={"X-Error-Code": "GOOGLE_SIGNUP_EXPIRED"},
         )
-        
-        db.add(new_owner)
-        
-        # Step 5: Commit the atomic transaction (both tenant and user)
-        await db.commit()
-        
-        # Step 6: Refresh instances to get all database-generated fields
-        await db.refresh(new_tenant)
-        await db.refresh(new_owner)
-        
-        # Step 7: Generate access token and return AuthResponse
-        access_token = create_access_token(
-            user_id=str(new_owner.id),
-            tenant_id=str(new_tenant.id),
-            role=new_owner.role.value,
-        )
+    email, google_name = verified
 
-        return AuthResponse(
-            access_token=access_token,
-            token_type="bearer",
-            tenant_id=str(new_tenant.id),
-            user=UserInfo(
-                id=str(new_owner.id),
-                email=new_owner.email,
-                full_name=registration.owner_full_name,
-                phone=registration.owner_phone,
-                role=new_owner.role.value,
-            ),
-        )
-        
-    except IntegrityError:
-        await db.rollback()
-        logger.warning("Tenant registration failed due to integrity constraint", exc_info=True)
+    existing = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Registration data conflicts with an existing record.",
-            headers={"X-Error-Code": "REGISTRATION_CONFLICT"}
+            detail="Este e-mail já tem conta. Entre com o Google pela tela de login.",
+            headers={"X-Error-Code": "EMAIL_ALREADY_EXISTS"},
         )
-    except Exception:
-        # Rollback transaction on any error
-        await db.rollback()
-        
-        # Log the error (internal only, do not expose to client)
-        logger.error("Tenant registration failed", exc_info=True)
-        
+
+    response = await _create_tenant_and_owner(
+        db,
+        company_name=registration.company_name,
+        document=registration.document,
+        plan_slug=registration.plan_slug,
+        owner_email=email,
+        # Conta Google não usa senha: hash de um valor aleatório descartado.
+        hashed_password=get_password_hash(os.urandom(32).hex()),
+        owner_full_name=(registration.owner_full_name or google_name or None),
+        owner_phone=registration.owner_phone,
+    )
+    await log_audit_event(
+        db=db,
+        tenant_id=uuid.UUID(response.tenant_id),
+        actor_user_id=uuid.UUID(response.user.id),
+        actor_role=response.user.role,
+        action="auth.register_google_success",
+        entity_type="auth",
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent"),
+    )
+    return response
+
+
+@router.post("/complete-signup", summary="Complete signup of an existing tenant")
+async def complete_signup(
+    body: CompleteSignupRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Escritório criado sem cadastro completo (antigo login Google automático
+    ou contas antigas): o dono informa o escritório e aceita os Termos.
+
+    Não mexe no plano: sem assinatura, a conta segue no Gratuito.
+    """
+    tenant = current_user.tenant
+    if signup_complete(tenant):
+        return {"signup_complete": True}
+    if current_user.role != UserRole.OWNER:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create tenant and owner user. Please try again.",
-            headers={"X-Error-Code": "REGISTRATION_FAILED"}
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Só o responsável pelo escritório pode concluir o cadastro.",
         )
+
+    tenant.name = body.company_name.strip()
+    if body.document:
+        tenant.document = body.document.strip()
+    if not tenant.plan_slug or tenant.subscription is None:
+        # Sem assinatura paga = Gratuito (slug legado/inválido também vira free).
+        tenant.plan_slug = "free"
+    if body.owner_full_name:
+        current_user.full_name = body.owner_full_name.strip()
+    if body.owner_phone:
+        current_user.phone = body.owner_phone.strip()
+    tenant.terms_accepted_at = datetime.now(timezone.utc)
+    tenant.terms_version = TERMS_VERSION
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este CNPJ/CPF já está cadastrado em outro escritório.",
+            headers={"X-Error-Code": "REGISTRATION_CONFLICT"},
+        )
+
+    await log_audit_event(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        action="auth.signup_completed",
+        entity_type="auth",
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent"),
+    )
+    return {"signup_complete": True}
 
 
 @router.get("/health", summary="Onboarding Health Check")

@@ -1,6 +1,7 @@
 """Unit tests for tenant isolation in authentication dependencies."""
 
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -76,8 +77,12 @@ async def test_current_user_sets_postgres_rls_tenant_context():
         email="owner@example.com",
         role=UserRole.OWNER,
         is_active=True,
+        tenant=SimpleNamespace(terms_accepted_at=datetime.now(timezone.utc)),
     )
-    request = SimpleNamespace(state=SimpleNamespace(tenant_id=str(tenant_id)))
+    request = SimpleNamespace(
+        state=SimpleNamespace(tenant_id=str(tenant_id)),
+        url=SimpleNamespace(path="/api/v1/clients"),
+    )
     token = create_access_token(
         user_id=str(user.id),
         tenant_id=str(tenant_id),

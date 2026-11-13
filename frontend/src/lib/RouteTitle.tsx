@@ -21,6 +21,7 @@ const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
   // Public
   ['/login', 'Entrar'],
   ['/register', 'Criar conta'],
+  ['/concluir-cadastro', 'Concluir cadastro'],
   ['/portal/login', 'Portal do Cliente'],
   ['/portal/dashboard', 'Meu Portal'],
   ['/termos', 'Termos de Uso'],

@@ -4,7 +4,11 @@ import {
   register as authRegister,
   loginWithGoogle as authLoginWithGoogle,
   verify2FA as authVerify2FA,
+  registerWithGoogle as authRegisterWithGoogle,
   isMfaChallenge,
+  isGoogleSignupRequired,
+  saveGoogleSignup,
+  type GoogleRegisterData,
   type LoginCredentials,
   type RegisterData,
   type MfaChallenge,
@@ -120,12 +124,38 @@ export function useAuth() {
         toast(result.message, { icon: '🔐' });
         return;
       }
+      if (isGoogleSignupRequired(result)) {
+        // E-mail sem conta: nada foi criado. Leva para o cadastro do escritório
+        // (termos + plano) — mantém o ?plano= vindo da página inicial.
+        saveGoogleSignup(result);
+        const params = new URLSearchParams(window.location.search);
+        params.set('google', '1');
+        toast('Falta pouco: complete o cadastro do seu escritório.');
+        navigate(`/register?${params.toString()}`);
+        return result;
+      }
       setUser(result.user);
       setMfaChallenge(null);
       toast.success('Login realizado com sucesso!');
       navigate(destinoAposEntrar());
     } catch (error: unknown) {
       const message = getAuthErrorMessage(error, 'Erro ao entrar com Google');
+      toast.error(message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const registerWithGoogle = async (data: GoogleRegisterData) => {
+    setIsLoading(true);
+    try {
+      const response = await authRegisterWithGoogle(data);
+      setUser(response.user);
+      toast.success('Conta criada com sucesso!');
+      navigate(destinoAposEntrar());
+    } catch (error: unknown) {
+      const message = getAuthErrorMessage(error, 'Erro ao criar conta');
       toast.error(message);
       throw error;
     } finally {
@@ -162,6 +192,7 @@ export function useAuth() {
     mfaChallenge,
     login,
     register,
+    registerWithGoogle,
     loginWithGoogle,
     verify2FA,
     cancelMfa,

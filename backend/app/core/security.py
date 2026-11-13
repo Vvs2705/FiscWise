@@ -141,6 +141,39 @@ def verify_mfa_token(token: str) -> str | None:
         return None
 
 
+GOOGLE_SIGNUP_TOKEN_MINUTES = 30
+
+
+def create_google_signup_token(email: str, full_name: str | None) -> str:
+    """Token curto (30 min) que prova "este e-mail Google foi verificado".
+
+    Primeiro login Google de um e-mail sem conta NÃO cria escritório nem dá
+    acesso: devolve este token, e o cadastro (escritório, termos, plano) é
+    concluído em /onboarding/register-google. Não vale como access token
+    (type='google_signup' é recusado em get_current_user).
+    """
+    issued_at = datetime.now(timezone.utc)
+    payload = {
+        "sub": email,
+        "name": full_name or "",
+        "type": "google_signup",
+        "exp": issued_at + timedelta(minutes=GOOGLE_SIGNUP_TOKEN_MINUTES),
+        "iat": issued_at,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def verify_google_signup_token(token: str) -> tuple[str, str] | None:
+    """Devolve (email, nome) se o token de cadastro Google for válido."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None
+    if payload.get("type") != "google_signup" or not payload.get("sub"):
+        return None
+    return str(payload["sub"]).lower().strip(), str(payload.get("name") or "")
+
+
 DEVICE_TOKEN_EXPIRE_DAYS = 30
 
 

@@ -177,7 +177,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Total-Count"],
+    expose_headers=["X-Total-Count", "X-Error-Code"],
 )
 
 # Request log (JSON no stdout → Cloud Logging) + Server-Timing — added AFTER

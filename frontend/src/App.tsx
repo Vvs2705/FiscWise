@@ -23,6 +23,7 @@ const Toaster            = lazy(() => import('sonner').then(m => ({ default: m.T
 const LandingPage      = lazy(() => import('@/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const LoginPage        = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage     = lazy(() => import('@/pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const CompleteSignupPage = lazy(() => import('@/pages/CompleteSignupPage').then(m => ({ default: m.CompleteSignupPage })));
 const NotFoundPage     = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const DashboardPage    = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const ClientsPage      = lazy(() => import('@/pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
@@ -164,6 +165,7 @@ function App() {
               <Route path="/portal/login" element={<PortalLoginPage />} />
               <Route path="/esqueci-senha"   element={<ForgotPasswordPage />} />
               <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+              <Route path="/concluir-cadastro" element={<CompleteSignupPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
               <Route path="/404"         element={<NotFoundPage />} />

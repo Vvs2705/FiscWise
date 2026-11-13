@@ -108,3 +108,42 @@ class TenantRegistrationResponse(BaseModel):
         ...,
         description="Owner email address"
     )
+
+
+def _must_accept_terms(v: bool) -> bool:
+    if not v:
+        raise ValueError("Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar")
+    return v
+
+
+class GoogleTenantRegistrationRequest(BaseModel):
+    """Cadastro do escritório no primeiro acesso com Google.
+
+    O e-mail não vem aqui: sai do signup_token assinado pelo servidor.
+    """
+    signup_token: str = Field(..., min_length=10)
+    company_name: str = Field(..., min_length=2, max_length=255)
+    document: Optional[str] = Field(None, max_length=32)
+    owner_full_name: Optional[str] = Field(None, max_length=255)
+    owner_phone: Optional[str] = Field(None, max_length=20)
+    plan_slug: Optional[str] = Field(None)
+    terms_accepted: bool = Field(default=False)
+
+    @field_validator("terms_accepted")
+    @classmethod
+    def must_accept_terms(cls, v: bool) -> bool:
+        return _must_accept_terms(v)
+
+
+class CompleteSignupRequest(BaseModel):
+    """Conclusão de cadastro de escritório antigo sem aceite dos Termos."""
+    company_name: str = Field(..., min_length=2, max_length=255)
+    document: Optional[str] = Field(None, max_length=32)
+    owner_full_name: Optional[str] = Field(None, max_length=255)
+    owner_phone: Optional[str] = Field(None, max_length=20)
+    terms_accepted: bool = Field(default=False)
+
+    @field_validator("terms_accepted")
+    @classmethod
+    def must_accept_terms(cls, v: bool) -> bool:
+        return _must_accept_terms(v)

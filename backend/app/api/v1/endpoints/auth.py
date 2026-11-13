@@ -13,7 +13,6 @@ Two-Factor Authentication (2FA) setup and verification.
 """
 
 import io
-import os
 import uuid
 import base64
 import logging
@@ -34,12 +33,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, signup_complete
 from app.core.plan_access import resolve_tenant_plan
 from app.core.security import (
     verify_password,
     create_access_token,
     create_mfa_token,
+    create_google_signup_token,
     verify_mfa_token,
     get_password_hash,
     create_password_reset_token,
@@ -47,8 +47,8 @@ from app.core.security import (
     password_reset_token_matches_user,
 )
 from app.core.auth_rate_limiter import _redis as _otp_redis, auth_rate_limiter, get_client_ip
-from app.models.tenant import Tenant, SubscriptionStatus
-from app.models.user import User, UserRole
+from app.models.tenant import Tenant
+from app.models.user import User
 from app.schemas.token import AuthResponse, UserInfo
 from app.services.audit import log_audit_event
 from app.services.email_service import (
@@ -188,6 +188,14 @@ class Disable2FARequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     credential: str  # Google ID token (JWT)
+
+
+class GoogleSignupRequired(BaseModel):
+    """Primeiro acesso com Google: falta concluir o cadastro do escritório."""
+    status: str = "requires_signup"
+    signup_token: str
+    email: str
+    full_name: Optional[str] = None
 
 
 # ─── Login ────────────────────────────────────────────────────────────────────
@@ -423,17 +431,17 @@ async def verify_2fa(
 
 # ─── Google OAuth ─────────────────────────────────────────────────────────────
 
-@router.post("/google", response_model=Union[AuthResponse, MfaChallengeResponse], summary="Google OAuth Login / Register")
+@router.post("/google", response_model=Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired], summary="Google OAuth Login")
 async def google_auth(
     body: GoogleAuthRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> Union[AuthResponse, MfaChallengeResponse]:
+) -> Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired]:
     """
-    Authenticate or register a user via Google OAuth.
+    Login via Google OAuth.
 
-    If the existing user has 2FA enabled, returns a MfaChallengeResponse
-    instead of the full token.
+    Conta existente: entra (ou MfaChallengeResponse se tiver 2FA).
+    E-mail sem conta: GoogleSignupRequired — nada é criado aqui.
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
@@ -507,48 +515,16 @@ async def google_auth(
         )
         return _build_auth_response(existing_user, str(existing_user.tenant_id))
 
-    # New user — create tenant + owner
-    try:
-        new_tenant = Tenant(
-            name=google_name or google_email.split("@")[0],
-            subscription_status=SubscriptionStatus.TRIAL,
-        )
-        db.add(new_tenant)
-        await db.flush()
-
-        random_password = get_password_hash(os.urandom(32).hex())
-        new_user = User(
-            tenant_id=new_tenant.id,
-            email=google_email,
-            hashed_password=random_password,
-            full_name=google_name,
-            role=UserRole.OWNER,
-            is_active=True,
-        )
-        db.add(new_user)
-        await db.commit()
-        await db.refresh(new_tenant)
-        await db.refresh(new_user)
-
-        await log_audit_event(
-            db=db,
-            tenant_id=new_tenant.id,
-            actor_user_id=new_user.id,
-            actor_role=new_user.role.value,
-            action="auth.register_google_success",
-            entity_type="auth",
-            ip_address=request.client.host if request and request.client else None,
-            user_agent=request.headers.get("User-Agent") if request else None,
-        )
-        return _build_auth_response(new_user, str(new_tenant.id))
-
-    except Exception as exc:
-        await db.rollback()
-        logger.error("Failed to create Google OAuth user: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao criar conta. Tente novamente.",
-        )
+    # E-mail sem conta: NÃO cria escritório nem entrega acesso. Antes, o
+    # primeiro login Google criava tenant + dono na hora, sem nome do
+    # escritório, sem aceite dos Termos e sem escolher plano — a pessoa caía
+    # direto no sistema. Agora devolve um token curto e o site leva para o
+    # cadastro (/onboarding/register-google), igual ao cadastro por e-mail.
+    return GoogleSignupRequired(
+        signup_token=create_google_signup_token(google_email, google_name),
+        email=google_email,
+        full_name=google_name or None,
+    )
 
 
 # ─── 2FA Setup & Management (authenticated) ───────────────────────────────────
@@ -789,6 +765,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "two_factor_enabled": getattr(current_user, "two_factor_enabled", False),
         "two_factor_method": getattr(current_user, "two_factor_method", "none"),
         "welcome_tour_seen": current_user.welcome_tour_seen_at is not None,
+        "signup_complete": signup_complete(current_user.tenant),
     }
 
 
@@ -823,6 +800,7 @@ async def get_tenant(
         "website": getattr(tenant, "website", None),
         "subscription_status": tenant.subscription_status.value,
         "created_at": tenant.created_at.isoformat(),
+        "signup_complete": signup_complete(tenant),
     }
 
 

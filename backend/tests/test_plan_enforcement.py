@@ -110,6 +110,7 @@ async def premium_setup(test_db: AsyncSession):
     tenant = Tenant(
         id=uuid.uuid4(), name="Firma Premium",
         subscription_status=SubscriptionStatus.TRIAL, plan_slug="premium",
+        terms_accepted_at=datetime.now(timezone.utc),
     )
     test_db.add_all([plan, tenant])
     await test_db.flush()

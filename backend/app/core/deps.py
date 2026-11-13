@@ -32,6 +32,36 @@ _CLIENT_PORTAL_PATHS = frozenset({
 def _client_path_allowed(path: str) -> bool:
     return path.startswith("/api/v1/auth/") or path.rstrip("/") in _CLIENT_PORTAL_PATHS
 
+
+# Cadastro incompleto (escritório sem aceite dos Termos — p.ex. conta criada
+# pelo antigo login Google automático) só alcança a própria conta e a tela de
+# concluir cadastro. Todo o resto do sistema responde 403 SIGNUP_INCOMPLETE.
+SIGNUP_INCOMPLETE_CODE = "SIGNUP_INCOMPLETE"
+_SIGNUP_INCOMPLETE_PATHS = frozenset({
+    "/api/v1/onboarding/complete-signup",
+    "/api/v1/account/delete",
+    "/api/v1/account/export",
+})
+
+
+def signup_complete(tenant: Optional[Tenant]) -> bool:
+    """Escritório com cadastro concluído = aceitou os Termos de Uso."""
+    return tenant is not None and getattr(tenant, "terms_accepted_at", None) is not None
+
+
+def _signup_incomplete_path_allowed(path: str) -> bool:
+    return path.startswith("/api/v1/auth/") or path.rstrip("/") in _SIGNUP_INCOMPLETE_PATHS
+
+
+def ensure_signup_complete(tenant: Optional[Tenant], path: str) -> None:
+    if signup_complete(tenant) or _signup_incomplete_path_allowed(path):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Conclua o cadastro do seu escritório para usar o FiscWise.",
+        headers={"X-Error-Code": SIGNUP_INCOMPLETE_CODE},
+    )
+
 logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
@@ -297,6 +327,9 @@ async def get_current_user(
             detail="Client portal users cannot access office routes"
         )
 
+    if user.role != UserRole.CLIENT:
+        ensure_signup_complete(user.tenant, request.url.path)
+
     return user
 
 
@@ -382,6 +415,9 @@ async def get_current_device(
         if token_iat is None or token_iat < int(valid_after.timestamp()):
             raise _device_auth_error("Sessão expirada. Entre novamente.", "device_token_expired")
 
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    ensure_signup_complete(tenant, request.url.path)
+
     device.last_seen_at = datetime.now(timezone.utc)
     await db.commit()
     return user, device
@@ -430,6 +466,8 @@ async def _authenticate_api_key(request: Request, raw_key: str, db: AsyncSession
     owner = result.scalar_one_or_none()
     if owner is None:
         raise invalid
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == key.tenant_id))
+    ensure_signup_complete(tenant, request.url.path)
 
     request.state.auth_method = "api_key"
     request.state.api_key_id = str(key.id)

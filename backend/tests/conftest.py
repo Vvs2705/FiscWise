@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
@@ -122,6 +123,7 @@ async def tenant_a(test_db: AsyncSession):
         id=uuid.uuid4(),
         name="Accounting Firm A",
         subscription_status=SubscriptionStatus.TRIAL,
+        terms_accepted_at=datetime.now(timezone.utc),
     )
     test_db.add(tenant)
     await test_db.commit()
@@ -136,6 +138,7 @@ async def tenant_b(test_db: AsyncSession) -> Tenant:
         id=uuid.uuid4(),
         name="Accounting Firm B",
         subscription_status=SubscriptionStatus.TRIAL,
+        terms_accepted_at=datetime.now(timezone.utc),
     )
     test_db.add(tenant)
     await test_db.commit()

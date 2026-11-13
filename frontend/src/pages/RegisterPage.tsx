@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useForm } from 'react-hook-form';
@@ -23,6 +24,12 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { useAuth } from '@/lib/hooks/useAuth';
+import {
+  clearGoogleSignup,
+  getGoogleSignup,
+  isGoogleSignupRequired,
+  type GoogleSignupRequired,
+} from '@/lib/auth';
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
@@ -73,8 +80,15 @@ const step2Schema = z
     path: ['confirm_password'],
   });
 
+// Primeiro acesso com Google: e-mail já confirmado pelo Google, sem senha.
+const googleStep2Schema = z.object({
+  owner_full_name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
+  owner_phone: z.string().optional(),
+});
+
 type Step1Values = z.infer<typeof step1Schema>;
 type Step2Values = z.infer<typeof step2Schema>;
+type GoogleStep2Values = z.infer<typeof googleStep2Schema>;
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
 
@@ -165,7 +179,12 @@ function BrandPanel() {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function RegisterPage() {
-  const { register: registerUser, loginWithGoogle, isLoading } = useAuth();
+  const { register: registerUser, registerWithGoogle, loginWithGoogle, isLoading } = useAuth();
+  // Veio do botão do Google com um e-mail ainda sem conta: o cadastro do
+  // escritório (termos + plano) é obrigatório antes de entrar no sistema.
+  const [googleSignup, setGoogleSignup] = useState<GoogleSignupRequired | null>(() =>
+    new URLSearchParams(window.location.search).get('google') === '1' ? getGoogleSignup() : null,
+  );
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -186,8 +205,20 @@ export function RegisterPage() {
     defaultValues: { owner_full_name: '', owner_email: '', owner_phone: '', owner_password: '', confirm_password: '' },
   });
 
+  // ── Step 2 (Google) form ──
+  const formGoogle = useForm<GoogleStep2Values>({
+    resolver: zodResolver(googleStep2Schema),
+    defaultValues: { owner_full_name: googleSignup?.full_name ?? '', owner_phone: '' },
+  });
+
   // ── Step 3 plan state ──
   const [selectedPlan, setSelectedPlan] = useState('free');
+
+  function cancelGoogleSignup() {
+    clearGoogleSignup();
+    setGoogleSignup(null);
+    setStep(step1Data ? 2 : 1);
+  }
 
   // ── Handlers ──
   function handleStep1(values: Step1Values) {
@@ -207,6 +238,24 @@ export function RegisterPage() {
       return;
     }
     setTermsError('');
+    if (googleSignup) {
+      const g = formGoogle.getValues();
+      try {
+        await registerWithGoogle({
+          signup_token: googleSignup.signup_token,
+          company_name: step1Data.company_name,
+          document: step1Data.document,
+          owner_full_name: g.owner_full_name,
+          owner_phone: g.owner_phone,
+          plan_slug: selectedPlan,
+          terms_accepted: true,
+        });
+      } catch (error) {
+        // Token do Google venceu (30 min): pede para clicar no Google de novo.
+        if (axios.isAxiosError(error) && error.response?.status === 401) cancelGoogleSignup();
+      }
+      return;
+    }
     const step2Values = form2.getValues();
     await registerUser({
       company_name: step1Data.company_name,
@@ -223,10 +272,15 @@ export function RegisterPage() {
   const handleGoogleSuccess = useCallback(
     async (credentialResponse: { credential?: string }) => {
       if (credentialResponse.credential) {
-        await loginWithGoogle(credentialResponse.credential);
+        const result = await loginWithGoogle(credentialResponse.credential);
+        if (result && isGoogleSignupRequired(result)) {
+          setGoogleSignup(result);
+          formGoogle.reset({ owner_full_name: result.full_name ?? '', owner_phone: '' });
+          setStep(step1Data ? 2 : 1);
+        }
       }
     },
-    [loginWithGoogle],
+    [loginWithGoogle, formGoogle, step1Data],
   );
 
   const stepLabel = ['Seu ambiente', 'Seus dados', 'Escolha o plano'][step - 1];
@@ -290,8 +344,58 @@ export function RegisterPage() {
             </form>
           )}
 
+          {/* Aviso do cadastro com Google */}
+          {googleSignup && (
+            <div className="mb-5 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+              <p className="font-medium text-foreground">Criando conta com o Google</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {googleSignup.email} ainda não tem conta no FiscWise. Complete o cadastro do seu
+                escritório para entrar.{' '}
+                <button type="button" onClick={cancelGoogleSignup} className="font-medium text-primary hover:underline">
+                  Usar outro e-mail
+                </button>
+              </p>
+            </div>
+          )}
+
+          {/* ── Step 2 (Google): nome e telefone, sem senha ── */}
+          {step === 2 && googleSignup && (
+            <form
+              onSubmit={formGoogle.handleSubmit(() => setStep(3))}
+              className="space-y-4 animation-delay-75 animate-fade-in-up"
+              noValidate
+            >
+              <FormField label="E-mail (Google)" htmlFor="google_email">
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="google_email" className="pl-9" value={googleSignup.email} readOnly disabled />
+                </div>
+              </FormField>
+              <FormField label="Nome completo" htmlFor="g_owner_full_name" error={formGoogle.formState.errors.owner_full_name?.message} required>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="g_owner_full_name" className="pl-9" placeholder="João Silva" {...formGoogle.register('owner_full_name')} />
+                </div>
+              </FormField>
+              <FormField label="Telefone (opcional)" htmlFor="g_owner_phone">
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="g_owner_phone" className="pl-9" placeholder="(11) 99999-9999" {...formGoogle.register('owner_phone')} />
+                </div>
+              </FormField>
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="outline" className="gap-1" onClick={() => setStep(1)}>
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </Button>
+                <Button type="submit" className="flex-1 gap-1">
+                  Continuar <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          )}
+
           {/* ── Step 2: Personal data ── */}
-          {step === 2 && (
+          {step === 2 && !googleSignup && (
             <div className="space-y-5 animation-delay-75 animate-fade-in-up">
               {/* Google shortcut */}
               {import.meta.env.VITE_GOOGLE_CLIENT_ID && (

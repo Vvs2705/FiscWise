@@ -34,6 +34,7 @@ class TenantFactory:
             id=id or uuid.uuid4(),
             name=name,
             is_active=is_active,
+            terms_accepted_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -55,6 +56,7 @@ class UserFactory:
             hashed_password="$2b$12$test",
             role=role,
             is_active=is_active,
+            terms_accepted_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )

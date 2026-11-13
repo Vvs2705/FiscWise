@@ -23,6 +23,8 @@ export interface AuthUser {
   full_name: string;
   phone?: string;
   role: string;
+  /** false = escritório sem cadastro concluído (vai para /concluir-cadastro) */
+  signup_complete?: boolean;
   two_factor_enabled?: boolean;
   two_factor_method?: string;
 }
@@ -42,10 +44,88 @@ export interface MfaChallenge {
   message: string;
 }
 
-export type LoginResult = AuthResponse | MfaChallenge;
+/** Primeiro acesso com Google: o e-mail não tem conta, falta o cadastro. */
+export interface GoogleSignupRequired {
+  status: 'requires_signup';
+  signup_token: string;
+  email: string;
+  full_name?: string | null;
+}
 
-export function isMfaChallenge(r: LoginResult): r is MfaChallenge {
+export type LoginResult = AuthResponse | MfaChallenge;
+export type GoogleLoginResult = LoginResult | GoogleSignupRequired;
+
+export function isMfaChallenge(r: GoogleLoginResult): r is MfaChallenge {
   return (r as MfaChallenge).status === 'requires_2fa';
+}
+
+export function isGoogleSignupRequired(r: GoogleLoginResult): r is GoogleSignupRequired {
+  return (r as GoogleSignupRequired).status === 'requires_signup';
+}
+
+// O token de cadastro Google fica só nesta aba (sessionStorage) até o
+// cadastro terminar; vale 30 min no servidor.
+const GOOGLE_SIGNUP_KEY = 'google_signup';
+
+export function saveGoogleSignup(data: GoogleSignupRequired): void {
+  try {
+    sessionStorage.setItem(GOOGLE_SIGNUP_KEY, JSON.stringify(data));
+  } catch {
+    // storage bloqueado: o cadastro segue em memória na própria tela
+  }
+}
+
+export function getGoogleSignup(): GoogleSignupRequired | null {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_SIGNUP_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && parsed.status === 'requires_signup' && parsed.signup_token ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearGoogleSignup(): void {
+  try {
+    sessionStorage.removeItem(GOOGLE_SIGNUP_KEY);
+  } catch {
+    // nada a limpar
+  }
+}
+
+export interface GoogleRegisterData {
+  signup_token: string;
+  company_name: string;
+  document?: string;
+  owner_full_name?: string;
+  owner_phone?: string;
+  plan_slug: string;
+  terms_accepted: boolean;
+}
+
+export interface CompleteSignupData {
+  company_name: string;
+  document?: string;
+  owner_full_name?: string;
+  owner_phone?: string;
+  terms_accepted: boolean;
+}
+
+function storeSession({ access_token, tenant_id, user }: AuthResponse): void {
+  localStorage.setItem('access_token', access_token);
+  localStorage.setItem('tenant_id', tenant_id);
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
+export async function registerWithGoogle(data: GoogleRegisterData): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/api/v1/onboarding/register-google', data);
+  storeSession(response.data);
+  clearGoogleSignup();
+  return response.data;
+}
+
+export async function completeSignup(data: CompleteSignupData): Promise<void> {
+  await api.post('/api/v1/onboarding/complete-signup', data);
 }
 
 export interface TenantData {
@@ -173,11 +253,11 @@ export function getTenantId(): string | null {
   return localStorage.getItem('tenant_id');
 }
 
-export async function loginWithGoogle(credential: string): Promise<LoginResult> {
-  const response = await api.post<LoginResult>('/api/v1/auth/google', { credential });
+export async function loginWithGoogle(credential: string): Promise<GoogleLoginResult> {
+  const response = await api.post<GoogleLoginResult>('/api/v1/auth/google', { credential });
   const data = response.data;
 
-  if (isMfaChallenge(data)) {
+  if (isMfaChallenge(data) || isGoogleSignupRequired(data)) {
     return data;
   }
 

@@ -126,6 +126,23 @@ api.interceptors.response.use(
 
     const config = error.config as RetriableConfig | undefined;
 
+    // Escritório sem cadastro concluído: o servidor recusa o sistema todo.
+    if (
+      error.response.status === 403 &&
+      String(error.response.headers?.['x-error-code'] ?? '') === 'SIGNUP_INCOMPLETE'
+    ) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') ?? 'null');
+        if (stored) localStorage.setItem('user', JSON.stringify({ ...stored, signup_complete: false }));
+      } catch {
+        // user corrompido: a página de cadastro confere pelo /auth/me
+      }
+      if (window.location.pathname !== '/concluir-cadastro') {
+        window.location.href = '/concluir-cadastro';
+      }
+      return Promise.reject(error);
+    }
+
     if (error.response.status === 401 && !isDeviceTokenEndpoint(config?.url)) {
       // 401 nas rotas de entrada (senha errada, código 2FA inválido, token do
       // Google recusado) é resposta normal do formulário: a tela mostra a

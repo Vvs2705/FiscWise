@@ -32,7 +32,7 @@ export function PrivacyPage() {
           <h1 className="text-3xl font-bold">Política de Privacidade</h1>
         </div>
         <p className="mb-1 text-sm text-muted-foreground">
-          Versão 1.1 — Última atualização: 13/11/2026
+          Versão 1.2 — Última atualização: 13/11/2026
         </p>
         <p className="mb-8 text-xs text-muted-foreground">
           Em conformidade com a Lei Geral de Proteção de Dados — <strong>LGPD (Lei 13.709/2018)</strong>
@@ -99,6 +99,13 @@ export function PrivacyPage() {
                     <td className="py-2">Art. 7º, II — cumprimento de obrigação legal</td>
                   </tr>
                   <tr>
+                    <td className="py-2 pr-4">
+                      Oferta por tempo limitado a quem fez o teste grátis e não assinou (uma vez por
+                      escritório, com link de descadastro em todo e-mail)
+                    </td>
+                    <td className="py-2">Art. 7º, IX — legítimo interesse (relacionamento existente)</td>
+                  </tr>
+                  <tr>
                     <td className="py-2 pr-4">Marketing e novidades do produto</td>
                     <td className="py-2">Art. 7º, I — consentimento (opt-in)</td>
                   </tr>
@@ -116,6 +123,7 @@ export function PrivacyPage() {
               <li><strong>Google Cloud Run</strong> — servidor da aplicação (região São Paulo, Brasil)</li>
               <li><strong>Cloudflare Pages</strong> — hospedagem do site</li>
               <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos (com DPA)</li>
+              <li><strong>Cloudflare R2</strong> — cópias de segurança do banco de dados, criptografadas</li>
               <li><strong>Mercado Pago</strong> — processamento dos pagamentos da assinatura (dados mínimos necessários)</li>
               <li><strong>Resend</strong> — envio de e-mails transacionais (somente e-mail e nome)</li>
               <li><strong>Sentry</strong> — monitoramento de erros técnicos da aplicação</li>
@@ -135,6 +143,18 @@ export function PrivacyPage() {
               o encerramento, conforme exigido pela legislação tributária brasileira (RFB).
               Logs de acesso são retidos por 6 meses. Após os prazos legais, os dados são
               eliminados ou anonimizados.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Ao fim do teste grátis ou do período pago, sem assinatura, a conta fica somente para
+              leitura e os dados ficam disponíveis por 60 (sessenta) dias para consulta e exportação;
+              depois desse prazo, podem ser excluídos, com aviso prévio por e-mail, ressalvados os
+              registros que a lei obriga a guardar.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Fazemos cópias de segurança diárias do banco de dados, criptografadas e guardadas por até
+              30 (trinta) dias. Dados excluídos da plataforma podem permanecer nessas cópias até o fim
+              desse prazo, sem uso para nenhuma outra finalidade além da recuperação do serviço em caso
+              de falha.
             </p>
           </section>
 

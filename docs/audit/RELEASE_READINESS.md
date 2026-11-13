@@ -16,7 +16,7 @@ O produto não pode ser vendido ainda. Os dois riscos críticos de código (clie
 | Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Jobs e prioridade no fuso de Brasília; motor com dia útil e feriados nacionais/estaduais/capitais | **Parcial** | Validação profissional das regras |
 | Auditoria de ações | Ações financeiras registradas | `audit_log` grava em `audit_events` (leva 2) | OK | — |
 | Backup e restore | Restore testado | Workflow `db-backup.yml` existe; restore nunca testado | **Não verificado** | Rodar um restore num banco descartável |
-| Hospedagem | Plano permite uso comercial; domínio canônico definido | Stack nova: Cloud Run + Cloudflare Pages + Supabase (PR #54, ver `DEPLOY.md`); `www.fiscwise.com.br` ainda sendo ligado ao Pages | **Parcial** | Ativar o domínio no Cloudflare Pages; conferir termos dos planos gratuitos |
+| Hospedagem | Plano permite uso comercial; domínio canônico definido | Stack no ar: Cloud Run (São Paulo) + Cloudflare Pages em `www.fiscwise.com.br` + Supabase (ver `DEPLOY.md`) | **Parcial** | Redirecionar `fiscwise.com.br` para `www`; decidir o domínio do webhook do Mercado Pago (`api.fiscwise.com.br` não existe) |
 | Privacidade/LGPD | Mapa de dados, termos, resposta a incidente revisados | Não feito nesta rodada | **Não verificado** | Próxima rodada + jurídico |
 | Marketing | Claims comprováveis | Não feito nesta rodada | **Não verificado** | Próxima rodada |
 

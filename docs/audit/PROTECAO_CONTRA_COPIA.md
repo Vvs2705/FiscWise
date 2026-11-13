@@ -67,10 +67,10 @@ ela não calcula nem guarda nada.
    INPI) e o pedido é todo online.
 3. **Registrar a marca "FiscWise" no INPI**: impede que outro use o nome.
 
-## Próximos passos possíveis (não feitos ainda)
+## Próximos passos possíveis
 
-- Limite de requisições por usuário em toda a API (hoje só `/api/v1/admin/*`
-  tem limite), para dificultar robôs que tentem extrair dados em massa.
+- ~~Limite de requisições por usuário em toda a API~~: feito em `7d29043`
+  (`backend/app/core/rate_limit.py`, 300/min por usuário e 120/min por IP).
 - Ofuscação pesada do JavaScript (ex.: javascript-obfuscator). Não recomendo
   agora: deixa o app mais lento e maior, e só atrasa quem quer copiar a tela,
   que já tem pouco valor sem o servidor.

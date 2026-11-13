@@ -1,4 +1,4 @@
-# Cloudflare Pages: headers de seguranca (os do vercel.json nao valem aqui).
+# Cloudflare Pages: headers de seguranca.
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY

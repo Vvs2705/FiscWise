@@ -176,8 +176,9 @@ inteiro antes do primeiro paint. Pontos para a Frente C: tirar framer-motion do
 caminho crítico do login, `font-display` já é `swap` (ok), preload do CSS, e
 dividir `index` (149 KB) que concentra Sidebar, stores e utilitários.
 
-O repositório tem um spec Playwright (`frontend/e2e/`) **sem** `@playwright/test`
-nas dependências nem `playwright.config.ts`: o E2E hoje não roda.
+E2E: atualizado em 13/11/2026. `frontend/playwright.config.ts` existe e o CI roda
+o job `frontend-e2e` (opcional, `continue-on-error`), só nas páginas públicas com
+`vite preview`, sem backend. O E2E offline ainda depende de um backend de preview.
 
 ## 6. Integrações externas (A2)
 

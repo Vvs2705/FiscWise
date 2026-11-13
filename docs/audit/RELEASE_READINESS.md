@@ -1,39 +1,45 @@
-# Prontidão para lançamento — FiscWise (25/10/2026)
+# Prontidão para lançamento — FiscWise (atualizado em 13/11/2026)
 
 ## Resultado: **NO-GO**
 
-O produto não pode ser vendido ainda. Os dois riscos críticos de código (cliente do portal vendo dados de todo o escritório e telas simuladas parecendo reais) estão corrigidos neste PR, mas faltam gates obrigatórios que dependem de ambiente, de decisão do dono e de validação profissional. Detalhes de cada item: [AUDIT_FINDINGS.md](AUDIT_FINDINGS.md).
+O código está quase todo pronto. O que segura o lançamento é configuração de
+painel, homologação da cobrança, backup e validação profissional. Achados da
+auditoria original: [AUDIT_FINDINGS.md](AUDIT_FINDINGS.md). Este documento é a
+lista única do que falta (substitui o antigo `RELATORIO_NOTURNO_FISCWISE.md`).
 
-| Gate | Critério | Evidência | Status | Bloqueio |
+| Gate | Critério | Evidência | Status | O que falta |
 |---|---|---|---|---|
-| Segredos | Nenhum segredo válido no repositório | `.mcp.json` removido (PR #52); projeto do banco já excluído | OK | Merge do PR #52 |
-| Multi-tenant (código) | Nenhum vazamento entre escritórios nem do portal para o escritório | Leitura de todas as rotas com ID; `test_client_role_isolation.py` | OK no código | — |
-| Multi-tenant (banco) | RLS efetiva com role sem BYPASSRLS, testada em PostgreSQL real | `test_rls_postgres.py` passa no CI com role sem bypass (leva 5); produção ainda conecta como dono | **Parcial** | Criar role da aplicação sem bypass no Supabase e usar na `DATABASE_URL` |
-| Webhooks e pagamento | Assinatura obrigatória, idempotência, sem perda de evento | Testes novos; `PAGAMENTOS_GO_LIVE=false` devolve 503 | OK no código (sandbox não testado) | Homologação no sandbox: `HOMOLOGACAO_MERCADO_PAGO.md` |
-| Auth | Rate limit distribuído, OTP compartilhado, revogação de token | Limiter e OTP no Redis com `REDIS_URL` (leva 3); troca de senha invalida tokens (leva 4) | **Parcial** | Configurar `REDIS_URL` em produção |
-| CI | Gates de segurança bloqueiam | `ci.yml` alterado | OK após merge | — |
-| Funcionalidades honestas | Nada simulado apresentado como real | Avisos em e-CAC, NFS-e, WhatsApp | OK na tela | Integrações reais ou remover do plano |
-| Regras fiscais | Prazos com dia útil/feriado e fuso de Brasília, validados por contador | Jobs e prioridade no fuso de Brasília; motor com dia útil e feriados nacionais/estaduais/capitais | **Parcial** | Validação profissional das regras |
-| Auditoria de ações | Ações financeiras registradas | `audit_log` grava em `audit_events` (leva 2) | OK | — |
-| Backup e restore | Restore testado | Workflow `db-backup.yml` existe; restore nunca testado | **Não verificado** | Rodar um restore num banco descartável |
-| Hospedagem | Plano permite uso comercial; domínio canônico definido | Stack no ar: Cloud Run (São Paulo) + Cloudflare Pages em `www.fiscwise.com.br` + Supabase (ver `DEPLOY.md`) | **Parcial** | Redirecionar `fiscwise.com.br` para `www`; decidir o domínio do webhook do Mercado Pago (`api.fiscwise.com.br` não existe) |
-| Privacidade/LGPD | Mapa de dados, termos, resposta a incidente revisados | Não feito nesta rodada | **Não verificado** | Próxima rodada + jurídico |
-| Marketing | Claims comprováveis | Não feito nesta rodada | **Não verificado** | Próxima rodada |
+| Segredos | Nenhum segredo válido no repositório | `.mcp.json` removido; o banco daquela credencial foi excluído. Secrets sem uso do GitHub apagados em 13/11 | OK | — |
+| Multi-tenant (código) | Nenhum vazamento entre escritórios nem do portal | `test_client_role_isolation.py` | OK | — |
+| Multi-tenant (banco) | RLS efetiva com role sem BYPASSRLS | `test_rls_postgres.py` roda no CI (só `accounting_clients`, só SELECT); produção conecta como dono | **Parcial** | Role da aplicação sem bypass no Supabase e usar na `DATABASE_URL`; testar INSERT/UPDATE e as outras tabelas |
+| Pagamento | Assinatura do webhook, idempotência, trava | Código pronto (`billing.py`, `services/mercadopago.py`); `PAGAMENTOS_GO_LIVE=false`; tela avisa "Pagamentos em ativação". Webhook na URL `run.app` (DEPLOY.md §10) | **Parcial** | Aplicação no painel do MP, 3 segredos no Secret Manager, homologação: [HOMOLOGACAO_MERCADO_PAGO.md](HOMOLOGACAO_MERCADO_PAGO.md) |
+| Auth | Rate limit, OTP, revogação | Rate limit por usuário em toda a API (`7d29043`); contador em memória (1 instância) | OK | `REDIS_URL` só quando passar de 1 instância |
+| Cadastro | Aceite dos termos gravado | Google grava `terms_accepted_at` e `terms_version`; 403 `SIGNUP_INCOMPLETE` até `/concluir-cadastro` | OK | Testar o botão Google em produção |
+| CI | Gates de segurança bloqueiam | `ci.yml` e `security-review.yml` verdes | OK | E2E é opcional (`continue-on-error`) |
+| Funcionalidades honestas | Nada simulado parece real | Avisos em e-CAC, NFS-e, WhatsApp e cobrança | OK | Integrações reais exigem custo (abaixo) |
+| Regras fiscais | Prazos com dia útil/feriado, validados por contador | `business_days.py`: nacionais, Carnaval, Corpus Christi, 22 UFs, 7 capitais | **Parcial** | Faltam 24/12 e 31/12, ES/GO/MG/MT/SC, municipais fora das capitais; **revisão por contador** |
+| Backup e restore | Backup diário e restore testado | `db-backup.yml` existe mas é **pulado todo dia** (sem `BACKUP_AGE_RECIPIENT`) | **Não feito** | Chave `age`, token R2 (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`), rodar e testar restore; Storage não é copiado |
+| Hospedagem | Domínio canônico | Cloud Run SP + Cloudflare Pages + Supabase | **Parcial** | Redirect 301 de `fiscwise.com.br` para `www` |
+| Segurança do front | CSP ativa | `_headers` em Report-Only; cache `fiscwise-api` do SW guarda dados pessoais sem cifra por 7 dias | **Parcial** | Conferir console e ativar a CSP; rever o cache da API |
+| Observabilidade | Erros capturados | Código do Sentry e do Cloudflare Web Analytics pronto | **Não feito** | `SENTRY_DSN`, `VITE_SENTRY_DSN`, `VITE_CF_BEACON_TOKEN`; Search Console |
+| LGPD | Mapa de dados, incidente, direitos do titular | `/account/export` (só contagens) e `/account/delete` (só registra o pedido) | **Parcial** | Mapa de dados e plano de incidente (jurídico); export completo; rotina de exclusão |
+| Marketing | Claims comprováveis | `docs/marketing/` | **Não verificado** | Só depois da cobrança no ar |
 
-## O que pode ser mostrado hoje (como beta/demonstração)
+## Código que falta (não depende do dono)
 
-Cadastro de escritório e clientes, documentos, obrigações, financeiro/contas a receber, fechamento mensal com PDF, relatórios e portal do cliente — "operacionais" segundo o README, não testados ponta a ponta em ambiente real nesta auditoria.
+1. LCP do `/login` em 6,1 s (meta 2,5 s): dividir o CSS e tirar `vendor-react`/`vendor-form` do caminho crítico ([DIAGNOSTICO_A0_PERFORMANCE.md](DIAGNOSTICO_A0_PERFORMANCE.md)).
+2. `RegisterPage.tsx` tem preços fixos; devem vir de `/api/v1/subscription/plans`.
+3. Sync: disparar o webhook `client.created` para clientes criados pelo push.
+4. Tela de Sincronização usando `GET/POST /sync/conflicts`.
+5. E2E offline (depende de backend de preview).
+6. `tailwind-merge` 3 (exige Tailwind v4).
 
-## O que não pode ser anunciado como pronto
+## Custos futuros (nada contratado)
 
-Consulta e-CAC/Receita, emissão de NFS-e, envio por WhatsApp, caixa postal fiscal, cobrança automática por Mercado Pago, e-mail transacional (desligado por padrão), lembretes automáticos de cobrança.
-
-## Próximos passos priorizados
-
-1. ~~Merge dos PRs da auditoria~~ (feito: #53, #57, #58, #61, #62, #63).
-2. Definir a stack nova (banco, backend, frontend com plano comercial, Redis, e-mail, monitoramento) — conversa separada.
-3. No banco novo: role da aplicação sem BYPASSRLS na `DATABASE_URL` (o teste de RLS em PostgreSQL real já roda no CI).
-4. Configurar `REDIS_URL` (Upstash) em produção.
-5. Lembretes de cobrança com envio real, unicidade de CNPJ por escritório, idempotência da cobrança mensal (o `audit_log` real, o `RUN_SCHEDULER` e o fuso de Brasília entraram na leva 2).
-6. Dia útil e feriados no motor de obrigações, revisado por contador.
-7. LGPD, termos, plano de incidente, catálogo comercial e marketing.
+| Item | Custo estimado | Até lá |
+|---|---|---|
+| Certificado A1 para emitir NFS-e | ~R$ 150–250/ano | emissão fica em rascunho |
+| SERPRO (consultas e-CAC) | por consulta | tela avisa que não está disponível |
+| Provedor de WhatsApp | por mensagem | envio desligado com aviso |
+| Assinatura do instalador Windows (Tauri) | ~US$ 200–400/ano | PWA instalável |
+| Registro do software e da marca no INPI | taxa baixa | — |

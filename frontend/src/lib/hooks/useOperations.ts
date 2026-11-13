@@ -468,7 +468,7 @@ async function ensureLocalRow(db: FiscWiseLocalDb, entity: LocalFirstEntity, id:
       const { data } = await api.get<{ id: string }>(`${LOCAL_FIRST_URL[entity]}/${id}`);
       row = data;
     } catch (error) {
-      if (isNetworkFailure(error)) throw new Error('Registro ainda não baixado neste dispositivo. Conecte-se à internet e tente novamente.');
+      if (isNetworkFailure(error)) throw new Error('Registro ainda não baixado neste dispositivo. Conecte-se à internet e tente novamente.', { cause: error });
       throw error;
     }
   }

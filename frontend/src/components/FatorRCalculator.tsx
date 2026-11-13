@@ -11,7 +11,7 @@ import {
   Copy,
   Upload,
 } from 'lucide-react';
-import readXlsxFile from 'read-excel-file';
+import { readSheet } from 'read-excel-file/universal';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
@@ -328,9 +328,9 @@ export function FatorRCalculator() {
     try {
       let excelRows;
       try {
-        excelRows = await readXlsxFile(file, { sheet: 'Lancamentos' });
+        excelRows = await readSheet(file, 'Lancamentos');
       } catch {
-        excelRows = await readXlsxFile(file);
+        excelRows = await readSheet(file);
       }
 
       if (!excelRows || excelRows.length < 2) {

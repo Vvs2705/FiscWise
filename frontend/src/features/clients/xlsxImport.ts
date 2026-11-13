@@ -191,10 +191,11 @@ export function isSpreadsheetFile(name: string): boolean {
 /** Linhas de um .xlsx (aba do modelo, ou a primeira) ou de um .csv. */
 export async function readSpreadsheetRows(file: File): Promise<unknown[][]> {
   if (file.name.toLowerCase().endsWith('.csv')) return parseCsv(await readText(file));
-  const { default: readXlsxFile, readSheetNames } = await import('read-excel-file');
-  const sheets = await readSheetNames(file);
-  const sheet = sheets.includes(CLIENT_TEMPLATE_SHEET) ? CLIENT_TEMPLATE_SHEET : sheets[0];
-  return (await readXlsxFile(file, { sheet })) as unknown[][];
+  // /universal: lê o Blob no próprio thread, sem Web Worker (o /browser usa worker).
+  const { default: readExcelFile } = await import('read-excel-file/universal');
+  const sheets = await readExcelFile(file);
+  const sheet = sheets.find((s) => s.sheet === CLIENT_TEMPLATE_SHEET) ?? sheets[0];
+  return (sheet?.data ?? []) as unknown[][];
 }
 
 export interface ImportRowResult {

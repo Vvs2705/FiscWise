@@ -82,7 +82,7 @@ const SITE = 'https://www.fiscwise.com.br';
 const PUBLIC_META: Readonly<Record<string, string>> = {
   '/': 'Gestão de obrigações fiscais e carteira de clientes para contadores e escritórios contábeis: calendário de obrigações, documentos, portal do cliente, guias e fechamento mensal com dossiê em PDF.',
   '/login': 'Entre no FiscWise, a central do contador: obrigações fiscais, documentos, portal do cliente, guias e fechamento mensal de cada cliente em um só lugar.',
-  '/register': 'Crie sua conta no FiscWise: notas fiscais, clientes, obrigações fiscais, guias e certificados em um só lugar, simples para a empresa e organizado para o contador.',
+  '/register': 'Crie a conta do seu escritório no FiscWise: carteira de clientes, obrigações fiscais e prazos, documentos, guias e fechamento mensal em um só lugar, feito para o contador.',
   '/termos': 'Termos de uso do FiscWise, sistema de gestão contábil da Vstack Solutions.',
   '/privacidade': 'Política de privacidade do FiscWise: como tratamos dados pessoais conforme a LGPD.',
 };

@@ -99,4 +99,16 @@ describe('CSV e colunas de outros sistemas', () => {
     expect(parsed).toHaveLength(1);
     expect(parsed[0].payload?.name).toBe('Padaria Sol');
   });
+
+  it('readSpreadsheetRows lê o modelo .xlsx oficial (aba Dados do Cliente)', async () => {
+    // Sem @types/node no projeto: o módulo do Node entra tipado só com o que o teste usa.
+    const fsModule = 'node:fs';
+    const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync(p: URL): Uint8Array<ArrayBuffer> };
+    const { readSpreadsheetRows } = await import('./xlsxImport');
+    const bytes = readFileSync(new URL('../../../public/template-cadastro-cliente.xlsx', import.meta.url));
+    const file = new File([bytes], 'template-cadastro-cliente.xlsx');
+    const rows = await readSpreadsheetRows(file);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(String(rows[0][0])).toMatch(/Nome/i);
+  });
 });

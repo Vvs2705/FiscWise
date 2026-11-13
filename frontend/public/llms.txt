@@ -1,12 +1,11 @@
 # FiscWise
 
-> FiscWise é um sistema em nuvem de notas fiscais e gestão fiscal para pequenas empresas, contadores autônomos e escritórios de contabilidade no Brasil ("simples para a sua empresa, organizado para o seu contador"). Reúne carteira de clientes, documentos, obrigações fiscais e prazos, guias, certificados digitais, fechamento mensal, financeiro e portal do cliente em um só lugar. Desenvolvido pela Vstack Solutions.
+> FiscWise é um sistema em nuvem de gestão de obrigações fiscais e carteira de clientes para contadores autônomos e escritórios de contabilidade no Brasil. Reúne carteira de clientes, documentos, obrigações fiscais e prazos, guias, certificados digitais, fechamento mensal, financeiro e portal do cliente em um só lugar. Desenvolvido pela Vstack Solutions.
 
 Site: https://www.fiscwise.com.br
 Idioma: português do Brasil
 
 ## Para quem é
-- Pequenas empresas e MEIs que emitem notas fiscais.
 - Contadores autônomos que querem sair das planilhas paralelas.
 - Pequenos e médios escritórios contábeis, com carteiras por responsável e dados isolados por escritório.
 - Operações de BPO financeiro e contábil com alto volume de guias e fechamentos.
@@ -28,6 +27,7 @@ O FiscWise não apresenta dado governamental simulado como se fosse oficial.
 
 ## Páginas
 - [Perguntas frequentes](https://www.fiscwise.com.br/faq/): respostas diretas sobre o produto
+- [Planos e preços](https://www.fiscwise.com.br/precos/): planos do FiscWise com os preços atuais
 - [Criar conta](https://www.fiscwise.com.br/register)
 - [Entrar](https://www.fiscwise.com.br/login)
 - [Termos de uso](https://www.fiscwise.com.br/termos)

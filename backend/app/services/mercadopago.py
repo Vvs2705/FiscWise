@@ -35,7 +35,14 @@ class GatewayNaoConfiguradoError(RuntimeError):
 
 
 class GatewayPagamentoError(RuntimeError):
-    """Erro de comunicação/negócio com o gateway."""
+    """Erro de comunicação/negócio com o gateway.
+
+    `status_code` é o HTTP que o Mercado Pago respondeu (None = falha de rede).
+    """
+
+    def __init__(self, mensagem: str, status_code: int | None = None) -> None:
+        super().__init__(mensagem)
+        self.status_code = status_code
 
 
 def valor_centavos(preco_mensal: Decimal | float | int | None) -> int:
@@ -85,7 +92,9 @@ class GatewayMercadoPago:
             raise GatewayPagamentoError(exc.user_message) from exc
         if resp.status_code >= 400:
             logger.warning("mercadopago_erro path=%s status=%s", path, resp.status_code)
-            raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
+            raise GatewayPagamentoError(
+                f"Mercado Pago retornou {resp.status_code} em {path}", status_code=resp.status_code
+            )
         return resp.json()
 
     async def _get(self, path: str) -> dict[str, Any]:
@@ -99,7 +108,9 @@ class GatewayMercadoPago:
         except ExternalServiceError as exc:
             raise GatewayPagamentoError(exc.user_message) from exc
         if resp.status_code >= 400:
-            raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
+            raise GatewayPagamentoError(
+                f"Mercado Pago retornou {resp.status_code} em {path}", status_code=resp.status_code
+            )
         return resp.json()
 
     async def _put(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -114,7 +125,9 @@ class GatewayMercadoPago:
             raise GatewayPagamentoError(exc.user_message) from exc
         if resp.status_code >= 400:
             logger.warning("mercadopago_erro path=%s status=%s", path, resp.status_code)
-            raise GatewayPagamentoError(f"Mercado Pago retornou {resp.status_code} em {path}")
+            raise GatewayPagamentoError(
+                f"Mercado Pago retornou {resp.status_code} em {path}", status_code=resp.status_code
+            )
         return resp.json()
 
     # -- Montagem de payload (puro — testável sem rede) ------------------------

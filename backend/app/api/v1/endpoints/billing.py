@@ -114,6 +114,65 @@ def _aware(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
+def montar_referencia(sub_id: uuid.UUID, plan_slug: str, ciclo: str) -> str:
+    """external_reference do checkout: `<id da assinatura>|<plano>|<ciclo>`."""
+    return f"{sub_id}|{plan_slug}|{ciclo}"
+
+
+def ler_referencia(ref: object) -> tuple[Optional[uuid.UUID], Optional[str], Optional[str]]:
+    """Lê o external_reference. Aceita o formato antigo (só o id da assinatura)."""
+    partes = str(ref or "").split("|")
+    try:
+        sub_id = uuid.UUID(partes[0])
+    except ValueError:
+        return None, None, None
+    plan_slug = partes[1] if len(partes) > 1 and partes[1] else None
+    ciclo = partes[2] if len(partes) > 2 and partes[2] in CICLOS_VALIDOS else None
+    return sub_id, plan_slug, ciclo
+
+
+async def _plano_por_slug(db: AsyncSession, slug: Optional[str]) -> Optional[Plan]:
+    if not slug:
+        return None
+    return (await db.execute(select(Plan).where(Plan.slug == slug))).scalar_one_or_none()
+
+
+async def _aplicar_uma_vez(db: AsyncSession, chave: str) -> bool:
+    """True só na 1ª vez que `chave` aparece (trava no índice único dos eventos).
+
+    O MP manda o mesmo pagamento em dois formatos (`?data.id=&type=` e
+    `?id=&topic=`), com ids de notificação diferentes e às vezes no mesmo
+    milissegundo. A trava é por recurso + status, então "aprovado" conta uma
+    vez e um estorno posterior (outro status) ainda é processado.
+    """
+    try:
+        async with db.begin_nested():
+            db.add(BillingWebhookEvent(
+                provider="mercadopago", event_id=chave, event_type="aplicado",
+                payload={}, processed=True, processed_at=datetime.now(timezone.utc),
+            ))
+        return True
+    except IntegrityError:
+        return False
+
+
+async def _cancelar_recorrencia_antiga(sub: TenantSubscription, nova_id: Optional[str]) -> None:
+    """Troca de plano/ciclo pago: para a cobrança do preapproval anterior.
+
+    Sem isso o cliente que passa do mensal para o trimestral (ou troca de
+    plano no mensal) continuaria pagando as duas coisas.
+    """
+    antiga = sub.provider_subscription_id
+    if not antiga or antiga == nova_id:
+        return
+    try:
+        await gateway.cancelar_assinatura(antiga)
+        logger.info("Recorrência antiga cancelada na troca: sub=%s pre=%s", sub.id, antiga)
+    except GatewayPagamentoError as exc:
+        # Não trava a ativação do que já foi pago; fica no log para cancelar à mão.
+        logger.error("cancelar_recorrencia_antiga_falhou sub=%s pre=%s: %s", sub.id, antiga, exc)
+
+
 # ─── Subscription endpoints ───────────────────────────────────────────────────
 
 @router.get("/subscription", response_model=SubscriptionOut)
@@ -385,38 +444,37 @@ async def criar_checkout(
     if sub is None:
         sub = TenantSubscription(
             tenant_id=current_user.tenant_id, plan_id=plan.id,
-            status="trialing", currency="BRL",
+            status="trialing", currency="BRL", billing_provider="mercadopago",
+            amount=plan.price_monthly, billing_cycle=body.ciclo,
         )
         db.add(sub)
         await db.flush()
-    sub.plan_id = plan.id
-    sub.billing_provider = "mercadopago"
-    sub.amount = plan.price_monthly
-    sub.billing_cycle = body.ciclo
+    # A linha da assinatura guarda o que está PAGO. Abrir um checkout não muda
+    # plano, ciclo, valor nem o id da recorrência: o pedido viaja no
+    # external_reference e só vale quando o webhook confirmar o pagamento.
+    # (Antes, abrir o mensal e depois o trimestral deixava ciclo=trimestral com
+    # o id do preapproval antigo, mesmo sem pagar nada.)
+    referencia = montar_referencia(sub.id, plan.slug, body.ciclo)
 
     try:
         if body.ciclo == "mensal":
             # Assinatura recorrente no cartão (preapproval).
             resultado = await gateway.criar_assinatura(
                 plano_nome=plan.name, preco_mensal=plan.price_monthly,
-                email_pagador=current_user.email, referencia=str(sub.id),
+                email_pagador=current_user.email, referencia=referencia,
             )
         else:
             # Ciclo pré-pago: checkout único (Pix -15% ou cartão até 6x sem juros).
             resultado = await gateway.criar_cobranca_unica(
                 plano_nome=plan.name, preco_mensal=plan.price_monthly,
                 ciclo=body.ciclo, metodo=body.metodo,
-                email_pagador=current_user.email, referencia=str(sub.id),
+                email_pagador=current_user.email, referencia=referencia,
             )
     except GatewayNaoConfiguradoError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except GatewayPagamentoError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    if resultado.get("id") and resultado.get("tipo") == "assinatura":
-        # Só o preapproval é uma assinatura no gateway; cobranças únicas se
-        # correlacionam pelo external_reference (= sub.id) no webhook `payment`.
-        sub.provider_subscription_id = str(resultado["id"])
     await db.commit()
     logger.info(
         "Checkout MP criado: tenant=%s plano=%s ciclo=%s metodo=%s",
@@ -474,57 +532,30 @@ async def mercadopago_webhook(
         await db.rollback()
         return {"status": "already_processed"}
 
-    if gateway.configurado() and tipo in ("preapproval", "subscription_preapproval"):
+    processadores = {
+        "preapproval": _processar_preapproval,
+        "subscription_preapproval": _processar_preapproval,
+        "subscription_authorized_payment": _processar_cobranca_mensal,
+        "payment": _processar_pagamento_avulso,
+    }
+    processar = processadores.get(tipo) if gateway.configurado() else None
+    if processar is not None:
         try:
-            pre = await gateway.obter_preapproval(recurso_id)
-            pre_status = (pre.get("status") or "").lower()
-            valor_mensal = int(
-                round(float((pre.get("auto_recurring") or {}).get("transaction_amount") or 0) * 100)
-            )
-            sub = (
-                await db.execute(
-                    select(TenantSubscription).where(
-                        TenantSubscription.provider_subscription_id == recurso_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if sub is not None:
-                agora = datetime.now(timezone.utc)
-                sub.last_event_id = event_id
-                sub.last_event_at = agora
-                if pre_status == "authorized":
-                    if valor_mensal and sub.amount is not None and valor_mensal != valor_centavos(sub.amount):
-                        logger.warning(
-                            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
-                            sub.id, valor_centavos(sub.amount), valor_mensal,
-                        )
-                    else:
-                        fim_atual = _aware(sub.current_period_end)
-                        ja_ativa = sub.status == "active" and fim_atual is not None and fim_atual > agora
-                        if not ja_ativa:
-                            # Primeira autorização (ou reativação). Renovações do
-                            # mês vêm pelo tópico subscription_authorized_payment;
-                            # outras atualizações do preapproval não esticam o período.
-                            sub.status = "active"
-                            sub.cancelled_at = None
-                            sub.current_period_start = agora
-                            sub.current_period_end = agora + timedelta(days=30)
-                        await _refletir_plano_no_tenant(db, sub)
-                elif pre_status in ("cancelled", "paused"):
-                    fim = _aware(sub.current_period_end)
-                    if (
-                        pre_status == "cancelled" and sub.cancelled_at is not None
-                        and sub.status == "active" and fim is not None and fim > agora
-                    ):
-                        # Cancelamento pedido pelo dono: o período pago segue até o fim.
-                        pass
-                    elif sub.status in ("active", "trialing", "past_due"):
-                        sub.status = "suspended"
-                        if pre_status == "cancelled":
-                            sub.cancelled_at = agora
-            evento.processed = True
-            evento.processed_at = datetime.now(timezone.utc)
+            await processar(db, recurso_id, event_id)
         except GatewayPagamentoError as exc:
+            if exc.status_code == 404 and body.get("live_mode") is False:
+                # Simulação do painel com id inventado (ex.: "123456"): o recurso
+                # não existe e nunca vai existir. Com 503 o MP repetiria à toa.
+                # Notificação real (live_mode true) com 404 continua no 503
+                # abaixo, para o MP tentar de novo.
+                await db.rollback()
+                db.add(BillingWebhookEvent(
+                    provider="mercadopago", event_id=event_id,
+                    event_type=tipo or "desconhecido", payload=body,
+                    error_message=f"Recurso inexistente no Mercado Pago (teste): {exc}",
+                ))
+                await db.commit()
+                return {"status": "ignorado"}
             logger.warning("webhook_reconciliacao_falhou: %s", exc)
             # Não grava o evento: com 503 o Mercado Pago reenvia e a
             # reconciliação roda de novo (antes o retry caía em already_processed
@@ -534,114 +565,184 @@ async def mercadopago_webhook(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Reconciliação indisponível, tente novamente",
             )
-
-    elif gateway.configurado() and tipo == "subscription_authorized_payment":
-        # Cobrança mensal da assinatura (todo mês). Aprovada e com o valor
-        # certo → fim do período passa a ser hoje + 30 dias. Isso mantém o "cancelar
-        # mantém o período pago" correto a partir do 2º mês.
-        try:
-            aut = await gateway.obter_pagamento_autorizado(recurso_id)
-            pre_id = str(aut.get("preapproval_id") or "")
-            pagamento = aut.get("payment") if isinstance(aut.get("payment"), dict) else {}
-            pag_status = (pagamento.get("status") or aut.get("status") or "").lower()
-            sub = None
-            if pre_id:
-                sub = (
-                    await db.execute(
-                        select(TenantSubscription).where(
-                            TenantSubscription.provider_subscription_id == pre_id
-                        )
-                    )
-                ).scalar_one_or_none()
-            if sub is not None:
-                agora = datetime.now(timezone.utc)
-                sub.last_event_id = event_id
-                sub.last_event_at = agora
-                pago_cent = int(round(float(aut.get("transaction_amount") or 0) * 100))
-                if pag_status in ("approved", "processed"):
-                    if sub.amount is not None and pago_cent and pago_cent != valor_centavos(sub.amount):
-                        logger.warning(
-                            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
-                            sub.id, valor_centavos(sub.amount), pago_cent,
-                        )
-                    elif sub.status not in ("cancelled", "suspended"):
-                        # max(): a 1ª cobrança chega junto com o preapproval
-                        # autorizado e não pode virar 60 dias.
-                        fim_atual = _aware(sub.current_period_end)
-                        novo_fim = agora + timedelta(days=30)
-                        if fim_atual is None or fim_atual < novo_fim:
-                            sub.current_period_start = agora
-                            sub.current_period_end = novo_fim
-                        sub.status = "active"
-                        await _refletir_plano_no_tenant(db, sub)
-            evento.processed = True
-            evento.processed_at = datetime.now(timezone.utc)
-        except GatewayPagamentoError as exc:
-            logger.warning("webhook_reconciliacao_falhou: %s", exc)
-            await db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Reconciliação indisponível, tente novamente",
-            )
-
-    elif gateway.configurado() and tipo == "payment":
-        # Ciclos pré-pagos (trimestral/semestral/anual): pagamento único.
-        # Reconcilia no gateway; casa pelo external_reference (= sub.id) e só
-        # ativa se aprovado E valor == Pix ou cartão esperado para o ciclo.
-        try:
-            pag = await gateway.obter_pagamento(recurso_id)
-            pag_status = (pag.get("status") or "").lower()
-            external_ref = str(pag.get("external_reference") or "")
-            try:
-                sub_id = uuid.UUID(external_ref)
-            except ValueError:
-                sub_id = None
-            sub = None
-            if sub_id is not None:
-                sub = (
-                    await db.execute(
-                        select(TenantSubscription).where(TenantSubscription.id == sub_id)
-                    )
-                ).scalar_one_or_none()
-            if sub is not None:
-                agora = datetime.now(timezone.utc)
-                sub.last_event_id = event_id
-                sub.last_event_at = agora
-                pago_cent = int(round(float(pag.get("transaction_amount") or 0) * 100))
-                aceitos_cent = {
-                    int(round(v * 100))
-                    for v in valores_aceitos(sub.amount or 0, sub.billing_cycle)
-                }
-                if pag_status == "approved":
-                    if pago_cent not in aceitos_cent:
-                        # Valor divergente → NÃO ativa (revisão manual via evento).
-                        logger.warning(
-                            "webhook_valor_divergente sub=%s ciclo=%s aceitos=%s pago=%s",
-                            sub.id, sub.billing_cycle, aceitos_cent, pago_cent,
-                        )
-                    else:
-                        ciclo_info = get_ciclo(sub.billing_cycle) or {"meses": 1}
-                        sub.status = "active"
-                        sub.cancelled_at = None
-                        sub.current_period_start = agora
-                        sub.current_period_end = agora + timedelta(days=30 * int(ciclo_info["meses"]))
-                        await _refletir_plano_no_tenant(db, sub)
-                elif pag_status in ("refunded", "charged_back"):
-                    # Estorno/chargeback → suspende (proteção de receita).
-                    if sub.status in ("active", "trialing", "past_due"):
-                        sub.status = "suspended"
-            evento.processed = True
-            evento.processed_at = datetime.now(timezone.utc)
-        except GatewayPagamentoError as exc:
-            logger.warning("webhook_reconciliacao_falhou: %s", exc)
-            # Não grava o evento: com 503 o Mercado Pago reenvia e a
-            # reconciliação roda de novo (antes o retry caía em already_processed
-            # e o pagamento nunca ativava o plano).
-            await db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Reconciliação indisponível, tente novamente",
-            )
+        evento.processed = True
+        evento.processed_at = datetime.now(timezone.utc)
 
     await db.commit()
     return {"status": "ok"}
+
+
+async def _processar_preapproval(db: AsyncSession, recurso_id: str, event_id: str) -> None:
+    """Assinatura mensal (preapproval): autorizada ativa; cancelada/pausada suspende."""
+    pre = await gateway.obter_preapproval(recurso_id)
+    pre_status = (pre.get("status") or "").lower()
+    valor_mensal = int(
+        round(float((pre.get("auto_recurring") or {}).get("transaction_amount") or 0) * 100)
+    )
+    sub_ref, plano_ref, _ = ler_referencia(pre.get("external_reference"))
+    sub = (
+        await db.execute(
+            select(TenantSubscription).where(TenantSubscription.provider_subscription_id == recurso_id)
+        )
+    ).scalar_one_or_none()
+    if sub is None and sub_ref is not None:
+        # 1ª autorização: o checkout não grava mais o id do preapproval.
+        sub = (
+            await db.execute(select(TenantSubscription).where(TenantSubscription.id == sub_ref))
+        ).scalar_one_or_none()
+    if sub is None:
+        return
+
+    agora = datetime.now(timezone.utc)
+    sub.last_event_id = event_id
+    sub.last_event_at = agora
+    eh_a_atual = sub.provider_subscription_id == recurso_id
+
+    if pre_status == "authorized":
+        plano = await _plano_por_slug(db, plano_ref)
+        preco = plano.price_monthly if plano is not None else sub.amount
+        if valor_mensal and preco is not None and valor_mensal != valor_centavos(preco):
+            logger.warning(
+                "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+                sub.id, valor_centavos(preco), valor_mensal,
+            )
+            return
+        if not eh_a_atual:
+            # Nova recorrência (1ª assinatura ou troca de plano/ciclo): para a antiga.
+            await _cancelar_recorrencia_antiga(sub, recurso_id)
+            sub.provider_subscription_id = recurso_id
+            sub.billing_provider = "mercadopago"
+            sub.billing_cycle = "mensal"
+            if plano is not None:
+                sub.plan_id = plano.id
+                sub.amount = plano.price_monthly
+        fim_atual = _aware(sub.current_period_end)
+        ja_ativa = sub.status == "active" and fim_atual is not None and fim_atual > agora
+        if not ja_ativa or not eh_a_atual:
+            # Recorrência nova vale por cima de um cancelamento anterior.
+            sub.cancelled_at = None
+        if not ja_ativa:
+            # Primeira autorização (ou reativação). Renovações do
+            # mês vêm pelo tópico subscription_authorized_payment;
+            # outras atualizações do preapproval não esticam o período.
+            sub.status = "active"
+            sub.current_period_start = agora
+            sub.current_period_end = agora + timedelta(days=30)
+        await _refletir_plano_no_tenant(db, sub)
+    elif pre_status in ("cancelled", "paused"):
+        if not eh_a_atual:
+            # Aviso de uma recorrência que já foi trocada (ou nunca foi paga):
+            # não mexe na assinatura que está valendo.
+            return
+        fim = _aware(sub.current_period_end)
+        if (
+            pre_status == "cancelled" and sub.cancelled_at is not None
+            and sub.status == "active" and fim is not None and fim > agora
+        ):
+            # Cancelamento pedido pelo dono: o período pago segue até o fim.
+            pass
+        elif sub.status in ("active", "trialing", "past_due"):
+            sub.status = "suspended"
+            if pre_status == "cancelled":
+                sub.cancelled_at = agora
+
+
+async def _processar_cobranca_mensal(db: AsyncSession, recurso_id: str, event_id: str) -> None:
+    """Cobrança mensal da assinatura (todo mês).
+
+    Aprovada e com o valor certo → fim do período passa a ser hoje + 30 dias.
+    Isso mantém o "cancelar mantém o período pago" correto a partir do 2º mês.
+    """
+    aut = await gateway.obter_pagamento_autorizado(recurso_id)
+    pre_id = str(aut.get("preapproval_id") or "")
+    pagamento = aut.get("payment") if isinstance(aut.get("payment"), dict) else {}
+    pag_status = (pagamento.get("status") or aut.get("status") or "").lower()
+    if not pre_id:
+        return
+    sub = (
+        await db.execute(
+            select(TenantSubscription).where(TenantSubscription.provider_subscription_id == pre_id)
+        )
+    ).scalar_one_or_none()
+    if sub is None:
+        return
+    agora = datetime.now(timezone.utc)
+    sub.last_event_id = event_id
+    sub.last_event_at = agora
+    pago_cent = int(round(float(aut.get("transaction_amount") or 0) * 100))
+    if pag_status not in ("approved", "processed"):
+        return
+    if sub.amount is not None and pago_cent and pago_cent != valor_centavos(sub.amount):
+        logger.warning(
+            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+            sub.id, valor_centavos(sub.amount), pago_cent,
+        )
+        return
+    if sub.status in ("cancelled", "suspended"):
+        return
+    if not await _aplicar_uma_vez(db, f"aplicado:authorized_payment:{recurso_id}:aprovado"):
+        return
+    # max(): a 1ª cobrança chega junto com o preapproval
+    # autorizado e não pode virar 60 dias.
+    fim_atual = _aware(sub.current_period_end)
+    novo_fim = agora + timedelta(days=30)
+    if fim_atual is None or fim_atual < novo_fim:
+        sub.current_period_start = agora
+        sub.current_period_end = novo_fim
+    sub.status = "active"
+    await _refletir_plano_no_tenant(db, sub)
+
+
+async def _processar_pagamento_avulso(db: AsyncSession, recurso_id: str, event_id: str) -> None:
+    """Ciclos pré-pagos (trimestral/semestral/anual): pagamento único.
+
+    Reconcilia no gateway; casa pelo external_reference e só ativa se aprovado
+    E valor == Pix ou cartão esperado para o plano e o ciclo pedidos.
+    """
+    pag = await gateway.obter_pagamento(recurso_id)
+    pag_status = (pag.get("status") or "").lower()
+    sub_id, plano_ref, ciclo_ref = ler_referencia(pag.get("external_reference"))
+    if sub_id is None:
+        return
+    sub = (
+        await db.execute(select(TenantSubscription).where(TenantSubscription.id == sub_id))
+    ).scalar_one_or_none()
+    if sub is None:
+        return
+    agora = datetime.now(timezone.utc)
+    sub.last_event_id = event_id
+    sub.last_event_at = agora
+
+    if pag_status == "approved":
+        plano = await _plano_por_slug(db, plano_ref)
+        preco = plano.price_monthly if plano is not None else sub.amount
+        ciclo = ciclo_ref or sub.billing_cycle
+        pago_cent = int(round(float(pag.get("transaction_amount") or 0) * 100))
+        aceitos_cent = {int(round(v * 100)) for v in valores_aceitos(preco or 0, ciclo)}
+        if pago_cent not in aceitos_cent:
+            # Valor divergente → NÃO ativa (revisão manual via evento).
+            logger.warning(
+                "webhook_valor_divergente sub=%s ciclo=%s aceitos=%s pago=%s",
+                sub.id, ciclo, aceitos_cent, pago_cent,
+            )
+            return
+        if not await _aplicar_uma_vez(db, f"aplicado:payment:{recurso_id}:aprovado"):
+            return  # mesmo pagamento, outro formato de aviso: já aplicado
+        # Pré-pago confirmado: o mensal anterior (se houver) para de cobrar.
+        await _cancelar_recorrencia_antiga(sub, None)
+        sub.provider_subscription_id = None
+        sub.billing_provider = "mercadopago"
+        sub.billing_cycle = ciclo
+        if plano is not None:
+            sub.plan_id = plano.id
+            sub.amount = plano.price_monthly
+        ciclo_info = get_ciclo(ciclo) or {"meses": 1}
+        sub.status = "active"
+        sub.cancelled_at = None
+        sub.current_period_start = agora
+        sub.current_period_end = agora + timedelta(days=30 * int(ciclo_info["meses"]))
+        await _refletir_plano_no_tenant(db, sub)
+    elif pag_status in ("refunded", "charged_back"):
+        # Estorno/chargeback → suspende (proteção de receita).
+        if sub.status in ("active", "trialing", "past_due"):
+            sub.status = "suspended"

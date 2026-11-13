@@ -3,16 +3,16 @@
 Contas que já existem ficam marcadas como "já viu", para o tour não aparecer
 de novo para quem já usa o sistema.
 
-Revision ID: p2j8cd50hl7
-Revises: o1i7bc49gk6
+Revision ID: q3t1wt72tour
+Revises: p2j8cd50hl7
 Create Date: 2026-11-12
 """
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "p2j8cd50hl7"
-down_revision = "o1i7bc49gk6"
+revision = "q3t1wt72tour"
+down_revision = "p2j8cd50hl7"
 branch_labels = None
 depends_on = None
 

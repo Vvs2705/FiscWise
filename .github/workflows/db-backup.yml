@@ -4,6 +4,9 @@ name: Database backup
 # provedor do banco, para sobreviver até à exclusão do projeto no Supabase.
 # A chave PRIVADA do age fica só no cofre de senhas; aqui vai apenas a pública.
 # Retenção: regra de ciclo de vida de 30 dias configurada no bucket do R2.
+# --enable-row-security: as tabelas têm FORCE ROW LEVEL SECURITY (migração
+# u7w8forcerls); sem a opção o pg_dump recusa ler. Sem escritório no contexto
+# as policies liberam tudo, então o dump continua completo.
 
 on:
   schedule:
@@ -37,7 +40,7 @@ jobs:
           set -euo pipefail
           FILE="fiscwise-$(date -u +%Y%m%dT%H%MZ).dump.age"
           /usr/lib/postgresql/17/bin/pg_dump "$BACKUP_DATABASE_URL" \
-            --format=custom --schema=public --no-owner --no-privileges \
+            --format=custom --schema=public --no-owner --no-privileges --enable-row-security \
             | age -r "$AGE_RECIPIENT" > "$FILE"
           test -s "$FILE"
           echo "FILE=$FILE" >> "$GITHUB_ENV"

@@ -2,7 +2,13 @@
 
 A suíte normal usa SQLite e nunca exercita as policies. Este teste roda no CI
 (RUN_PG_RLS=1, banco do service postgres já migrado até o head) e prova que,
-para um role comum, um escritório não enxerga o outro e sem contexto não vê nada.
+para um role comum:
+- com escritório no contexto (toda requisição autenticada), ele só vê e só
+  grava linhas do próprio escritório;
+- sem contexto (rotina do sistema: agendador, webhooks, backup) vê tudo —
+  exceção `current_app_tenant_id() IS NULL` da migração u7w8forcerls;
+- toda tabela com RLS tem FORCE, para valer também ao dono das tabelas
+  (em produção a API conecta como o dono, `fiscwise_app`).
 """
 
 import os
@@ -34,7 +40,7 @@ async def test_rls_isola_escritorios_para_role_sem_bypass():
             )
         )
         await c.execute(text(f"GRANT USAGE ON SCHEMA public TO {PROBE}"))
-        await c.execute(text(f"GRANT SELECT ON accounting_clients TO {PROBE}"))
+        await c.execute(text(f"GRANT SELECT, INSERT ON accounting_clients TO {PROBE}"))
 
     ta, tb = uuid.uuid4(), uuid.uuid4()
     async with AsyncSession(admin) as s:
@@ -80,8 +86,34 @@ async def test_rls_isola_escritorios_para_role_sem_bypass():
                     text("SELECT tenant_id FROM accounting_clients")
                 )
             }
-        assert sem_contexto == 0
+            # Com o escritório A no contexto, gravar no escritório B é recusado.
+            gravou_em_b = True
+            try:
+                async with c.begin_nested():
+                    await c.execute(
+                        text(
+                            "INSERT INTO accounting_clients (id, tenant_id, name, entity_type, status, client_code, created_at, updated_at) "
+                            "VALUES (:id, :t, 'Invasao', 'pj', 'active', '0002', now(), now())"
+                        ),
+                        {"id": uuid.uuid4(), "t": tb},
+                    )
+            except Exception:
+                gravou_em_b = False
+        assert sem_contexto >= 2  # rotina do sistema vê todos os escritórios
         assert vistos == {ta}
+        assert gravou_em_b is False
+
+        async with admin.connect() as c:
+            sem_force = (
+                await c.execute(
+                    text(
+                        "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                        "WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity "
+                        "AND NOT c.relforcerowsecurity"
+                    )
+                )
+            ).scalars().all()
+        assert sem_force == []
     finally:
         await probe.dispose()
         async with admin.begin() as c:

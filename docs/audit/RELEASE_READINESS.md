@@ -12,7 +12,7 @@ lista única do que falta (substitui o antigo `RELATORIO_NOTURNO_FISCWISE.md`).
 | Segredos | Nenhum segredo válido no repositório | `.mcp.json` removido; o banco daquela credencial foi excluído. Secrets sem uso do GitHub apagados em 13/11 | OK | — |
 | Multi-tenant (código) | Nenhum vazamento entre escritórios nem do portal | `test_client_role_isolation.py` | OK | — |
 | Multi-tenant (banco) | RLS efetiva com role sem BYPASSRLS | `test_rls_postgres.py` roda no CI (só `accounting_clients`, só SELECT); produção conecta como dono | **Parcial** | Role da aplicação sem bypass no Supabase e usar na `DATABASE_URL`; testar INSERT/UPDATE e as outras tabelas |
-| Pagamento | Assinatura do webhook, idempotência, trava | Código pronto (`billing.py`, `services/mercadopago.py`); `PAGAMENTOS_GO_LIVE=false`; tela avisa "Pagamentos em ativação". Webhook na URL `run.app` (DEPLOY.md §10) | **Parcial** | Aplicação no painel do MP, 3 segredos no Secret Manager, homologação: [HOMOLOGACAO_MERCADO_PAGO.md](HOMOLOGACAO_MERCADO_PAGO.md) |
+| Pagamento | Assinatura do webhook, idempotência, trava | Código pronto (`billing.py`, `services/mercadopago.py`); `PAGAMENTOS_GO_LIVE=false`; tela avisa "Pagamentos em ativação". Webhook na URL `run.app` (DEPLOY.md §10) | **Parcial** | Aplicação "FiscWise" (nº 391216691873495) e webhook de produção criados em 13/11. Faltam os 3 segredos no Secret Manager e a homologação: [HOMOLOGACAO_MERCADO_PAGO.md](HOMOLOGACAO_MERCADO_PAGO.md) |
 | Auth | Rate limit, OTP, revogação | Rate limit por usuário em toda a API (`7d29043`); contador em memória (1 instância) | OK | `REDIS_URL` só quando passar de 1 instância |
 | Cadastro | Aceite dos termos gravado | Google grava `terms_accepted_at` e `terms_version`; 403 `SIGNUP_INCOMPLETE` até `/concluir-cadastro` | OK | Testar o botão Google em produção |
 | CI | Gates de segurança bloqueiam | `ci.yml` e `security-review.yml` verdes | OK | E2E é opcional (`continue-on-error`) |
@@ -21,7 +21,7 @@ lista única do que falta (substitui o antigo `RELATORIO_NOTURNO_FISCWISE.md`).
 | Backup e restore | Backup diário e restore testado | `db-backup.yml` existe mas é **pulado todo dia** (sem `BACKUP_AGE_RECIPIENT`) | **Não feito** | Chave `age`, token R2 (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`), rodar e testar restore; Storage não é copiado |
 | Hospedagem | Domínio canônico | Cloud Run SP + Cloudflare Pages + Supabase | **Parcial** | Redirect 301 de `fiscwise.com.br` para `www` |
 | Segurança do front | CSP ativa | `_headers` em Report-Only; cache `fiscwise-api` do SW guarda dados pessoais sem cifra por 7 dias | **Parcial** | Conferir console e ativar a CSP; rever o cache da API |
-| Observabilidade | Erros capturados | Código do Sentry e do Cloudflare Web Analytics pronto | **Não feito** | `SENTRY_DSN`, `VITE_SENTRY_DSN`, `VITE_CF_BEACON_TOKEN`; Search Console |
+| Observabilidade | Erros capturados | Sentry `fiscwise-api` e `fiscwise-web` criados; `SENTRY_DSN` no `cloudrun.env.yaml`; `VITE_SENTRY_DSN` e `VITE_CF_BEACON_TOKEN` no Pages (13/11) | **Parcial** | Conferir o primeiro evento no Sentry e as visitas no Web Analytics depois do deploy; Search Console |
 | LGPD | Mapa de dados, incidente, direitos do titular | `/account/export` (só contagens) e `/account/delete` (só registra o pedido) | **Parcial** | Mapa de dados e plano de incidente (jurídico); export completo; rotina de exclusão |
 | Marketing | Claims comprováveis | `docs/marketing/` | **Não verificado** | Só depois da cobrança no ar |
 
@@ -33,6 +33,7 @@ lista única do que falta (substitui o antigo `RELATORIO_NOTURNO_FISCWISE.md`).
 4. Tela de Sincronização usando `GET/POST /sync/conflicts`.
 5. E2E offline (depende de backend de preview).
 6. `tailwind-merge` 3 (exige Tailwind v4).
+7. Mercado Pago: o painel avisa que a **API de Preferences será descontinuada**. O código usa `/checkout/preferences` (ciclos pré-pagos) e `/preapproval` (mensal); planejar a migração para a API de Orders.
 
 ## Custos futuros (nada contratado)
 

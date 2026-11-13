@@ -369,9 +369,11 @@ pg_restore --no-owner --no-privileges -d "postgresql://..." fiscwise.dump
 
 ### 12. Monitoramento
 
-- Sentry (plano Developer, grátis): criar projeto Python e React;
-  `SENTRY_DSN` no Secret Manager e `VITE_SENTRY_DSN` no Pages. **Pendente**:
-  hoje os dois estão vazios e nenhum erro é capturado.
+- Sentry (plano Developer, grátis), organização `vstac-solution`: projetos
+  `fiscwise-api` (FastAPI) e `fiscwise-web` (React), criados em 13/11/2026.
+  `SENTRY_DSN` fica no `cloudrun.env.yaml` (a DSN é pública: só envia eventos)
+  e `VITE_SENTRY_DSN` nas variáveis de Production do Pages. A CSP libera
+  `https://*.ingest.us.sentry.io`, que é o host das DSNs novas.
 - Log por requisição: em production/staging a API escreve uma linha JSON por
   requisição no stdout (`app/core/request_log.py`), que o Cloud Logging lê como
   log estruturado: `httpRequest` (método, rota, status, latência), `route`

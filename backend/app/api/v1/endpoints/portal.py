@@ -868,10 +868,31 @@ async def _ensure_portal_user(
             if not user.is_active:
                 raise HTTPException(status.HTTP_409_CONFLICT, "O acesso deste cliente ao portal está desativado")
             if email and email.lower() != user.email.lower():
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"Este cliente já acessa o portal com o e-mail {user.email}",
+                # O escritório corrigiu o e-mail do cliente (ex.: digitado errado
+                # no cadastro): o acesso ao portal passa para o e-mail novo. Os
+                # links abertos do e-mail antigo caem em _issue_magic_token.
+                outro = (
+                    await db.execute(
+                        select(User.id).where(
+                            and_(
+                                User.tenant_id == tenant_id,
+                                func.lower(User.email) == email.lower(),
+                                User.id != user.id,
+                            )
+                        )
+                    )
+                ).first()
+                if outro:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT,
+                        "Este e-mail já é usado por outro acesso deste escritório",
+                    )
+                logger.info(
+                    "E-mail do portal trocado: cliente=%s de %s para %s", client.id, user.email, email
                 )
+                user.email = email
+                user.updated_at = _now()
+                db.add(user)
             return user
 
     if not email:

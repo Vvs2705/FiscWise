@@ -191,3 +191,35 @@ async def test_self_request_limite_por_email_e_silencioso(client_with_auth_a, em
         resp = http.post("/api/v1/portal/magic-link/self-request", json={"email": client_a.email})
         assert resp.status_code == 200
     assert email_on.await_count == OTP_MAX_ATTEMPTS
+
+
+async def test_corrigir_email_do_portal_move_o_acesso(client_with_auth_a, user_a, test_db, email_on):
+    """E-mail digitado errado: o escritório informa o certo e o acesso passa para ele."""
+    http, _, client_a, _ = client_with_auth_a
+    http.post("/api/v1/portal/magic-link/request", json={"client_id": str(client_a.id)})
+    antigo = _token_from(email_on.await_args.kwargs["html"])
+
+    resp = http.post(
+        "/api/v1/portal/magic-link/request",
+        json={"client_id": str(client_a.id), "email": "certo@cliente.com"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["email"] == "certo@cliente.com"
+    assert email_on.await_args.kwargs["to"] == "certo@cliente.com"
+    novo = _token_from(email_on.await_args.kwargs["html"])
+
+    await test_db.refresh(client_a)
+    user = (await test_db.execute(select(User).where(User.id == client_a.portal_user_id))).scalar_one()
+    assert user.email == "certo@cliente.com"
+
+    # E-mail de outra pessoa do escritório continua recusado.
+    resp = http.post(
+        "/api/v1/portal/magic-link/request",
+        json={"client_id": str(client_a.id), "email": user_a.email},
+    )
+    assert resp.status_code == 409
+
+    # O link mandado ao e-mail errado não vale mais; o novo vale.
+    http.headers.pop("Authorization")
+    assert http.post("/api/v1/portal/magic-link/verify", json={"token": antigo}).status_code == 401
+    assert http.post("/api/v1/portal/magic-link/verify", json={"token": novo}).status_code == 200

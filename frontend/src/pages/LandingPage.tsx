@@ -247,7 +247,7 @@ function TopBar() {
           </Link>
           <Link to="/register" className={cn(BTN_PRIMARY, 'h-10 px-3 text-sm sm:px-4')}>
             <span>
-              Criar conta<span className="hidden sm:inline"> grátis</span>
+              Teste grátis<span className="hidden sm:inline"> por 14 dias</span>
             </span>
           </Link>
         </nav>
@@ -351,15 +351,10 @@ function SectionHeading({ id, title, description }: { id: string; title: string;
 
 function PlanCard({ plan, isAuthenticated }: { plan: Plan; isAuthenticated: boolean }) {
   const price = plan.price_monthly === null ? null : Number(plan.price_monthly);
-  const isFree = price === 0;
   const isCustom = price === null;
-  const signupHref = isAuthenticated
-    ? isFree
-      ? '/painel'
-      : `/assinatura?plano=${encodeURIComponent(plan.slug)}`
-    : isFree
-    ? '/register'
-    : `/register?plano=${encodeURIComponent(plan.slug)}`;
+  // Sem conta: todo cadastro começa com 14 dias de teste grátis do Premium
+  // (o plano é escolhido depois, dentro do sistema). Com conta: assina direto.
+  const signupHref = isAuthenticated ? `/assinatura?plano=${encodeURIComponent(plan.slug)}` : '/register';
   const pixRow = plan.tabela_precos?.find((l) => l.ciclo === 'anual');
 
   return (
@@ -393,10 +388,10 @@ function PlanCard({ plan, isAuthenticated }: { plan: Plan; isAuthenticated: bool
       ) : (
         <Link
           to={signupHref}
-          className={cn(isFree ? BTN_OUTLINE : BTN_PRIMARY, 'mt-6 h-12 w-full px-5 text-base')}
+          className={cn(BTN_PRIMARY, 'mt-6 h-12 w-full px-5 text-base')}
         >
-          {isFree ? 'Começar grátis' : `Assinar ${plan.name}`}
-          {!isFree && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+          {isAuthenticated ? `Assinar ${plan.name}` : 'Começar teste grátis'}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       )}
     </li>
@@ -414,7 +409,7 @@ function PricingSection() {
         <SectionHeading
           id="planos-title"
           title="Planos e preços"
-          description="Comece grátis. Assine quando quiser e cancele quando quiser, sem multa, direto no sistema."
+          description="Teste grátis por 14 dias com tudo do Premium, sem cartão de crédito. Depois, assine quando quiser e cancele quando quiser, sem multa, direto no sistema."
         />
 
         {visible.length > 0 ? (
@@ -427,10 +422,10 @@ function PricingSection() {
           <div className="mt-10 rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
             {isLoading && !isError
               ? 'Carregando os planos...'
-              : 'Não conseguimos carregar os preços agora. Crie sua conta grátis e veja os planos dentro do sistema.'}
+              : 'Não conseguimos carregar os preços agora. Comece seu teste grátis de 14 dias e veja os planos dentro do sistema.'}
             <div className="mt-4">
               <Link to="/register" className={cn(BTN_PRIMARY, 'h-11 px-5 text-base')}>
-                Criar conta grátis
+                Testar grátis por 14 dias
               </Link>
             </div>
           </div>
@@ -476,7 +471,7 @@ export function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link to="/register" className={cn(BTN_PRIMARY, 'h-11 px-5 text-base')}>
-                Criar conta grátis
+                Testar grátis por 14 dias
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <a href="#planos" className={cn(BTN_OUTLINE, 'h-11 px-5 text-base')}>
@@ -728,11 +723,11 @@ export function LandingPage() {
               </h2>
               <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                Cadastre o escritório e os primeiros clientes.
+                14 dias de teste grátis com tudo do Premium. Sem cartão de crédito.
               </p>
             </div>
             <Link to="/register" className={cn(BTN_PRIMARY, 'h-11 w-full px-5 text-base sm:w-auto')}>
-              Criar conta grátis
+              Testar grátis por 14 dias
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>

@@ -96,7 +96,7 @@ export function CalculatorPage() {
                     : 'bg-muted-foreground'
                 }`}
               />
-              Plano {userPlan === 'FREE' ? 'Gratuito' : userPlan === 'INTERMEDIARIO' ? 'Intermediário' : 'Premium'}
+              {userPlan === 'FREE' ? 'Sem plano ativo' : `Plano ${userPlan === 'INTERMEDIARIO' ? 'Intermediário' : 'Premium'}`}
             </span>
           </div>
         </motion.div>
@@ -150,7 +150,7 @@ export function CalculatorPage() {
                 otimizações. Quanto mais detalhes você fornecer, melhores serão as recomendações.{' '}
                 {userPlan === 'FREE' && (
                   <span className="text-primary font-medium">
-                    Faça upgrade para INTERMEDIÁRIO ou PREMIUM para desbloquear o chat com IA.
+                    Assine o Intermediário ou o Premium para desbloquear o chat com IA.
                   </span>
                 )}
               </span>

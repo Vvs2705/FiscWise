@@ -8,8 +8,12 @@ Art. 18 rights implemented:
   - Right to erasure: POST /account/delete (generates ticket, not immediate)
 """
 
+import enum
 import logging
-from datetime import datetime, timezone
+import re
+import uuid
+from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -23,21 +27,74 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/account", tags=["Account / LGPD"])
 
 
+# Colunas que nunca saem na exportação (credenciais, hashes, conteúdo cifrado).
+_COLUNAS_SENSIVEIS = re.compile(r"(hash|token|secret|senha|password|pfx|encrypted|cipher|private_key)", re.I)
+
+
+def _valor_json(v):
+    if v is None or isinstance(v, (str, int, float, bool, list, dict)):
+        return v
+    if isinstance(v, (datetime, date)):
+        return v.isoformat()
+    if isinstance(v, (uuid.UUID, Decimal)):
+        return str(v)
+    if isinstance(v, enum.Enum):
+        return v.value
+    if isinstance(v, (bytes, bytearray, memoryview)):
+        return None  # binário (ex.: arquivo de certificado) não vai no JSON
+    return str(v)
+
+
+def _linha(obj) -> dict:
+    return {
+        col.key: _valor_json(getattr(obj, col.key, None))
+        for col in obj.__mapper__.column_attrs
+        if not _COLUNAS_SENSIVEIS.search(col.key)
+    }
+
+
+def _modelos_exportados():
+    """Dados do escritório, por tabela (o nome vira a chave no JSON)."""
+    from app.models.calculator import CalculatorSimulation, FiscalAssistantMessage, TaxScenario
+    from app.models.fiscal_monitor import FiscalNFe
+    from app.models.obligation import ClientObligationProfile, DocumentChecklistItem, ObligationInstance
+    from app.models.operations import (
+        AccountingClient, AccountReceivable, ClientDocument, CompanyDocument,
+        CompanyPartner, DasPayment, DeadlineItem, DigitalCertificate,
+    )
+
+    return [
+        ("clientes", AccountingClient),
+        ("socios", CompanyPartner),
+        ("documentos_clientes", ClientDocument),
+        ("documentos_empresa", CompanyDocument),
+        ("certificados_digitais", DigitalCertificate),
+        ("contas_a_receber", AccountReceivable),
+        ("guias_das", DasPayment),
+        ("prazos", DeadlineItem),
+        ("perfis_de_obrigacoes", ClientObligationProfile),
+        ("obrigacoes", ObligationInstance),
+        ("checklist_documentos", DocumentChecklistItem),
+        ("notas_fiscais", FiscalNFe),
+        ("simulacoes_calculadora", CalculatorSimulation),
+        ("cenarios_tributarios", TaxScenario),
+        ("mensagens_assistente", FiscalAssistantMessage),
+    ]
+
+
 @router.get("/export")
 async def export_my_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
-    Export all personal data for the authenticated user and their tenant (LGPD Art. 18).
+    Exporta os dados do usuário e, para o dono, todos os dados do escritório
+    (LGPD Art. 18, I, II e V: acesso e portabilidade).
 
-    Returns a structured JSON with:
-    - User profile data
-    - Tenant data (if owner)
-    - Summary of records count (clients, documents, etc.)
-
-    NOTE: For large exports in production, this should be an async job that
-    emails the result. Current implementation returns inline for MVP.
+    Sai em JSON, uma lista por tabela (clientes, documentos, contas a receber,
+    obrigações, notas etc.). Credenciais, hashes e binários ficam de fora. Os
+    arquivos em si continuam baixáveis pelas telas (o `file_url` de cada
+    documento vai na exportação). Funciona também com a conta só leitura.
     """
     from sqlalchemy import func
     from app.models.operations import AccountingClient, ClientDocument, AccountReceivable
@@ -56,6 +113,7 @@ async def export_my_data(
     # Tenant data (only if owner)
     tenant_data = None
     record_counts = {}
+    dados: dict[str, list] = {}
 
     if current_user.role.value == "owner":
         tenant_result = await db.execute(
@@ -73,7 +131,7 @@ async def export_my_data(
                 "created_at": tenant.created_at.isoformat(),
             }
 
-        # Record counts
+        # Record counts (mantidos para quem já lia este formato)
         for model, label in [
             (AccountingClient, "clients"),
             (ClientDocument, "documents"),
@@ -89,12 +147,24 @@ async def export_my_data(
             except Exception:
                 record_counts[label] = None
 
+        for chave, model in _modelos_exportados():
+            try:
+                linhas = (
+                    await db.execute(select(model).where(model.tenant_id == current_user.tenant_id))
+                ).scalars().all()
+                dados[chave] = [_linha(obj) for obj in linhas]
+            except Exception:
+                logger.warning("export_tabela_falhou tabela=%s", chave, exc_info=True)
+                await db.rollback()
+                dados[chave] = None
+
     return {
         "export_generated_at": datetime.now(timezone.utc).isoformat(),
         "lgpd_basis": "Lei Geral de Proteção de Dados (LGPD) — Art. 18, Inciso I e IV",
         "user": user_data,
         "tenant": tenant_data,
         "record_counts": record_counts,
+        "dados": dados,
     }
 
 

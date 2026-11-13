@@ -177,6 +177,12 @@ async def generate_obligations_for_month(
         )
     tenants_result = await db.execute(tenants_stmt)
     tenants = tenants_result.scalars().all()
+    if tenant_id is None:
+        # Conta vencida (teste acabou sem assinatura) fica só leitura: a rotina
+        # não gera obrigações novas para ela.
+        from app.core.plan_access import acesso_expirado
+
+        tenants = [t for t in tenants if not acesso_expirado(t)]
 
     total_created = 0
     total_skipped = 0

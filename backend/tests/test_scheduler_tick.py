@@ -22,7 +22,9 @@ def _utc(*args):
         # 1º do mês, 03h17 (tick atrasado ainda pega a hora): obrigações
         (_utc(2026, 11, 1, 6, 17), {"generate_obligations", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # segunda-feira 09h: documentos pendentes
-        (_utc(2026, 11, 2, 12, 0), {"notify_pending_documents", "cleanup_auth_rate_limiter", "process_job_queue"}),
+        (_utc(2026, 11, 2, 12, 0), {"notify_pending_documents", "avisar_fim_do_teste", "cleanup_auth_rate_limiter", "process_job_queue"}),
+        # todo dia 09h: avisos do teste grátis
+        (_utc(2026, 11, 4, 12, 0), {"avisar_fim_do_teste", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # todo dia 08h: lembretes de pagamento
         (_utc(2026, 11, 4, 11, 0), {"send_payment_reminders", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # hora comum: só a limpeza

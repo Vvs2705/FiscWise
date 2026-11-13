@@ -15,7 +15,7 @@ import {
   EyeOff,
   Check,
   ChevronRight,
-  Star,
+  Gift,
   ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,33 +31,15 @@ import {
   type GoogleSignupRequired,
 } from '@/lib/auth';
 
-// ─── Plans ────────────────────────────────────────────────────────────────────
+// ─── Teste grátis ─────────────────────────────────────────────────────────────
 
-// Preços/limites alinhados à fonte de verdade (tabela `plans` no banco +
-// backend/app/core/pricing.py). Pix e plano anual têm 15% de desconto.
-const PLANS = [
-  {
-    slug: 'free',
-    label: 'Free',
-    price: 'Grátis',
-    description: 'Para organizar sua carteira desde o primeiro cliente',
-    features: ['Até 10 clientes', '2 usuários', 'Documentos básicos', 'Calculadora fiscal básica'],
-  },
-  {
-    slug: 'intermediario',
-    label: 'Intermediário',
-    price: 'R$ 149/mês',
-    description: 'Para contadores autônomos com carteira em expansão',
-    popular: true,
-    features: ['Até 80 clientes', '5 usuários', 'Agenda e prazos', 'Certificados digitais', 'Chat IA (20 msgs/mês)', '15% off no Pix ou no plano anual'],
-  },
-  {
-    slug: 'premium',
-    label: 'Premium',
-    price: 'R$ 349/mês',
-    description: 'Para uma operação fiscal mais completa e previsível',
-    features: ['Clientes ilimitados', 'Usuários ilimitados', 'Relatórios avançados', 'Chat IA ilimitado', 'Exportação PDF', '15% off no Pix ou no plano anual'],
-  },
+// Todo cadastro começa com 14 dias de teste grátis do Premium, sem cartão
+// (backend: onboarding.TRIAL_DAYS). Não existe mais plano Gratuito permanente.
+const TRIAL_FEATURES = [
+  'Clientes e usuários ilimitados',
+  'Chat IA ilimitado',
+  'Portal do cliente e obrigações',
+  'Exportação em PDF',
 ];
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -211,9 +193,6 @@ export function RegisterPage() {
     defaultValues: { owner_full_name: googleSignup?.full_name ?? '', owner_phone: '' },
   });
 
-  // ── Step 3 plan state ──
-  const [selectedPlan, setSelectedPlan] = useState('free');
-
   function cancelGoogleSignup() {
     clearGoogleSignup();
     setGoogleSignup(null);
@@ -247,7 +226,6 @@ export function RegisterPage() {
           document: step1Data.document,
           owner_full_name: g.owner_full_name,
           owner_phone: g.owner_phone,
-          plan_slug: selectedPlan,
           terms_accepted: true,
         });
       } catch (error) {
@@ -264,7 +242,6 @@ export function RegisterPage() {
       owner_email: step2Values.owner_email,
       owner_phone: step2Values.owner_phone,
       owner_password: step2Values.owner_password,
-      plan_slug: selectedPlan,
       terms_accepted: true,
     });
   }
@@ -283,7 +260,7 @@ export function RegisterPage() {
     [loginWithGoogle, formGoogle, step1Data],
   );
 
-  const stepLabel = ['Seu ambiente', 'Seus dados', 'Escolha o plano'][step - 1];
+  const stepLabel = ['Seu ambiente', 'Seus dados', 'Seu teste grátis'][step - 1];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -489,61 +466,25 @@ export function RegisterPage() {
           {/* ── Step 3: Plan ── */}
           {step === 3 && (
             <div className="space-y-5 animation-delay-75 animate-fade-in-up">
-              <div className="space-y-3">
-                {PLANS.map((plan) => {
-                  const active = selectedPlan === plan.slug;
-                  return (
-                    <label
-                      key={plan.slug}
-                      className={cn(
-                        'relative flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition-all duration-150',
-                        active
-                          ? 'border-primary bg-primary/5 shadow-sm'
-                          : 'hover:border-primary/40',
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="plan"
-                        value={plan.slug}
-                        checked={active}
-                        onChange={() => setSelectedPlan(plan.slug)}
-                        className="sr-only"
-                      />
-                      {/* Radio indicator */}
-                      <div
-                        className={cn(
-                          'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all',
-                          active ? 'border-primary bg-primary' : 'border-border',
-                        )}
-                      >
-                        {active && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{plan.label}</span>
-                          {plan.popular && (
-                            <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                              <Star className="h-2.5 w-2.5" />
-                              Popular
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-primary">{plan.price}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{plan.description}</p>
-                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
-                          {plan.features.map((f) => (
-                            <span key={f} className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Check className="h-3 w-3 text-success" />
-                              {f}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
+              <div className="rounded-xl border border-primary bg-primary/5 p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span className="font-semibold">14 dias grátis com tudo do Premium</span>
+                </div>
+                <p className="mt-1 text-sm font-medium text-primary">Sem cartão de crédito</p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+                  {TRIAL_FEATURES.map((f) => (
+                    <span key={f} className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Check className="h-3 w-3 text-success" />
+                      {f}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  Antes do fim do teste, escolha o Intermediário ou o Premium para continuar. Sem
+                  assinatura, a conta fica só para leitura: você consulta e exporta seus dados, mas
+                  não cadastra nem edita.
+                </p>
               </div>
 
               {/* LGPD — terms acceptance checkbox */}
@@ -583,7 +524,7 @@ export function RegisterPage() {
                   disabled={isLoading}
                   onClick={handleFinish}
                 >
-                  {isLoading ? 'Criando conta...' : 'Criar minha conta'}
+                  {isLoading ? 'Criando conta...' : 'Começar teste grátis'}
                 </Button>
               </div>
             </div>

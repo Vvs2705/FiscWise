@@ -31,7 +31,7 @@ export function LoginTopBar() {
               FOCUS_RING,
             ].join(' ')}
           >
-            Criar conta grátis
+            Teste grátis por 14 dias
           </Link>
         </div>
       </div>

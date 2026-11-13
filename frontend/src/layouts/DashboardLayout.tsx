@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
+import { TrialBanner } from '@/components/TrialBanner';
 import { useAuthStore } from '@/stores/authStore';
 import { maybeStartWelcomeTour } from '@/lib/welcomeTour';
 
@@ -22,6 +23,7 @@ export function DashboardLayout() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header />
+        <TrialBanner />
         {/* key no pathname re-monta o conteúdo e dispara a entrada (fade + 6px, 250 ms) */}
         <main
           key={location.pathname}

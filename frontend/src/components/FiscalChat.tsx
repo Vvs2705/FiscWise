@@ -128,9 +128,9 @@ export function FiscalChat({ userPlan: rawPlan = 'FREE' }: Props) {
           <Lock className="h-7 w-7 text-warning" />
         </div>
         <div>
-          <p className="text-base font-semibold text-foreground">Chat com IA não disponível no plano Gratuito</p>
+          <p className="text-base font-semibold text-foreground">Chat com IA não disponível agora</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Faça upgrade para o plano{' '}
+            Seu teste grátis acabou ou a conta está sem plano. Assine o plano{' '}
             <strong className="text-warning">Intermediário</strong> (20 mensagens/mês) ou{' '}
             <strong className="text-primary">Premium</strong> (ilimitado) para conversar com o assistente fiscal.
           </p>

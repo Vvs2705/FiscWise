@@ -66,6 +66,10 @@ def _job_definitions():
         ("purge_sync_events", "Purge Old Sync Events",
          purge_sync_events_scheduled,
          CronTrigger(hour=4, minute=30, timezone=TZ_BR)),
+        # Avisos do teste grátis (3 dias, 1 dia, no dia e depois de vencer) — 09:00 (Brasília)
+        ("avisar_fim_do_teste", "Trial Ending Notices",
+         avisar_fim_do_teste_scheduled,
+         CronTrigger(hour=9, minute=0, timezone=TZ_BR)),
     ]
 
 
@@ -226,7 +230,10 @@ async def generate_monthly_billing_scheduled():
                     Tenant.subscription_status.in_([SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE])
                 )
             )
-            tenants = result.scalars().all()
+            from app.core.plan_access import acesso_expirado
+
+            # Conta vencida (só leitura) não ganha honorários novos.
+            tenants = [t for t in result.scalars().all() if not acesso_expirado(t)]
 
             total_created = 0
             total_skipped = 0
@@ -338,6 +345,7 @@ async def send_payment_reminders_scheduled():
             from app.models.notification import NotificationMessage
             from app.models.operations import AccountingClient
             from app.models.tenant import Tenant
+            from app.core.plan_access import acesso_expirado
             from app.services.email_service import render_payment_reminder_email
             from app.services.notification_engine import deliver_client_email
 
@@ -387,6 +395,10 @@ async def send_payment_reminders_scheduled():
                         )
                     )
                     tenant = await db.scalar(select(Tenant).where(Tenant.id == receivable.tenant_id))
+                    if acesso_expirado(tenant):
+                        # Conta vencida (só leitura): sem e-mail para os clientes dela.
+                        counts["skipped"] += 1
+                        continue
                     body, _html = render_payment_reminder_email(
                         client_name=client.name if client else "cliente",
                         description=receivable.description,
@@ -418,6 +430,103 @@ async def send_payment_reminders_scheduled():
             )
     except Exception as e:
         logger.error(f"Error in scheduled payment reminders: {str(e)}")
+
+
+# Marcos do aviso do teste grátis: dias que faltam (em Brasília) → marco.
+# -1 = venceu ontem (a conta ficou só leitura).
+_MARCOS_TESTE = {3: "d3", 1: "d1", 0: "d0", -1: "vencido"}
+
+
+async def avisar_fim_do_teste_scheduled(now: datetime | None = None) -> dict:
+    """E-mail ao dono quando faltam 3 dias, 1 dia, no último dia e quando vence.
+
+    Cada aviso sai uma vez só: a marca `aviso_teste:<escritório>:<marco>` vai
+    para billing_webhook_events (provider "fiscwise"), cujo índice único
+    segura a repetição mesmo se o Cloud Scheduler repetir o tick.
+    """
+    from sqlalchemy import and_, select
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.config import settings
+    from app.core.deps import _set_current_tenant_context, get_sessionmaker
+    from app.core.plan_access import RETENCAO_APOS_VENCER_DIAS
+    from app.models.billing import BillingWebhookEvent, TenantSubscription
+    from app.models.user import User, UserRole
+    from app.services.email_service import render_aviso_teste_email, send_email
+
+    agora = now or datetime.now(timezone.utc)
+    hoje = agora.astimezone(TZ_BR).date()
+    link = f"{settings.APP_URL.rstrip('/')}/assinatura"
+    counts = {"sent": 0, "duplicate": 0, "failed": 0, "no_owner": 0}
+
+    async_session = get_sessionmaker()
+    async with async_session() as db:
+        subs = (
+            await db.execute(
+                select(TenantSubscription).where(
+                    and_(
+                        TenantSubscription.status == "trialing",
+                        TenantSubscription.trial_ends_at.is_not(None),
+                        TenantSubscription.trial_ends_at >= agora - timedelta(days=2),
+                        TenantSubscription.trial_ends_at <= agora + timedelta(days=4),
+                    )
+                )
+            )
+        ).scalars().all()
+
+        for sub in subs:
+            fim = sub.trial_ends_at
+            if fim.tzinfo is None:  # SQLite devolve sem fuso
+                fim = fim.replace(tzinfo=timezone.utc)
+            fim_br = fim.astimezone(TZ_BR).date()
+            marco = _MARCOS_TESTE.get((fim_br - hoje).days)
+            if marco is None:
+                continue
+            try:
+                await _set_current_tenant_context(db, sub.tenant_id)
+                db.add(BillingWebhookEvent(
+                    provider="fiscwise", event_id=f"aviso_teste:{sub.tenant_id}:{marco}",
+                    event_type="aviso_teste", payload={"marco": marco},
+                    processed=True, processed_at=agora,
+                ))
+                await db.flush()
+            except IntegrityError:
+                await db.rollback()
+                counts["duplicate"] += 1
+                continue
+
+            dono = await db.scalar(
+                select(User).where(
+                    User.tenant_id == sub.tenant_id,
+                    User.role == UserRole.OWNER,
+                    User.is_active.is_(True),
+                ).order_by(User.created_at).limit(1)
+            )
+            if dono is None:
+                await db.commit()
+                counts["no_owner"] += 1
+                continue
+            assunto, html = render_aviso_teste_email(
+                marco,
+                fim_label=fim_br.strftime("%d/%m/%Y"),
+                link_assinar=link,
+                retencao_label=(fim_br + timedelta(days=RETENCAO_APOS_VENCER_DIAS)).strftime("%d/%m/%Y"),
+            )
+            enviado = await send_email(
+                to=dono.email, subject=assunto, html=html,
+                idempotency_key=f"aviso_teste:{sub.tenant_id}:{marco}",
+            )
+            if enviado:
+                await db.commit()
+                counts["sent"] += 1
+            else:
+                # Sem envio (Resend fora ou desligado): desfaz a marca, para que
+                # um novo disparo da rotina no mesmo dia tente de novo.
+                await db.rollback()
+                counts["failed"] += 1
+
+    logger.info("Trial ending notices: %s", counts)
+    return counts
 
 
 SYNC_EVENTS_RETENTION_DAYS = 90

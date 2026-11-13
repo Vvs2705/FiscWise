@@ -62,6 +62,42 @@ def ensure_signup_complete(tenant: Optional[Tenant], path: str) -> None:
         headers={"X-Error-Code": SIGNUP_INCOMPLETE_CODE},
     )
 
+# Conta vencida (teste grátis acabou sem assinatura, assinatura suspensa ou
+# período pago encerrado) fica SÓ LEITURA: GET continua; escrita responde 402.
+# Ficam liberados entrar, assinar, exportar/excluir os dados e o registro do
+# app offline (para ele continuar baixando os dados).
+ACESSO_EXPIRADO_CODE = "ACESSO_EXPIRADO"
+ACESSO_EXPIRADO_DETAIL = (
+    "Seu teste grátis acabou. Assine um plano para voltar a cadastrar e editar. "
+    "Seus dados continuam disponíveis para consulta e exportação."
+)
+_METODOS_ESCRITA = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_ESCRITA_LIBERADA_PREFIXOS = (
+    "/api/v1/auth/",
+    "/api/v1/billing/",
+    "/api/v1/account/",
+    "/api/v1/onboarding/",
+    "/api/v1/subscription/",
+    "/api/v1/sync/devices",
+    "/api/v1/admin/",  # equipe FiscWise; tem a própria checagem de permissão
+)
+
+
+def ensure_acesso_ativo(tenant: Optional[Tenant], request: Request, user_email: Optional[str] = None) -> None:
+    metodo = str(getattr(request, "method", "GET") or "GET").upper()
+    if metodo not in _METODOS_ESCRITA:
+        return
+    if request.url.path.startswith(_ESCRITA_LIBERADA_PREFIXOS):
+        return
+    from app.core.plan_access import acesso_expirado
+
+    if acesso_expirado(tenant, user_email):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=ACESSO_EXPIRADO_DETAIL,
+            headers={"X-Error-Code": ACESSO_EXPIRADO_CODE},
+        )
+
 logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
@@ -329,6 +365,7 @@ async def get_current_user(
 
     if user.role != UserRole.CLIENT:
         ensure_signup_complete(user.tenant, request.url.path)
+        ensure_acesso_ativo(user.tenant, request, user.email)
 
     return user
 
@@ -431,6 +468,9 @@ async def get_current_device(
 
     tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
     ensure_signup_complete(tenant, request.url.path)
+    # Conta vencida: o app offline continua baixando (pull), mas o push volta
+    # 402 e os eventos ficam na fila local (engine.markTransportError).
+    ensure_acesso_ativo(tenant, request, user.email)
 
     device.last_seen_at = datetime.now(timezone.utc)
     await db.commit()
@@ -482,6 +522,7 @@ async def _authenticate_api_key(request: Request, raw_key: str, db: AsyncSession
         raise invalid
     tenant = await db.scalar(select(Tenant).where(Tenant.id == key.tenant_id))
     ensure_signup_complete(tenant, request.url.path)
+    ensure_acesso_ativo(tenant, request, owner.email)
 
     request.state.auth_method = "api_key"
     request.state.api_key_id = str(key.id)

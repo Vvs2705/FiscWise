@@ -22,7 +22,8 @@ type FormValues = z.infer<typeof schema>;
 /**
  * Escritório sem cadastro concluído (p.ex. criado pelo antigo login Google
  * automático): o servidor recusa todo o sistema com 403 SIGNUP_INCOMPLETE até
- * o responsável informar o escritório e aceitar os Termos. Plano: Gratuito.
+ * o responsável informar o escritório e aceitar os Termos. A conta começa
+ * com 14 dias de teste grátis do Premium (backend: onboarding.complete-signup).
  */
 export function CompleteSignupPage() {
   const navigate = useNavigate();
@@ -92,7 +93,8 @@ export function CompleteSignupPage() {
             <h1 className="text-2xl font-bold tracking-[-0.02em]">Concluir cadastro</h1>
             <p className="text-sm text-muted-foreground">
               Antes de usar o FiscWise, informe o seu escritório e aceite os Termos de Uso. A conta
-              começa no plano Gratuito; você pode mudar de plano depois.
+              começa com 14 dias de teste grátis do Premium, sem cartão; depois, assine o plano que
+              preferir.
             </p>
           </div>
 

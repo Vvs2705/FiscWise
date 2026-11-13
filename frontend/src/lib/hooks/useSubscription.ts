@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { fetchTenant, type TenantData } from '@/lib/auth';
 
 export interface UsageItem {
   used: number;
@@ -63,5 +64,19 @@ export function useAvailablePlans() {
       return res.data;
     },
     staleTime: 30 * 60 * 1000, // 30 minutes — plans rarely change
+  });
+}
+
+/**
+ * Escritório atual (GET /api/v1/auth/tenant): plano efetivo e situação do
+ * teste grátis (`em_teste`, `trial_dias_restantes`, `acesso_expirado`).
+ * Mesma chave ['tenant'] usada nas outras telas, para uma busca só.
+ */
+export function useTenantInfo(enabled = true) {
+  return useQuery<TenantData>({
+    queryKey: ['tenant'],
+    queryFn: fetchTenant,
+    staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }

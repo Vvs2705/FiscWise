@@ -54,10 +54,10 @@ test('/: página inicial pública mostra o H1 e o cadastro', async ({ page }) =>
   const h1 = page.getByRole('heading', { level: 1 })
   await expect(h1).toHaveCount(1)
   await expect(h1).toHaveText('Sua carteira de clientes em dia, sem planilha e sem prazo perdido.')
-  await expect(page.getByRole('link', { name: 'Criar conta grátis' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Testar grátis por 14 dias' }).first()).toBeVisible()
 })
 
-test('/: planos e preços com botão Assinar visível em cada plano pago', async ({ page }) => {
+test('/: planos e preços sem plano Gratuito e com o teste grátis em cada plano', async ({ page }) => {
   const { DEMO_PLANS } = await import('./minicurso-demo-api')
   await page.route(/\/api\/v1\/subscription\/plans/, (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DEMO_PLANS) }),
@@ -65,9 +65,9 @@ test('/: planos e preços com botão Assinar visível em cada plano pago', async
   await page.goto('/')
   await page.getByRole('link', { name: 'Ver planos e preços' }).click()
   await expect(page.getByRole('heading', { name: 'Planos e preços' })).toBeInViewport()
-  const assinar = page.getByRole('link', { name: 'Assinar Intermediário' })
-  await expect(assinar).toBeVisible()
-  await expect(assinar).toHaveAttribute('href', '/register?plano=intermediario')
-  await expect(page.getByRole('link', { name: 'Começar grátis' })).toBeVisible()
+  const teste = page.getByRole('link', { name: 'Começar teste grátis' }).first()
+  await expect(teste).toBeVisible()
+  await expect(teste).toHaveAttribute('href', '/register')
+  await expect(page.getByRole('heading', { name: 'Gratuito' })).toHaveCount(0)
   await expect(page.getByText('Sem multa', { exact: false }).first()).toBeVisible()
 })

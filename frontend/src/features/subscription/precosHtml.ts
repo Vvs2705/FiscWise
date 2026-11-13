@@ -22,16 +22,13 @@ const BRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 
 function planCard(plan: Plan): string {
   const price = plan.price_monthly === null ? null : Number(plan.price_monthly);
-  const isFree = price === 0;
   const isCustom = price === null;
   const pixRow = plan.tabela_precos?.find((l) => l.ciclo === 'anual');
   const description = planDescription(plan);
 
   const cta = isCustom
     ? `<a class="btn btn-outline" href="mailto:contato@vstack-solutions.com.br?subject=Plano%20Enterprise%20FiscWise">Falar com a equipe</a>`
-    : isFree
-    ? `<a class="btn btn-outline" href="/register">Começar grátis</a>`
-    : `<a class="btn btn-primary" href="/register?plano=${encodeURIComponent(plan.slug)}">Assinar ${escapeHtml(plan.name)}</a>`;
+    : `<a class="btn btn-primary" href="/register">Começar teste grátis</a>`;
 
   return [
     '<li class="card">',
@@ -61,6 +58,6 @@ export function renderPlansFallback(state: 'loading' | 'error'): string {
   const text =
     state === 'loading'
       ? 'Carregando os planos...'
-      : 'Não conseguimos carregar os preços agora. Crie sua conta grátis e veja os planos dentro do sistema.';
-  return `<div class="card notice"${state === 'loading' ? ' aria-busy="true"' : ''}><p class="muted">${text}</p><a class="btn btn-primary" href="/register">Criar conta grátis</a></div>`;
+      : 'Não conseguimos carregar os preços agora. Comece seu teste grátis de 14 dias e veja os planos dentro do sistema.';
+  return `<div class="card notice"${state === 'loading' ? ' aria-busy="true"' : ''}><p class="muted">${text}</p><a class="btn btn-primary" href="/register">Testar grátis por 14 dias</a></div>`;
 }

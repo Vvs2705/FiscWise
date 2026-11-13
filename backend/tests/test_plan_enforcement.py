@@ -154,7 +154,7 @@ def authed_client(test_db: AsyncSession):
 # ---------------------------------------------------------------------------
 
 
-PDF_PAYLOAD = {"simulation_id": str(uuid.uuid4())}  # 403 dispara antes do fetch
+PDF_PAYLOAD = {"simulation_id": str(uuid.uuid4())}  # 402/403 disparam antes do fetch
 
 
 @pytest.mark.asyncio
@@ -168,7 +168,9 @@ async def test_sub_suspensa_nega_feature_premium(test_db, premium_setup, authed_
 
     client = authed_client(user)
     resp = client.post("/api/v1/calculator/export-pdf", json=PDF_PAYLOAD)
-    assert resp.status_code == 403, resp.text
+    # Sem plano em vigor a conta fica só leitura (teste grátis, 13/11/2026).
+    assert resp.status_code == 402, resp.text
+    assert resp.headers.get("X-Error-Code") == "ACESSO_EXPIRADO"
 
     # A visão do tenant também mostra o plano degradado
     resp = client.get("/api/v1/auth/tenant")
@@ -188,7 +190,7 @@ async def test_trial_expirado_degrada_para_free(test_db, premium_setup, authed_c
 
     client = authed_client(user)
     resp = client.post("/api/v1/calculator/export-pdf", json=PDF_PAYLOAD)
-    assert resp.status_code == 403, resp.text
+    assert resp.status_code == 402, resp.text
 
 
 @pytest.mark.asyncio
@@ -275,27 +277,43 @@ async def test_onboarding_premium_cria_trial_de_14_dias(register_client, test_db
 
 
 @pytest.mark.asyncio
-async def test_onboarding_free_sem_subscription(register_client, test_db):
-    resp = register_client.post("/api/v1/onboarding/register", json={
-        "company_name": "Escritório Free",
-        "owner_email": "free@escritorio.com",
-        "owner_password": "SenhaSegura123!",
-        "terms_accepted": True,
-    })
-    assert resp.status_code == 200, resp.text
-    tenant_id = uuid.UUID(resp.json()["tenant_id"])
+async def test_onboarding_sem_plano_ganha_teste_do_premium(register_client, test_db):
+    """Sem plano (ou "free", de telas antigas): 14 dias de teste do Premium."""
+    plan = Plan(
+        id=uuid.uuid4(), slug="premium", name="Premium",
+        price_monthly=Decimal("299.00"), active=True,
+    )
+    test_db.add(plan)
+    await test_db.commit()
 
-    tenant = (
-        await test_db.execute(select(Tenant).where(Tenant.id == tenant_id))
-    ).scalar_one()
-    assert tenant.plan_slug == "free"
+    for email, extra in (("sem@escritorio.com", {}), ("free@escritorio.com", {"plan_slug": "free"})):
+        resp = register_client.post("/api/v1/onboarding/register", json={
+            "company_name": f"Escritório {email}",
+            "owner_email": email,
+            "owner_password": "SenhaSegura123!",
+            "terms_accepted": True,
+            **extra,
+        })
+        assert resp.status_code == 200, resp.text
+        tenant_id = uuid.UUID(resp.json()["tenant_id"])
 
-    sub = (
-        await test_db.execute(
-            select(TenantSubscription).where(TenantSubscription.tenant_id == tenant_id)
-        )
-    ).scalar_one_or_none()
-    assert sub is None  # free: sem trial, nunca degrada
+        tenant = (
+            await test_db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        ).scalar_one()
+        assert tenant.plan_slug == "premium"
+        assert tenant.terms_version == "v1.2"
+
+        sub = (
+            await test_db.execute(
+                select(TenantSubscription).where(TenantSubscription.tenant_id == tenant_id)
+            )
+        ).scalar_one()
+        assert sub.status == "trialing"
+        assert sub.plan_id == plan.id
+        fim = sub.trial_ends_at
+        if fim.tzinfo is None:
+            fim = fim.replace(tzinfo=timezone.utc)
+        assert timedelta(days=13) < fim - datetime.now(timezone.utc) <= timedelta(days=14)
 
 
 @pytest.mark.asyncio

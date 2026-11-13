@@ -303,6 +303,50 @@ def render_payment_reminder_email(
     return text, render_client_message_email("Lembrete de pagamento", text)
 
 
+def render_aviso_teste_email(
+    marco: str, fim_label: str, link_assinar: str, retencao_label: str = ""
+) -> tuple[str, str]:
+    """Assunto e HTML dos avisos do teste grátis.
+
+    marco: "d3" (faltam 3 dias), "d1" (amanhã), "d0" (hoje) ou "vencido".
+    """
+    textos = {
+        "d3": (
+            "Seu teste grátis do FiscWise acaba em 3 dias",
+            f"Seu teste grátis de 14 dias acaba em {fim_label}. Para continuar "
+            "cadastrando e editando sem interrupção, escolha um plano.",
+        ),
+        "d1": (
+            "Seu teste grátis do FiscWise acaba amanhã",
+            f"Seu teste grátis acaba amanhã, {fim_label}. Assine agora para não "
+            "perder o acesso de edição.",
+        ),
+        "d0": (
+            "Seu teste grátis do FiscWise acaba hoje",
+            "Seu teste grátis acaba hoje. Depois disso a conta fica só para "
+            "leitura até você assinar um plano.",
+        ),
+        "vencido": (
+            "Seu teste grátis do FiscWise acabou",
+            "Seu teste grátis acabou e a conta ficou só para leitura: você "
+            "continua vendo e exportando seus dados, mas não cadastra nem edita. "
+            f"Os dados ficam guardados até {retencao_label}. Assine um plano para "
+            "voltar a usar tudo.",
+        ),
+    }
+    assunto, texto = textos[marco]
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(assunto)}</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:{_MUTED};">{_html.escape(texto)}</p>
+<div style="text-align:center;margin:0 0 20px 0;">
+  <a href="{_html.escape(link_assinar, quote=True)}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Escolher um plano</a>
+</div>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Seus dados continuam seus: em Configurações você pode exportar tudo a qualquer momento.
+</p>"""
+    return assunto, _base_layout(inner)
+
+
 def render_portal_magic_link_email(link: str) -> str:
     """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
     inner = f"""\

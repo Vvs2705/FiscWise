@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
 from app.core.deps import get_current_user, get_db, signup_complete
+from app.core.plan_access import TRIAL_DAYS
 from app.core.security import create_access_token, get_password_hash, verify_google_signup_token
 from app.models.billing import TenantSubscription
 from app.models.plan import Plan
@@ -35,27 +36,35 @@ from app.schemas.token import AuthResponse, UserInfo
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Trial honesto: o plano escolhido vale por 14 dias; sem pagamento, o
-# enforcement (plan_access.effective_plan_slug) degrada para free sozinho.
-TRIAL_DAYS = 14
+# Teste grátis: todo escritório novo começa com 14 dias do Premium (ou do
+# plano pago escolhido), sem cartão. Sem pagamento, a conta fica só leitura
+# (plan_access.acesso_expirado). O plano Gratuito permanente deixou de existir
+# em 13/11/2026.
+TRIAL_PLAN_SLUG = "premium"
 
-
-TERMS_VERSION = "v1.1"
+# v1.2 (13/11/2026): Termos passam a descrever o teste grátis no lugar do
+# plano Gratuito.
+TERMS_VERSION = "v1.2"
 
 
 async def _resolve_signup_plan(db: AsyncSession, plan_slug: Optional[str]) -> tuple[str, Optional[Plan]]:
-    """Plano escolhido no cadastro (validado contra os planos ativos).
+    """Plano do teste grátis (validado contra os planos ativos).
 
-    Pago = trial de 14 dias (TenantSubscription trialing); free = sem trial,
-    sem assinatura (nunca degrada). NUNCA concede plano pago sem essa janela
-    de trial — pós-trial, só webhook de pagamento/admin mantém o plano.
+    Sem plano (ou "free", de telas antigas) = teste do Premium. Todo cadastro
+    ganha 14 dias de teste (TenantSubscription trialing). NUNCA concede plano
+    pago sem essa janela — depois dela, só pagamento/admin mantém o plano.
     """
-    chosen_slug = (plan_slug or "free").strip().lower()
+    chosen_slug = (plan_slug or TRIAL_PLAN_SLUG).strip().lower()
     if chosen_slug == "free":
-        return chosen_slug, None
+        chosen_slug = TRIAL_PLAN_SLUG
     chosen_plan = (await db.execute(
         select(Plan).where(Plan.slug == chosen_slug, Plan.active.is_(True))
     )).scalar_one_or_none()
+    if chosen_plan is None and chosen_slug == TRIAL_PLAN_SLUG and plan_slug in (None, "", "free"):
+        # Banco sem o plano do teste (instalação incompleta): cria a conta sem
+        # teste, com os limites mínimos — nunca ganha plano pago de graça.
+        logger.error("Plano '%s' do teste grátis não encontrado; cadastro sem teste", TRIAL_PLAN_SLUG)
+        return "free", None
     if chosen_plan is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -71,6 +80,7 @@ def _add_trial_subscription(db: AsyncSession, tenant_id, plan: Plan, now_utc: da
         plan_id=plan.id,
         status="trialing",
         trial_ends_at=now_utc + timedelta(days=TRIAL_DAYS),
+        billing_provider="mercadopago",
         billing_cycle="mensal",
         amount=plan.price_monthly,
         currency="BRL",
@@ -285,7 +295,7 @@ async def complete_signup(
     """Escritório criado sem cadastro completo (antigo login Google automático
     ou contas antigas): o dono informa o escritório e aceita os Termos.
 
-    Não mexe no plano: sem assinatura, a conta segue no Gratuito.
+    Sem assinatura, o escritório ganha o teste grátis de 14 dias.
     """
     tenant = current_user.tenant
     if signup_complete(tenant):
@@ -299,9 +309,12 @@ async def complete_signup(
     tenant.name = body.company_name.strip()
     if body.document:
         tenant.document = body.document.strip()
-    if not tenant.plan_slug or tenant.subscription is None:
-        # Sem assinatura paga = Gratuito (slug legado/inválido também vira free).
-        tenant.plan_slug = "free"
+    if tenant.subscription is None:
+        # Sem assinatura: começa o teste grátis (o Gratuito não existe mais).
+        slug, plano = await _resolve_signup_plan(db, None)
+        tenant.plan_slug = slug
+        if plano is not None:
+            _add_trial_subscription(db, tenant.id, plano, datetime.now(timezone.utc))
     if body.owner_full_name:
         current_user.full_name = body.owner_full_name.strip()
     if body.owner_phone:

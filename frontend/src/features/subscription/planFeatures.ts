@@ -36,7 +36,6 @@ export function planFeatureList(plan: Pick<Plan, 'max_clients' | 'max_users' | '
 
 /** Texto aprovado de cada plano (mesmo da página inicial). O do banco é só reserva. */
 const PLAN_COPY: Record<string, string> = {
-  free: 'Para experimentar o FiscWise com uma carteira pequena.',
   intermediario: 'Para escritórios em crescimento: portal do cliente, calendário de obrigações e IA fiscal.',
   premium: 'Sem limite de clientes e usuários, com dossiê em PDF e IA fiscal sem limite mensal.',
   enterprise: 'Para redes e grandes escritórios: migração assistida, SLA dedicado e contrato personalizado.',
@@ -46,10 +45,18 @@ export function planDescription(plan: Pick<Plan, 'slug' | 'description'>): strin
   return PLAN_COPY[plan.slug] ?? plan.description ?? null;
 }
 
-/** Ordem da vitrine: Gratuito, pagos do mais barato ao mais caro, "sob consulta" por último. */
-export function sortPlans<T extends Pick<Plan, 'price_monthly'>>(plans: T[]): T[] {
+/** Plano Gratuito antigo (não existe mais: hoje há teste grátis de 14 dias). */
+export function isLegacyFreePlan(plan: Pick<Plan, 'price_monthly'> & { slug?: string }): boolean {
+  return plan.slug === 'free' || (plan.price_monthly !== null && Number(plan.price_monthly) === 0);
+}
+
+/**
+ * Ordem da vitrine: pagos do mais barato ao mais caro, "sob consulta" por último.
+ * O plano Gratuito antigo fica de fora (foi trocado pelo teste grátis de 14 dias).
+ */
+export function sortPlans<T extends Pick<Plan, 'price_monthly'> & { slug?: string }>(plans: T[]): T[] {
   const key = (p: T) => (p.price_monthly === null ? Number.POSITIVE_INFINITY : Number(p.price_monthly));
-  return [...plans].sort((a, b) => key(a) - key(b));
+  return plans.filter((p) => !isLegacyFreePlan(p)).sort((a, b) => key(a) - key(b));
 }
 
 /** Preço vindo do backend; nenhum número fixo no frontend. Sem preço = sob consulta. */

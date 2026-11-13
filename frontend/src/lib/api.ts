@@ -1,6 +1,23 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { API_URL } from './apiUrl';
 import { clearApiCache } from './offline/apiCache';
+import { toast } from 'sonner';
+
+/** Conta só para leitura (teste grátis ou período pago acabou sem assinatura). */
+export const ACESSO_EXPIRADO_CODE = 'ACESSO_EXPIRADO';
+/** Evento de janela disparado a cada 402 ACESSO_EXPIRADO (a faixa do layout se atualiza). */
+export const ACESSO_EXPIRADO_EVENT = 'fiscwise:acesso-expirado';
+const ACESSO_EXPIRADO_FALLBACK =
+  'Seu teste grátis acabou. Assine um plano para voltar a cadastrar e editar. ' +
+  'Seus dados continuam disponíveis para consulta e exportação.';
+
+export function isAcessoExpiradoError(error: unknown): boolean {
+  return (
+    axios.isAxiosError(error) &&
+    error.response?.status === 402 &&
+    String(error.response.headers?.['x-error-code'] ?? '') === ACESSO_EXPIRADO_CODE
+  );
+}
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -123,6 +140,19 @@ api.interceptors.response.use(
     }
 
     const config = error.config as RetriableConfig | undefined;
+
+    // Conta só para leitura: avisa com o caminho para assinar, sem deslogar.
+    // O id fixo junta vários 402 seguidos num aviso só.
+    if (isAcessoExpiradoError(error)) {
+      const detail = (error.response.data as { detail?: unknown } | undefined)?.detail;
+      toast.error(typeof detail === 'string' && detail.trim() ? detail : ACESSO_EXPIRADO_FALLBACK, {
+        id: ACESSO_EXPIRADO_CODE,
+        duration: 10_000,
+        action: { label: 'Assinar', onClick: () => window.location.assign('/assinatura') },
+      });
+      window.dispatchEvent(new Event(ACESSO_EXPIRADO_EVENT));
+      return Promise.reject(error);
+    }
 
     // Escritório sem cadastro concluído: o servidor recusa o sistema todo.
     if (

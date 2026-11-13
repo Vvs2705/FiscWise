@@ -14,10 +14,13 @@ describe('renderPlanCards', () => {
       plan({ slug: 'premium', name: 'Premium', price_monthly: 349 }),
       plan({ slug: 'free', name: 'Gratuito', price_monthly: 0 }),
     ]);
-    const order = ['Gratuito', 'Premium', 'Enterprise'].map((n) => html.indexOf(`<h2>${n}</h2>`));
+    const order = ['Premium', 'Enterprise'].map((n) => html.indexOf(`<h2>${n}</h2>`));
     expect(order).toEqual([...order].sort((a, b) => a - b));
+    // O Gratuito antigo saiu da vitrine: hoje há teste grátis de 14 dias.
+    expect(html).not.toContain('<h2>Gratuito</h2>');
+    expect(html).toContain('Começar teste grátis');
     expect(html).toMatch(/R\$\s349,00\/mês/);
-    expect(html).toContain('href="/register?plano=premium"');
+    expect(html).toContain('href="/register"');
     expect(html).toContain('Sob consulta');
   });
 

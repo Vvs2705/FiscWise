@@ -101,6 +101,7 @@ import {
   type WebhookSubscriptionCreated,
 } from '@/lib/hooks/useDeveloper';
 import { formatLocalDate } from '@/lib/dates';
+import { downloadMyDataExport } from '@/lib/accountExport';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Dialog } from '@/components/ui/Dialog';
 import { FeatureGate } from '@/components/ui/FeatureGate';
@@ -364,16 +365,7 @@ function PrivacyDataCard({ isOwner }: { isOwner: boolean }) {
   async function handleExport() {
     setExporting(true);
     try {
-      const { data } = await api.get('/api/v1/account/export');
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `fiscwise-meus-dados-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await downloadMyDataExport();
       toast.success('Exportação concluída.');
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Não foi possível exportar seus dados.'));
@@ -410,7 +402,8 @@ function PrivacyDataCard({ isOwner }: { isOwner: boolean }) {
           <div>
             <p className="text-sm font-medium">Exportar meus dados</p>
             <p className="text-xs text-muted-foreground">
-              Baixa um arquivo JSON com seu perfil{isOwner ? ', os dados do escritório e a contagem de registros' : ''}.
+              Baixa um arquivo JSON com seu perfil
+              {isOwner ? ', os dados do escritório, clientes, documentos, contas a receber e obrigações' : ''}.
             </p>
           </div>
           <Button variant="outline" onClick={handleExport} disabled={exporting}>
@@ -672,8 +665,12 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
   const activeDbPlan = dbPlans?.find((plan) => plan.slug === currentSlug) ?? null;
   const currentPlanName = activeDbPlan?.name ?? usage?.plan_name ?? currentSlug;
   const subAtiva = !!subscription && (subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due');
-  const cancelScheduled = subAtiva && !!subscription?.cancelled_at;
-  const hasPaidPlan = subAtiva && currentSlug !== 'free';
+  // Teste grátis de 14 dias: plano efetivo é o Premium, mas ainda não há assinatura paga.
+  const emTeste = tenant?.em_teste ?? subscription?.status === 'trialing';
+  const acessoExpirado = !!tenant?.acesso_expirado;
+  const cancelScheduled = subAtiva && !emTeste && !!subscription?.cancelled_at;
+  const hasPaidPlan = subAtiva && !emTeste && !acessoExpirado && currentSlug !== 'free';
+  const fimDoTeste = tenant?.trial_ends_at ?? subscription?.trial_ends_at ?? null;
   // Assinatura paga confirmada vale mais que o status gravado no escritório.
   const statusKey = subscription?.status === 'active' ? 'active' : tenant?.subscription_status ?? 'trial';
 
@@ -722,21 +719,56 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Plano atual</p>
-              <p className="mt-0.5 text-2xl font-bold">{currentPlanName}</p>
-              {activeDbPlan && (
+              <p className="mt-0.5 text-2xl font-bold">
+                {acessoExpirado ? 'Sem plano' : emTeste ? `${currentPlanName} (teste grátis)` : currentPlanName}
+              </p>
+              {activeDbPlan && !emTeste && !acessoExpirado && (
                 <p className="text-sm text-muted-foreground">{formatPlanPrice(activeDbPlan.price_monthly)}</p>
               )}
             </div>
-            <Badge variant={cancelScheduled ? 'default' : statusTone[statusKey] ?? 'warning'}>
-              {cancelScheduled ? 'Cancelamento agendado' : statusLabel[statusKey] ?? 'Trial'}
+            <Badge
+              variant={
+                acessoExpirado ? 'error' : emTeste ? 'warning' : cancelScheduled ? 'default' : statusTone[statusKey] ?? 'warning'
+              }
+            >
+              {acessoExpirado
+                ? 'Só leitura'
+                : emTeste
+                ? 'Teste grátis'
+                : cancelScheduled
+                ? 'Cancelamento agendado'
+                : statusLabel[statusKey] ?? 'Trial'}
             </Badge>
           </div>
+
+          {emTeste && !acessoExpirado && (
+            <div role="status" className="rounded-lg border border-border bg-card p-3 text-sm text-foreground">
+              Você está no teste grátis de 14 dias com tudo do Premium
+              {fimDoTeste ? (
+                <>
+                  , até <strong>{formatLocalDate(fimDoTeste)}</strong>
+                </>
+              ) : null}
+              . Assine o Intermediário ou o Premium antes do fim para continuar cadastrando e editando.
+              Sem assinatura, a conta fica só para leitura e seus dados continuam disponíveis para
+              consulta e exportação.
+            </div>
+          )}
+
+          {acessoExpirado && (
+            <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
+              Seu teste grátis (ou período pago) acabou e a conta está só para leitura. Assine um plano para
+              voltar a cadastrar e editar. Seus dados ficam guardados por 60 dias para consulta e exportação;
+              antes de qualquer exclusão, avisamos por e-mail.
+            </div>
+          )}
 
           {cancelScheduled && (
             <div role="status" className="rounded-lg border border-border bg-card p-3 text-sm text-foreground">
               Assinatura cancelada. Você continua usando o plano {currentPlanName} até{' '}
               <strong>{formatLocalDate(subscription?.current_period_end ?? null)}</strong>, e nenhuma nova
-              cobrança será feita. Depois disso a conta volta para o plano Gratuito, sem perder seus dados.
+              cobrança será feita. Depois disso a conta fica só para leitura: seus dados continuam
+              disponíveis para consulta e exportação.
             </div>
           )}
 
@@ -796,8 +828,10 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
           <div className="space-y-2">
             <p className="text-sm font-semibold text-foreground">Próximo passo recomendado</p>
             <p className="text-sm text-muted-foreground">
-              {currentSlug === 'free'
-                ? 'Assine um plano pago para atender mais clientes, liberar o portal do cliente, o calendário de obrigações e a IA fiscal.'
+              {acessoExpirado
+                ? 'Assine um plano para voltar a cadastrar e editar. Seus dados continuam aqui, só para leitura.'
+                : emTeste
+                ? 'Escolha o plano que vai usar depois do teste. O Premium mantém tudo o que você está usando agora.'
                 : 'Compare os planos abaixo se precisar de mais clientes, mais usuários ou do dossiê em PDF.'}
             </p>
             {nearLimitItems.length > 0 && (
@@ -838,7 +872,8 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
               <CardHeader className="pb-3 pt-5">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  {isActive && <Badge variant="default">Seu plano</Badge>}
+                  {isActive && hasPaidPlan && <Badge variant="default">Seu plano</Badge>}
+                  {isActive && emTeste && !acessoExpirado && <Badge variant="warning">Em teste</Badge>}
                 </div>
                 <p className="text-2xl font-bold">{formatPlanPrice(plan.price_monthly)}</p>
                 {pixAnual && pixAnual.desconto_pix_pct > 0 && (
@@ -869,14 +904,14 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
                   <Button
                     size="lg"
                     className="w-full"
-                    variant={(isActive && !cancelScheduled) || Number(plan.price_monthly) === 0 ? 'outline' : 'default'}
-                    disabled={(isActive && !cancelScheduled) || !isOwner || Number(plan.price_monthly) === 0}
+                    variant={isActive && hasPaidPlan && !cancelScheduled ? 'outline' : 'default'}
+                    disabled={(isActive && hasPaidPlan && !cancelScheduled) || !isOwner}
                     onClick={() => setSelectedPlan(plan)}
                   >
-                    {isActive && !cancelScheduled
+                    {isActive && hasPaidPlan && !cancelScheduled
                       ? 'Plano atual'
-                      : Number(plan.price_monthly) === 0
-                      ? 'Plano gratuito'
+                      : emTeste || acessoExpirado
+                      ? 'Assinar este plano'
                       : planCtas[intent]}
                   </Button>
                 )}
@@ -910,7 +945,7 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             {subscription?.current_period_end
               ? ` até ${formatLocalDate(subscription.current_period_end)}`
               : ''}
-            . Depois disso a conta volta para o plano Gratuito.
+            . Depois disso a conta fica só para leitura.
           </p>
           <p className="text-muted-foreground">
             Seus clientes, documentos e histórico ficam guardados. Você pode assinar de novo quando quiser.
@@ -1571,16 +1606,17 @@ function PagamentoTab({ onNavigateToPlans }: { onNavigateToPlans: () => void }) 
           </Card>
         </>
       ) : (
-        /* Free state view */
+        /* Sem assinatura paga (teste grátis ou conta só para leitura) */
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-foreground">Faturamento Desativado (Plano Gratuito)</h3>
+              <h3 className="text-lg font-bold text-foreground">Nenhuma assinatura ativa</h3>
               <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                Sua conta atual está no plano Gratuito de testes. Para liberar o faturamento recorrente e outras ferramentas avançadas, faça o upgrade de plano.
+                Durante o teste grátis de 14 dias não há cobrança. Assine um plano para continuar usando o
+                FiscWise depois do teste; sem assinatura, a conta fica só para leitura.
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -1766,7 +1802,8 @@ function BaseConhecimentoTab({
   tenant: TenantData | null;
   onNavigateToPlans: () => void;
 }) {
-  const isFree = tenant?.plan_slug === 'free' || !tenant?.plan_slug;
+  // /auth/tenant já devolve o plano EFETIVO (teste vencido/assinatura encerrada → "free").
+  const isFree = !!tenant?.acesso_expirado || tenant?.plan_slug === 'free' || !tenant?.plan_slug;
 
   const { data: documents, isLoading } = useRagDocuments();
   const createMutation = useCreateRagDocument();
@@ -1913,7 +1950,9 @@ function BaseConhecimentoTab({
             Alimente o cérebro da IA fiscal do seu escritório com regras, FAQs e procedimentos próprios. Quando você fizer perguntas na calculadora com IA, ela responderá baseada prioritariamente nas diretrizes do seu escritório, citando fontes e confiança!
           </p>
           <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-xs text-warning">
-            Esta funcionalidade premium está disponível a partir do Plano Intermediário.
+            {tenant?.acesso_expirado
+              ? 'Sua conta está só para leitura. Assine o Intermediário ou o Premium para usar a Base de Conhecimento.'
+              : 'Esta funcionalidade premium está disponível a partir do Plano Intermediário.'}
           </div>
           <Button onClick={onNavigateToPlans} className="mt-2">
             Fazer Upgrade de Plano

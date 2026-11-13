@@ -8,7 +8,7 @@ import { Button } from './ui/Button';
 import { SyncIndicator } from './SyncIndicator';
 import { InstallAppButton } from './InstallAppButton';
 import { useSyncStore } from '@/lib/offline/status';
-import { useSubscriptionUsage } from '@/lib/hooks/useSubscription';
+import { useSubscriptionUsage, useTenantInfo } from '@/lib/hooks/useSubscription';
 import { cn } from '@/lib/utils';
 
 /** Títulos das rotas reais do App. Subrotas herdam pelo prefixo (ex.: /clientes/:id). */
@@ -62,10 +62,12 @@ export function Header() {
     logout();
   };
 
-  // Botão sempre visível de plano: "Assinar" no Gratuito, "Meu plano" no pago.
+  // Botão sempre visível de plano: "Assinar" no teste grátis ou sem plano,
+  // "Meu plano" com assinatura paga.
   const { data: usage } = useSubscriptionUsage();
+  const { data: tenant } = useTenantInfo();
   const planSlug = (usage as { plan_slug?: string } | undefined)?.plan_slug;
-  const isPaidPlan = !!planSlug && planSlug !== 'free';
+  const isPaidPlan = !!planSlug && planSlug !== 'free' && !tenant?.em_teste && !tenant?.acesso_expirado;
 
   const sectionTitle = useMemo(() => getSectionTitle(location.pathname), [location.pathname]);
 

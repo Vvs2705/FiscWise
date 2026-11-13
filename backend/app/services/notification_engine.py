@@ -240,12 +240,15 @@ async def notify_pending_documents_all_tenants(db: AsyncSession) -> dict:
 
     Called by the APScheduler weekly job (Mondays at 09:00).
     """
+    from app.core.plan_access import acesso_expirado
+
     tenants_result = await db.execute(
-        select(Tenant.id).where(
+        select(Tenant).where(
             Tenant.subscription_status.in_([SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE])
         )
     )
-    tenant_ids = [row[0] for row in tenants_result.all()]
+    # Conta vencida (só leitura) não dispara e-mail para os clientes dela.
+    tenant_ids = [t.id for t in tenants_result.scalars().all() if not acesso_expirado(t)]
 
     totals = {"sent": 0, "skipped": 0, "failed": 0, "tenants_processed": 0, "errors": 0}
 

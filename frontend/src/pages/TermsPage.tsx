@@ -28,7 +28,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.1 — Última atualização: novembro de 2026
+          Versão 1.2 (v1.2) — Última atualização: 13/11/2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -68,11 +68,22 @@ export function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold">4. Planos e Pagamentos</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              O FiscWise oferece planos gratuito e pagos. Os planos pagos podem ser contratados nos
-              ciclos mensal, trimestral, semestral ou anual, por Pix ou cartão de crédito, com o
-              pagamento processado pelo Mercado Pago. O cancelamento pode ser feito a qualquer
-              momento pelo próprio sistema, em Plano e assinatura, sem multa, com encerramento ao
-              fim do período já pago.
+              Todo novo escritório começa com um teste grátis de 14 (catorze) dias do plano Premium,
+              sem necessidade de cartão de crédito. Não existe plano gratuito permanente.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Os planos pagos podem ser contratados nos ciclos mensal, trimestral, semestral ou anual,
+              por Pix ou cartão de crédito, com o pagamento processado pelo Mercado Pago. O
+              cancelamento pode ser feito a qualquer momento pelo próprio sistema, em Plano e
+              assinatura, sem multa, com encerramento ao fim do período já pago.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Ao fim do teste grátis ou do período pago, sem assinatura ativa, a conta fica somente
+              para leitura: o Usuário continua podendo entrar, consultar e exportar seus dados, mas não
+              pode cadastrar nem editar informações até assinar um plano. Os dados ficam guardados por
+              60 (sessenta) dias para consulta e exportação e, depois desse prazo, podem ser excluídos,
+              com aviso prévio por e-mail ao responsável pelo escritório, ressalvados os registros que
+              a legislação obriga a guardar.
             </p>
           </section>
 

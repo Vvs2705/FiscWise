@@ -36,7 +36,6 @@ const linhas = (m: number) =>
     }),
   )
 export const DEMO_PLANS = [
-  { id: 'plan-free', slug: 'free', name: 'Gratuito', description: 'Para experimentar.', price_monthly: 0, max_clients: 10, max_users: 2, max_ai_calls_month: 0, features: { calculator: true }, tabela_precos: null },
   { id: 'plan-intermediario', slug: 'intermediario', name: 'Intermediário', description: 'Para escritórios em crescimento.', price_monthly: 149, max_clients: 80, max_users: 5, max_ai_calls_month: 20, features: { calculator: true, portal_cliente: true, obrigacoes: true }, tabela_precos: linhas(149) },
   { id: 'plan-premium', slug: 'premium', name: 'Premium', description: 'Sem limites.', price_monthly: 349, max_clients: null, max_users: null, max_ai_calls_month: null, features: { calculator: true, pdf_export: true, portal_cliente: true, obrigacoes: true }, tabela_precos: linhas(349) },
   { id: 'plan-enterprise', slug: 'enterprise', name: 'Enterprise', description: 'Contrato personalizado.', price_monthly: null, max_clients: null, max_users: null, max_ai_calls_month: null, features: { enterprise: true }, tabela_precos: null },

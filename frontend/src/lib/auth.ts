@@ -12,7 +12,8 @@ export interface RegisterData {
   owner_email: string;
   owner_password: string;
   owner_full_name: string;
-  plan_slug: string;
+  /** Opcional: sem ele o escritório começa com 14 dias de teste grátis do Premium. */
+  plan_slug?: string;
   owner_phone?: string;
   document?: string;
   terms_accepted: boolean;
@@ -100,7 +101,8 @@ export interface GoogleRegisterData {
   document?: string;
   owner_full_name?: string;
   owner_phone?: string;
-  plan_slug: string;
+  /** Opcional: sem ele o escritório começa com 14 dias de teste grátis do Premium. */
+  plan_slug?: string;
   terms_accepted: boolean;
 }
 
@@ -144,6 +146,14 @@ export interface TenantData {
   website?: string;
   subscription_status: string;
   created_at?: string;
+  /** true durante o teste grátis de 14 dias. */
+  em_teste?: boolean;
+  /** Fim do teste grátis (ISO), quando houver. */
+  trial_ends_at?: string | null;
+  /** Dias inteiros que faltam no teste (0 = acaba hoje). */
+  trial_dias_restantes?: number | null;
+  /** true = teste/período pago acabou sem assinatura: conta só para leitura. */
+  acesso_expirado?: boolean;
 }
 
 export interface UpdateProfileData {

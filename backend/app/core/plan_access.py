@@ -136,6 +136,59 @@ def resolve_user_plan(current_user: object) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# Teste grátis e conta só leitura (13/11/2026: o plano Gratuito permanente
+# deixou de existir; todo cadastro começa com 14 dias de teste do Premium).
+# ---------------------------------------------------------------------------
+
+TRIAL_DAYS = 14
+# Depois de vencer, os dados ficam disponíveis para consulta e exportação.
+RETENCAO_APOS_VENCER_DIAS = 60
+
+
+def acesso_expirado(tenant: object, user_email: Optional[str] = None) -> bool:
+    """Conta sem plano pago nem teste vigente → só leitura.
+
+    É o mesmo critério que antes "caía para o Gratuito" (effective_plan_slug):
+    teste vencido, assinatura suspensa/cancelada, período pago encerrado ou
+    pré-pago vencido. Tenant None (rotas sem escritório) nunca bloqueia.
+
+    Escritório SEM linha de assinatura nunca vence (mesma regra do
+    effective_plan_slug para contas antigas, ex.: plano liberado pelo admin).
+    Todo cadastro novo nasce com o teste, e a migração r4t5teste14d deu o teste
+    a quem estava no Gratuito sem assinatura.
+    """
+    if tenant is None or getattr(tenant, "subscription", None) is None:
+        return False
+    return _rank(resolve_tenant_plan(tenant, user_email)) == 0
+
+
+def info_teste(tenant: object, user_email: Optional[str] = None) -> dict:
+    """Situação do teste grátis para a tela (faixa de dias restantes)."""
+    sub = getattr(tenant, "subscription", None) if tenant is not None else None
+    expirado = acesso_expirado(tenant, user_email)
+    fim = getattr(sub, "trial_ends_at", None) if sub is not None else None
+    if fim is not None and fim.tzinfo is None:
+        fim = fim.replace(tzinfo=timezone.utc)
+    em_teste = (
+        sub is not None and getattr(sub, "status", None) == "trialing"
+        and fim is not None and not expirado
+    )
+    dias = None
+    if em_teste:
+        # Dias de calendário em Brasília: 14 no cadastro, 0 = acaba hoje.
+        import pytz  # imagem slim pode não ter tzdata; o scheduler já usa pytz
+
+        br = pytz.timezone("America/Sao_Paulo")
+        dias = max((fim.astimezone(br).date() - datetime.now(br).date()).days, 0)
+    return {
+        "em_teste": em_teste,
+        "trial_ends_at": fim.isoformat() if fim is not None else None,
+        "trial_dias_restantes": dias,
+        "acesso_expirado": expirado,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Plan constants
 # ---------------------------------------------------------------------------
 

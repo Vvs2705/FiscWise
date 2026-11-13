@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_db, get_current_user, signup_complete
-from app.core.plan_access import resolve_tenant_plan
+from app.core.plan_access import info_teste, resolve_tenant_plan
 from app.core.security import (
     verify_password,
     create_access_token,
@@ -801,6 +801,8 @@ async def get_tenant(
         "subscription_status": tenant.subscription_status.value,
         "created_at": tenant.created_at.isoformat(),
         "signup_complete": signup_complete(tenant),
+        # Teste grátis: em_teste, trial_ends_at, trial_dias_restantes, acesso_expirado.
+        **info_teste(tenant, current_user.email),
     }
 
 

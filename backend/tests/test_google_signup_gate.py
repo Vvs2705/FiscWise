@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
 from app.models.tenant import SubscriptionStatus, Tenant
 from app.models.user import User, UserRole
+from tests.test_teste_por_documento import gerar_cnpj, mascarar_cnpj  # noqa: E402
 
 NEW_EMAIL = "novo.contador@gmail.com"
 
@@ -69,7 +70,7 @@ async def test_register_google_exige_termos(client, monkeypatch):
 
     resp = client.post(
         "/api/v1/onboarding/register-google",
-        json={"signup_token": token, "company_name": "Escritório Novo", "terms_accepted": False},
+        json={"signup_token": token, "company_name": "Escritório Novo", "document": gerar_cnpj(1401), "terms_accepted": False},
     )
     assert resp.status_code == 422
 
@@ -80,7 +81,7 @@ async def test_register_google_cria_escritorio_no_gratuito(client, test_db, monk
 
     resp = client.post(
         "/api/v1/onboarding/register-google",
-        json={"signup_token": token, "company_name": "Escritório Novo", "terms_accepted": True},
+        json={"signup_token": token, "company_name": "Escritório Novo", "document": gerar_cnpj(1402), "terms_accepted": True},
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -106,7 +107,7 @@ async def test_register_google_cria_escritorio_no_gratuito(client, test_db, monk
 async def test_register_google_token_invalido(client):
     resp = client.post(
         "/api/v1/onboarding/register-google",
-        json={"signup_token": "x" * 40, "company_name": "Escritório", "terms_accepted": True},
+        json={"signup_token": "x" * 40, "company_name": "Escritório", "document": gerar_cnpj(1403), "terms_accepted": True},
     )
     assert resp.status_code == 401
 
@@ -118,7 +119,7 @@ async def test_register_google_ignora_email_do_corpo(client, test_db, monkeypatc
     resp = client.post(
         "/api/v1/onboarding/register-google",
         json={
-            "signup_token": token, "company_name": "Escritório", "terms_accepted": True,
+            "signup_token": token, "company_name": "Escritório", "document": gerar_cnpj(1404), "terms_accepted": True,
             "owner_email": user_a.email,
         },
     )
@@ -168,13 +169,13 @@ async def test_concluir_cadastro_libera_no_gratuito(client, test_db, incomplete_
     h = _headers(incomplete_owner)
     bad = client.post(
         "/api/v1/onboarding/complete-signup", headers=h,
-        json={"company_name": "Meu Escritório", "terms_accepted": False},
+        json={"company_name": "Meu Escritório", "document": gerar_cnpj(1405), "terms_accepted": False},
     )
     assert bad.status_code == 422
 
     ok = client.post(
         "/api/v1/onboarding/complete-signup", headers=h,
-        json={"company_name": "Meu Escritório", "terms_accepted": True},
+        json={"company_name": "Meu Escritório", "document": gerar_cnpj(1406), "terms_accepted": True},
     )
     assert ok.status_code == 200, ok.text
 
@@ -196,6 +197,6 @@ async def test_concluir_cadastro_so_o_dono(client, test_db, incomplete_owner):
     await test_db.commit()
     resp = client.post(
         "/api/v1/onboarding/complete-signup", headers=_headers(staff),
-        json={"company_name": "Outro Nome", "terms_accepted": True},
+        json={"company_name": "Outro Nome", "document": gerar_cnpj(1407), "terms_accepted": True},
     )
     assert resp.status_code == 403

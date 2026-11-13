@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,12 +10,24 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { api, getApiErrorMessage } from '@/lib/api';
-import { completeSignup, fetchTenant } from '@/lib/auth';
+import axios from 'axios';
+import {
+  completeSignup,
+  documentoValido,
+  fetchTenant,
+  formatarDocumento,
+  mensagemErroDocumento,
+  somenteDigitos,
+} from '@/lib/auth';
 import { useAuthStore } from '@/stores/authStore';
 
 const schema = z.object({
   company_name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
-  document: z.string().optional(),
+  // Obrigatório: um teste grátis por CNPJ/CPF (backend valida de novo).
+  document: z
+    .string()
+    .min(1, 'Informe o CNPJ ou CPF')
+    .refine(documentoValido, 'CNPJ ou CPF inválido. Confira os números.'),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -54,7 +66,7 @@ export function CompleteSignupPage() {
       })
       .catch(() => undefined);
     void fetchTenant()
-      .then((t) => form.reset({ company_name: t.name ?? '', document: t.document ?? '' }))
+      .then((t) => form.reset({ company_name: t.name ?? '', document: formatarDocumento(t.document ?? '') }))
       .catch(() => undefined);
   }, [isAuthenticated, navigate, updateUser, form]);
 
@@ -68,13 +80,20 @@ export function CompleteSignupPage() {
     try {
       await completeSignup({
         company_name: values.company_name,
-        document: values.document || undefined,
+        document: somenteDigitos(values.document),
         terms_accepted: true,
       });
       updateUser({ signup_complete: true });
       toast.success('Cadastro concluído!');
       navigate('/painel', { replace: true });
     } catch (err) {
+      const erroDocumento = axios.isAxiosError(err)
+        ? mensagemErroDocumento(String(err.response?.headers?.['x-error-code'] ?? ''))
+        : null;
+      if (erroDocumento) {
+        form.setError('document', { type: 'server', message: erroDocumento });
+        return;
+      }
       setError(getApiErrorMessage(err, 'Não foi possível concluir o cadastro. Tente novamente.'));
     } finally {
       setSaving(false);
@@ -127,8 +146,23 @@ export function CompleteSignupPage() {
                 </div>
               </FormField>
 
-              <FormField label="CNPJ / CPF (opcional)" htmlFor="document">
-                <Input id="document" placeholder="12.345.678/0001-90" {...form.register('document')} />
+              <FormField
+                label="CNPJ / CPF"
+                htmlFor="document"
+                error={form.formState.errors.document?.message}
+                hint="O teste grátis vale uma vez por CNPJ ou CPF."
+                required
+              >
+                <Input
+                  id="document"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                  {...form.register('document', {
+                    onChange: (e: ChangeEvent<HTMLInputElement>) =>
+                      form.setValue('document', formatarDocumento(e.target.value)),
+                  })}
+                />
               </FormField>
 
               <label className="flex cursor-pointer items-start gap-3">

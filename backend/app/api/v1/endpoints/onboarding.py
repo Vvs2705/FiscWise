@@ -7,12 +7,13 @@ Creates tenant and owner user in a single atomic transaction.
 
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from app.core.auth_rate_limiter import auth_rate_limiter, get_client_ip
 from app.core.deps import get_current_user, get_db, signup_complete
 from app.core.plan_access import TRIAL_DAYS
 from app.core.security import create_access_token, get_password_hash, verify_google_signup_token
+from app.core.validators import validate_cpf_or_cnpj
 from app.models.billing import TenantSubscription
 from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
@@ -44,7 +46,52 @@ TRIAL_PLAN_SLUG = "premium"
 
 # v1.2 (13/11/2026): Termos passam a descrever o teste grátis no lugar do
 # plano Gratuito.
-TERMS_VERSION = "v1.2"
+# v1.3 (13/11/2026): cláusula das ofertas promocionais depois do teste.
+TERMS_VERSION = "v1.3"
+
+
+DOCUMENTO_INVALIDO_CODE = "INVALID_DOCUMENT"
+DOCUMENTO_EM_USO_CODE = "DOCUMENT_ALREADY_USED"
+DOCUMENTO_EM_USO_DETAIL = (
+    "Este CNPJ/CPF já tem uma conta no FiscWise. "
+    "Entre com o e-mail dessa conta ou fale com o suporte."
+)
+
+
+def _normalizar_documento(document: Optional[str]) -> str:
+    """CNPJ/CPF obrigatório e válido → só dígitos (um teste grátis por documento)."""
+    digitos = re.sub(r"\D", "", document or "")
+    if not validate_cpf_or_cnpj(digitos):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CNPJ ou CPF inválido. Confira os números e tente de novo.",
+            headers={"X-Error-Code": DOCUMENTO_INVALIDO_CODE},
+        )
+    return digitos
+
+
+def _documento_sem_mascara():
+    """tenants.document sem pontuação, em SQL portátil (SQLite e Postgres):
+    contas antigas podem ter o documento gravado com máscara."""
+    return func.replace(
+        func.replace(func.replace(func.replace(Tenant.document, ".", ""), "/", ""), "-", ""),
+        " ", "",
+    )
+
+
+async def _garantir_documento_livre(
+    db: AsyncSession, digitos: str, exceto_tenant_id: Optional[uuid.UUID] = None
+) -> None:
+    """Documento já usado por outro escritório → não ganha novo teste grátis."""
+    consulta = select(Tenant.id).where(_documento_sem_mascara() == digitos)
+    if exceto_tenant_id is not None:
+        consulta = consulta.where(Tenant.id != exceto_tenant_id)
+    if (await db.execute(consulta.limit(1))).scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=DOCUMENTO_EM_USO_DETAIL,
+            headers={"X-Error-Code": DOCUMENTO_EM_USO_CODE},
+        )
 
 
 async def _resolve_signup_plan(db: AsyncSession, plan_slug: Optional[str]) -> tuple[str, Optional[Plan]]:
@@ -91,7 +138,7 @@ async def _create_tenant_and_owner(
     db: AsyncSession,
     *,
     company_name: str,
-    document: Optional[str],
+    document: str,
     plan_slug: Optional[str],
     owner_email: str,
     hashed_password: str,
@@ -99,14 +146,15 @@ async def _create_tenant_and_owner(
     owner_phone: Optional[str],
 ) -> AuthResponse:
     """Cria escritório + dono numa transação só. Os termos já foram aceitos
-    (o schema recusa terms_accepted=false)."""
+    (o schema recusa terms_accepted=false). `document` já vem normalizado."""
+    await _garantir_documento_livre(db, document)
     chosen_slug, chosen_plan = await _resolve_signup_plan(db, plan_slug)
 
     try:
         now_utc = datetime.now(timezone.utc)
         new_tenant = Tenant(
             name=company_name,
-            document=(document or None),
+            document=document,
             subscription_status=SubscriptionStatus.TRIAL,
             plan_slug=chosen_slug,
             terms_accepted_at=now_utc,
@@ -217,10 +265,11 @@ async def register_tenant(
             headers={"X-Error-Code": "EMAIL_ALREADY_EXISTS"}
         )
 
+    documento = _normalizar_documento(registration.document)
     return await _create_tenant_and_owner(
         db,
         company_name=registration.company_name,
-        document=registration.document,
+        document=documento,
         plan_slug=registration.plan_slug,
         owner_email=registration.owner_email,
         hashed_password=get_password_hash(registration.owner_password),
@@ -261,10 +310,11 @@ async def register_tenant_google(
             headers={"X-Error-Code": "EMAIL_ALREADY_EXISTS"},
         )
 
+    documento = _normalizar_documento(registration.document)
     response = await _create_tenant_and_owner(
         db,
         company_name=registration.company_name,
-        document=registration.document,
+        document=documento,
         plan_slug=registration.plan_slug,
         owner_email=email,
         # Conta Google não usa senha: hash de um valor aleatório descartado.
@@ -306,9 +356,10 @@ async def complete_signup(
             detail="Só o responsável pelo escritório pode concluir o cadastro.",
         )
 
+    documento = _normalizar_documento(body.document)
+    await _garantir_documento_livre(db, documento, exceto_tenant_id=tenant.id)
     tenant.name = body.company_name.strip()
-    if body.document:
-        tenant.document = body.document.strip()
+    tenant.document = documento
     if tenant.subscription is None:
         # Sem assinatura: começa o teste grátis (o Gratuito não existe mais).
         slug, plano = await _resolve_signup_plan(db, None)
@@ -327,8 +378,8 @@ async def complete_signup(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Este CNPJ/CPF já está cadastrado em outro escritório.",
-            headers={"X-Error-Code": "REGISTRATION_CONFLICT"},
+            detail=DOCUMENTO_EM_USO_DETAIL,
+            headers={"X-Error-Code": DOCUMENTO_EM_USO_CODE},
         )
 
     await log_audit_event(

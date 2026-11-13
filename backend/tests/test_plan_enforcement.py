@@ -25,6 +25,7 @@ from app.models.billing import TenantSubscription
 from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
+from tests.test_teste_por_documento import gerar_cnpj  # noqa: E402
 
 
 AGORA = datetime.now(timezone.utc)
@@ -247,6 +248,7 @@ async def test_onboarding_premium_cria_trial_de_14_dias(register_client, test_db
 
     resp = register_client.post("/api/v1/onboarding/register", json={
         "company_name": "Escritório Trial Premium",
+        "document": gerar_cnpj(1301),
         "owner_email": "trial@premium.com",
         "owner_password": "SenhaSegura123!",
         "plan_slug": "premium",
@@ -286,9 +288,10 @@ async def test_onboarding_sem_plano_ganha_teste_do_premium(register_client, test
     test_db.add(plan)
     await test_db.commit()
 
-    for email, extra in (("sem@escritorio.com", {}), ("free@escritorio.com", {"plan_slug": "free"})):
+    for n, (email, extra) in enumerate((("sem@escritorio.com", {}), ("free@escritorio.com", {"plan_slug": "free"}))):
         resp = register_client.post("/api/v1/onboarding/register", json={
             "company_name": f"Escritório {email}",
+            "document": gerar_cnpj(1310 + n),
             "owner_email": email,
             "owner_password": "SenhaSegura123!",
             "terms_accepted": True,
@@ -301,7 +304,7 @@ async def test_onboarding_sem_plano_ganha_teste_do_premium(register_client, test
             await test_db.execute(select(Tenant).where(Tenant.id == tenant_id))
         ).scalar_one()
         assert tenant.plan_slug == "premium"
-        assert tenant.terms_version == "v1.2"
+        assert tenant.terms_version == "v1.3"
 
         sub = (
             await test_db.execute(
@@ -320,6 +323,7 @@ async def test_onboarding_sem_plano_ganha_teste_do_premium(register_client, test
 async def test_onboarding_plano_invalido_retorna_400(register_client, test_db):
     resp = register_client.post("/api/v1/onboarding/register", json={
         "company_name": "Escritório Hacker",
+        "document": gerar_cnpj(1302),
         "owner_email": "hacker@plano.com",
         "owner_password": "SenhaSegura123!",
         "plan_slug": "enterprise-gratis",
@@ -340,6 +344,7 @@ async def test_onboarding_plano_inativo_retorna_400(register_client, test_db):
 
     resp = register_client.post("/api/v1/onboarding/register", json={
         "company_name": "Escritório Legado",
+        "document": gerar_cnpj(1303),
         "owner_email": "legado@plano.com",
         "owner_password": "SenhaSegura123!",
         "plan_slug": "premium-anual",

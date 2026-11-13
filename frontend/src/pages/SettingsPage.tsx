@@ -73,6 +73,7 @@ import {
 import { useSubscriptionUsage, useAvailablePlans, type Plan } from '@/lib/hooks/useSubscription';
 import { useSubscription, useCancelSubscription } from '@/lib/hooks/useBilling';
 import { UpgradePlanoModal } from '@/features/subscription/components/UpgradePlanoModal';
+import { OfertaReconquista } from '@/features/subscription/components/OfertaReconquista';
 import {
   useNotificationMessages,
   useNotificationStats,
@@ -713,6 +714,9 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
 
   return (
     <div className="space-y-6">
+      {/* Oferta para quem não assinou depois do teste (só aparece quando há uma vigente). */}
+      {isOwner && acessoExpirado && <OfertaReconquista />}
+
       {/* Plano atual + ações principais (contratar, trocar, cancelar) */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="space-y-4 pt-6">

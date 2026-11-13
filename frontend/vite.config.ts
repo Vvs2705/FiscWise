@@ -3,6 +3,9 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import fs from 'node:fs'
+import { createHash } from 'node:crypto'
+import type { OutputChunk } from 'rollup'
 import { renderPlanCards, renderPlansFallback } from './src/features/subscription/precosHtml'
 import type { Plan } from './src/lib/hooks/useSubscription'
 
@@ -116,6 +119,83 @@ function precosPrerender(): Plugin {
   }
 }
 
+/**
+ * LCP do /login e do /register (docs/audit/DIAGNOSTICO_A0_PERFORMANCE.md):
+ * as páginas são lazy, então o navegador só descobria o chunk da tela DEPOIS
+ * de baixar e rodar a entrada (uma ida e volta a mais em rede lenta). Este
+ * plugin põe no index.html um script mínimo que, só nessas rotas, cria
+ * <link rel="modulepreload"> para o chunk da página e os imports estáticos
+ * dele, em paralelo com a entrada. O hash do script vai para a CSP do
+ * _headers gerado (script-src), para valer também quando a CSP sair do
+ * Report-Only.
+ */
+function preloadRotasPublicas(): Plugin {
+  const ROTAS: Record<string, string> = {
+    '/login': 'src/pages/LoginPage.tsx',
+    '/register': 'src/pages/RegisterPage.tsx',
+  }
+  let outDir = ''
+  let hashScript = ''
+  return {
+    name: 'fiscwise:preload-rotas-publicas',
+    apply: 'build',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir)
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        if (!ctx.bundle || !ctx.filename.replace(/\\/g, '/').endsWith('/index.html')) return html
+        const chunks = Object.values(ctx.bundle).filter((c): c is OutputChunk => c.type === 'chunk')
+        const porArquivo = new Map(chunks.map((c) => [c.fileName, c]))
+        const mapa: Record<string, string[]> = {}
+        for (const [rota, modulo] of Object.entries(ROTAS)) {
+          const pagina = chunks.find((c) => (c.facadeModuleId ?? '').replace(/\\/g, '/').endsWith(modulo))
+          if (!pagina) continue
+          const arquivos = new Set<string>()
+          const visitar = (c: OutputChunk) => {
+            if (arquivos.has(c.fileName)) return
+            arquivos.add(c.fileName)
+            for (const f of c.imports) {
+              const dep = porArquivo.get(f)
+              if (dep) visitar(dep)
+            }
+          }
+          visitar(pagina)
+          // O que o index.html já pré-carrega não precisa de outro link.
+          mapa[rota] = [...arquivos].filter((f) => !html.includes(f))
+        }
+        if (!Object.keys(mapa).length) return html
+        const js =
+          `(function(){var m=${JSON.stringify(mapa)};var p=location.pathname.replace(/\\/+$/,'');var l=m[p];if(!l)return;` +
+          `for(var i=0;i<l.length;i++){var e=document.createElement('link');e.rel='modulepreload';e.crossOrigin='';e.href='/'+l[i];document.head.appendChild(e)}})()`
+        hashScript = createHash('sha256').update(js).digest('base64')
+        return html.replace('</head>', `<script>${js}</script></head>`)
+      },
+    },
+    closeBundle() {
+      // Recalcula os hashes de TODOS os scripts embutidos (tema, este preload)
+      // das páginas geradas e grava no script-src do _headers. Um hash fixo à
+      // mão ficava velho quando o script do tema mudava.
+      const arquivo = path.join(outDir, '_headers')
+      if (!fs.existsSync(arquivo)) return
+      const hashes = new Set<string>()
+      for (const pagina of ['index.html', 'precos.html']) {
+        const f = path.join(outDir, pagina)
+        if (!fs.existsSync(f)) continue
+        const html = fs.readFileSync(f, 'utf8')
+        for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) {
+          hashes.add(`'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`)
+        }
+      }
+      if (hashScript) hashes.add(`'sha256-${hashScript}'`)
+      const texto = fs.readFileSync(arquivo, 'utf8')
+      const novo = texto.replace(/script-src 'self'((?: 'sha256-[^']+')*)/g, `script-src 'self' ${[...hashes].join(' ')}`)
+      fs.writeFileSync(arquivo, novo)
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -123,6 +203,7 @@ export default defineConfig({
     cloudflareBeacon(),
     guardaBuild(),
     precosPrerender(),
+    preloadRotasPublicas(),
     // PWA offline-first (docs/arquitetura/OFFLINE_SYNC.md, seção 7.1).
     // registerType 'prompt': a versão nova do app só assume quando o usuário
     // clica em "Atualizar" (src/lib/offline/pwa.ts). 'autoUpdate' recarregaria a

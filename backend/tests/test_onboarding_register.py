@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_password_hash
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
+from tests.test_teste_por_documento import gerar_cnpj, mascarar_cnpj  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ async def test_register_tenant_success(register_client, test_db: AsyncSession):
     """New registration returns 200 with access_token and correct tenant_id."""
     payload = {
         "company_name": "Contabilidade Teste Ltda",
+        "document": gerar_cnpj(1000),
         "owner_email": "owner@teste.com",
         "owner_password": "SenhaSegura123!",
         "owner_full_name": "Dono Teste",
@@ -92,6 +94,7 @@ async def test_register_tenant_without_optional_fields(register_client, test_db:
     """Registration with only required fields (no full_name, no document) succeeds."""
     payload = {
         "company_name": "Escritório Básico",
+        "document": gerar_cnpj(1001),
         "owner_email": "basico@escritorio.com",
         "owner_password": "Senha12345",
     }
@@ -133,6 +136,7 @@ async def test_register_duplicate_email_returns_400(register_client, test_db: As
 
     payload = {
         "company_name": "Nova Firma",
+        "document": gerar_cnpj(1002),
         "owner_email": "jaexiste@firma.com",
         "owner_password": "OutraSenha123",
     }
@@ -153,6 +157,7 @@ def test_register_short_password_returns_422(register_client):
     """Passwords shorter than 8 characters fail Pydantic validation."""
     payload = {
         "company_name": "Empresa X",
+        "document": gerar_cnpj(1003),
         "owner_email": "user@empresa.com",
         "owner_password": "abc",  # too short
     }
@@ -178,6 +183,7 @@ def test_register_invalid_email_returns_422(register_client):
     """Invalid email address returns 422."""
     payload = {
         "company_name": "Empresa Y",
+        "document": gerar_cnpj(1004),
         "owner_email": "not-an-email",
         "owner_password": "SenhaValida123",
     }
@@ -191,6 +197,7 @@ def test_register_company_name_too_short_returns_422(register_client):
     """company_name with 1 character (min=2) returns 422."""
     payload = {
         "company_name": "X",
+        "document": gerar_cnpj(1005),
         "owner_email": "user@empresa.com",
         "owner_password": "SenhaValida123",
     }

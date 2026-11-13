@@ -1,6 +1,6 @@
 import { api } from './api';
-import { clearApiCache, wipeLocalDb } from './offline/db';
-import { clearApiCacheIfTenantChanged } from './offline/apiCache';
+// O banco offline (Dexie) só carrega no logout: fora da entrada do /login.
+import { clearApiCache, clearApiCacheIfTenantChanged } from './offline/apiCache';
 
 export interface LoginCredentials {
   email: string;
@@ -15,7 +15,7 @@ export interface RegisterData {
   /** Opcional: sem ele o escritório começa com 14 dias de teste grátis do Premium. */
   plan_slug?: string;
   owner_phone?: string;
-  document?: string;
+  document: string; // CNPJ/CPF obrigatório: um teste grátis por documento
   terms_accepted: boolean;
 }
 
@@ -98,7 +98,7 @@ export function clearGoogleSignup(): void {
 export interface GoogleRegisterData {
   signup_token: string;
   company_name: string;
-  document?: string;
+  document: string; // CNPJ/CPF obrigatório: um teste grátis por documento
   owner_full_name?: string;
   owner_phone?: string;
   /** Opcional: sem ele o escritório começa com 14 dias de teste grátis do Premium. */
@@ -108,7 +108,7 @@ export interface GoogleRegisterData {
 
 export interface CompleteSignupData {
   company_name: string;
-  document?: string;
+  document: string; // CNPJ/CPF obrigatório: um teste grátis por documento
   owner_full_name?: string;
   owner_phone?: string;
   terms_accepted: boolean;
@@ -231,9 +231,10 @@ export function logout(redirectTo = '/'): void {
   localStorage.removeItem('tenant_id');
   localStorage.removeItem('user');
 
-  const wipe = Promise.all([tenantId ? wipeLocalDb(tenantId) : Promise.resolve(), clearApiCache()]).catch(
-    () => undefined,
-  );
+  const wipe = Promise.all([
+    tenantId ? import('./offline/db').then(({ wipeLocalDb }) => wipeLocalDb(tenantId)) : Promise.resolve(),
+    clearApiCache(),
+  ]).catch(() => undefined);
   const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
   void Promise.race([wipe, timeout]).finally(() => {
     window.location.href = redirectTo;
@@ -386,4 +387,62 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 export async function passwordResetAvailable(): Promise<boolean> {
   const { data } = await api.get<{ available: boolean }>('/api/v1/auth/password-reset/available');
   return data.available;
+}
+
+// ─── CNPJ/CPF do cadastro (um teste grátis por documento) ────────────────────
+
+/** Códigos de erro do cadastro ligados ao documento (backend/onboarding.py). */
+export const DOCUMENTO_INVALIDO_CODE = 'INVALID_DOCUMENT';
+export const DOCUMENTO_EM_USO_CODE = 'DOCUMENT_ALREADY_USED';
+
+export function somenteDigitos(valor: string): string {
+  return (valor ?? '').replace(/\D/g, '');
+}
+
+function digitoVerificador(numeros: number[], pesos: number[]): number {
+  const resto = numeros.reduce((soma, n, i) => soma + n * pesos[i], 0) % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+
+/** CPF (11 dígitos) ou CNPJ (14) com dígitos verificadores corretos. */
+export function documentoValido(valor: string): boolean {
+  const d = somenteDigitos(valor);
+  if (d.length !== 11 && d.length !== 14) return false;
+  if (/^(\d)\1+$/.test(d)) return false;
+  const n = d.split('').map(Number);
+  if (d.length === 11) {
+    const pesos1 = [10, 9, 8, 7, 6, 5, 4, 3, 2];
+    const pesos2 = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+    const dv1 = (n.slice(0, 9).reduce((s, v, i) => s + v * pesos1[i], 0) * 10) % 11 % 10;
+    const dv2 = (n.slice(0, 10).reduce((s, v, i) => s + v * pesos2[i], 0) * 10) % 11 % 10;
+    return dv1 === n[9] && dv2 === n[10];
+  }
+  const dv1 = digitoVerificador(n.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const dv2 = digitoVerificador(n.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return dv1 === n[12] && dv2 === n[13];
+}
+
+/** Máscara enquanto digita: CPF até 11 dígitos, CNPJ acima disso. */
+export function formatarDocumento(valor: string): string {
+  const d = somenteDigitos(valor).slice(0, 14);
+  if (d.length <= 11) {
+    return d
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+/** Mensagem amigável para erro de documento vindo do backend; null se não for. */
+export function mensagemErroDocumento(codigo: string | undefined | null): string | null {
+  if (codigo === DOCUMENTO_INVALIDO_CODE) return 'CNPJ ou CPF inválido. Confira os números.';
+  if (codigo === DOCUMENTO_EM_USO_CODE) {
+    return 'Este CNPJ/CPF já tem uma conta no FiscWise. Entre com o e-mail dessa conta ou fale com o suporte.';
+  }
+  return null;
 }

@@ -347,6 +347,69 @@ def render_aviso_teste_email(
     return assunto, _base_layout(inner)
 
 
+def _brl(v: float) -> str:
+    return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def render_oferta_email(
+    marco: str,
+    *,
+    precos: list[dict],
+    validade_label: str,
+    link_assinar: str,
+    link_descadastro: str,
+) -> tuple[str, str]:
+    """Assunto e HTML da oferta de reconquista ("oferta" ou "lembrete").
+
+    `precos`: uma linha por plano (app.services.oferta.precos_da_oferta).
+    Traz o que o CDC pede: preço do 1º mês e o cheio depois, renovação
+    automática, validade, como cancelar e o arrependimento de 7 dias; e o
+    descadastro em 1 clique (LGPD art. 18 §2º).
+    """
+    if marco == "lembrete":
+        assunto = f"Última chance: sua oferta do FiscWise vale até {validade_label}"
+        abertura = (
+            f"Sua oferta especial termina em {validade_label}. Depois disso, os "
+            "planos voltam ao preço normal."
+        )
+    else:
+        assunto = "Uma oferta para você voltar ao FiscWise"
+        abertura = (
+            "Seu teste grátis acabou e sua conta está só para leitura. Para você "
+            f"voltar a usar tudo, preparamos uma oferta válida até {validade_label}:"
+        )
+    linhas = []
+    for p in precos:
+        nome = _html.escape(str(p["plan_name"]))
+        linhas.append(
+            f"""<li style="margin:0 0 10px 0;"><strong>{nome}</strong><br>
+  Mensal no cartão: <strong>R$ {_brl(p['mensal_promo'])}</strong> no 1º mês
+  ({p['mensal_desconto_pct']}% de desconto), depois R$ {_brl(p['mensal_cheio'])}/mês.<br>
+  Anual: <strong>R$ {_brl(p['anual_promo'])}</strong> ({p['anual_desconto_pct']}% de desconto sobre
+  R$ {_brl(p['anual_cheio'])}), no Pix ou em até {p['anual_max_parcelas']}x de
+  R$ {_brl(p['anual_parcela'])} sem juros.</li>"""
+        )
+    inner = f"""\
+<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(assunto)}</h1>
+<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:{_MUTED};">{_html.escape(abertura)}</p>
+<ul style="margin:0 0 20px 0;padding-left:18px;font-size:14px;line-height:1.6;color:{_INK};">
+{"".join(linhas)}
+</ul>
+<div style="text-align:center;margin:0 0 20px 0;">
+  <a href="{_html.escape(link_assinar, quote=True)}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Aproveitar a oferta</a>
+</div>
+<p style="margin:0 0 12px 0;font-size:12px;line-height:1.6;color:{_MUTED};">
+  Condições: oferta válida até {_html.escape(validade_label)}, uma vez por escritório, e não soma
+  com outros descontos. O plano mensal renova sozinho todo mês no cartão e pode ser cancelado
+  a qualquer momento em Plano e assinatura, sem multa. Você pode desistir em até 7 dias após o
+  pagamento e receber o valor de volta.
+</p>
+<p style="margin:0;font-size:12px;line-height:1.6;color:{_MUTED};">
+  <a href="{_html.escape(link_descadastro, quote=True)}" style="color:{_MUTED};">Não quero mais receber ofertas</a>
+</p>"""
+    return assunto, _base_layout(inner)
+
+
 def render_portal_magic_link_email(link: str) -> str:
     """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
     inner = f"""\

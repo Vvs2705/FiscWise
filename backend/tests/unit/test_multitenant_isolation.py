@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_password_hash, create_access_token
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
+from tests.test_teste_por_documento import gerar_cnpj, mascarar_cnpj  # noqa: E402
 
 
 # ============================================================================
@@ -83,6 +84,7 @@ class TestMultiTenantEmailCollision:
         # First registration
         payload1 = {
             "company_name": "First Tenant",
+            "document": gerar_cnpj(1100),
             "owner_email": "global@test.com",
             "owner_password": "Password1!",
         }
@@ -92,6 +94,7 @@ class TestMultiTenantEmailCollision:
         # Second registration with same email should fail
         payload2 = {
             "company_name": "Second Tenant",
+            "document": gerar_cnpj(1101),
             "owner_email": "global@test.com",
             "owner_password": "Password2!",
         }
@@ -269,6 +272,7 @@ class TestOnboardingEndpointIsolation:
         """
         payload = {
             "company_name": "No Header Company",
+            "document": gerar_cnpj(1102),
             "owner_email": "noheader@test.com",
             "owner_password": "Password123!",
         }
@@ -287,6 +291,7 @@ class TestOnboardingEndpointIsolation:
         """
         payload = {
             "company_name": "Invalid Header Company",
+            "document": gerar_cnpj(1103),
             "owner_email": "invalidheader@test.com",
             "owner_password": "Password123!",
         }

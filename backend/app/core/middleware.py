@@ -38,6 +38,8 @@ _EXCLUDED_EXACT_PATHS: Set[str] = {
     "/ready",                # Readiness probe (root) — used by the Fly.io health check
     "/api/v1/auth/login",
     "/api/v1/auth/google",
+    # Link "não quero mais receber ofertas" do e-mail (token assinado, sem login).
+    "/api/v1/marketing/descadastro",
     "/api/v1/auth/logout",
     # 2º passo do login: autenticado pelo mfa_token; o navegador ainda não tem
     # tenant_id salvo (sem isto o 2FA falhava num navegador limpo).

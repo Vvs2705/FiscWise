@@ -28,7 +28,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.2 (v1.2) — Última atualização: 13/11/2026
+          Versão 1.3 (v1.3) — Última atualização: 13/11/2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -84,6 +84,15 @@ export function TermsPage() {
               60 (sessenta) dias para consulta e exportação e, depois desse prazo, podem ser excluídos,
               com aviso prévio por e-mail ao responsável pelo escritório, ressalvados os registros que
               a legislação obriga a guardar.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Ofertas promocionais: o FiscWise pode enviar, a quem fez o teste grátis e não assinou, uma
+              oferta por tempo limitado, como desconto na 1ª cobrança do plano mensal ou no plano anual.
+              A oferta vale uma vez por escritório, até a data informada no e-mail, e não soma com outros
+              descontos. No plano mensal, o desconto vale só para a 1ª cobrança; a partir da 2ª, aplica-se
+              o preço cheio do plano, com renovação automática e cancelamento a qualquer momento, sem
+              multa. O direito de arrependimento de 7 (sete) dias se aplica. O Usuário pode deixar de
+              receber ofertas a qualquer momento pelo link presente no próprio e-mail.
             </p>
           </section>
 

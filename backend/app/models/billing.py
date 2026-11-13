@@ -3,6 +3,7 @@
 Tables:
   tenant_subscriptions    — one per tenant, tracks plan + payment provider state
   billing_webhook_events  — idempotent log of all incoming webhook events
+  retention_offers        — oferta de reconquista pós-teste (uma por escritório)
 """
 
 import uuid
@@ -166,3 +167,49 @@ class BillingWebhookEvent(Base):
             f"<BillingWebhookEvent(provider='{self.provider}', "
             f"event_type='{self.event_type}', processed={self.processed})>"
         )
+
+
+class RetentionOffer(Base):
+    """Oferta de reconquista para quem não assinou depois do teste grátis.
+
+    Uma por escritório (único em tenant_id), criada pela rotina diária 5 dias
+    depois de o teste vencer, válida por 7 dias. Mensal: 15% só no 1º mês
+    (o preapproval nasce com o valor promo e volta ao preço cheio por PUT
+    depois da 1ª cobrança). Anual: 25% no total. Preços em app.core.pricing.
+
+    status: criada | enviada | optout | aceita
+    """
+
+    __tablename__ = "retention_offers"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    status: Mapped[str] = mapped_column(String(20), server_default="criada", nullable=False)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_cycle: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    accepted_plan_slug: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    preapproval_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, index=True)
+    promo_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
+    full_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
+    # Mensal: 1ª cobrança promo recebida e quando o preço voltou ao cheio (PUT).
+    promo_charged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    price_bumped_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<RetentionOffer(tenant_id={self.tenant_id}, status='{self.status}')>"

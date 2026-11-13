@@ -18,6 +18,7 @@ import hashlib
 import hmac
 import logging
 import time
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -132,13 +133,18 @@ class GatewayMercadoPago:
 
     # -- Montagem de payload (puro — testável sem rede) ------------------------
     def montar_preapproval(
-        self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str
+        self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str,
+        reason: str | None = None,
     ) -> dict[str, Any]:
-        """Assinatura recorrente mensal (preapproval) cobrada no cartão."""
+        """Assinatura recorrente mensal (preapproval) cobrada no cartão.
+
+        `reason` aparece para o assinante no checkout e nas notificações do MP
+        (na oferta: "1º mês R$ X, depois R$ Y/mês").
+        """
         app_url = settings.APP_URL.rstrip("/")
         api_url = settings.PUBLIC_URL.rstrip("/")
         return {
-            "reason": f"FiscWise {plano_nome} (mensal)",
+            "reason": reason or f"FiscWise {plano_nome} (mensal)",
             "external_reference": referencia,
             "payer_email": email_pagador,
             "auto_recurring": {
@@ -155,6 +161,8 @@ class GatewayMercadoPago:
     def montar_preference(
         self, *, plano_nome: str, preco_mensal: Decimal | float, ciclo: str,
         metodo: str, email_pagador: str, referencia: str,
+        valor_oferta: float | None = None, max_parcelas_oferta: int | None = None,
+        expira_em: datetime | None = None,
     ) -> dict[str, Any]:
         """Checkout Preference para ciclos pré-pagos (trimestral/semestral/anual).
 
@@ -177,12 +185,25 @@ class GatewayMercadoPago:
             valor = linha["cartao_total"]
             payment_methods = {
                 "excluded_payment_types": [{"id": "bank_transfer"}, {"id": "ticket"}],
-                "installments": linha["cartao_max_parcelas"],
+                "installments": max_parcelas_oferta or linha["cartao_max_parcelas"],
                 "default_installments": 1,
             }
+        titulo = f"FiscWise {plano_nome} — {linha['label']}"
+        if valor_oferta is not None:
+            # Oferta de reconquista: valor calculado no servidor (pricing.preco_oferta).
+            valor = valor_oferta
+            titulo = f"{titulo} (oferta especial)"
+        extra: dict[str, Any] = {}
+        if expira_em is not None:
+            # O link deixa de valer no fim da oferta.
+            extra = {
+                "expires": True,
+                "expiration_date_to": expira_em.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000-00:00"),
+            }
         return {
+            **extra,
             "items": [{
-                "title": f"FiscWise {plano_nome} — {linha['label']}",
+                "title": titulo,
                 "description": f"Plano {plano_nome} ({ciclo})",
                 "quantity": 1,
                 "currency_id": "BRL",
@@ -204,11 +225,15 @@ class GatewayMercadoPago:
     async def criar_cobranca_unica(
         self, *, plano_nome: str, preco_mensal: Decimal | float, ciclo: str,
         metodo: str, email_pagador: str, referencia: str,
+        valor_oferta: float | None = None, max_parcelas_oferta: int | None = None,
+        expira_em: datetime | None = None,
     ) -> dict[str, Any]:
         """Cria a Checkout Preference (ciclos pré-pagos) e devolve o init_point."""
         payload = self.montar_preference(
             plano_nome=plano_nome, preco_mensal=preco_mensal, ciclo=ciclo,
             metodo=metodo, email_pagador=email_pagador, referencia=referencia,
+            valor_oferta=valor_oferta, max_parcelas_oferta=max_parcelas_oferta,
+            expira_em=expira_em,
         )
         data = await self._post(
             "/checkout/preferences", payload,
@@ -221,11 +246,12 @@ class GatewayMercadoPago:
         }
 
     async def criar_assinatura(
-        self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str
+        self, *, plano_nome: str, preco_mensal: Decimal | float, email_pagador: str, referencia: str,
+        reason: str | None = None,
     ) -> dict[str, Any]:
         payload = self.montar_preapproval(
             plano_nome=plano_nome, preco_mensal=preco_mensal,
-            email_pagador=email_pagador, referencia=referencia,
+            email_pagador=email_pagador, referencia=referencia, reason=reason,
         )
         data = await self._post("/preapproval", payload, idempotency_key=referencia)
         return {
@@ -237,6 +263,19 @@ class GatewayMercadoPago:
     async def obter_preapproval(self, preapproval_id: str) -> dict[str, Any]:
         """Status de uma assinatura recorrente (usado pelo webhook)."""
         return await self._get(f"/preapproval/{preapproval_id}")
+
+    async def atualizar_valor_assinatura(
+        self, preapproval_id: str, valor: Decimal | float
+    ) -> dict[str, Any]:
+        """Muda o valor das próximas cobranças do preapproval (PUT oficial do MP).
+
+        Usado na oferta de reconquista: o 1º mês sai com desconto e, depois da
+        1ª cobrança aprovada, a assinatura volta ao preço cheio.
+        """
+        return await self._put(
+            f"/preapproval/{preapproval_id}",
+            {"auto_recurring": {"transaction_amount": float(valor), "currency_id": "BRL"}},
+        )
 
     async def cancelar_assinatura(self, preapproval_id: str) -> dict[str, Any]:
         """Cancela a assinatura recorrente: o Mercado Pago para de cobrar o cartão."""

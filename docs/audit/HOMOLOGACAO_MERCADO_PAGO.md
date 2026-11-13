@@ -141,6 +141,15 @@ Vendedor de teste `3442108541`, comprador de teste `3442108543`.
     confirmado. Trocar de plano ou ciclo pago cancela a recorrência antiga, para
     o cliente não pagar duas vezes.
 
+## Oferta de reconquista (13/11/2026, sandbox)
+
+| Caso | Resultado | Evidência |
+|---|---|---|
+| Mensal com 15% no 1º mês | OK: preapproval criado com R$ 296,65 e `reason` "1º mês R$ 296,65, depois R$ 349,00/mês"; 1ª cobrança aprovada | preapproval `e9bf5ac49e344e9987f6a12defc1b149`, authorized_payment `7033963239` |
+| Subida para o preço cheio | OK: após a 1ª cobrança aprovada, `PUT /preapproval` mudou `transaction_amount` para R$ 349,00; o MP aceitou (200) e manteve `authorized`; próxima cobrança 13/12/2026 | log `oferta_reajustada`, consulta ao preapproval |
+| Banco | OK: assinatura `active`, `mensal`, `amount` 349,00, período até 13/12; oferta `aceita` com cobrança promo e reajuste registrados | `tenant_subscriptions`, `retention_offers` |
+| Cobrança de 13/12 com R$ 349,00 | Não verificável hoje (depende da data) | — |
+
 ## 5. Critério para ligar em produção
 
 Todos os itens 1–4 OK, com prints/ids anotados. Então, em produção:

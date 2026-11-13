@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ChangeEvent } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
@@ -26,8 +26,12 @@ import { FormField } from '@/components/ui/FormField';
 import { useAuth } from '@/lib/hooks/useAuth';
 import {
   clearGoogleSignup,
+  documentoValido,
+  formatarDocumento,
   getGoogleSignup,
   isGoogleSignupRequired,
+  mensagemErroDocumento,
+  somenteDigitos,
   type GoogleSignupRequired,
 } from '@/lib/auth';
 
@@ -46,7 +50,11 @@ const TRIAL_FEATURES = [
 
 const step1Schema = z.object({
   company_name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
-  document: z.string().optional(),
+  // Obrigatório: um teste grátis por CNPJ/CPF (backend valida de novo).
+  document: z
+    .string()
+    .min(1, 'Informe o CNPJ ou CPF')
+    .refine(documentoValido, 'CNPJ ou CPF inválido. Confira os números.'),
 });
 
 const step2Schema = z
@@ -210,6 +218,17 @@ export function RegisterPage() {
     setStep(3);
   }
 
+  /** Erro de documento vindo do backend: volta ao passo 1 com o aviso no campo. */
+  function voltarComErroDeDocumento(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) return false;
+    const mensagem = mensagemErroDocumento(String(error.response?.headers?.['x-error-code'] ?? ''));
+    if (!mensagem) return false;
+    setStep(1);
+    // Espera o passo 1 montar para o erro aparecer no campo.
+    setTimeout(() => form1.setError('document', { type: 'server', message: mensagem }), 0);
+    return true;
+  }
+
   async function handleFinish() {
     if (!step1Data) return;
     if (!termsAccepted) {
@@ -223,27 +242,33 @@ export function RegisterPage() {
         await registerWithGoogle({
           signup_token: googleSignup.signup_token,
           company_name: step1Data.company_name,
-          document: step1Data.document,
+          document: somenteDigitos(step1Data.document),
           owner_full_name: g.owner_full_name,
           owner_phone: g.owner_phone,
           terms_accepted: true,
         });
       } catch (error) {
+        if (voltarComErroDeDocumento(error)) return;
         // Token do Google venceu (30 min): pede para clicar no Google de novo.
         if (axios.isAxiosError(error) && error.response?.status === 401) cancelGoogleSignup();
       }
       return;
     }
     const step2Values = form2.getValues();
-    await registerUser({
-      company_name: step1Data.company_name,
-      document: step1Data.document,
-      owner_full_name: step2Values.owner_full_name,
-      owner_email: step2Values.owner_email,
-      owner_phone: step2Values.owner_phone,
-      owner_password: step2Values.owner_password,
-      terms_accepted: true,
-    });
+    try {
+      await registerUser({
+        company_name: step1Data.company_name,
+        document: somenteDigitos(step1Data.document),
+        owner_full_name: step2Values.owner_full_name,
+        owner_email: step2Values.owner_email,
+        owner_phone: step2Values.owner_phone,
+        owner_password: step2Values.owner_password,
+        terms_accepted: true,
+      });
+    } catch (error) {
+      // O aviso geral já saiu (toast em useAuth); erro de documento volta ao campo.
+      voltarComErroDeDocumento(error);
+    }
   }
 
   const handleGoogleSuccess = useCallback(
@@ -300,11 +325,22 @@ export function RegisterPage() {
                 </div>
               </FormField>
 
-              <FormField label="CNPJ / CPF (opcional)" htmlFor="document" error={form1.formState.errors.document?.message}>
+              <FormField
+                label="CNPJ / CPF"
+                htmlFor="document"
+                error={form1.formState.errors.document?.message}
+                hint="O teste grátis vale uma vez por CNPJ ou CPF."
+                required
+              >
                 <Input
                   id="document"
-                  placeholder="12.345.678/0001-90"
-                  {...form1.register('document')}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                  {...form1.register('document', {
+                    onChange: (e: ChangeEvent<HTMLInputElement>) =>
+                      form1.setValue('document', formatarDocumento(e.target.value)),
+                  })}
                 />
               </FormField>
 

@@ -17,11 +17,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
-from app.models.billing import BillingWebhookEvent, TenantSubscription
+from decimal import Decimal
+
+from app.models.billing import BillingWebhookEvent, RetentionOffer, TenantSubscription
 from app.models.plan import Plan
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User
-from app.core.pricing import CICLOS_VALIDOS, get_ciclo, valores_aceitos
+from app.core.pricing import CICLOS_VALIDOS, get_ciclo, preco_oferta, valores_aceitos
+from app.services.oferta import (
+    STATUS_ACEITA,
+    oferta_vigente,
+    planos_da_oferta,
+    precos_da_oferta,
+    reajustar_para_preco_cheio,
+    reason_oferta_mensal,
+)
 from app.services.mercadopago import (
     GatewayNaoConfiguradoError,
     GatewayPagamentoError,
@@ -114,9 +124,50 @@ def _aware(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
-def montar_referencia(sub_id: uuid.UUID, plan_slug: str, ciclo: str) -> str:
-    """external_reference do checkout: `<id da assinatura>|<plano>|<ciclo>`."""
-    return f"{sub_id}|{plan_slug}|{ciclo}"
+def montar_referencia(sub_id: uuid.UUID, plan_slug: str, ciclo: str,
+                      oferta_id: Optional[uuid.UUID] = None) -> str:
+    """external_reference do checkout: `<id da assinatura>|<plano>|<ciclo>`.
+
+    Com a oferta de reconquista, um 4º campo `<id da oferta>`: o webhook só
+    aceita o valor promocional se essa oferta existir e for do escritório.
+    """
+    base = f"{sub_id}|{plan_slug}|{ciclo}"
+    return f"{base}|{oferta_id}" if oferta_id else base
+
+
+def ler_oferta_da_referencia(ref: object) -> Optional[uuid.UUID]:
+    """Id da oferta (4º campo do external_reference), se houver."""
+    partes = str(ref or "").split("|")
+    if len(partes) < 4 or not partes[3]:
+        return None
+    try:
+        return uuid.UUID(partes[3])
+    except ValueError:
+        return None
+
+
+async def _oferta_da_referencia(
+    db: AsyncSession, ref: object, tenant_id: uuid.UUID
+) -> Optional[RetentionOffer]:
+    oferta_id = ler_oferta_da_referencia(ref)
+    if oferta_id is None:
+        return None
+    oferta = await db.get(RetentionOffer, oferta_id)
+    if oferta is None or oferta.tenant_id != tenant_id:
+        return None
+    return oferta
+
+
+def _aceitar_oferta(oferta: RetentionOffer, *, ciclo: str, plano: Optional[Plan],
+                    promo: float, cheio: float, preapproval_id: Optional[str] = None) -> None:
+    oferta.status = STATUS_ACEITA
+    oferta.accepted_at = oferta.accepted_at or datetime.now(timezone.utc)
+    oferta.accepted_cycle = ciclo
+    oferta.accepted_plan_slug = plano.slug if plano is not None else oferta.accepted_plan_slug
+    oferta.promo_amount = Decimal(str(promo))
+    oferta.full_amount = Decimal(str(cheio))
+    if preapproval_id:
+        oferta.preapproval_id = preapproval_id
 
 
 def ler_referencia(ref: object) -> tuple[Optional[uuid.UUID], Optional[str], Optional[str]]:
@@ -366,6 +417,27 @@ class CheckoutRequest(BaseModel):
     plan_slug: str
     ciclo: str = "mensal"          # mensal | trimestral | semestral | anual
     metodo: str = "cartao"         # pix | cartao (ignorado no mensal, que é recorrente no cartão)
+    # Oferta de reconquista: o servidor confere se há oferta vigente e calcula o preço.
+    oferta: bool = False
+
+
+class OfertaPlanoOut(BaseModel):
+    plan_slug: str
+    plan_name: str
+    mensal_promo: float
+    mensal_cheio: float
+    mensal_desconto_pct: int
+    anual_promo: float
+    anual_cheio: float
+    anual_desconto_pct: int
+    anual_max_parcelas: int
+    anual_parcela: float
+
+
+class OfertaOut(BaseModel):
+    ativa: bool
+    expires_at: Optional[str] = None
+    planos: list[OfertaPlanoOut] = []
 
 
 class CheckoutResponse(BaseModel):
@@ -378,6 +450,25 @@ class PagamentoConfigResponse(BaseModel):
     gateway: str = "mercadopago"
     public_key: str
     go_live: bool
+
+
+@router.get("/oferta", response_model=OfertaOut)
+async def oferta_atual(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> OfertaOut:
+    """Oferta de reconquista vigente do escritório (só o dono vê)."""
+    if current_user.role.value != "owner":
+        return OfertaOut(ativa=False)
+    oferta = await oferta_vigente(db, current_user.tenant_id)
+    if oferta is None:
+        return OfertaOut(ativa=False)
+    planos = await planos_da_oferta(db)
+    return OfertaOut(
+        ativa=True,
+        expires_at=_fmt(_aware(oferta.expires_at)),
+        planos=[OfertaPlanoOut(**p) for p in precos_da_oferta(planos)],
+    )
 
 
 @router.get("/config", response_model=PagamentoConfigResponse)
@@ -454,14 +545,44 @@ async def criar_checkout(
     # external_reference e só vale quando o webhook confirmar o pagamento.
     # (Antes, abrir o mensal e depois o trimestral deixava ciclo=trimestral com
     # o id do preapproval antigo, mesmo sem pagar nada.)
-    referencia = montar_referencia(sub.id, plan.slug, body.ciclo)
+    oferta = None
+    if body.oferta:
+        # Preço da oferta SEMPRE calculado aqui; o cliente só diz que quer a oferta.
+        if body.ciclo not in ("mensal", "anual"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A oferta vale só para o plano mensal no cartão ou para o anual.",
+            )
+        oferta = await oferta_vigente(db, current_user.tenant_id)
+        if oferta is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta oferta não está mais disponível. Os planos seguem com o preço normal.",
+                headers={"X-Error-Code": "OFERTA_INDISPONIVEL"},
+            )
+    referencia = montar_referencia(sub.id, plan.slug, body.ciclo, oferta.id if oferta else None)
 
     try:
         if body.ciclo == "mensal":
-            # Assinatura recorrente no cartão (preapproval).
+            # Assinatura recorrente no cartão (preapproval). Na oferta, o 1º mês
+            # sai com desconto e o webhook volta o valor ao cheio (PUT).
+            precos = preco_oferta(plan.price_monthly) if oferta else None
             resultado = await gateway.criar_assinatura(
-                plano_nome=plan.name, preco_mensal=plan.price_monthly,
+                plano_nome=plan.name,
+                preco_mensal=precos["mensal_promo"] if precos else plan.price_monthly,
                 email_pagador=current_user.email, referencia=referencia,
+                reason=reason_oferta_mensal(plan.name, plan.price_monthly) if oferta else None,
+            )
+        elif oferta is not None:
+            # Anual da oferta: 25% no total, Pix ou cartão em até 6x; o link vence com a oferta.
+            precos = preco_oferta(plan.price_monthly)
+            resultado = await gateway.criar_cobranca_unica(
+                plano_nome=plan.name, preco_mensal=plan.price_monthly,
+                ciclo=body.ciclo, metodo=body.metodo,
+                email_pagador=current_user.email, referencia=referencia,
+                valor_oferta=precos["anual_promo"],
+                max_parcelas_oferta=precos["anual_max_parcelas"],
+                expira_em=_aware(oferta.expires_at),
             )
         else:
             # Ciclo pré-pago: checkout único (Pix -15% ou cartão até 6x sem juros).
@@ -602,11 +723,25 @@ async def _processar_preapproval(db: AsyncSession, recurso_id: str, event_id: st
         plano = await _plano_por_slug(db, plano_ref)
         preco = plano.price_monthly if plano is not None else sub.amount
         if valor_mensal and preco is not None and valor_mensal != valor_centavos(preco):
-            logger.warning(
-                "webhook_valor_divergente sub=%s esperado=%s pago=%s",
-                sub.id, valor_centavos(preco), valor_mensal,
+            # Valor promocional só vale com a oferta de reconquista da referência
+            # (do mesmo escritório, ainda não usada por outra assinatura).
+            oferta = await _oferta_da_referencia(db, pre.get("external_reference"), sub.tenant_id)
+            precos = preco_oferta(preco)
+            oferta_ok = (
+                oferta is not None
+                and (oferta.accepted_at is None or oferta.preapproval_id == recurso_id)
+                and valor_mensal == int(round(precos["mensal_promo"] * 100))
             )
-            return
+            if not oferta_ok:
+                logger.warning(
+                    "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+                    sub.id, valor_centavos(preco), valor_mensal,
+                )
+                return
+            _aceitar_oferta(
+                oferta, ciclo="mensal", plano=plano, promo=precos["mensal_promo"],
+                cheio=precos["mensal_cheio"], preapproval_id=recurso_id,
+            )
         if not eh_a_atual:
             # Nova recorrência (1ª assinatura ou troca de plano/ciclo): para a antiga.
             await _cancelar_recorrencia_antiga(sub, recurso_id)
@@ -672,16 +807,34 @@ async def _processar_cobranca_mensal(db: AsyncSession, recurso_id: str, event_id
     pago_cent = int(round(float(aut.get("transaction_amount") or 0) * 100))
     if pag_status not in ("approved", "processed"):
         return
+    oferta = None
     if sub.amount is not None and pago_cent and pago_cent != valor_centavos(sub.amount):
-        logger.warning(
-            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
-            sub.id, valor_centavos(sub.amount), pago_cent,
-        )
-        return
+        # Oferta de reconquista: a cobrança com o valor promo desta assinatura vale.
+        oferta = (
+            await db.execute(select(RetentionOffer).where(RetentionOffer.preapproval_id == pre_id))
+        ).scalar_one_or_none()
+        if oferta is None or oferta.promo_amount is None or pago_cent != valor_centavos(oferta.promo_amount):
+            logger.warning(
+                "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+                sub.id, valor_centavos(sub.amount), pago_cent,
+            )
+            return
     if sub.status in ("cancelled", "suspended"):
         return
     if not await _aplicar_uma_vez(db, f"aplicado:authorized_payment:{recurso_id}:aprovado"):
         return
+    if oferta is not None:
+        if oferta.promo_charged_at is not None:
+            # 2ª cobrança ainda com desconto: o PUT falhou antes. O cliente pagou,
+            # então vale; tenta o reajuste de novo.
+            logger.error(
+                "oferta_cobranca_promo_repetida tenant=%s pre=%s — reaplicando o preço cheio",
+                sub.tenant_id, pre_id,
+            )
+        else:
+            oferta.promo_charged_at = agora
+        oferta.price_bumped_at = None
+        await reajustar_para_preco_cheio(db, oferta)
     # max(): a 1ª cobrança chega junto com o preapproval
     # autorizado e não pode virar 60 dias.
     fim_atual = _aware(sub.current_period_end)
@@ -719,6 +872,15 @@ async def _processar_pagamento_avulso(db: AsyncSession, recurso_id: str, event_i
         ciclo = ciclo_ref or sub.billing_cycle
         pago_cent = int(round(float(pag.get("transaction_amount") or 0) * 100))
         aceitos_cent = {int(round(v * 100)) for v in valores_aceitos(preco or 0, ciclo)}
+        oferta = None
+        if pago_cent not in aceitos_cent and ciclo == "anual":
+            # Anual da oferta de reconquista (25% no total).
+            oferta = await _oferta_da_referencia(db, pag.get("external_reference"), sub.tenant_id)
+            precos = preco_oferta(preco or 0)
+            if oferta is not None and oferta.accepted_at is None and pago_cent == int(round(precos["anual_promo"] * 100)):
+                aceitos_cent.add(pago_cent)
+            else:
+                oferta = None
         if pago_cent not in aceitos_cent:
             # Valor divergente → NÃO ativa (revisão manual via evento).
             logger.warning(
@@ -728,6 +890,10 @@ async def _processar_pagamento_avulso(db: AsyncSession, recurso_id: str, event_i
             return
         if not await _aplicar_uma_vez(db, f"aplicado:payment:{recurso_id}:aprovado"):
             return  # mesmo pagamento, outro formato de aviso: já aplicado
+        if oferta is not None:
+            precos = preco_oferta(preco or 0)
+            _aceitar_oferta(oferta, ciclo="anual", plano=plano,
+                            promo=precos["anual_promo"], cheio=precos["anual_cheio"])
         # Pré-pago confirmado: o mensal anterior (se houver) para de cobrar.
         await _cancelar_recorrencia_antiga(sub, None)
         sub.provider_subscription_id = None

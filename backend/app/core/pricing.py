@@ -84,6 +84,33 @@ def valores_aceitos(preco_mensal: Decimal | float, ciclo: str) -> set[float]:
     return {linha["pix_total"], linha["cartao_total"]}
 
 
+# Oferta de reconquista (dono, 13/11/2026): para quem não assinou depois do
+# teste grátis, uma vez por escritório, válida por 7 dias.
+#  - Mensal no cartão: 15% só no 1º mês; do 2º em diante, preço cheio.
+#  - Anual: 25% no total (NO LUGAR dos 15% normais; não soma com Pix nem com
+#    o desconto do cartão anual), no Pix ou no cartão em até 6x sem juros.
+DESCONTO_OFERTA_MENSAL = 0.15
+DESCONTO_OFERTA_ANUAL = 0.25
+OFERTA_ANUAL_MAX_PARCELAS = 6
+
+
+def preco_oferta(preco_mensal: Decimal | float) -> dict[str, Any]:
+    """Preços da oferta de reconquista para um plano (sempre calculados aqui)."""
+    p = float(preco_mensal)
+    anual_cheio = _round2(p * 12)
+    anual_promo = _round2(anual_cheio * (1 - DESCONTO_OFERTA_ANUAL))
+    return {
+        "mensal_cheio": _round2(p),
+        "mensal_promo": _round2(p * (1 - DESCONTO_OFERTA_MENSAL)),
+        "mensal_desconto_pct": int(DESCONTO_OFERTA_MENSAL * 100),
+        "anual_cheio": anual_cheio,
+        "anual_promo": anual_promo,
+        "anual_desconto_pct": int(DESCONTO_OFERTA_ANUAL * 100),
+        "anual_max_parcelas": OFERTA_ANUAL_MAX_PARCELAS,
+        "anual_parcela": _round2(anual_promo / OFERTA_ANUAL_MAX_PARCELAS),
+    }
+
+
 def _selfcheck() -> None:
     # Intermediário R$149 — anual: cheio 1788, Pix/cartão 1519.80, 6x de 253.30
     a = linha_preco(149, "anual")
@@ -103,6 +130,8 @@ def _selfcheck() -> None:
     m = linha_preco(349, "mensal")
     assert m["pix_total"] == 349.0 == m["cartao_total"]
     assert valores_aceitos(149, "anual") == {1519.8}
+    o = preco_oferta(349)
+    assert o["mensal_promo"] == 296.65 and o["anual_promo"] == 3141.0 and o["anual_parcela"] == 523.5
     assert valores_aceitos(149, "trimestral") == {379.95, 447.0}
     try:
         linha_preco(149, "bienal")

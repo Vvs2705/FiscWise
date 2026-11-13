@@ -70,6 +70,10 @@ def _job_definitions():
         ("avisar_fim_do_teste", "Trial Ending Notices",
          avisar_fim_do_teste_scheduled,
          CronTrigger(hour=9, minute=0, timezone=TZ_BR)),
+        # Oferta de reconquista (5 dias após vencer), lembrete e reajuste do mensal — 10:00 (Brasília)
+        ("oferta_reconquista", "Retention Offer",
+         oferta_reconquista_scheduled,
+         CronTrigger(hour=10, minute=0, timezone=TZ_BR)),
     ]
 
 
@@ -527,6 +531,35 @@ async def avisar_fim_do_teste_scheduled(now: datetime | None = None) -> dict:
 
     logger.info("Trial ending notices: %s", counts)
     return counts
+
+
+async def oferta_reconquista_scheduled(now: datetime | None = None) -> dict:
+    """Oferta para quem não assinou depois do teste (app.services.oferta).
+
+    (a) envia a oferta 5 dias depois de vencer; (b) lembrete no 6º dia da
+    oferta; (c) volta ao preço cheio o mensal que já teve a 1ª cobrança.
+    Cada parte roda mesmo se a anterior falhar.
+    """
+    from app.core.deps import get_sessionmaker
+    from app.services.oferta import enviar_lembretes, enviar_ofertas_novas, reconciliar_reajustes
+
+    agora = now or datetime.now(timezone.utc)
+    resultado: dict = {}
+    async_session = get_sessionmaker()
+    for nome, func in (
+        ("ofertas", enviar_ofertas_novas),
+        ("lembretes", enviar_lembretes),
+        ("reajustes", reconciliar_reajustes),
+    ):
+        async with async_session() as db:
+            try:
+                resultado[nome] = await func(db, agora)
+            except Exception as exc:  # uma parte com problema não para as outras
+                await db.rollback()
+                logger.error("Retention offer step %s failed: %s", nome, exc, exc_info=True)
+                resultado[nome] = "error"
+    logger.info("Retention offer job: %s", resultado)
+    return resultado
 
 
 SYNC_EVENTS_RETENTION_DAYS = 90

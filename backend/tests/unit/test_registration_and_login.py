@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_password_hash, verify_password
 from app.models.tenant import Tenant, SubscriptionStatus
 from app.models.user import User, UserRole
+from tests.test_teste_por_documento import gerar_cnpj, mascarar_cnpj  # noqa: E402
 
 
 # ============================================================================
@@ -34,7 +35,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "Contabilidade Silva & Associados",
-            "document": "12.345.678/0001-90",
+            "document": mascarar_cnpj(gerar_cnpj(1299)),
             "owner_email": "joao@silva.com",
             "owner_password": "SecurePass123!",
             "owner_full_name": "João Silva",
@@ -62,7 +63,7 @@ class TestRegistration:
         )
         tenant_obj = tenant.scalar_one()
         assert tenant_obj.name == "Contabilidade Silva & Associados"
-        assert tenant_obj.document == "12.345.678/0001-90"
+        assert tenant_obj.document == gerar_cnpj(1299)  # gravado só com dígitos
         assert tenant_obj.subscription_status == SubscriptionStatus.TRIAL
 
         # Verify user was created with OWNER role
@@ -83,6 +84,7 @@ class TestRegistration:
         # First registration
         payload1 = {
             "company_name": "First Company",
+            "document": gerar_cnpj(1200),
             "owner_email": "duplicate@test.com",
             "owner_password": "SecurePass123!",
             "owner_full_name": "First User",
@@ -93,6 +95,7 @@ class TestRegistration:
         # Second registration with same email
         payload2 = {
             "company_name": "Second Company",
+            "document": gerar_cnpj(1201),
             "owner_email": "duplicate@test.com",
             "owner_password": "DifferentPass456!",
             "owner_full_name": "Second User",
@@ -111,6 +114,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "Test Company",
+            "document": gerar_cnpj(1202),
             "owner_email": "test@example.com",
             "owner_password": "MyPassword123!",
             "owner_full_name": "Test User",
@@ -139,6 +143,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "Minimal Company",
+            "document": gerar_cnpj(1203),
             "owner_email": "minimal@test.com",
             "owner_password": "SecurePass123!",
         }
@@ -160,6 +165,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "Test Company",
+            "document": gerar_cnpj(1204),
             "owner_email": "not-an-email",
             "owner_password": "SecurePass123!",
         }
@@ -175,6 +181,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "Test Company",
+            "document": gerar_cnpj(1205),
             "owner_email": "test@example.com",
             "owner_password": "Short1!",  # 7 chars
         }
@@ -190,6 +197,7 @@ class TestRegistration:
         """
         payload = {
             "company_name": "",
+            "document": gerar_cnpj(1206),
             "owner_email": "test@example.com",
             "owner_password": "SecurePass123!",
         }
@@ -424,6 +432,7 @@ class TestEnumConsistency:
         """
         payload = {
             "company_name": "Subscription Test",
+            "document": gerar_cnpj(1207),
             "owner_email": "sub.test@test.com",
             "owner_password": "Password123!",
         }

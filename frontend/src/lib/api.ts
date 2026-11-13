@@ -1,7 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { API_URL } from './apiUrl';
 import { clearApiCache } from './offline/apiCache';
-import { toast } from 'sonner';
 
 /** Conta só para leitura (teste grátis ou período pago acabou sem assinatura). */
 export const ACESSO_EXPIRADO_CODE = 'ACESSO_EXPIRADO';
@@ -145,11 +144,14 @@ api.interceptors.response.use(
     // O id fixo junta vários 402 seguidos num aviso só.
     if (isAcessoExpiradoError(error)) {
       const detail = (error.response.data as { detail?: unknown } | undefined)?.detail;
-      toast.error(typeof detail === 'string' && detail.trim() ? detail : ACESSO_EXPIRADO_FALLBACK, {
-        id: ACESSO_EXPIRADO_CODE,
-        duration: 10_000,
-        action: { label: 'Assinar', onClick: () => window.location.assign('/assinatura') },
-      });
+      // sonner carregado sob demanda: fora da entrada do /login.
+      void import('sonner').then(({ toast }) =>
+        toast.error(typeof detail === 'string' && detail.trim() ? detail : ACESSO_EXPIRADO_FALLBACK, {
+          id: ACESSO_EXPIRADO_CODE,
+          duration: 10_000,
+          action: { label: 'Assinar', onClick: () => window.location.assign('/assinatura') },
+        }),
+      );
       window.dispatchEvent(new Event(ACESSO_EXPIRADO_EVENT));
       return Promise.reject(error);
     }

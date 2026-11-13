@@ -32,7 +32,7 @@ export function PrivacyPage() {
           <h1 className="text-3xl font-bold">Política de Privacidade</h1>
         </div>
         <p className="mb-1 text-sm text-muted-foreground">
-          Versão 1.0 — Última atualização: maio de 2026
+          Versão 1.1 — Última atualização: 13/11/2026
         </p>
         <p className="mb-8 text-xs text-muted-foreground">
           Em conformidade com a Lei Geral de Proteção de Dados — <strong>LGPD (Lei 13.709/2018)</strong>
@@ -62,7 +62,7 @@ export function PrivacyPage() {
               <li><strong>Cadastro:</strong> nome completo, e-mail, telefone, CNPJ/CPF</li>
               <li><strong>Uso da plataforma:</strong> logs de acesso, endereço IP, dispositivo e navegador</li>
               <li><strong>Dados de clientes:</strong> informações inseridas pelo escritório sobre seus clientes (dados de terceiros sob responsabilidade do escritório contábil)</li>
-              <li><strong>Dados financeiros:</strong> histórico de pagamentos de honorários (não armazenamos dados de cartão de crédito — processados por Asaas)</li>
+              <li><strong>Dados financeiros:</strong> histórico de pagamentos de honorários (não armazenamos dados de cartão de crédito — o pagamento da assinatura é processado pelo Mercado Pago)</li>
               <li><strong>Comunicações:</strong> histórico de e-mails e notificações enviadas pelo sistema</li>
             </ul>
           </section>
@@ -113,10 +113,14 @@ export function PrivacyPage() {
               Seus dados são compartilhados apenas com:
             </p>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside">
-              <li><strong>Asaas</strong> — processamento de pagamentos (dados mínimos necessários)</li>
-              <li><strong>Supabase/PostgreSQL</strong> — hospedagem de banco de dados (Brasil/EUA, com DPA)</li>
-              <li><strong>Fly.io / Vercel</strong> — infraestrutura de hospedagem (com DPA)</li>
+              <li><strong>Google Cloud Run</strong> — servidor da aplicação (região São Paulo, Brasil)</li>
+              <li><strong>Cloudflare Pages</strong> — hospedagem do site</li>
+              <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos (com DPA)</li>
+              <li><strong>Mercado Pago</strong> — processamento dos pagamentos da assinatura (dados mínimos necessários)</li>
               <li><strong>Resend</strong> — envio de e-mails transacionais (somente e-mail e nome)</li>
+              <li><strong>Sentry</strong> — monitoramento de erros técnicos da aplicação</li>
+              <li><strong>Cloudflare Web Analytics</strong> — métricas de acesso agregadas, sem cookies</li>
+              <li><strong>OpenAI</strong> — recursos de inteligência artificial, somente quando você os utiliza</li>
               <li><strong>Autoridades públicas</strong> — quando exigido por lei ou decisão judicial</li>
             </ul>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
@@ -180,9 +184,10 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold">9. Transferência Internacional</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Alguns dados podem ser processados em servidores fora do Brasil (EUA), por provedores
-              de infraestrutura (Fly.io, Vercel). Todas essas transferências são realizadas com
-              garantias contratuais adequadas (DPA — Data Processing Agreements).
+              O servidor da aplicação fica no Brasil (Google Cloud, região São Paulo). Alguns dados
+              podem ser processados fora do Brasil (por exemplo, nos EUA) por provedores como
+              Cloudflare, Supabase, Resend, Sentry e OpenAI. Todas essas transferências são
+              realizadas com garantias contratuais adequadas (DPA — Data Processing Agreements).
             </p>
           </section>
 

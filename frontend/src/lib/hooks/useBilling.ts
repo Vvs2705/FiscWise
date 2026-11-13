@@ -54,6 +54,8 @@ export interface CheckoutRequest {
   plan_slug: string;
   ciclo: CicloCobranca;
   metodo: MetodoPagamento;
+  /** Oferta de reconquista: o servidor confere a oferta e calcula o preço. */
+  oferta?: boolean;
 }
 
 export interface CheckoutResponse {
@@ -85,4 +87,45 @@ export function useCancelSubscription() {
       queryClient.invalidateQueries({ queryKey: ['tenant'] });
     },
   });
+}
+
+// ─── Oferta de reconquista (depois do teste grátis) ──────────────────────────
+
+export interface OfertaPlano {
+  plan_slug: string;
+  plan_name: string;
+  mensal_promo: number;
+  mensal_cheio: number;
+  mensal_desconto_pct: number;
+  anual_promo: number;
+  anual_cheio: number;
+  anual_desconto_pct: number;
+  anual_max_parcelas: number;
+  anual_parcela: number;
+}
+
+export interface OfertaData {
+  ativa: boolean;
+  expires_at: string | null;
+  planos: OfertaPlano[];
+}
+
+/** Oferta vigente do escritório (só o dono recebe; os demais veem ativa=false). */
+export function useOferta(enabled = true) {
+  return useQuery<OfertaData>({
+    queryKey: ['billing-oferta'],
+    queryFn: async () => {
+      const res = await api.get<OfertaData>('/api/v1/billing/oferta');
+      return res.data;
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/** Data curta (DD/MM) do fim da oferta. */
+export function dataOferta(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }

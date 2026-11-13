@@ -25,6 +25,8 @@ def _utc(*args):
         (_utc(2026, 11, 2, 12, 0), {"notify_pending_documents", "avisar_fim_do_teste", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # todo dia 09h: avisos do teste grátis
         (_utc(2026, 11, 4, 12, 0), {"avisar_fim_do_teste", "cleanup_auth_rate_limiter", "process_job_queue"}),
+        # todo dia 10h: oferta de reconquista
+        (_utc(2026, 11, 4, 13, 0), {"oferta_reconquista", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # todo dia 08h: lembretes de pagamento
         (_utc(2026, 11, 4, 11, 0), {"send_payment_reminders", "cleanup_auth_rate_limiter", "process_job_queue"}),
         # hora comum: só a limpeza

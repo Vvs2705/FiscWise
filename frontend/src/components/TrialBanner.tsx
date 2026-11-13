@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Clock, Download, Lock } from 'lucide-react';
 import { useTenantInfo } from '@/lib/hooks/useSubscription';
+import { dataOferta, useOferta } from '@/lib/hooks/useBilling';
 import { useAuthStore } from '@/stores/authStore';
 import { ACESSO_EXPIRADO_EVENT, getApiErrorMessage } from '@/lib/api';
 import { downloadMyDataExport } from '@/lib/accountExport';
@@ -30,6 +31,8 @@ export function TrialBanner() {
   const isOwner = role === 'owner';
   const { data: tenant, refetch } = useTenantInfo(isOffice);
   const [exporting, setExporting] = useState(false);
+  // Oferta de reconquista: só o dono, só com a conta vencida.
+  const { data: oferta } = useOferta(isOwner && !!tenant?.acesso_expirado);
 
   useEffect(() => {
     if (!isOffice) return;
@@ -62,11 +65,19 @@ export function TrialBanner() {
         <p className="min-w-0 flex-1">
           <strong className="font-semibold">Seu teste acabou.</strong> A conta está só para leitura.{' '}
           {isOwner ? 'Assine para voltar a editar.' : 'Peça ao responsável pelo escritório para assinar um plano.'}
+          {isOwner && oferta?.ativa && (
+            <>
+              {' '}
+              <strong className="font-semibold text-success">
+                Oferta especial até {dataOferta(oferta.expires_at)}: 15% no 1º mês ou anual com 25%.
+              </strong>
+            </>
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {isOwner && (
-            <Link to="/assinatura" className={LINK_ASSINAR}>
-              Assinar
+            <Link to={oferta?.ativa ? '/assinatura?oferta=1' : '/assinatura'} className={LINK_ASSINAR}>
+              {oferta?.ativa ? 'Ver oferta' : 'Assinar'}
             </Link>
           )}
           <Button variant="outline" size="sm" onClick={handleExport} loading={exporting}>

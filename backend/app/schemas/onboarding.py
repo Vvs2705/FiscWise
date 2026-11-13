@@ -17,7 +17,7 @@ class TenantRegistrationRequest(BaseModel):
     
     Attributes:
         company_name: Name of the company/tenant
-        document: Company document (CNPJ/CPF) - optional
+        document: CNPJ/CPF do escritório (obrigatório; um teste grátis por documento)
         owner_email: Email of the owner user (validated with EmailStr)
         owner_password: Password for the owner user (min 8 characters)
     """
@@ -29,11 +29,14 @@ class TenantRegistrationRequest(BaseModel):
         examples=["Contabilidade Silva & Associados"]
     )
     
-    document: Optional[str] = Field(
-        None,
+    # Obrigatório desde 13/11/2026: um teste grátis por CNPJ/CPF. Validado e
+    # gravado só com dígitos no endpoint (X-Error-Code INVALID_DOCUMENT).
+    document: str = Field(
+        ...,
+        min_length=1,
         max_length=32,
-        description="Company document (CNPJ/CPF)",
-        examples=["12.345.678/0001-90"]
+        description="CNPJ ou CPF do escritório (obrigatório)",
+        examples=["11.222.333/0001-81"]
     )
     
     owner_email: EmailStr = Field(
@@ -123,7 +126,7 @@ class GoogleTenantRegistrationRequest(BaseModel):
     """
     signup_token: str = Field(..., min_length=10)
     company_name: str = Field(..., min_length=2, max_length=255)
-    document: Optional[str] = Field(None, max_length=32)
+    document: str = Field(..., min_length=1, max_length=32)  # obrigatório: um teste por CNPJ/CPF
     owner_full_name: Optional[str] = Field(None, max_length=255)
     owner_phone: Optional[str] = Field(None, max_length=20)
     plan_slug: Optional[str] = Field(None)
@@ -138,7 +141,7 @@ class GoogleTenantRegistrationRequest(BaseModel):
 class CompleteSignupRequest(BaseModel):
     """Conclusão de cadastro de escritório antigo sem aceite dos Termos."""
     company_name: str = Field(..., min_length=2, max_length=255)
-    document: Optional[str] = Field(None, max_length=32)
+    document: str = Field(..., min_length=1, max_length=32)  # obrigatório: um teste por CNPJ/CPF
     owner_full_name: Optional[str] = Field(None, max_length=255)
     owner_phone: Optional[str] = Field(None, max_length=20)
     terms_accepted: bool = Field(default=False)

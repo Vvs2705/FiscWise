@@ -111,6 +111,11 @@ class User(Base, TenantBase):
         comment="Whether the user account is active"
     )
 
+    # Tour de boas-vindas: nulo = ainda não viu. Vale para a conta, em qualquer aparelho.
+    welcome_tour_seen_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # ── Two-Factor Authentication (2FA) ──────────────────────────────────────
     # Tokens com iat anterior a este instante são recusados (troca de senha).
     tokens_valid_after: Mapped[Optional[datetime]] = mapped_column(

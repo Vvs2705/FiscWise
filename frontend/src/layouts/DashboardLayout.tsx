@@ -13,7 +13,7 @@ export function DashboardLayout() {
   // Espera a primeira tela pintar para o tour encontrar o menu e o botão Ajuda.
   useEffect(() => {
     if (!role || role === 'client') return;
-    const timer = window.setTimeout(maybeStartWelcomeTour, 900);
+    const timer = window.setTimeout(() => void maybeStartWelcomeTour(), 900);
     return () => window.clearTimeout(timer);
   }, [role]);
 

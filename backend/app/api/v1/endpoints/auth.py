@@ -788,7 +788,20 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "created_at": current_user.created_at.isoformat(),
         "two_factor_enabled": getattr(current_user, "two_factor_enabled", False),
         "two_factor_method": getattr(current_user, "two_factor_method", "none"),
+        "welcome_tour_seen": current_user.welcome_tour_seen_at is not None,
     }
+
+
+@router.post("/me/welcome-tour", summary="Mark welcome tour as seen")
+async def mark_welcome_tour_seen(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """O tour de boas-vindas aparece só no primeiro acesso: concluído ou pulado, não volta sozinho."""
+    if current_user.welcome_tour_seen_at is None:
+        current_user.welcome_tour_seen_at = datetime.now(timezone.utc)
+        await db.commit()
+    return {"welcome_tour_seen": True}
 
 
 @router.get("/tenant", summary="Get Current Tenant Info")

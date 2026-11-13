@@ -1,10 +1,13 @@
 import { loadDriver } from '@/lib/tours';
 import { getCurrentUser } from '@/lib/auth';
+import { api } from '@/lib/api';
 
 /**
- * Tour de boas-vindas: no primeiro acesso do contador, mostra passo a passo
- * as partes mais importantes do FiscWise (menu, ajuda e minicurso).
- * Fica marcado por usuário no navegador; dá para refazer pelo botão Ajuda.
+ * Tour de boas-vindas: aparece uma única vez, no primeiro acesso depois do
+ * cadastro, e mostra passo a passo as partes mais importantes do FiscWise
+ * (menu, ajuda e minicurso). Concluído ou pulado, fica marcado na conta
+ * (servidor, vale em qualquer aparelho) e no navegador (para não perguntar ao
+ * servidor a cada página). Dá para rever quando quiser pelo botão Ajuda.
  */
 
 const KEY_PREFIX = 'fiscwise:tour-boas-vindas:';
@@ -21,11 +24,26 @@ export function hasSeenWelcomeTour(): boolean {
   }
 }
 
-function markWelcomeTourSeen() {
+function markSeenLocally() {
   try {
     localStorage.setItem(storageKey(), 'done');
   } catch {
-    /* navegador sem storage: o tour pode voltar a aparecer, sem problema */
+    /* navegador sem storage: o servidor continua sabendo */
+  }
+}
+
+function markWelcomeTourSeen() {
+  markSeenLocally();
+  void api.post('/api/v1/auth/me/welcome-tour').catch(() => undefined);
+}
+
+/** Pergunta à conta se o tour já foi visto. Na dúvida (offline, erro), não mostra. */
+async function seenOnServer(): Promise<boolean> {
+  try {
+    const { data } = await api.get<{ welcome_tour_seen?: boolean }>('/api/v1/auth/me');
+    return data.welcome_tour_seen !== false;
+  } catch {
+    return true;
   }
 }
 
@@ -133,8 +151,14 @@ export async function startWelcomeTour(): Promise<void> {
 }
 
 /** Inicia o tour sozinho no primeiro acesso (não durante testes automatizados). */
-export function maybeStartWelcomeTour(): void {
+/** Abre o tour só se esta conta ainda não o viu (primeiro acesso depois do cadastro). */
+export async function maybeStartWelcomeTour(): Promise<void> {
   const forced = new URLSearchParams(window.location.search).get('tour') === '1';
-  if (!forced && (hasSeenWelcomeTour() || navigator.webdriver)) return;
-  void startWelcomeTour();
+  if (forced) return startWelcomeTour();
+  if (hasSeenWelcomeTour() || navigator.webdriver) return;
+  if (await seenOnServer()) {
+    markSeenLocally();
+    return;
+  }
+  await startWelcomeTour();
 }

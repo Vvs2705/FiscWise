@@ -229,9 +229,30 @@ class GatewayMercadoPago:
         """Cancela a assinatura recorrente: o Mercado Pago para de cobrar o cartão."""
         return await self._put(f"/preapproval/{preapproval_id}", {"status": "cancelled"})
 
+    async def obter_pagamento_autorizado(self, autorizado_id: str) -> dict[str, Any]:
+        """Cobrança mensal de uma assinatura (tópico subscription_authorized_payment)."""
+        return await self._get(f"/authorized_payments/{autorizado_id}")
+
     async def obter_pagamento(self, pagamento_id: str) -> dict[str, Any]:
         """Status de um pagamento avulso (usado pelo webhook)."""
         return await self._get(f"/v1/payments/{pagamento_id}")
+
+
+def montar_manifesto_webhook(*, data_id: str | None, x_request_id: str | None, ts: str) -> str:
+    """Manifesto que o Mercado Pago assina: `id:{data.id};request-id:{x-request-id};ts:{ts};`.
+
+    Regras da documentação do MP:
+    - `data.id` vem da query string da notificação (`?data.id=...`) e, se for
+      alfanumérico, entra em minúsculas;
+    - parte ausente sai do manifesto (não vira `id:;`).
+    """
+    partes = []
+    if data_id:
+        partes.append(f"id:{str(data_id).strip().lower()};")
+    if x_request_id:
+        partes.append(f"request-id:{x_request_id.strip()};")
+    partes.append(f"ts:{ts};")
+    return "".join(partes)
 
 
 def validar_assinatura_webhook(
@@ -262,7 +283,7 @@ def validar_assinatura_webhook(
     if not ts or not v1:
         return False
 
-    manifest = f"id:{data_id or ''};request-id:{x_request_id or ''};ts:{ts};"
+    manifest = montar_manifesto_webhook(data_id=data_id, x_request_id=x_request_id, ts=ts)
     esperado = hmac.new(secret.encode("utf-8"), manifest.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(esperado, v1):
         return False

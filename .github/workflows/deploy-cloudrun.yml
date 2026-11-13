@@ -73,15 +73,28 @@ jobs:
           if [ -n "$EXTRA_SECRETS" ]; then SECRETS="$SECRETS,$EXTRA_SECRETS"; fi
           # Mercado Pago: entra sozinho quando o segredo existe no Secret Manager
           # (sem depender de editar CLOUD_RUN_EXTRA_SECRETS no GitHub).
+          # A conta de deploy precisa de roles/secretmanager.viewer (só metadados,
+          # não lê o valor) para o `describe` funcionar — ver DEPLOY.md passo 4.
+          MP_FALTANDO=""
           for NAME in MERCADO_PAGO_ACCESS_TOKEN MERCADO_PAGO_PUBLIC_KEY MERCADO_PAGO_WEBHOOK_SECRET; do
             case ",$SECRETS," in *",$NAME="*) continue ;; esac
-            if gcloud secrets describe "$NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
+            if ERRO=$(gcloud secrets describe "$NAME" --project "$PROJECT_ID" 2>&1 >/dev/null); then
               SECRETS="$SECRETS,$NAME=$NAME:latest"
               echo "Segredo $NAME encontrado: será montado no Cloud Run."
+            elif echo "$ERRO" | grep -q -i "PERMISSION_DENIED"; then
+              echo "::warning::Sem permissão para ver o segredo $NAME. Dê roles/secretmanager.viewer à conta de deploy (DEPLOY.md, passo 4)."
+              MP_FALTANDO="$MP_FALTANDO $NAME"
             else
-              echo "Segredo $NAME não existe (ou sem permissão de leitura): cobrança segue desligada."
+              echo "Segredo $NAME não existe: cobrança segue desligada."
+              MP_FALTANDO="$MP_FALTANDO $NAME"
             fi
           done
+          # Com a cobrança ligada, faltar segredo derruba o deploy (melhor que
+          # ir ao ar com o checkout aberto e o webhook rejeitando tudo).
+          if grep -q -E '^PAGAMENTOS_GO_LIVE: *"?(true|True|1)"?' /tmp/env.yaml && [ -n "$MP_FALTANDO" ]; then
+            echo "::error::PAGAMENTOS_GO_LIVE ligado, mas faltam segredos do Mercado Pago:$MP_FALTANDO"
+            exit 1
+          fi
           echo "SECRETS=$SECRETS" >> "$GITHUB_ENV"
 
       - name: Run database migrations (Cloud Run Job)

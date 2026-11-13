@@ -153,7 +153,9 @@ gcloud projects add-iam-policy-binding PROJECT_ID \
 
 # Conta de serviço que o GitHub Actions usa para deploy
 gcloud iam service-accounts create fiscwise-deployer
-for ROLE in roles/run.admin roles/artifactregistry.writer; do
+# secretmanager.viewer: só vê se o segredo existe (não lê o valor). O deploy
+# usa isso para montar os segredos do Mercado Pago sozinho.
+for ROLE in roles/run.admin roles/artifactregistry.writer roles/secretmanager.viewer; do
   gcloud projects add-iam-policy-binding PROJECT_ID \
     --member="serviceAccount:fiscwise-deployer@PROJECT_ID.iam.gserviceaccount.com" \
     --role="$ROLE"
@@ -189,8 +191,9 @@ openssl rand -hex 32 | tr -d '\n' | gcloud secrets create CRON_SECRET --data-fil
 ```
 
 Opcionais (crie quando for usar e liste em `CLOUD_RUN_EXTRA_SECRETS`, passo 6):
-`REDIS_URL` (sem ele o rate limit por Redis fica desligado e vale só o limite em memória do login), `OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `MERCADO_PAGO_ACCESS_TOKEN`,
-`MERCADO_PAGO_WEBHOOK_SECRET`, `WHATSAPP_WEBHOOK_SECRET`.
+`REDIS_URL` (sem ele o rate limit por Redis fica desligado e vale só o limite em memória do login), `OPENAI_API_KEY`, `SENTRY_DSN`, `RESEND_API_KEY`, `WHATSAPP_WEBHOOK_SECRET`.
+Os três do Mercado Pago (`MERCADO_PAGO_ACCESS_TOKEN`, `MERCADO_PAGO_PUBLIC_KEY`,
+`MERCADO_PAGO_WEBHOOK_SECRET`) não precisam entrar na lista: ver passo 10.
 
 Nunca coloque esses valores em `.env` versionado, `.mcp.json`, README ou chat.
 
@@ -283,13 +286,60 @@ Analytics acima já cobre os Core Web Vitals.
 `vite preview` na porta 4173 sozinhos. `E2E_BASE_URL` testa outra URL (ex.: um
 preview do Pages); `E2E_API_URL` habilita os specs que dependem de API real.
 
-### 10. Domínio da API (opcional, depois)
+### 10. Domínio da API e webhook do Mercado Pago
 
-O mapeamento de domínio nativo do Cloud Run não existe em São Paulo. Enquanto
-não houver clientes, use a URL `*.run.app`. Quando quiser `api.fiscwise.com.br`,
-as opções gratuitas são um Cloudflare Worker que repassa as requisições para a
-URL do Cloud Run, ou Firebase Hosting com rewrite para o serviço. Depois,
-atualize `VITE_API_URL` e o `PUBLIC_URL` do `cloudrun.env.yaml`.
+O mapeamento de domínio nativo do Cloud Run não existe em São Paulo, e
+`api.fiscwise.com.br` **não existe**. A API responde em
+`https://fiscwise-api-45ckqevl6a-rj.a.run.app` (essa URL não muda enquanto o
+serviço `fiscwise-api` existir no mesmo projeto e região).
+
+**URL do webhook do Mercado Pago (cadastrar no painel):**
+
+```
+https://fiscwise-api-45ckqevl6a-rj.a.run.app/api/v1/billing/webhook/mercadopago
+```
+
+No painel do MP (Suas integrações → aplicação → Webhooks → Configurar
+notificações, aba **Modo produtivo**), marque os eventos **Pagamentos**
+(`payment`) e, em **Planos e assinaturas**, a assinatura
+(`subscription_preapproval`) e o pagamento recorrente
+(`subscription_authorized_payment`). A assinatura mensal só avisa pelo painel
+(o preapproval não usa o `notification_url`), então esse cadastro é obrigatório. A "assinatura secreta" gerada ali vai para
+o segredo `MERCADO_PAGO_WEBHOOK_SECRET`. O `notification_url` enviado em cada
+checkout sai de `PUBLIC_URL` (`cloudrun.env.yaml`) e aponta para a mesma URL.
+
+Segredos (Secret Manager, nomes exatos — o deploy monta sozinho quando existem):
+
+```bash
+printf '%s' 'APP_USR-...' | gcloud secrets create MERCADO_PAGO_ACCESS_TOKEN --data-file=-
+printf '%s' 'APP_USR-...' | gcloud secrets create MERCADO_PAGO_PUBLIC_KEY --data-file=-
+printf '%s' 'ASSINATURA_SECRETA_DO_PAINEL' | gcloud secrets create MERCADO_PAGO_WEBHOOK_SECRET --data-file=-
+```
+
+Para trocar um valor: `gcloud secrets versions add NOME --data-file=-` e rodar o
+deploy de novo. Se o log do deploy disser "Sem permissão para ver o segredo",
+dê `roles/secretmanager.viewer` à `fiscwise-deployer` (passo 4).
+Com `PAGAMENTOS_GO_LIVE: "true"`, faltar qualquer um dos três segredos derruba
+o deploy de propósito.
+
+Roteiro de homologação no sandbox: `docs/audit/HOMOLOGACAO_MERCADO_PAGO.md`.
+
+**Domínio próprio depois (opcional):** um Cloudflare Worker na rota
+`api.fiscwise.com.br/*` que repassa tudo para o Cloud Run, mantendo método,
+corpo, query string e os cabeçalhos `x-signature` e `x-request-id`:
+
+```js
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    url.hostname = "fiscwise-api-45ckqevl6a-rj.a.run.app";
+    return fetch(new Request(url, request));
+  },
+};
+```
+
+Depois: DNS `api` com proxy laranja, `PUBLIC_URL` e `VITE_API_URL` para
+`https://api.fiscwise.com.br`, e trocar a URL no painel do Mercado Pago.
 
 ### 11. Backup (GitHub Actions → R2)
 

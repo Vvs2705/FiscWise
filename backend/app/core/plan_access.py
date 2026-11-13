@@ -66,7 +66,8 @@ def effective_plan_slug(tenant: object, subscription: object = None) -> Optional
     Degrada para FREE quando:
       - subscription.status ∈ {suspended, cancelled}; OU
       - subscription.status == trialing E trial_ends_at já passou; OU
-      - o dono cancelou (cancelled_at) e o período pago já terminou.
+      - o dono cancelou (cancelled_at) e o período pago já terminou; OU
+      - ciclo pré-pago do Mercado Pago (não mensal) com o período vencido.
 
     Tenants SEM linha em tenant_subscriptions (legado) mantêm o plan_slug
     gravado — nunca degradam. Se `subscription` não for passada, é lida de
@@ -91,6 +92,21 @@ def effective_plan_slug(tenant: object, subscription: object = None) -> Optional
             period_end = period_end.replace(tzinfo=timezone.utc)
         if period_end <= datetime.now(timezone.utc):
             return PLAN_FREE
+
+    # Ciclo pré-pago (trimestral/semestral/anual, pagamento único): acabou o
+    # período, volta para o Gratuito até pagar de novo. O mensal recorrente não
+    # entra aqui: quem encerra é o Mercado Pago (preapproval cancelado → suspenso).
+    if (
+        sub_status == "active"
+        and getattr(subscription, "billing_provider", None) == "mercadopago"
+        and (getattr(subscription, "billing_cycle", None) or "mensal") != "mensal"
+    ):
+        period_end = getattr(subscription, "current_period_end", None)
+        if period_end is not None:
+            if period_end.tzinfo is None:
+                period_end = period_end.replace(tzinfo=timezone.utc)
+            if period_end <= datetime.now(timezone.utc):
+                return PLAN_FREE
 
     if sub_status == "trialing":
         trial_ends_at = getattr(subscription, "trial_ends_at", None)

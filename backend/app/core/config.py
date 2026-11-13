@@ -163,8 +163,9 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
 
-    # Public URL (used for widget script generation)
-    PUBLIC_URL: str = "https://api.fiscwise.com.br"
+    # URL pública da API: base do notification_url do Mercado Pago.
+    # Produção define em cloudrun.env.yaml (URL do Cloud Run).
+    PUBLIC_URL: str = "https://fiscwise-api-45ckqevl6a-rj.a.run.app"
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""

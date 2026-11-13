@@ -442,12 +442,15 @@ async def mercadopago_webhook(
         body = await request.json()
     except Exception:
         body = {}
+    if not isinstance(body, dict):
+        body = {}
 
-    tipo = (body.get("type") or body.get("topic") or "").lower()
-    data = body.get("data") or {}
-    recurso_id = str(
-        data.get("id") or body.get("id") or request.query_params.get("data.id") or ""
-    )
+    qp = request.query_params
+    tipo = (body.get("type") or body.get("topic") or qp.get("type") or qp.get("topic") or "").lower()
+    data = body.get("data") if isinstance(body.get("data"), dict) else {}
+    # O MP assina o `data.id` da query string; o corpo é só reserva.
+    id_query = qp.get("data.id") or qp.get("id")
+    recurso_id = str(id_query or data.get("id") or body.get("id") or "")
 
     if not validar_assinatura_webhook(
         x_signature=x_signature, x_request_id=x_request_id,
@@ -496,10 +499,16 @@ async def mercadopago_webhook(
                             sub.id, valor_centavos(sub.amount), valor_mensal,
                         )
                     else:
-                        sub.status = "active"
-                        sub.cancelled_at = None
-                        sub.current_period_start = agora
-                        sub.current_period_end = agora + timedelta(days=30)
+                        fim_atual = _aware(sub.current_period_end)
+                        ja_ativa = sub.status == "active" and fim_atual is not None and fim_atual > agora
+                        if not ja_ativa:
+                            # Primeira autorização (ou reativação). Renovações do
+                            # mês vêm pelo tópico subscription_authorized_payment;
+                            # outras atualizações do preapproval não esticam o período.
+                            sub.status = "active"
+                            sub.cancelled_at = None
+                            sub.current_period_start = agora
+                            sub.current_period_end = agora + timedelta(days=30)
                         await _refletir_plano_no_tenant(db, sub)
                 elif pre_status in ("cancelled", "paused"):
                     fim = _aware(sub.current_period_end)
@@ -520,6 +529,55 @@ async def mercadopago_webhook(
             # Não grava o evento: com 503 o Mercado Pago reenvia e a
             # reconciliação roda de novo (antes o retry caía em already_processed
             # e o pagamento nunca ativava o plano).
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Reconciliação indisponível, tente novamente",
+            )
+
+    elif gateway.configurado() and tipo == "subscription_authorized_payment":
+        # Cobrança mensal da assinatura (todo mês). Aprovada e com o valor
+        # certo → fim do período passa a ser hoje + 30 dias. Isso mantém o "cancelar
+        # mantém o período pago" correto a partir do 2º mês.
+        try:
+            aut = await gateway.obter_pagamento_autorizado(recurso_id)
+            pre_id = str(aut.get("preapproval_id") or "")
+            pagamento = aut.get("payment") if isinstance(aut.get("payment"), dict) else {}
+            pag_status = (pagamento.get("status") or aut.get("status") or "").lower()
+            sub = None
+            if pre_id:
+                sub = (
+                    await db.execute(
+                        select(TenantSubscription).where(
+                            TenantSubscription.provider_subscription_id == pre_id
+                        )
+                    )
+                ).scalar_one_or_none()
+            if sub is not None:
+                agora = datetime.now(timezone.utc)
+                sub.last_event_id = event_id
+                sub.last_event_at = agora
+                pago_cent = int(round(float(aut.get("transaction_amount") or 0) * 100))
+                if pag_status in ("approved", "processed"):
+                    if sub.amount is not None and pago_cent and pago_cent != valor_centavos(sub.amount):
+                        logger.warning(
+                            "webhook_valor_divergente sub=%s esperado=%s pago=%s",
+                            sub.id, valor_centavos(sub.amount), pago_cent,
+                        )
+                    elif sub.status not in ("cancelled", "suspended"):
+                        # max(): a 1ª cobrança chega junto com o preapproval
+                        # autorizado e não pode virar 60 dias.
+                        fim_atual = _aware(sub.current_period_end)
+                        novo_fim = agora + timedelta(days=30)
+                        if fim_atual is None or fim_atual < novo_fim:
+                            sub.current_period_start = agora
+                            sub.current_period_end = novo_fim
+                        sub.status = "active"
+                        await _refletir_plano_no_tenant(db, sub)
+            evento.processed = True
+            evento.processed_at = datetime.now(timezone.utc)
+        except GatewayPagamentoError as exc:
+            logger.warning("webhook_reconciliacao_falhou: %s", exc)
             await db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

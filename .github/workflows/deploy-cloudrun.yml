@@ -71,6 +71,17 @@ jobs:
           echo "GOOGLE_CLOUD_PROJECT: \"$PROJECT_ID\"" >> /tmp/env.yaml
           SECRETS="$REQUIRED_SECRETS"
           if [ -n "$EXTRA_SECRETS" ]; then SECRETS="$SECRETS,$EXTRA_SECRETS"; fi
+          # Mercado Pago: entra sozinho quando o segredo existe no Secret Manager
+          # (sem depender de editar CLOUD_RUN_EXTRA_SECRETS no GitHub).
+          for NAME in MERCADO_PAGO_ACCESS_TOKEN MERCADO_PAGO_PUBLIC_KEY MERCADO_PAGO_WEBHOOK_SECRET; do
+            case ",$SECRETS," in *",$NAME="*) continue ;; esac
+            if gcloud secrets describe "$NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
+              SECRETS="$SECRETS,$NAME=$NAME:latest"
+              echo "Segredo $NAME encontrado: será montado no Cloud Run."
+            else
+              echo "Segredo $NAME não existe (ou sem permissão de leitura): cobrança segue desligada."
+            fi
+          done
           echo "SECRETS=$SECRETS" >> "$GITHUB_ENV"
 
       - name: Run database migrations (Cloud Run Job)

@@ -430,18 +430,37 @@ pendência de decisão/custo (Apple Developer US$ 99/ano, Google Play US$ 25).
 - **Criptografia em repouso:** desktop com SQLCipher (7.2). No navegador o
   IndexedDB não oferece criptografia transparente; a proteção é o perfil do
   navegador e a criptografia de disco do sistema (BitLocker/FileVault/Android).
-  Decisão registrada como pendência: avaliar cifrar os campos sensíveis
-  (documento, e-mail, telefone) com WebCrypto e chave derivada por sessão, com o
-  custo de perder busca local por esses campos.
-- **Token:** token de dispositivo com 30 dias, renovado em janela deslizante;
-  invalidado por troca de senha (`tokens_valid_after`) e por revogação.
+  **Campos sensíveis cifrados (fase 2, 2026-11-13):** CPF/CNPJ, e-mail e
+  telefone do cliente e do responsável, e CPF/CNPJ e e-mail do tomador da nota,
+  vão para o IndexedDB (linhas, payload da outbox e conflitos) cifrados com
+  AES-GCM 256 via WebCrypto (`src/lib/offline/fieldCrypto.ts`). A chave é
+  gerada no navegador como **não exportável** e guardada no próprio banco do
+  escritório (`sync_meta.local_key`); apagar o banco apaga a chave. Protege a
+  cópia dos arquivos do perfil, backup e leitura do IndexedDB em repouso; não
+  protege contra script na própria origem com a sessão aberta (para isso, a
+  CSP). Nenhum campo cifrado é indexado, então a busca local continua: o app
+  decifra na leitura e filtra em memória. Linhas antigas em texto puro são
+  cifradas na abertura da sessão (`encryptExistingRows`). Chave por sessão foi
+  descartada: um reload offline perderia o acesso aos próprios dados.
+- **Token:** token de dispositivo com 30 dias, renovado em janela deslizante,
+  com **teto de 180 dias** desde o login online que registrou o dispositivo
+  (claim `fia`, herdado na renovação; o `exp` nunca passa de `fia + 180 d`).
+  Depois disso o servidor responde `401 device_token_expired` e o usuário
+  entra de novo online. Invalidado também por troca de senha
+  (`tokens_valid_after`) e por revogação.
+- **Cache HTTP do service worker:** apagado no logout explícito, na revogação,
+  no 401 que desloga (`api.ts`) e no login de um escritório diferente do último
+  neste navegador (`apiCache.ts`, chave `fiscwise_last_tenant_id`).
 - **Revogação com limpeza remota:** painel em Configurações → Dispositivos
   (lista, último acesso, botão Revogar). O dispositivo revogado apaga o banco
   local no próximo contato (5.1.4). **Logout explícito** também apaga o banco
   local (computador compartilhado).
 - **Portão de segurança:** `security-review` obrigatório no PR por tocar banco,
   endpoint exposto, autenticação e dados de cliente.
-- Rate limit nos endpoints `/sync/*` (mesmo middleware), tamanho máximo de lote
+- Rate limit em toda a API (`app/core/rate_limit.py`): `/sync/*` por
+  dispositivo + IP (240/min), o resto por usuário (300/min) ou IP sem
+  credencial (120/min), contado em memória; `REDIS_URL` só com mais de uma
+  instância. Tamanho máximo de lote
   (200 eventos / 1 MB) e validação Pydantic de todo payload.
 
 ---
@@ -484,12 +503,10 @@ instalado sem rede, criar cliente, voltar a rede, ver o cliente na API.
 |---|---|---|
 | Certificado de assinatura de código para o instalador Windows (EV ou OV, ~US$ 200–400/ano) | custo | Publicar sem assinatura como pré-lançamento; o Windows mostra "Editor desconhecido". |
 | Publicação em lojas (Apple/Google) | custo/decisão | PWA instalável cobre o celular. |
-| Criptografia de campos sensíveis no IndexedDB | decisão | Seção 9. |
 | RPS para municípios ABRASF | decisão de produto | Só quando houver emissor homologado em município não migrado. |
 | Build do `.exe` do Tauri | infraestrutura | Runner `windows-latest` do GitHub Actions (grátis em repositório público; em privado consome os 2.000 min/mês do plano Free). |
-| Endpoint para resolver/listar `sync_conflicts` no servidor | contrato | Hoje a revisão é local (tela Sincronização); o servidor só grava o histórico. Entra com a tela de revisão compartilhada entre dispositivos. |
+| Tela de revisão de conflitos compartilhada entre dispositivos | UI | API pronta: `GET /api/v1/sync/conflicts?resolved=false` e `POST /api/v1/sync/conflicts/{id}/resolve` (token de usuário; dono/admin veem o escritório, membro os próprios dispositivos). A tela Sincronização ainda revisa só a cópia local. |
 | Webhook `client.created` para clientes criados pelo sync | paridade | Disparar no handler `create` do push, como no REST. |
-| Isolamento por escritório do cache HTTP do service worker | segurança | Cache chaveado por URL; limpo no logout e na revogação. Chavear por tenant se um navegador for compartilhado entre escritórios. |
 | E2E Playwright offline (perfil mobile, `setOffline`) | teste | Depende de backend de preview; cenários unitários já cobrem a engine. |
 
 ---

@@ -9,7 +9,7 @@ O produto não pode ser vendido ainda. Os dois riscos críticos de código (clie
 | Segredos | Nenhum segredo válido no repositório | `.mcp.json` removido (PR #52); projeto do banco já excluído | OK | Merge do PR #52 |
 | Multi-tenant (código) | Nenhum vazamento entre escritórios nem do portal para o escritório | Leitura de todas as rotas com ID; `test_client_role_isolation.py` | OK no código | — |
 | Multi-tenant (banco) | RLS efetiva com role sem BYPASSRLS, testada em PostgreSQL real | `test_rls_postgres.py` passa no CI com role sem bypass (leva 5); produção ainda conecta como dono | **Parcial** | Criar role da aplicação sem bypass no Supabase e usar na `DATABASE_URL` |
-| Webhooks e pagamento | Assinatura obrigatória, idempotência, sem perda de evento | Testes novos; `PAGAMENTOS_GO_LIVE=false` devolve 503 | OK (sandbox não testado) | Homologação no sandbox do MP |
+| Webhooks e pagamento | Assinatura obrigatória, idempotência, sem perda de evento | Testes novos; `PAGAMENTOS_GO_LIVE=false` devolve 503 | OK no código (sandbox não testado) | Homologação no sandbox: `HOMOLOGACAO_MERCADO_PAGO.md` |
 | Auth | Rate limit distribuído, OTP compartilhado, revogação de token | Limiter e OTP no Redis com `REDIS_URL` (leva 3); troca de senha invalida tokens (leva 4) | **Parcial** | Configurar `REDIS_URL` em produção |
 | CI | Gates de segurança bloqueiam | `ci.yml` alterado | OK após merge | — |
 | Funcionalidades honestas | Nada simulado apresentado como real | Avisos em e-CAC, NFS-e, WhatsApp | OK na tela | Integrações reais ou remover do plano |

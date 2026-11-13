@@ -3,6 +3,7 @@ import axios from 'axios';
 import { api } from '@/lib/api';
 import { META, getMeta, type AnyLocalRow, type FiscWiseLocalDb, type LocalRowMeta, type SyncEntityType } from '@/lib/offline/db';
 import { useLocalDb } from '@/lib/offline/hooks';
+import { decryptRows, encryptFields, encryptRows } from '@/lib/offline/fieldCrypto';
 import * as localRepo from '@/lib/offline/repositories';
 import type { ClientAiSummary, ClientDocument as AiClientDocument } from '@/lib/aiDocuments';
 
@@ -404,9 +405,10 @@ export function isNetworkFailure(error: unknown): boolean {
  */
 export async function seedLocalRows(db: FiscWiseLocalDb, entity: LocalFirstEntity, rows: { id: string }[]): Promise<void> {
   const table = db.entityTable(entity);
+  const stored = await encryptRows(db, entity, rows);
   await db.transaction('rw', table, db.sync_meta, async () => {
     if ((await getMeta(db, META.cursor(entity))) !== undefined) return;
-    for (const row of rows) {
+    for (const row of stored) {
       const local = await table.get(row.id);
       if (local && local._sync_status !== 'synced') continue;
       await table.put({
@@ -437,7 +439,7 @@ export async function loadLocalFirstList<T>(db: FiscWiseLocalDb, entity: LocalFi
       if (!isNetworkFailure(error) && (await table.count()) === 0) throw error;
     }
   }
-  const rows = await table.toArray();
+  const rows = await decryptRows(db, entity, await table.toArray());
   return rows.sort(LOCAL_FIRST_SORT[entity]) as unknown as WithSyncStatus<T>[];
 }
 
@@ -473,8 +475,9 @@ async function ensureLocalRow(db: FiscWiseLocalDb, entity: LocalFirstEntity, id:
     }
   }
   if (!row) return;
+  const stored = await encryptFields(db, entity, row as Record<string, unknown>);
   await table.put({
-    ...(row as Record<string, unknown>),
+    ...stored,
     id: row.id,
     version: (row as { version?: number }).version ?? 1,
     _sync_status: 'synced',

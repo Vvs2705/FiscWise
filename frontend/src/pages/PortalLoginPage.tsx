@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useSelfRequestPortalLink } from '@/features/portal/api';
+import { clearApiCacheIfTenantChanged } from '@/lib/offline/apiCache';
 
 // ---------------------------------------------------------------------------
 // Portal Login — verifica o link mágico da URL ou deixa o cliente pedir um novo
@@ -35,6 +36,7 @@ export function PortalLoginPage() {
         const res = await api.post('/api/v1/portal/magic-link/verify', { token });
         const { access_token, tenant_id, email: userEmail } = res.data;
 
+        await clearApiCacheIfTenantChanged(tenant_id);
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('tenant_id', tenant_id);
         const portalUser = { id: '', email: userEmail, full_name: '', phone: undefined, role: 'client' };

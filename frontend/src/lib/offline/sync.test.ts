@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import Dexie from 'dexie';
 import { FiscWiseLocalDb, META, getMeta, openLocalDb, setMeta, wipeLocalDb } from './db';
 import { discardEvent, resolveConflictRestoreServer, syncNow, type SyncDeps } from './engine';
+import { decryptEvent } from './fieldCrypto';
 import { createFakeTransport, FakeSyncServer, type FakeTransportControls } from './fakeSyncServer';
 import { enqueue, listPending, markSyncing, outboxBackoffMs, recoverStuckOutbox } from './outbox';
 import {
@@ -228,7 +229,8 @@ describe('outbox: coalescência e regras', () => {
     const pending = await listPending(db);
     expect(pending).toHaveLength(1);
     expect(pending[0].operation).toBe('update');
-    expect(pending[0].payload).toEqual({ name: 'Loja A2', email: 'a@a.com' });
+    // payload fica cifrado no IndexedDB; decifrado é o mesclado
+    expect((await decryptEvent(db, pending[0])).payload).toEqual({ name: 'Loja A2', email: 'a@a.com' });
     expect(pending[0].base_version).toBe(base);
 
     // depois de uma desativação, novo update não é mesclado (ordem importa)

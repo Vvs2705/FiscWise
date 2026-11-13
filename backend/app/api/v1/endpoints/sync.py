@@ -9,7 +9,7 @@ reaproveitados do Moto-OS (`app/api/v1/sync/push|pull`, `lib/sync/errors.ts`):
 - validação/domínio → `rejected` definitivo, mensagem em português e sem SQL;
 - pull por cursor `(updated_at, id)` com marca d'água de 5 s.
 
-Rate limit: `RateLimitMiddleware` (prefixo /api/v1/sync, por token + IP).
+Rate limit: `RateLimitMiddleware` (prefixo /api/v1/sync, por token + IP; resto da API por usuário).
 """
 
 import json
@@ -94,6 +94,22 @@ class DeviceResponse(BaseModel):
     app_version: Optional[str] = None
     last_seen_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ConflictResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    entity_type: str
+    entity_id: uuid.UUID
+    event_id: uuid.UUID
+    device_id: uuid.UUID
+    base_version: Optional[int] = None
+    server_version: int
+    fields_overwritten: dict
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[uuid.UUID] = None
     created_at: datetime
 
 
@@ -678,11 +694,19 @@ async def list_devices(
 
 
 @router.post("/devices/token", response_model=DeviceTokenResponse)
-async def renew_device_token(auth=Depends(get_current_device)):
-    """Renova o token de dispositivo e entrega um token de acesso comum (30 min)."""
+async def renew_device_token(request: Request, auth=Depends(get_current_device)):
+    """Renova o token de dispositivo e entrega um token de acesso comum (30 min).
+
+    O token novo herda o início da cadeia (``fia``): a soma das renovações
+    nunca passa de 180 dias sem um login online (get_current_device recusa).
+    """
     user, device = auth
+    chain_started_at = getattr(request.state, "device_chain_started_at", None)
     return DeviceTokenResponse(
-        device_token=create_device_token(str(user.id), str(user.tenant_id), user.role.value, str(device.id)),
+        device_token=create_device_token(
+            str(user.id), str(user.tenant_id), user.role.value, str(device.id),
+            first_issued_at=chain_started_at,
+        ),
         access_token=create_access_token(str(user.id), str(user.tenant_id), user.role.value),
         tenant_id=user.tenant_id,
     )
@@ -715,6 +739,75 @@ async def revoke_device(
         )
         return response
     return DeviceResponse.model_validate(device)
+
+
+# ---------------------------------------------------------------------------
+# Conflitos (histórico de LWW por campo, compartilhado entre dispositivos)
+# ---------------------------------------------------------------------------
+
+
+def _conflicts_scope(current_user: User):
+    """Dono/admin veem os conflitos do escritório; membro, os dos próprios dispositivos."""
+    stmt = select(SyncConflict).where(SyncConflict.tenant_id == current_user.tenant_id)
+    if current_user.role not in (UserRole.OWNER, UserRole.ADMIN):
+        own_devices = select(SyncDevice.id).where(
+            SyncDevice.tenant_id == current_user.tenant_id, SyncDevice.user_id == current_user.id
+        )
+        stmt = stmt.where(SyncConflict.device_id.in_(own_devices))
+    return stmt
+
+
+@router.get("/conflicts", response_model=list[ConflictResponse])
+async def list_conflicts(
+    resolved: bool = Query(False, description="false = só os abertos; true = só os já revisados"),
+    entity_type: Optional[str] = Query(None),
+    entity_id: Optional[uuid.UUID] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Conflitos de sincronização (valor do servidor sobrescrito por edição offline).
+
+    Mais recentes primeiro. A revisão vale para todos os dispositivos do escritório.
+    """
+    stmt = _conflicts_scope(current_user)
+    stmt = stmt.where(SyncConflict.resolved_at.is_not(None) if resolved else SyncConflict.resolved_at.is_(None))
+    if entity_type:
+        stmt = stmt.where(SyncConflict.entity_type == entity_type)
+    if entity_id:
+        stmt = stmt.where(SyncConflict.entity_id == entity_id)
+    result = await db.execute(stmt.order_by(SyncConflict.created_at.desc(), SyncConflict.id.desc()).limit(limit))
+    return list(result.scalars().all())
+
+
+@router.post("/conflicts/{conflict_id}/resolve", response_model=ConflictResponse)
+async def resolve_conflict(
+    conflict_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Marca o conflito como revisado ("manter como está"). Idempotente.
+
+    Restaurar o valor anterior é uma edição comum (PATCH da entidade ou evento
+    `update` do sync), feita antes de resolver.
+    """
+    tenant_id, user_id, role = current_user.tenant_id, current_user.id, current_user.role
+    conflict = await db.scalar(_conflicts_scope(current_user).where(SyncConflict.id == conflict_id))
+    if conflict is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conflito não encontrado.")
+    if conflict.resolved_at is not None:
+        return ConflictResponse.model_validate(conflict)
+    conflict.resolved_at = datetime.now(timezone.utc)
+    conflict.resolved_by = user_id
+    await db.commit()
+    await db.refresh(conflict)
+    response = ConflictResponse.model_validate(conflict)
+    await log_audit_event(
+        db=db, tenant_id=tenant_id, action="sync.conflict.resolve", entity_type="sync_conflict",
+        actor_user_id=user_id, actor_role=role.value, entity_id=conflict_id,
+        after_data={"entity_type": response.entity_type, "entity_id": str(response.entity_id)},
+    )
+    return response
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import pytest_asyncio
 from sqlalchemy import func, select
 
 from app.api.v1.endpoints import auth
+from app.api.v1.endpoints.onboarding import TERMS_VERSION
 from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
 from app.models.tenant import SubscriptionStatus, Tenant
@@ -90,6 +91,7 @@ async def test_register_google_cria_escritorio_no_gratuito(client, test_db, monk
     assert tenant.name == "Escritório Novo"
     assert tenant.plan_slug == "free"
     assert tenant.terms_accepted_at is not None
+    assert tenant.terms_version == TERMS_VERSION  # prova do aceite: qual versão
 
     headers = {"Authorization": f"Bearer {data['access_token']}", "X-Tenant-ID": data["tenant_id"]}
     me = client.get("/api/v1/auth/me", headers=headers).json()
@@ -181,6 +183,7 @@ async def test_concluir_cadastro_libera_no_gratuito(client, test_db, incomplete_
     assert tenant.name == "Meu Escritório"
     assert tenant.plan_slug == "free"
     assert tenant.terms_accepted_at is not None
+    assert tenant.terms_version == TERMS_VERSION  # prova do aceite: qual versão
     assert client.get("/api/v1/clients", headers=h).status_code == 200
 
 

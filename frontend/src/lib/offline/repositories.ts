@@ -21,6 +21,7 @@ import type {
   SyncEntityType,
   SyncOperation,
 } from './db';
+import { decryptFields, decryptRows, encryptFields } from './fieldCrypto';
 import { enqueue } from './outbox';
 
 function nowIso(): string {
@@ -45,9 +46,9 @@ async function createLocal<R extends AnyLocalRow>(
   const table = db.entityTable(entity);
   const id = newId();
   const ts = nowIso();
-  const row = {
-    ...extra,
-    ...payload,
+  // Cifra antes da transação (WebCrypto fecharia a transação do IndexedDB).
+  const stored = await encryptFields(db, entity, payload);
+  const meta = {
     id,
     tenant_id: db.tenantId,
     created_at: ts,
@@ -56,12 +57,13 @@ async function createLocal<R extends AnyLocalRow>(
     _sync_status: 'pending',
     _local_updated_at: ts,
     _sync_error: null,
-  } as unknown as R;
+  };
+  const row = { ...extra, ...stored, ...meta } as unknown as R;
   await db.transaction('rw', table, db.sync_outbox, async () => {
     await table.add(row);
-    await enqueue(db, { entity_type: entity, entity_id: id, operation: 'create', payload: { id, ...payload }, base_version: null });
+    await enqueue(db, { entity_type: entity, entity_id: id, operation: 'create', payload: { id, ...stored }, base_version: null });
   });
-  return row;
+  return { ...extra, ...payload, ...meta } as unknown as R;
 }
 
 async function updateLocal<R extends AnyLocalRow>(
@@ -73,33 +75,36 @@ async function updateLocal<R extends AnyLocalRow>(
   localOnly: Record<string, unknown> = {},
 ): Promise<R> {
   const table = db.entityTable(entity);
-  return db.transaction('rw', table, db.sync_outbox, async () => {
+  const storedPatch = await encryptFields(db, entity, patch);
+  const next = await db.transaction('rw', table, db.sync_outbox, async () => {
     const current = await table.get(id);
     if (!current) throw new Error('Registro não encontrado no banco local.');
     const ts = nowIso();
-    const next = {
+    const row = {
       ...current,
-      ...patch,
+      ...storedPatch,
       ...localOnly,
       updated_at: ts,
       _sync_status: 'pending',
       _local_updated_at: ts,
       _sync_error: null,
     } as AnyLocalRow;
-    await table.put(next);
-    await enqueue(db, { entity_type: entity, entity_id: id, operation, payload: patch, base_version: current.version ?? 1 });
-    return next as R;
+    await table.put(row);
+    await enqueue(db, { entity_type: entity, entity_id: id, operation, payload: storedPatch, base_version: current.version ?? 1 });
+    return row;
   });
+  return (await decryptFields(db, entity, next)) as R;
 }
 
 // ─── Clientes ────────────────────────────────────────────────────────────────
 
 export async function listClients(db: FiscWiseLocalDb): Promise<LocalClient[]> {
-  return db.clients.orderBy('name').toArray();
+  return decryptRows(db, 'client', await db.clients.orderBy('name').toArray());
 }
 
 export async function getClient(db: FiscWiseLocalDb, id: string): Promise<LocalClient | undefined> {
-  return db.clients.get(id);
+  const row = await db.clients.get(id);
+  return row && decryptFields(db, 'client', row);
 }
 
 export function createClient(db: FiscWiseLocalDb, data: AccountingClientCreate): Promise<LocalClient> {
@@ -190,12 +195,13 @@ export function cancelReceivable(db: FiscWiseLocalDb, id: string): Promise<Local
 // ─── Notas fiscais (só rascunho e pedido de transmissão — seção 6) ───────────
 
 export async function listInvoices(db: FiscWiseLocalDb): Promise<LocalInvoice[]> {
-  const rows = await db.invoices.toArray();
+  const rows = await decryptRows(db, 'invoice', await db.invoices.toArray());
   return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
 export async function getInvoice(db: FiscWiseLocalDb, id: string): Promise<LocalInvoice | undefined> {
-  return db.invoices.get(id);
+  const row = await db.invoices.get(id);
+  return row && decryptFields(db, 'invoice', row);
 }
 
 export function createInvoiceDraft(db: FiscWiseLocalDb, data: InvoiceCreate): Promise<LocalInvoice> {
@@ -218,10 +224,11 @@ export async function requestInvoiceEmission(
   id: string,
   serverRow?: InvoiceResponse & { version?: number },
 ): Promise<LocalInvoice> {
-  return db.transaction('rw', db.invoices, db.sync_outbox, async () => {
+  const storedServerRow = serverRow ? await encryptFields(db, 'invoice', serverRow) : undefined;
+  const next = await db.transaction('rw', db.invoices, db.sync_outbox, async () => {
     let current = await db.invoices.get(id);
-    if (!current && serverRow) {
-      current = { ...serverRow, version: serverRow.version ?? 1, _sync_status: 'synced', _sync_error: null };
+    if (!current && storedServerRow) {
+      current = { ...storedServerRow, version: storedServerRow.version ?? 1, _sync_status: 'synced', _sync_error: null };
       await db.invoices.put(current);
     }
     if (!current) throw new Error('Nota não encontrada no banco local.');
@@ -248,4 +255,5 @@ export async function requestInvoiceEmission(
     });
     return next;
   });
+  return decryptFields(db, 'invoice', next);
 }

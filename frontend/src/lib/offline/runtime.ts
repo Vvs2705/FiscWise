@@ -18,6 +18,7 @@ import {
 } from './db';
 import { ensureDevice, getDeviceToken, renewAccessTokenWithDevice } from './device';
 import { syncNow, type SyncResult } from './engine';
+import { encryptExistingRows } from './fieldCrypto';
 import { clearBackoff, countOutbox, onOutboxEnqueued } from './outbox';
 import { useSyncStore } from './status';
 import { DeviceRevokedError, createHttpTransport, httpDeviceApi, type SyncTransport } from './transport';
@@ -124,6 +125,8 @@ export function startOfflineRuntime({ tenantId, onChanged }: StartRuntimeOptions
   // Estado inicial vindo do banco local
   void getMeta<string>(db, META.lastSyncAt).then((at) => at && store.set({ lastSyncAt: at }));
   void requestPersistentStorage(db);
+  // Bancos criados antes da criptografia de campos: cifra o que estiver em texto puro.
+  void encryptExistingRows(db).catch(() => undefined);
 
   // Contadores sempre atualizados (inclusive alterações feitas em outra aba)
   const subscription = liveQuery(async () => {

@@ -16,6 +16,7 @@ import {
   type SyncEntityType,
 } from './db';
 import { getOrCreateDeviceId } from './device';
+import { decryptEvent, encryptConflictFields, encryptFields, encryptRows } from './fieldCrypto';
 import {
   PUSH_BATCH_SIZE,
   countOutbox,
@@ -176,7 +177,9 @@ async function runCycle(deps: SyncDeps): Promise<SyncResult> {
   }
 }
 
-function toPushEvent(e: OutboxEvent, deviceId: string): PushEvent {
+/** O payload sai da outbox decifrado: o servidor recebe o valor real. */
+async function toPushEvent(db: FiscWiseLocalDb, stored: OutboxEvent, deviceId: string): Promise<PushEvent> {
+  const e = await decryptEvent(db, stored);
   return {
     id: e.id,
     device_id: deviceId,
@@ -211,7 +214,8 @@ async function pushAll(
     let acks: PushAck[];
     let interruption: Error | null = null;
     try {
-      acks = await transport.push(batch.map((e) => toPushEvent(e, deviceId)));
+      const events = await Promise.all(batch.map((e) => toPushEvent(db, e, deviceId)));
+      acks = await transport.push(events);
     } catch (error) {
       if (error instanceof DeviceRevokedError) throw error;
       if (error instanceof TransientPushError) {
@@ -252,6 +256,13 @@ async function pushAll(
 
 async function applyAck(db: FiscWiseLocalDb, event: OutboxEvent, ack: PushAck, now: Date): Promise<void> {
   const table = db.entityTable(event.entity_type);
+  // Cifra antes da transação (WebCrypto fecharia a transação do IndexedDB).
+  const rawServer = ack.entity && typeof ack.entity === 'object' ? (ack.entity as Partial<AnyLocalRow>) : null;
+  const server = rawServer ? await encryptFields(db, event.entity_type, rawServer) : null;
+  const overwritten =
+    ack.conflict && ack.fields_overwritten && Object.keys(ack.fields_overwritten).length > 0
+      ? await encryptConflictFields(db, event.entity_type, ack.fields_overwritten)
+      : null;
   await db.transaction('rw', [table, db.sync_outbox, db.sync_conflicts], async () => {
     if (ack.status === 'rejected') {
       const reason = ack.error?.trim() || 'Rejeitado pelo servidor.';
@@ -263,18 +274,17 @@ async function applyAck(db: FiscWiseLocalDb, event: OutboxEvent, ack: PushAck, n
     await markAcked(db, event.id, now);
     const stillLocal = await hasInFlightEvent(db, event.entity_type, event.entity_id, event.id);
     const row = await table.get(event.entity_id);
-    const server = ack.entity && typeof ack.entity === 'object' ? (ack.entity as Partial<AnyLocalRow>) : null;
     if (server) {
       await table.put(mergeServerRow(row, server as AnyLocalRow, stillLocal));
     } else if (row && !stillLocal) {
       await table.put({ ...row, _sync_status: 'synced', _sync_error: null });
     }
-    if (ack.conflict && ack.fields_overwritten && Object.keys(ack.fields_overwritten).length > 0) {
+    if (overwritten) {
       await db.sync_conflicts.put({
         id: event.id,
         entity_type: event.entity_type,
         entity_id: event.entity_id,
-        fields_overwritten: ack.fields_overwritten,
+        fields_overwritten: overwritten,
         created_at: now.toISOString(),
         resolved_at: null,
         resolved: 0,
@@ -312,7 +322,7 @@ async function pullEntity(
   let total = 0;
   for (let guard = 0; guard < 100_000; guard += 1) {
     const page = await transport.pull(PULL_ENTITY[entity], cursor, PULL_PAGE_SIZE);
-    const rows = page.rows ?? [];
+    const rows = await encryptRows(db, entity, page.rows ?? []);
     const next = page.next ?? cursor;
     // Grava todas as linhas do lote e só então persiste o cursor (mesma transação).
     await db.transaction('rw', [table, db.sync_outbox, db.sync_meta], async () => {

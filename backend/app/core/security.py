@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import bcrypt
 from jose import jwt
@@ -175,25 +176,61 @@ def verify_google_signup_token(token: str) -> tuple[str, str] | None:
 
 
 DEVICE_TOKEN_EXPIRE_DAYS = 30
+# Teto da cadeia de renovações: 180 dias depois do login que registrou o
+# dispositivo, a renovação é recusada e o usuário precisa entrar de novo online
+# (docs/audit/SECURITY-REVIEW-2026-11-12-offline-sync.md, achado BAIXO 1).
+DEVICE_TOKEN_MAX_LIFETIME_DAYS = 180
 
 
-def create_device_token(user_id: str, tenant_id: str, role: str, device_id: str) -> str:
+def create_device_token(
+    user_id: str,
+    tenant_id: str,
+    role: str,
+    device_id: str,
+    first_issued_at: Optional[datetime] = None,
+) -> str:
     """Token do dispositivo offline (30 dias, type='device').
 
     Só os endpoints /api/v1/sync/* aceitam este token, e só ele os acessa
     (docs/arquitetura/OFFLINE_SYNC.md 5.1). get_current_user recusa type != None.
+
+    ``first_issued_at`` é o instante do login que começou a cadeia (claim
+    ``fia``); a renovação o repassa e o ``exp`` nunca passa de
+    ``fia + DEVICE_TOKEN_MAX_LIFETIME_DAYS``.
     """
     issued_at = datetime.now(timezone.utc)
+    fia = first_issued_at or issued_at
+    if fia.tzinfo is None:
+        fia = fia.replace(tzinfo=timezone.utc)
+    expires_at = min(
+        issued_at + timedelta(days=DEVICE_TOKEN_EXPIRE_DAYS),
+        fia + timedelta(days=DEVICE_TOKEN_MAX_LIFETIME_DAYS),
+    )
     payload = {
         "sub": user_id,
         "tenant_id": tenant_id,
         "role": role,
         "device_id": device_id,
         "type": "device",
-        "exp": issued_at + timedelta(days=DEVICE_TOKEN_EXPIRE_DAYS),
+        "exp": expires_at,
         "iat": issued_at,
+        "fia": int(fia.timestamp()),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def device_chain_started_at(payload: dict, fallback: Optional[datetime] = None) -> Optional[datetime]:
+    """Início da cadeia de renovações do token de dispositivo (claim ``fia``).
+
+    Tokens emitidos antes do teto não têm ``fia``: usa ``fallback`` (o
+    ``created_at`` do dispositivo).
+    """
+    fia = payload.get("fia")
+    if isinstance(fia, (int, float)):
+        return datetime.fromtimestamp(fia, tz=timezone.utc)
+    if fallback is not None and fallback.tzinfo is None:
+        return fallback.replace(tzinfo=timezone.utc)
+    return fallback
 
 
 # ─── Redefinição de senha ("esqueci minha senha") ────────────────────────────

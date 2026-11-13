@@ -39,11 +39,14 @@ def test_diagnostics_still_require_authentication_when_feature_flag_is_enabled(m
     assert response.status_code == 401
 
 
+UNREACHABLE_REDIS = "redis://127.0.0.1:1/0"
+
+
 def test_rate_limit_strict_mode_defaults_to_settings_when_not_explicit(monkeypatch):
     monkeypatch.setattr(settings, "RATE_LIMIT_STRICT", True)
 
     app = FastAPI()
-    app.add_middleware(RateLimitMiddleware, redis_url=None)
+    app.add_middleware(RateLimitMiddleware, redis_url=UNREACHABLE_REDIS)
 
     @app.get("/api/v1/admin/tenant-by-email")
     async def protected_endpoint():
@@ -55,7 +58,38 @@ def test_rate_limit_strict_mode_defaults_to_settings_when_not_explicit(monkeypat
     assert response.json()["error_code"] == "RATE_LIMIT_UNAVAILABLE"
 
 
-def test_rate_limit_strict_mode_returns_503_when_redis_is_unavailable():
+def test_rate_limit_strict_mode_returns_503_when_configured_redis_is_unavailable():
+    app = FastAPI()
+    app.add_middleware(RateLimitMiddleware, redis_url=UNREACHABLE_REDIS, strict=True)
+
+    @app.get("/api/v1/admin/tenant-by-email")
+    async def protected_endpoint():
+        return {"status": "called"}
+
+    response = TestClient(app).get("/api/v1/admin/tenant-by-email")
+
+    assert response.status_code == 503
+    assert response.json()["error_code"] == "RATE_LIMIT_UNAVAILABLE"
+
+
+def test_rate_limit_non_strict_mode_falls_back_to_memory_when_redis_is_unavailable():
+    app = FastAPI()
+    app.add_middleware(RateLimitMiddleware, redis_url=UNREACHABLE_REDIS, strict=False)
+
+    @app.get("/api/v1/admin/tenant-by-email")
+    async def protected_endpoint():
+        return JSONResponse({"status": "called"})
+
+    http = TestClient(app)
+    response = http.get("/api/v1/admin/tenant-by-email")
+    assert response.status_code == 200
+    assert response.json() == {"status": "called"}
+    # o limite continua valendo, contado em memória
+    codes = [http.get("/api/v1/admin/tenant-by-email").status_code for _ in range(RateLimitMiddleware.ADMIN_LIMIT)]
+    assert codes[-1] == 429
+
+
+def test_rate_limit_without_redis_url_uses_memory_even_in_strict_mode():
     app = FastAPI()
     app.add_middleware(RateLimitMiddleware, redis_url=None, strict=True)
 
@@ -64,20 +98,5 @@ def test_rate_limit_strict_mode_returns_503_when_redis_is_unavailable():
         return {"status": "called"}
 
     response = TestClient(app).get("/api/v1/admin/tenant-by-email")
-
-    assert response.status_code == 503
-    assert response.json()["error_code"] == "RATE_LIMIT_UNAVAILABLE"
-
-
-def test_rate_limit_non_strict_mode_fails_open_when_redis_is_unavailable():
-    app = FastAPI()
-    app.add_middleware(RateLimitMiddleware, redis_url=None, strict=False)
-
-    @app.get("/api/v1/admin/tenant-by-email")
-    async def protected_endpoint():
-        return JSONResponse({"status": "called"})
-
-    response = TestClient(app).get("/api/v1/admin/tenant-by-email")
-
     assert response.status_code == 200
-    assert response.json() == {"status": "called"}
+    assert response.headers["X-RateLimit-Limit"] == str(RateLimitMiddleware.ADMIN_LIMIT)

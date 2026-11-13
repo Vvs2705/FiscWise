@@ -106,7 +106,7 @@ Vendedor de teste `3442108541`, comprador de teste `3442108543`.
 | 2.4 1ª cobrança | OK: fim do período continua 13/12 (não virou 60 dias) | authorized_payment `7033958264` |
 | 2.5 cartão recusado | Não rodado | — |
 | 3.1 Pix trimestral | OK: preferência criada | `3442108541-565c8c9c-14f1-461f-b4c1-2dd02b5c30ef` |
-| 3.2–3.3 pagamento avulso | Pendente: no sandbox o Pix não se aprova; testar com cartão (trimestral/cartão) | — |
+| 3.2–3.3 pagamento avulso | OK com cartão (no sandbox o Pix não se aprova): R$ 1.047 (3 × 349) aprovado; aviso `payment` chegou sozinho pelo túnel; `active`, `trimestral`, fim do período 11/02/2027 (+90 dias), `cancelled_at` limpo, Premium liberado | preferência `3442108541-76f08471-839e-4032-bcf9-8de05de79c42`, pagamento `188377448101` |
 | 4.1–4.2 cancelar | OK: cancelado no MP (`cancelled`), acesso mantido | — |
 | 4.3 aviso de cancelamento | OK: segue `active`, `cancelled_at` preenchido, fim igual | evento `homolog-pre-cancel` |
 | 4.4 fim do período | OK: plano vira Gratuito; volta a Premium ao restaurar a data | `/subscription/usage` |
@@ -126,6 +126,12 @@ Vendedor de teste `3442108541`, comprador de teste `3442108543`.
   assinatura secreta. O dono adicionou a versão 2 às 14:09 (horário de
   Brasília), o backend foi publicado de novo e a nova simulação passou na
   conferência da assinatura (caso 1.1).
+- **Aviso de pagamento em dobro.** O MP manda o mesmo pagamento em dois
+  formatos (`?data.id=…&type=payment` e `?id=…&topic=payment`), com ids de
+  notificação diferentes, e o backend processa os dois. O resultado final é o
+  mesmo (o período é recalculado a partir de agora), mas a deduplicação poderia
+  usar `payment:<id>` em vez do id da notificação. Os avisos `merchant_order`
+  são gravados e ignorados.
 - **Id inexistente vira 503.** Quando o MP avisa de um pagamento que não existe
   (404), o webhook responde 503 e o MP tenta de novo. Funciona, mas gera
   repetições inúteis; dá para responder 200 nesse caso específico.

@@ -326,33 +326,20 @@ async def _ensure_client(db: AsyncSession, tenant_id: uuid.UUID, client_id: Opti
 
 
 async def _check_client_plan_limit(db: AsyncSession, ctx: _Ctx) -> None:
-    """Mesmo limite de clientes ativos do POST /clients (falha da checagem não bloqueia)."""
-    try:
-        from app.core.plan_access import resolve_tenant_plan
-        from app.models.plan import Plan
-        from app.models.tenant import Tenant
+    """Mesmo limite de clientes ativos do POST /clients.
 
-        tenant_obj = await db.scalar(select(Tenant).where(Tenant.id == ctx.tenant_id))
-        slug = resolve_tenant_plan(tenant_obj, ctx.user_email) or "free"
-        plan_obj = await db.scalar(select(Plan).where(Plan.slug == slug))
-        if plan_obj is None or plan_obj.max_clients is None:
-            return
-        count = await db.scalar(
-            select(func.count()).select_from(AccountingClient).where(
-                AccountingClient.tenant_id == ctx.tenant_id, AccountingClient.status == "active"
-            )
-        )
-        if int(count or 0) >= plan_obj.max_clients:
-            raise SyncRejection(
-                f"Limite de clientes atingido para o plano {plan_obj.name} "
-                f"({plan_obj.max_clients} clientes ativos). Faça upgrade em fiscwise.com.br/planos."
-            )
-    except SyncRejection:
-        raise
-    except Exception as exc:  # igual ao REST: checagem de plano não derruba o cadastro
-        if is_transient_db_error(exc):
-            raise
-        logger.warning("Plan limit check failed (non-fatal): %s", exc)
+    Falha fechada, como no REST: erro na checagem recusa o evento. Erro
+    passageiro de banco sobe cru para o evento ser tentado de novo.
+    """
+    from app.core.plan_access import ensure_can_add_client
+
+    try:
+        await ensure_can_add_client(db, ctx.tenant_id, ctx.user_email)
+    except HTTPException as exc:
+        cause = exc.__cause__
+        if cause is not None and is_transient_db_error(cause):
+            raise cause
+        raise SyncRejection(_http_message(exc)) from None
 
 
 async def _create(db: AsyncSession, ctx: _Ctx, ev: SyncEventIn) -> _Applied:
@@ -431,6 +418,8 @@ async def _update(db: AsyncSession, ctx: _Ctx, ev: SyncEventIn) -> _Applied:
     old_status = obj.status
     if "status" in changes and changes["status"] is not None:
         _check_terminal(ev.entity_type, old_status, changes["status"])
+    if ev.entity_type == "client" and changes.get("status") == "active" and old_status != "active":
+        await _check_client_plan_limit(db, ctx)  # reativar conta no limite
     if ev.entity_type == "client" and changes.get("document") and changes["document"] != obj.document:
         dup = await db.scalar(
             select(AccountingClient.id).where(

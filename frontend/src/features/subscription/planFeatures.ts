@@ -19,11 +19,17 @@ export function featureLabel(key: string): string {
 }
 
 /** Lista de recursos do plano montada só com dados do backend (limites + flags ativas). */
-export function planFeatureList(plan: Pick<Plan, 'max_clients' | 'max_users' | 'max_ai_calls_month' | 'features'>): string[] {
+export function planFeatureList(
+  plan: Pick<Plan, 'max_clients' | 'max_users' | 'max_ai_calls_month' | 'features'> &
+    Partial<Pick<Plan, 'max_documents_per_client'>>,
+): string[] {
   const items = [
     plan.max_clients == null ? 'Clientes ilimitados' : `Até ${plan.max_clients} clientes`,
     plan.max_users == null ? 'Usuários ilimitados' : `Até ${plan.max_users} usuários`,
   ];
+  if (typeof plan.max_documents_per_client === 'number') {
+    items.push(`Até ${plan.max_documents_per_client} documentos por cliente`);
+  }
   if (plan.max_ai_calls_month == null) items.push('IA Fiscal sem limite mensal');
   else if (plan.max_ai_calls_month > 0) items.push(`IA Fiscal (${plan.max_ai_calls_month} mensagens/mês)`);
 
@@ -32,6 +38,23 @@ export function planFeatureList(plan: Pick<Plan, 'max_clients' | 'max_users' | '
     items.push(featureLabel(key));
   }
   return items;
+}
+
+/**
+ * Recursos que o backend libera por plano (`plans.features`) e a tela de cada um.
+ * Sem o recurso, o backend recusa cadastrar/editar com 403 RECURSO_FORA_DO_PLANO.
+ */
+export const PLAN_ROUTE_FEATURES: Record<string, string> = {
+  '/obrigacoes': 'obrigacoes',
+  '/portal': 'portal_cliente',
+};
+
+/** O plano não tem o recurso só quando o backend diz `false` (sem a chave = liberado, igual ao backend). */
+export function planLacksFeature(
+  features: Record<string, boolean> | null | undefined,
+  key: string,
+): boolean {
+  return !!features && features[key] === false;
 }
 
 /** Texto aprovado de cada plano (mesmo da página inicial). O do banco é só reserva. */

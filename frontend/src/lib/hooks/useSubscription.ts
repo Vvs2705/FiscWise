@@ -15,6 +15,8 @@ export interface SubscriptionUsage {
   users: UsageItem;
   ai_calls_this_month: UsageItem;
   features: Record<string, boolean>;
+  /** Limite de documentos por cliente (null = sem limite). */
+  documents_per_client_limit?: number | null;
 }
 
 // Linha da matriz de preços calculada no servidor (backend/app/core/pricing.py)
@@ -41,6 +43,7 @@ export interface Plan {
   max_clients: number | null;
   max_users: number | null;
   max_ai_calls_month: number | null;
+  max_documents_per_client?: number | null;
   features: Record<string, boolean> | null;
   tabela_precos?: LinhaPreco[] | null;
 }

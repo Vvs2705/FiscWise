@@ -25,6 +25,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_principal, get_current_user, get_db
+from app.core.plan_access import FEATURE_OBRIGACOES, ensure_feature
 from app.core.pagination import Page, page_params, paginate, paginate_list
 from app.core.tenant_guard import ensure_client_in_tenant
 from app.services import webhook_service as _webhook_svc
@@ -264,6 +265,7 @@ async def create_obligation_instance(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a manual obligation instance (not auto-generated)."""
+    await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     _require_owner_or_admin(current_user)
 
     if body.status not in VALID_INSTANCE_STATUSES:
@@ -298,6 +300,7 @@ async def update_obligation_instance(
     db: AsyncSession = Depends(get_db),
 ):
     """Update status, assignment, or notes of an obligation instance."""
+    await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     result = await db.execute(
         select(ObligationInstance).where(
             and_(
@@ -364,6 +367,7 @@ async def cancel_obligation_instance(
     Idempotente (cancelar de novo devolve 200 com o mesmo estado). Obrigação já
     entregue (`delivered`) é status terminal e não pode ser cancelada (409).
     """
+    await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     result = await db.execute(
         select(ObligationInstance).where(
             and_(
@@ -436,6 +440,7 @@ async def upsert_client_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Create or update the fiscal profile for a client."""
+    await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     _require_owner_or_admin(current_user)
 
     result = await db.execute(
@@ -577,6 +582,7 @@ async def trigger_obligation_generation(
     Useful for backfilling obligations or testing.
     Only accessible by tenant owners.
     """
+    await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     if current_user.role.value != "owner":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -19,7 +19,10 @@ from app.core.deps import get_current_principal, get_current_user, get_db
 from app.core.document_links import DOCUMENTS_BUCKET, SIGNED_URL_TTL, sign_file_urls, storage_ref
 from app.core.plan_access import (
     PLAN_INTERMEDIARIO,
+    ai_classification_allowed,
     check_chat_quota,
+    ensure_can_add_client,
+    ensure_can_add_document,
     require_ai_configured,
     require_plan,
     resolve_user_plan,
@@ -807,40 +810,10 @@ async def create_client(
 ):
     tenant_id = _tenant_id(current_user)
 
-    # ── Plan limit enforcement ────────────────────────────────────────────────
-    try:
-        from app.core.plan_access import resolve_tenant_plan
-        from app.models.tenant import Tenant
-        from app.services.catalog_cache import get_plan_by_slug
-
-        tenant_row = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        tenant_obj = tenant_row.scalar_one_or_none()
-        effective_slug = resolve_tenant_plan(tenant_obj, current_user.email) or "free"
-
-        plan_obj = await get_plan_by_slug(db, effective_slug)
-
-        if plan_obj and plan_obj.max_clients is not None:
-            count_result = await db.execute(
-                select(func.count()).select_from(AccountingClient).where(
-                    AccountingClient.tenant_id == tenant_id,
-                    AccountingClient.status == "active",
-                )
-            )
-            current_count = int(count_result.scalar_one() or 0)
-            if current_count >= plan_obj.max_clients:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        f"Limite de clientes atingido para o plano {plan_obj.name} "
-                        f"({plan_obj.max_clients} clientes ativos). "
-                        f"Faça upgrade em fiscwise.com.br/planos."
-                    ),
-                )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("Plan limit check failed (non-fatal): %s", exc)
-    # ─────────────────────────────────────────────────────────────────────────
+    # Limite de clientes do plano efetivo. Falha fechada: erro na checagem
+    # recusa o cadastro (503) em vez de deixar passar sem limite.
+    if (payload.status or "active") == "active":
+        await ensure_can_add_client(db, tenant_id, current_user.email)
 
     if payload.document:
         existing = await db.execute(
@@ -896,6 +869,9 @@ async def update_client(
 ):
     tenant_id = _tenant_id(current_user)
     client = await _get_client_or_404(db, tenant_id, client_id)
+    # Reativar cliente conta no limite de clientes ativos do plano.
+    if payload.status == "active" and client.status != "active":
+        await ensure_can_add_client(db, tenant_id, current_user.email)
     before_data = {"name": client.name, "document": client.document}
     _apply_updates(client, payload)
     client = await _commit_refresh(db, client)
@@ -1193,6 +1169,7 @@ async def create_document(
 ):
     tenant_id = _tenant_id(current_user)
     await _get_client_or_404(db, tenant_id, payload.client_id)
+    await ensure_can_add_document(db, tenant_id, payload.client_id, current_user.email)
     document = ClientDocument(tenant_id=tenant_id, **payload.model_dump())
     # Classificação automática só quando o arquivo está no nosso storage;
     # sem arquivo acessível o documento fica "unavailable" (UI explica) em vez
@@ -1876,8 +1853,9 @@ async def upload_client_document(
 
     tenant_id = _tenant_id(current_user)
 
-    # Validar cliente
+    # Validar cliente e o limite de documentos do plano (antes de subir o arquivo)
     await _get_client_or_404(db, tenant_id, client_id)
+    await ensure_can_add_document(db, tenant_id, client_id, current_user.email)
 
     # Antes gravava uma URL de exemplo (storage.example.com) e nunca guardava o
     # arquivo, mas marcava o documento como disponível (TEN-6). Agora sobe de
@@ -2029,16 +2007,25 @@ async def apply_document_parse(
         document.parsed_data = parsed_data
         document.parsed_at = datetime.now(timezone.utc)
     else:
-        ai_classification = await classify_fiscal_document(
-            parsed_data,
-            file_name=file_name,
-            declared_document_type=document.document_type,
-        )
+        # Classificação por IA conta no saldo mensal de IA do plano
+        # (plans.max_ai_calls_month). Sem saldo, o documento é lido igual,
+        # só sem a classificação, e o motivo fica registrado.
+        allowed, reason = await ai_classification_allowed(db, tenant_id)
+        ai_classification = None
+        if allowed:
+            ai_classification = await classify_fiscal_document(
+                parsed_data,
+                file_name=file_name,
+                declared_document_type=document.document_type,
+            )
+        elif reason:
+            parsed_data = {**(parsed_data or {}), "ai_classification_skipped": reason}
         if ai_classification:
             parsed_data = {
                 **(parsed_data or {}),
                 "ai_classification": ai_classification,
             }
+            document.ai_classified_at = datetime.now(timezone.utc)
 
         document.parse_status = "completed"
         document.parsed_data = parsed_data

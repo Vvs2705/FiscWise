@@ -207,7 +207,14 @@ async def process_incoming_webhook(
 
     # 4. Automated Document Collection:
     # If media file is received and the inbox is linked to a client
-    if message_type in ("document", "image") and media_url and inbox.client_id:
+    # Acima do limite de documentos por cliente do plano, o arquivo fica só na
+    # conversa (a mensagem é gravada acima) e não vira documento do cliente.
+    if (
+        message_type in ("document", "image")
+        and media_url
+        and inbox.client_id
+        and await _document_limit_ok(db, tenant_id, inbox.client_id)
+    ):
         doc_name = body or f"Doc WhatsApp - {datetime.now().strftime('%Y%m%d_%H%M%S')}"
         # Suffix handling
         if message_type == "document" and not doc_name.lower().endswith((".pdf", ".xlsx", ".docx", ".xml")):
@@ -251,6 +258,21 @@ async def process_incoming_webhook(
     await db.commit()
     await db.refresh(message)
     return message
+
+
+async def _document_limit_ok(db: AsyncSession, tenant_id: uuid.UUID, client_id: uuid.UUID) -> bool:
+    from fastapi import HTTPException
+
+    from app.core.plan_access import ensure_can_add_document
+
+    try:
+        await ensure_can_add_document(db, tenant_id, client_id)
+    except HTTPException as exc:
+        logger.warning(
+            "WhatsApp: arquivo não virou documento do cliente %s (%s)", client_id, exc.detail
+        )
+        return False
+    return True
 
 
 async def link_inbox_to_client(

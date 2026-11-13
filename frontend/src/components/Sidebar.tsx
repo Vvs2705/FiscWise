@@ -27,6 +27,9 @@ import { Logo } from '@/components/Logo';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFocusItems } from '@/features/focus/api';
+import { useSubscriptionUsage, useTenantInfo } from '@/lib/hooks/useSubscription';
+import { PLAN_ROUTE_FEATURES, planLacksFeature } from '@/features/subscription/planFeatures';
+import { useAuthStore } from '@/stores/authStore';
 
 type NavItem = {
   name: string;
@@ -113,6 +116,17 @@ export function Sidebar() {
     (i) => i.group === 'critical' || i.group === 'today'
   ).length;
 
+  // Recurso fora do plano: o item continua (dá para consultar), marcado "Plano".
+  // Conta vencida fica de fora: a faixa do teste já explica o "só leitura".
+  const role = useAuthStore((s) => s.user?.role);
+  const isOffice = !!role && role !== 'client';
+  const { data: usage } = useSubscriptionUsage();
+  const { data: tenant } = useTenantInfo(isOffice);
+  const outOfPlan = (href: string) => {
+    const feature = PLAN_ROUTE_FEATURES[href];
+    return !!feature && isOffice && !tenant?.acesso_expirado && planLacksFeature(usage?.features, feature);
+  };
+
   const isActive = (href: string) =>
     location.pathname === href || location.pathname.startsWith(`${href}/`);
 
@@ -169,12 +183,15 @@ export function Sidebar() {
               {(!group.collapsible || !isCollapsed) &&
                 group.items.map((item) => {
                   const active = isActive(item.href);
+                  const lockedByPlan = outOfPlan(item.href);
                   const badge =
                     item.href === '/foco' && focusCount > 0
                       ? String(focusCount)
-                      : item.badge;
+                      : lockedByPlan
+                        ? 'Plano'
+                        : item.badge;
                   const badgeVariant =
-                    item.href === '/foco' ? 'danger' : item.badgeVariant;
+                    item.href === '/foco' ? 'danger' : lockedByPlan ? 'warning' : item.badgeVariant;
                   return (
                     <Link
                       key={item.name}
@@ -182,7 +199,7 @@ export function Sidebar() {
                       aria-label={item.name}
                       data-tour={`nav-${item.href}`}
                       aria-current={active ? 'page' : undefined}
-                      title={item.name}
+                      title={lockedByPlan ? `${item.name} (fora do seu plano)` : item.name}
                       className={cn(
                         'group relative flex h-10 items-center justify-center gap-3 rounded-md px-2.5 text-sm font-medium md:h-9 md:justify-start',
                         'transition-colors duration-150 ease-out',

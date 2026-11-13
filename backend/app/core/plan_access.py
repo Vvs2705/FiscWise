@@ -308,3 +308,260 @@ async def check_chat_quota(
     used = int(result.scalar_one() or 0)
     remaining = max(quota - used, 0)
     return remaining > 0, remaining
+
+
+# ---------------------------------------------------------------------------
+# Limites e recursos da tabela `plans` aplicados no backend (não só na tela).
+#
+# Sempre pelo plano EFETIVO (resolve_tenant_plan): teste vencido ou assinatura
+# suspensa caem para a linha "free". Os limites só barram o que é NOVO: quem
+# já passou do limite mantém tudo o que tem (nada é apagado nem desativado).
+#
+# Falha fechada: se não der para conferir o plano (erro de banco), a criação é
+# recusada com 503 PLANO_INDISPONIVEL em vez de passar sem limite.
+# Plano gravado sem linha na tabela usa os limites da linha "free"; se nem ela
+# existir (instalação sem catálogo, ex.: testes), não há limite configurado.
+# ---------------------------------------------------------------------------
+
+LIMITE_CLIENTES_CODE = "LIMITE_CLIENTES"
+LIMITE_USUARIOS_CODE = "LIMITE_USUARIOS"
+LIMITE_DOCUMENTOS_CODE = "LIMITE_DOCUMENTOS"
+RECURSO_FORA_DO_PLANO_CODE = "RECURSO_FORA_DO_PLANO"
+PLANO_INDISPONIVEL_CODE = "PLANO_INDISPONIVEL"
+
+FEATURE_PORTAL_CLIENTE = "portal_cliente"
+FEATURE_OBRIGACOES = "obrigacoes"
+
+_FEATURE_LABELS = {
+    FEATURE_PORTAL_CLIENTE: "Portal do cliente",
+    FEATURE_OBRIGACOES: "Motor de obrigações",
+}
+
+_UPGRADE_HINT = "Faça upgrade em fiscwise.com.br/planos."
+
+
+def _forbidden(detail: str, code: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detail,
+        headers={"X-Error-Code": code},
+    )
+
+
+def _plan_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=(
+            "Não foi possível conferir os limites do seu plano agora. "
+            "Tente de novo em instantes."
+        ),
+        headers={"X-Error-Code": PLANO_INDISPONIVEL_CODE},
+    )
+
+
+async def load_tenant_plan(db: AsyncSession, tenant_id, user_email: Optional[str] = None):
+    """(slug efetivo, PlanSnapshot | None) do escritório. Erros sobem crus."""
+    from app.models.tenant import Tenant
+    from app.services.catalog_cache import get_plan_by_slug
+
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    slug = resolve_tenant_plan(tenant, user_email) or PLAN_FREE
+    plan = await get_plan_by_slug(db, slug)
+    if plan is None and slug != PLAN_FREE:
+        logger.warning("Plano '%s' sem linha na tabela plans: usando limites do Gratuito", slug)
+        plan = await get_plan_by_slug(db, PLAN_FREE)
+    return slug, plan
+
+
+def _plan_label(plan) -> str:
+    return getattr(plan, "name", None) or "atual"
+
+
+async def ensure_can_add_client(db: AsyncSession, tenant_id, user_email: Optional[str] = None) -> None:
+    """Barra cliente ATIVO novo (cadastro ou reativação) acima de max_clients."""
+    from app.models.operations import AccountingClient
+
+    try:
+        _, plan = await load_tenant_plan(db, tenant_id, user_email)
+        limit = getattr(plan, "max_clients", None)
+        if limit is None:
+            return
+        used = int(
+            await db.scalar(
+                select(func.count()).select_from(AccountingClient).where(
+                    AccountingClient.tenant_id == tenant_id,
+                    AccountingClient.status == "active",
+                )
+            )
+            or 0
+        )
+    except Exception as exc:
+        logger.exception("Checagem do limite de clientes falhou (tenant %s)", tenant_id)
+        raise _plan_unavailable() from exc
+    if used >= limit:
+        raise _forbidden(
+            f"Limite de clientes atingido para o plano {_plan_label(plan)} "
+            f"({limit} clientes ativos). {_UPGRADE_HINT}",
+            LIMITE_CLIENTES_CODE,
+        )
+
+
+def team_member_filter(tenant_id):
+    """Quem conta como usuário da equipe: ativo e não é cliente do portal."""
+    from app.models.user import User, UserRole
+
+    return (
+        User.tenant_id == tenant_id,
+        User.is_active == True,  # noqa: E712
+        User.role != UserRole.CLIENT,
+    )
+
+
+async def count_team_members(db: AsyncSession, tenant_id) -> int:
+    from app.models.user import User
+
+    return int(
+        await db.scalar(select(func.count()).select_from(User).where(*team_member_filter(tenant_id)))
+        or 0
+    )
+
+
+async def ensure_can_add_team_member(db: AsyncSession, tenant_id, user_email: Optional[str] = None) -> None:
+    """Barra membro da equipe novo (convite, criação ou reativação) acima de max_users.
+
+    Usuários do portal do cliente (role client) não contam: são do cliente final.
+    Toda rota que criar ou reativar alguém da equipe deve chamar esta função.
+    """
+    try:
+        _, plan = await load_tenant_plan(db, tenant_id, user_email)
+        limit = getattr(plan, "max_users", None)
+        if limit is None:
+            return
+        used = await count_team_members(db, tenant_id)
+    except Exception as exc:
+        logger.exception("Checagem do limite de usuários falhou (tenant %s)", tenant_id)
+        raise _plan_unavailable() from exc
+    if used >= limit:
+        raise _forbidden(
+            f"Limite de usuários atingido para o plano {_plan_label(plan)} "
+            f"({limit} usuários na equipe). {_UPGRADE_HINT}",
+            LIMITE_USUARIOS_CODE,
+        )
+
+
+async def ensure_can_add_document(
+    db: AsyncSession, tenant_id, client_id, user_email: Optional[str] = None
+) -> None:
+    """Barra documento novo de um cliente acima de max_documents_per_client."""
+    from app.models.operations import ClientDocument
+
+    try:
+        _, plan = await load_tenant_plan(db, tenant_id, user_email)
+        limit = getattr(plan, "max_documents_per_client", None)
+        if limit is None:
+            return
+        used = int(
+            await db.scalar(
+                select(func.count()).select_from(ClientDocument).where(
+                    ClientDocument.tenant_id == tenant_id,
+                    ClientDocument.client_id == client_id,
+                )
+            )
+            or 0
+        )
+    except Exception as exc:
+        logger.exception("Checagem do limite de documentos falhou (tenant %s)", tenant_id)
+        raise _plan_unavailable() from exc
+    if used >= limit:
+        raise _forbidden(
+            f"Limite de documentos atingido para este cliente no plano {_plan_label(plan)} "
+            f"({limit} documentos por cliente). Apague documentos antigos ou faça upgrade "
+            f"em fiscwise.com.br/planos.",
+            LIMITE_DOCUMENTOS_CODE,
+        )
+
+
+def plan_has_feature(plan, feature: str) -> bool:
+    """Sem catálogo configurado (plan None) o recurso fica liberado."""
+    if plan is None:
+        return True
+    return bool((getattr(plan, "features", None) or {}).get(feature))
+
+
+async def ensure_feature(
+    db: AsyncSession, tenant_id, feature: str, user_email: Optional[str] = None
+) -> None:
+    """403 RECURSO_FORA_DO_PLANO quando o plano efetivo não tem o recurso."""
+    try:
+        _, plan = await load_tenant_plan(db, tenant_id, user_email)
+    except Exception as exc:
+        logger.exception("Checagem do recurso '%s' falhou (tenant %s)", feature, tenant_id)
+        raise _plan_unavailable() from exc
+    if not plan_has_feature(plan, feature):
+        label = _FEATURE_LABELS.get(feature, feature)
+        raise _forbidden(
+            f"O recurso '{label}' não faz parte do plano {_plan_label(plan)}. {_UPGRADE_HINT}",
+            RECURSO_FORA_DO_PLANO_CODE,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Uso de IA no mês = mensagens ao assistente (inclui resumos por IA) +
+# documentos classificados por IA. Mesmo saldo de plans.max_ai_calls_month.
+# O chat continua contando só as mensagens (o plano promete "N mensagens/mês");
+# a classificação automática usa o que sobra do saldo do mês.
+# ---------------------------------------------------------------------------
+
+
+def _month_start() -> datetime:
+    now = datetime.now(timezone.utc)
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+async def count_ai_calls_this_month(db: AsyncSession, tenant_id) -> int:
+    from app.models.calculator import AssistantRole, FiscalAssistantMessage
+    from app.models.operations import ClientDocument
+
+    start = _month_start()
+    chat = await db.scalar(
+        select(func.count()).select_from(FiscalAssistantMessage).where(
+            FiscalAssistantMessage.tenant_id == tenant_id,
+            FiscalAssistantMessage.role == AssistantRole.USER,
+            FiscalAssistantMessage.created_at >= start,
+        )
+    )
+    docs = await db.scalar(
+        select(func.count()).select_from(ClientDocument).where(
+            ClientDocument.tenant_id == tenant_id,
+            ClientDocument.ai_classified_at >= start,
+        )
+    )
+    return int(chat or 0) + int(docs or 0)
+
+
+async def ai_classification_allowed(db: AsyncSession, tenant_id) -> tuple[bool, Optional[str]]:
+    """Pode classificar mais um documento por IA? (permitido, motivo quando não).
+
+    Roda em segundo plano (fila de leitura de documentos), então nunca levanta.
+    Falha fechada: sem conseguir conferir, não chama a IA. O documento é lido
+    normalmente, só fica sem a classificação.
+    """
+    try:
+        _, plan = await load_tenant_plan(db, tenant_id)
+        limit = getattr(plan, "max_ai_calls_month", None)
+        if plan is None or limit is None:
+            return True, None
+        if limit <= 0:
+            return False, (
+                f"A classificação por IA não faz parte do plano {_plan_label(plan)}. {_UPGRADE_HINT}"
+            )
+        used = await count_ai_calls_this_month(db, tenant_id)
+    except Exception:
+        logger.exception("Checagem da cota de IA falhou (tenant %s)", tenant_id)
+        return False, "Não foi possível conferir a cota de IA do plano; classificação não feita."
+    if used >= limit:
+        return False, (
+            f"A cota mensal de IA do plano {_plan_label(plan)} acabou ({limit} usos por mês). "
+            f"{_UPGRADE_HINT}"
+        )
+    return True, None

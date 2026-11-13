@@ -1,4 +1,5 @@
 'use client';
+import { PlanFeatureNotice } from '@/components/PlanFeatureNotice';
 
 import { useState, useMemo, useEffect } from 'react';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -583,6 +584,7 @@ export function ObrigacoesPage() {
 
   return (
     <div className="space-y-6">
+      <PlanFeatureNotice feature="obrigacoes" />
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>

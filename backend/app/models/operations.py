@@ -142,6 +142,7 @@ class ClientDocument(Base, TenantBase):
 
     __table_args__ = (
         Index("idx_documents_tenant_client_created", "tenant_id", "client_id", "created_at"),
+        Index("idx_documents_tenant_ai_classified", "tenant_id", "ai_classified_at"),
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -168,6 +169,8 @@ class ClientDocument(Base, TenantBase):
     parsed_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     parse_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     parsed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Quando a IA classificou o documento: conta no saldo mensal de IA do plano.
+    ai_classified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DigitalCertificate(Base, TenantBase):

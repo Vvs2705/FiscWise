@@ -16,6 +16,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, get_current_user
+from app.core.plan_access import FEATURE_PORTAL_CLIENTE, ensure_can_add_document, ensure_feature
 from app.models.portal import PortalMagicToken
 from app.models.user import User, UserRole
 from app.models.operations import ClientPortalInvite, InviteStatus, AccountingClient
@@ -99,6 +100,7 @@ async def invite_client(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can invite clients"
         )
+    await ensure_feature(db, current_user.tenant_id, FEATURE_PORTAL_CLIENTE, current_user.email)
 
     # Verify client exists and belongs to tenant
     result = await db.execute(
@@ -230,6 +232,9 @@ async def accept_invite(
             status_code=status.HTTP_410_GONE,
             detail="Invitation has expired"
         )
+
+    # Convite feito antes de o escritório perder o recurso não cria acesso novo.
+    await ensure_feature(db, invite.tenant_id, FEATURE_PORTAL_CLIENTE)
 
     # Check if user with this email already exists
     result = await db.execute(
@@ -697,6 +702,11 @@ async def upload_my_document(
         if target_doc.status not in _DOCUMENT_REQUESTED:
             raise HTTPException(status.HTTP_409_CONFLICT, "Este documento já foi enviado")
 
+    # Documento novo (não é a resposta a um pedido já cadastrado) conta no
+    # limite de documentos por cliente do plano do escritório.
+    if target_doc is None:
+        await ensure_can_add_document(db, tenant_id, client.id)
+
     file_ext = ""
     if file.filename and "." in file.filename:
         file_ext = "." + file.filename.rsplit(".", 1)[-1].lower()
@@ -935,6 +945,7 @@ async def request_magic_link(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only owners and admins can issue magic links",
         )
+    await ensure_feature(db, current_user.tenant_id, FEATURE_PORTAL_CLIENTE, current_user.email)
     if body.client_id is None and body.email is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Informe client_id ou email")
 

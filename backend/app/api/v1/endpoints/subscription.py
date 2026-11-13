@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.core.pagination import Page, page_params, paginate_list
-from app.core.plan_access import resolve_tenant_plan
+from app.core.plan_access import count_ai_calls_this_month, count_team_members, resolve_tenant_plan
 from app.models.operations import AccountingClient
 from app.services.catalog_cache import get_active_plans, get_plan_by_slug
 from app.models.tenant import Tenant
@@ -61,6 +61,8 @@ class UsageResponse(BaseModel):
     users: UsageItem
     ai_calls_this_month: UsageItem
     features: Dict[str, bool]
+    # Limite de documentos por cliente (None = sem limite).
+    documents_per_client_limit: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -140,35 +142,11 @@ async def get_subscription_usage(
     )
     clients_used = int(clients_count_result.scalar_one() or 0)
 
-    users_count_result = await db.execute(
-        select(func.count()).select_from(User).where(
-            and_(
-                User.tenant_id == current_user.tenant_id,
-                User.is_active == True,
-            )
-        )
-    )
-    users_used = int(users_count_result.scalar_one() or 0)
+    # Equipe do escritório: clientes do portal (role client) não contam.
+    users_used = await count_team_members(db, current_user.tenant_id)
 
-    # AI calls this month — count from fiscal assistant messages
-    ai_used = 0
-    try:
-        from datetime import datetime, timezone
-        from app.models.calculator import FiscalAssistantMessage, AssistantRole
-        now = datetime.now(timezone.utc)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        ai_result = await db.execute(
-            select(func.count()).select_from(FiscalAssistantMessage).where(
-                and_(
-                    FiscalAssistantMessage.tenant_id == current_user.tenant_id,
-                    FiscalAssistantMessage.role == AssistantRole.USER,
-                    FiscalAssistantMessage.created_at >= month_start,
-                )
-            )
-        )
-        ai_used = int(ai_result.scalar_one() or 0)
-    except Exception:
-        pass  # Calculator model may not exist in all environments
+    # Uso de IA no mês: mensagens ao assistente + documentos classificados por IA.
+    ai_used = await count_ai_calls_this_month(db, current_user.tenant_id)
 
     return UsageResponse(
         plan_slug=effective_slug,
@@ -177,6 +155,7 @@ async def get_subscription_usage(
         users=_usage_item(users_used, max_users),
         ai_calls_this_month=_usage_item(ai_used, max_ai),
         features=features,
+        documents_per_client_limit=plan.max_documents_per_client if plan else None,
     )
 
 
@@ -216,13 +195,5 @@ async def check_limits(
     else:  # user
         if not plan or plan.max_users is None:
             return {"allowed": True, "used": 0, "limit": None}
-        count_result = await db.execute(
-            select(func.count()).select_from(User).where(
-                and_(
-                    User.tenant_id == current_user.tenant_id,
-                    User.is_active == True,
-                )
-            )
-        )
-        used = int(count_result.scalar_one() or 0)
+        used = await count_team_members(db, current_user.tenant_id)
         return {"allowed": used < plan.max_users, "used": used, "limit": plan.max_users}

@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { MetricCard } from '@/components/ui/OperationalStates';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FeatureGate } from '@/components/ui/FeatureGate';
+import { PlanFeatureNotice } from '@/components/PlanFeatureNotice';
 import { useClients } from '@/lib/hooks/useOperations';
 import { fetchPortalPreview, isAwaitingClient } from '@/features/portal/api';
 import { PortalAccessButton } from '@/features/portal/PortalAccessButton';
@@ -68,6 +69,7 @@ export function PortalClientePage() {
   return (
     <FeatureGate feature="feature_portal_client">
       <div className="space-y-6 p-6">
+        <PlanFeatureNotice feature="portal_cliente" />
         <PageHeader
           title="Portal do Cliente"
           subtitle="Visualize o portal como seus clientes o veem. Gerencie solicitações e documentos."

@@ -214,3 +214,6 @@ COMO-FAZER*.md
 # Config local de MCP: pode conter connection string com senha. Nunca versionar.
 .mcp.json
 !docs/marketing/PLANO_MARKETING_FISCWISE.md
+
+# Wheels soltos (instalação offline local) nunca entram no repo
+*.whl

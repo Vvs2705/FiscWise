@@ -152,3 +152,50 @@ async def delete_rag_document(
     await db.delete(doc)
     await db.commit()
     return True
+
+
+# ─── Upload de arquivos (leis, normas, manuais) ─────────────────────────────
+
+RAG_UPLOAD_EXTS = {".pdf": "application/pdf", ".docx": (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+), ".txt": "text/plain", ".md": "text/markdown"}
+RAG_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
+# Texto guardado para a busca: o arquivo inteiro até este teto (o parser de
+# documentos de clientes corta em 5 mil caracteres; aqui a lei precisa inteira).
+RAG_TEXTO_MAX = 200_000
+
+
+def extrair_texto_completo(file_bytes: bytes, ext: str, limite: int = RAG_TEXTO_MAX) -> str:
+    """Texto do arquivo para a base de conhecimento (PDF, DOCX, TXT, MD)."""
+    import io
+
+    ext = ext.lower()
+    texto = ""
+    if ext == ".pdf":
+        import pdfplumber
+
+        partes = []
+        total = 0
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for page in pdf.pages:
+                t = page.extract_text() or ""
+                partes.append(t)
+                total += len(t)
+                if total >= limite:
+                    break
+        texto = "\n".join(partes)
+    elif ext == ".docx":
+        from docx import Document
+
+        doc = Document(io.BytesIO(file_bytes))
+        linhas = [p.text for p in doc.paragraphs]
+        for table in doc.tables:
+            for row in table.rows:
+                linhas.append(" | ".join(c.text for c in row.cells))
+        texto = "\n".join(linhas)
+    elif ext in (".txt", ".md"):
+        try:
+            texto = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            texto = file_bytes.decode("latin-1")
+    return texto.strip()[:limite]

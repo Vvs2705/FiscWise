@@ -168,6 +168,25 @@ async def export_my_data(
     }
 
 
+@router.get("/exclusao")
+async def exclusao_prevista_da_conta(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Quando os dados da conta vencida serão excluídos (para a faixa do site).
+
+    Conta em dia (ou sem assinatura) → nulos. Regra em services/exclusao_dados.
+    """
+    from app.services.exclusao_dados import exclusao_prevista
+
+    tenant = current_user.tenant
+    prevista = exclusao_prevista(tenant) if tenant is not None else None
+    avisada = getattr(tenant, "exclusao_avisada_em", None) if tenant is not None else None
+    return {
+        "exclusao_prevista_em": prevista.isoformat() if prevista else None,
+        "avisado_em": avisada.isoformat() if avisada else None,
+    }
+
+
 @router.post("/delete", status_code=status.HTTP_202_ACCEPTED)
 async def request_account_deletion(
     current_user: User = Depends(get_current_user),

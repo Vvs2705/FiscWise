@@ -10,6 +10,10 @@ export interface RagDocument {
   category: string;
   created_at: string;
   updated_at: string;
+  /** Preenchidos quando o documento veio de um arquivo enviado. */
+  file_name?: string | null;
+  file_mime?: string | null;
+  file_size?: number | null;
 }
 
 export interface RagDocumentCreateInput {
@@ -79,4 +83,36 @@ export function useDeleteRagDocument() {
       qc.invalidateQueries({ queryKey: ragKey });
     },
   });
+}
+
+export interface RagUploadInput {
+  file: File;
+  title: string;
+  category?: string;
+}
+
+/** Envia PDF, DOCX, TXT ou MD (até 20 MB); o texto vira conteúdo da base. */
+export function useUploadRagDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, title, category }: RagUploadInput) => {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('title', title);
+      if (category) form.append('category', category);
+      const { data } = await api.post<RagDocument>('/api/v1/rag/documents/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ragKey });
+    },
+  });
+}
+
+/** Link temporário do arquivo original; abre em nova aba. */
+export async function downloadRagDocument(id: string): Promise<void> {
+  const { data } = await api.get<{ url: string }>(`/api/v1/rag/documents/${id}/download`);
+  if (data?.url) window.open(data.url, '_blank', 'noopener,noreferrer');
 }

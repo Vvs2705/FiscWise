@@ -21,6 +21,9 @@ import {
   ChevronDown,
   GraduationCap,
   CreditCard,
+  Scale,
+  Library,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
@@ -30,6 +33,7 @@ import { fetchFocusItems } from '@/features/focus/api';
 import { useSubscriptionUsage, useTenantInfo } from '@/lib/hooks/useSubscription';
 import { PLAN_ROUTE_FEATURES, planLacksFeature } from '@/features/subscription/planFeatures';
 import { useAuthStore } from '@/stores/authStore';
+import { useEquipeFiscwise } from '@/lib/hooks/useAjustesFiscais';
 
 type NavItem = {
   name: string;
@@ -71,6 +75,8 @@ const navGroups: NavGroup[] = [
       { name: 'Caixa postal fiscal', href: '/caixa-postal-fiscal',icon: Mail },
       { name: 'Procurações',         href: '/procuracoes',        icon: FileText },
       { name: 'Certificados',        href: '/certificados',       icon: Fingerprint },
+      { name: 'Ajustes fiscais',     href: '/ajustes-fiscais',    icon: Scale },
+      { name: 'Base de conhecimento', href: '/configuracoes?aba=base_conhecimento', icon: Library },
     ],
   },
   {
@@ -127,8 +133,28 @@ export function Sidebar() {
     return !!feature && isOffice && !tenant?.acesso_expirado && planLacksFeature(usage?.features, feature);
   };
 
-  const isActive = (href: string) =>
-    location.pathname === href || location.pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => {
+    const [path, query] = href.split('?');
+    if (query) return location.pathname === path && location.search.includes(query);
+    if (path === '/configuracoes' && location.search.includes('aba=base_conhecimento')) return false;
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+
+  // Fila de análise dos ajustes fiscais: só para a equipe FiscWise.
+  const { data: equipeFiscwise } = useEquipeFiscwise(isOffice);
+  const grupos: NavGroup[] = equipeFiscwise
+    ? navGroups.map((g) =>
+        g.label === 'Sistema'
+          ? {
+              ...g,
+              items: [
+                ...g.items,
+                { name: 'Equipe: ajustes fiscais', href: '/equipe/ajustes-fiscais', icon: ClipboardCheck },
+              ],
+            }
+          : g,
+      )
+    : navGroups;
 
   const toggleGroup = (label: string) =>
     setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
@@ -156,7 +182,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-2 py-3">
-        {navGroups.map((group) => {
+        {grupos.map((group) => {
           const isCollapsed = collapsed[group.label];
           return (
             <div key={group.label} className="mb-2 last:mb-0">

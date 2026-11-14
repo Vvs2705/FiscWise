@@ -136,3 +136,58 @@ async def get_signed_urls(bucket: str, paths: list[str], ttl: int = 300) -> dict
         if path and signed and not item.get("error"):
             out[path] = f"{settings.SUPABASE_URL}/storage/v1{signed}"
     return out
+
+
+async def list_prefix(bucket: str, prefix: str, *, page_size: int = 1000) -> list[str] | None:
+    """Paths completos dos objetos em `{bucket}/{prefix}` (um nível; os uploads do
+    projeto gravam `<tenant_id>/<arquivo>`). None quando o storage não está
+    configurado (dev/test)."""
+    if not _config_or_degrade(f"list {bucket}/{prefix}"):
+        return None
+    url = f"{settings.SUPABASE_URL}/storage/v1/object/list/{bucket}"
+    clean = prefix.strip("/")
+    out: list[str] = []
+    offset = 0
+    while True:
+        # Listar não altera nada: pode repetir.
+        resp = await request_with_retry(
+            "POST", url, service="supabase_storage", idempotent=True, read_timeout=30.0,
+            json={"prefix": clean, "limit": page_size, "offset": offset}, headers=_headers(),
+        )
+        raise_for_upstream_status(resp, "supabase_storage")
+        if resp.status_code != 200:
+            logger.error("Supabase list falhou: %s %s", resp.status_code, resp.text)
+            raise RuntimeError(f"Falha ao listar o storage ({resp.status_code})")
+        items = resp.json() or []
+        for item in items:
+            name = item.get("name")
+            # Pasta (sem id) não é objeto: o projeto não usa subpastas no prefixo.
+            if name and item.get("id"):
+                out.append(f"{clean}/{name}")
+        if len(items) < page_size:
+            return out
+        offset += page_size
+
+
+async def remove_objects(bucket: str, paths: list[str]) -> int:
+    """Apaga objetos de `bucket`. Devolve quantos o Supabase confirmou (0 em dev)."""
+    unique = list(dict.fromkeys(p for p in paths if p))
+    if not unique:
+        return 0
+    if not _config_or_degrade(f"remove {bucket} ({len(unique)})"):
+        return 0
+    url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket}"
+    removed = 0
+    for start in range(0, len(unique), 500):
+        lote = unique[start:start + 500]
+        # Apagar o que já foi apagado não dá erro: pode repetir.
+        resp = await request_with_retry(
+            "DELETE", url, service="supabase_storage", idempotent=True, read_timeout=30.0,
+            json={"prefixes": lote}, headers=_headers(),
+        )
+        raise_for_upstream_status(resp, "supabase_storage")
+        if resp.status_code != 200:
+            logger.error("Supabase remove falhou: %s %s", resp.status_code, resp.text)
+            raise RuntimeError(f"Falha ao apagar do storage ({resp.status_code})")
+        removed += len(resp.json() or [])
+    return removed

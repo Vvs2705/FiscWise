@@ -30,5 +30,8 @@ class RagDocumentResponse(BaseModel):
     content: str
     source: str
     category: str
+    file_name: Optional[str] = None
+    file_mime: Optional[str] = None
+    file_size: Optional[int] = None
     created_at: datetime
     updated_at: datetime

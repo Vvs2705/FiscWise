@@ -47,7 +47,8 @@ TRIAL_PLAN_SLUG = "premium"
 # v1.2 (13/11/2026): Termos passam a descrever o teste grátis no lugar do
 # plano Gratuito.
 # v1.3 (13/11/2026): cláusula das ofertas promocionais depois do teste.
-TERMS_VERSION = "v1.3"
+# v1.4 (14/11/2026): exclusão automática com pelo menos 72 h de aviso.
+TERMS_VERSION = "v1.4"
 
 
 DOCUMENTO_INVALIDO_CODE = "INVALID_DOCUMENT"

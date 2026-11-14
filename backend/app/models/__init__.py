@@ -29,6 +29,7 @@ from app.models.billing import TenantSubscription, BillingWebhookEvent, Retentio
 from app.models.whatsapp import WhatsAppInbox, WhatsAppMessage
 from app.models.fiscal_monitor import FiscalMonitorSummary, FiscalNFe
 from app.models.rag_fiscal import RagDocument
+from app.models.ajustes_fiscais import FiscalAdjustmentRequest, FiscalCalendarAdjustment
 from app.models.sync import SyncConflict, SyncDevice, SyncEvent
 from app.models.api_webhooks import TenantApiKey, WebhookSubscription, WebhookDeliveryLog
 from app.domain.invoices.models import InvoiceIssuer, Invoice, InvoiceEvent, InvoiceRejection
@@ -68,6 +69,8 @@ __all__ = [
     "FiscalMonitorSummary",
     "FiscalNFe",
     "RagDocument",
+    "FiscalAdjustmentRequest",
+    "FiscalCalendarAdjustment",
     "TenantApiKey",
     "WebhookSubscription",
     "WebhookDeliveryLog",

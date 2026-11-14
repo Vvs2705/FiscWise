@@ -106,14 +106,22 @@ def compute_due_date(
     month: int,
     uf: Optional[str] = None,
     municipio_ibge: Optional[str] = None,
+    due_day_override: Optional[int] = None,
+    extra_holidays: Optional[dict] = None,
 ) -> date:
     """Calculate the due date for a rule in a given competence month.
 
     The nominal day is moved to a business day (weekends and holidays) using
     the rule's anticipate/postpone policy. Federal rules use the national
     calendar; state and municipal rules add the client's UF/municipality.
+
+    Ajustes fiscais (app.services.ajustes_fiscais):
+    - ``due_day_override``: prazo ajustado para esta obrigação na UF/município.
+    - ``extra_holidays``: {date: (nome, nivel)}, nivel "uf" ou "municipio".
+      Prazo federal ignora; estadual usa só "uf"; municipal usa os dois.
     """
-    due_day = rule.due_day or 20
+    # Ajuste fiscal de prazo (do escritório ou regra geral) vence o dia do catálogo.
+    due_day = due_day_override or rule.due_day or 20
 
     # For yearly rules due in January, due date is in the same month
     if rule.recurrence == "yearly":
@@ -128,12 +136,19 @@ def compute_due_date(
     nominal = date(next_year, next_month, min(due_day, max_day))
 
     jurisdiction = (rule.jurisdiction or "federal").lower()
+    extras: dict = {}
     if jurisdiction == "federal":
         uf = municipio_ibge = None
-    elif jurisdiction != "municipal":
-        municipio_ibge = None
+    else:
+        niveis = ("uf", "municipio") if jurisdiction == "municipal" else ("uf",)
+        extras = {
+            d: nome for d, (nome, nivel) in (extra_holidays or {}).items() if nivel in niveis
+        }
+        if jurisdiction != "municipal":
+            municipio_ibge = None
     return adjust_to_business_day(
-        nominal, policy_for(rule.code), uf=uf or rule.state, municipio_ibge=municipio_ibge
+        nominal, policy_for(rule.code), uf=uf or rule.state, municipio_ibge=municipio_ibge,
+        extras=extras or None,
     )
 
 
@@ -196,6 +211,11 @@ async def generate_obligations_for_month(
     for tenant in tenants:
         try:
             await _set_current_tenant_context(db, tenant.id)
+
+            # Ajustes fiscais que valem para este escritório (dele + regras gerais).
+            from app.services.ajustes_fiscais import carregar_ajustes, parametros_de_vencimento
+
+            ajustes_tenant = await carregar_ajustes(db, tenant.id)
 
             # Get all active clients for this tenant
             clients_result = await db.execute(
@@ -294,10 +314,16 @@ async def generate_obligations_for_month(
                         total_skipped += 1
                         continue
 
+                    override, extras = parametros_de_vencimento(
+                        ajustes_tenant, rule.code, client_profile["uf"],
+                        client_profile["municipio_ibge"], competence_month,
+                    )
                     due_date = compute_due_date(
                         rule, year, month,
                         uf=client_profile["uf"],
                         municipio_ibge=client_profile["municipio_ibge"],
+                        due_day_override=override,
+                        extra_holidays=extras,
                     )
 
                     instance = ObligationInstance(

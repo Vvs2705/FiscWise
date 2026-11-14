@@ -32,7 +32,7 @@ export function PrivacyPage() {
           <h1 className="text-3xl font-bold">Política de Privacidade</h1>
         </div>
         <p className="mb-1 text-sm text-muted-foreground">
-          Versão 1.2 — Última atualização: 13/11/2026
+          Versão 1.3 — Última atualização: 14/11/2026
         </p>
         <p className="mb-8 text-xs text-muted-foreground">
           Em conformidade com a Lei Geral de Proteção de Dados — <strong>LGPD (Lei 13.709/2018)</strong>
@@ -147,8 +147,10 @@ export function PrivacyPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Ao fim do teste grátis ou do período pago, sem assinatura, a conta fica somente para
               leitura e os dados ficam disponíveis por 60 (sessenta) dias para consulta e exportação;
-              depois desse prazo, podem ser excluídos, com aviso prévio por e-mail, ressalvados os
-              registros que a lei obriga a guardar.
+              depois desse prazo, são excluídos automaticamente, com aviso por e-mail ao responsável
+              pelo escritório com pelo menos 72 (setenta e duas) horas de antecedência. Ficam guardados
+              apenas o nome e o CNPJ/CPF do escritório e o histórico de cobrança, além dos registros que
+              a lei obriga a guardar; os usuários são anonimizados e desativados.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Fazemos cópias de segurança diárias do banco de dados, criptografadas e guardadas por até

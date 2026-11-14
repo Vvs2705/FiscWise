@@ -43,6 +43,9 @@ import {
   RefreshCw,
   AlertCircle,
   Activity,
+  FileUp,
+  Download,
+  Paperclip,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -84,8 +87,11 @@ import {
   useCreateRagDocument,
   useUpdateRagDocument,
   useDeleteRagDocument,
+  useUploadRagDocument,
+  downloadRagDocument,
   type RagDocument,
 } from '@/lib/hooks/useRagFiscal';
+import { ARQUIVO_ACEITO, formatarTamanho, validarArquivo } from '@/lib/ajustesFiscais';
 import {
   useApiKeys,
   useCreateApiKey,
@@ -175,6 +181,10 @@ export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const abaParam = searchParams.get('aba');
   const [activeTab, setActiveTab] = useState<TabId>(isTabId(abaParam) ? abaParam : 'perfil');
+  // A aba acompanha ?aba= também quando a URL muda (atalho do menu).
+  useEffect(() => {
+    if (isTabId(abaParam)) setActiveTab(abaParam);
+  }, [abaParam]);
   const { user, updateUser } = useAuthStore();
   const [tenant, setTenant] = useState<TenantData | null>(null);
   const [loadingTenant, setLoadingTenant] = useState(true);
@@ -1806,8 +1816,47 @@ function BaseConhecimentoTab({
   tenant: TenantData | null;
   onNavigateToPlans: () => void;
 }) {
-  // /auth/tenant já devolve o plano EFETIVO (teste vencido/assinatura encerrada → "free").
-  const isFree = !!tenant?.acesso_expirado || tenant?.plan_slug === 'free' || !tenant?.plan_slug;
+  // Liberada em todos os planos e no teste. Conta vencida continua só leitura
+  // (o servidor responde 402 ao gravar); aqui só avisamos.
+  const somenteLeitura = !!tenant?.acesso_expirado;
+  const uploadMutation = useUploadRagDocument();
+  const arquivoRef = useRef<HTMLInputElement>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('regulamento');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      toast.error('Escolha um arquivo.');
+      return;
+    }
+    const problema = validarArquivo(uploadFile);
+    if (problema) {
+      toast.error(problema);
+      return;
+    }
+    const titulo = uploadTitle.trim() || uploadFile.name.replace(/\.[^.]+$/, '');
+    try {
+      await uploadMutation.mutateAsync({ file: uploadFile, title: titulo, category: uploadCategory });
+      toast.success('Arquivo adicionado à base de conhecimento');
+      setUploadFile(null);
+      setUploadTitle('');
+      setIsUploadOpen(false);
+      if (arquivoRef.current) arquivoRef.current.value = '';
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível enviar o arquivo.'));
+    }
+  };
+
+  const handleDownload = async (id: string) => {
+    try {
+      await downloadRagDocument(id);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Não foi possível baixar o arquivo.'));
+    }
+  };
 
   const { data: documents, isLoading } = useRagDocuments();
   const createMutation = useCreateRagDocument();
@@ -1942,30 +1991,6 @@ function BaseConhecimentoTab({
     });
   }, [documents, debouncedSearch, selectedCategory]);
 
-  if (isFree) {
-    return (
-      <Card className="border-primary/20 p-8 text-center">
-        <CardContent className="flex flex-col items-center justify-center space-y-4 py-8">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Lock className="h-8 w-8" />
-          </div>
-          <h2 className="text-xl font-bold">Base de Conhecimento RAG com IA</h2>
-          <p className="max-w-md text-sm text-muted-foreground">
-            Alimente o cérebro da IA fiscal do seu escritório com regras, FAQs e procedimentos próprios. Quando você fizer perguntas na calculadora com IA, ela responderá baseada prioritariamente nas diretrizes do seu escritório, citando fontes e confiança!
-          </p>
-          <div className="rounded-lg border border-warning/20 bg-warning/5 p-3 text-xs text-warning">
-            {tenant?.acesso_expirado
-              ? 'Sua conta está só para leitura. Assine o Intermediário ou o Premium para usar a Base de Conhecimento.'
-              : 'Esta funcionalidade premium está disponível a partir do Plano Intermediário.'}
-          </div>
-          <Button onClick={onNavigateToPlans} className="mt-2">
-            Fazer Upgrade de Plano
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const getCategoryLabel = (cat: string) => {
     switch (cat) {
       case 'procedimento': return 'Procedimento';
@@ -1994,16 +2019,78 @@ function BaseConhecimentoTab({
               <BookOpen className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Base de Conhecimento RAG do Escritório</h2>
+              <h2 className="text-lg font-bold">Base de Conhecimento do Escritório</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cadastre procedimentos operacionais, circulares estaduais e entendimentos internos.
-                O FiscWise (GPT-4o Mini) consultará estes documentos e aplicará as diretrizes
-                automaticamente ao responder perguntas na calculadora tributária.
+                Suba leis, normas e regras fiscais que você usa. Os arquivos são só do seu escritório;
+                quando anexados a uma solicitação de ajuste, nossa equipe consegue ler para analisar.
+                A IA fiscal também consulta estes documentos ao responder na calculadora.
               </p>
+              {somenteLeitura && (
+                <div className="mt-3 rounded-lg border border-warning/20 bg-warning/5 p-3 text-xs text-warning">
+                  Sua conta está só para leitura: dá para consultar e baixar, mas não enviar nem editar.{' '}
+                  <button type="button" className="font-semibold underline" onClick={onNavigateToPlans}>
+                    Assinar um plano
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Envio de arquivo */}
+      {isUploadOpen && (
+        <Card className="border-primary/40 bg-muted/20 animate-slide-up">
+          <CardHeader>
+            <CardTitle className="text-base">Enviar arquivo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpload} className="space-y-4">
+              <FormField label="Arquivo (PDF, DOCX, TXT ou MD, até 20 MB)" htmlFor="rag-arquivo" required>
+                <input
+                  id="rag-arquivo"
+                  ref={arquivoRef}
+                  type="file"
+                  accept={ARQUIVO_ACEITO}
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+                />
+              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Título" htmlFor="rag-arquivo-titulo" hint="Se ficar vazio, usamos o nome do arquivo.">
+                  <Input
+                    id="rag-arquivo-titulo"
+                    placeholder="Ex.: Lei municipal de feriados de Campinas"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Categoria" htmlFor="rag-arquivo-categoria">
+                  <select
+                    id="rag-arquivo-categoria"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={uploadCategory}
+                    onChange={(e) => setUploadCategory(e.target.value)}
+                  >
+                    <option value="regulamento">Regulamento / Lei / Decreto</option>
+                    <option value="procedimento">Procedimento Interno</option>
+                    <option value="faq">FAQ / Respostas Frequentes</option>
+                    <option value="outro">Outros</option>
+                  </select>
+                </FormField>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={uploadMutation.isPending}>
+                  Enviar arquivo
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Form Card */}
       {isFormOpen && (
@@ -2069,7 +2156,7 @@ function BaseConhecimentoTab({
       )}
 
       {/* Main List Management */}
-      {!isFormOpen && (
+      {!isFormOpen && !isUploadOpen && (
         <div className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {/* Search Input */}
@@ -2083,11 +2170,17 @@ function BaseConhecimentoTab({
               />
             </div>
 
-            {/* Create Trigger Button */}
-            <Button onClick={handleOpenCreate} className="gap-2 shrink-0">
-              <Plus className="h-4 w-4" />
-              Nova Diretriz
-            </Button>
+            {/* Create Trigger Buttons */}
+            <div className="flex shrink-0 gap-2">
+              <Button variant="outline" onClick={() => setIsUploadOpen(true)} className="gap-2">
+                <FileUp className="h-4 w-4" />
+                Enviar arquivo
+              </Button>
+              <Button onClick={handleOpenCreate} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Diretriz
+              </Button>
+            </div>
           </div>
 
           {/* Category Tabs */}
@@ -2174,6 +2267,23 @@ function BaseConhecimentoTab({
                           </button>
                         )}
                       </div>
+                      {doc.file_name && (
+                        <div className="mt-3 flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+                          <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                            <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{doc.file_name}</span>
+                            {doc.file_size ? <span className="shrink-0">· {formatarTamanho(doc.file_size)}</span> : null}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void handleDownload(doc.id)}
+                            className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Baixar
+                          </button>
+                        </div>
+                      )}
                       <div className="mt-4 pt-2 border-t text-[10px] text-muted-foreground/80 flex items-center justify-between">
                         <span>Fonte: <strong className="text-foreground/80">{doc.source}</strong></span>
                         <span>Atualizado em: {new Date(doc.updated_at).toLocaleDateString('pt-BR')}</span>

@@ -28,7 +28,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.3 (v1.3) — Última atualização: 13/11/2026
+          Versão 1.4 (v1.4) — Última atualização: 14/11/2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -81,9 +81,11 @@ export function TermsPage() {
               Ao fim do teste grátis ou do período pago, sem assinatura ativa, a conta fica somente
               para leitura: o Usuário continua podendo entrar, consultar e exportar seus dados, mas não
               pode cadastrar nem editar informações até assinar um plano. Os dados ficam guardados por
-              60 (sessenta) dias para consulta e exportação e, depois desse prazo, podem ser excluídos,
-              com aviso prévio por e-mail ao responsável pelo escritório, ressalvados os registros que
-              a legislação obriga a guardar.
+              60 (sessenta) dias para consulta e exportação e, depois desse prazo, são excluídos
+              automaticamente, com aviso por e-mail ao responsável pelo escritório com pelo menos 72
+              (setenta e duas) horas de antecedência. Ficam guardados apenas o nome e o CNPJ/CPF do
+              escritório e o histórico de cobrança, além dos registros que a legislação obriga a guardar.
+              Quem assinar um plano antes da data informada mantém todos os dados.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Ofertas promocionais: o FiscWise pode enviar, a quem fez o teste grátis e não assinou, uma

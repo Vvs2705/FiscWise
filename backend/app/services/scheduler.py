@@ -74,6 +74,10 @@ def _job_definitions():
         ("oferta_reconquista", "Retention Offer",
          oferta_reconquista_scheduled,
          CronTrigger(hour=10, minute=0, timezone=TZ_BR)),
+        # Exclusão automática de contas vencidas há 60 dias (aviso 72 h antes) — 03:30 (Brasília)
+        ("excluir_dados_vencidos", "Expired Account Data Deletion",
+         excluir_dados_vencidos_scheduled,
+         CronTrigger(hour=3, minute=30, timezone=TZ_BR)),
     ]
 
 
@@ -563,6 +567,18 @@ async def oferta_reconquista_scheduled(now: datetime | None = None) -> dict:
 
 
 SYNC_EVENTS_RETENTION_DAYS = 90
+
+
+async def excluir_dados_vencidos_scheduled(now: datetime | None = None) -> dict:
+    """Aviso (72 h antes) e exclusão dos dados de contas vencidas há 60 dias.
+
+    Regras e travas em app/services/exclusao_dados.py. Interruptor:
+    EXCLUSAO_AUTOMATICA_ATIVA=false só avisa, nunca exclui.
+    """
+    from app.core.deps import get_sessionmaker
+    from app.services.exclusao_dados import processar
+
+    return await processar(get_sessionmaker(), now)
 
 
 async def purge_sync_events_scheduled():

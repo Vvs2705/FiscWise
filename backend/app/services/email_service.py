@@ -410,6 +410,49 @@ def render_oferta_email(
     return assunto, _base_layout(inner)
 
 
+def render_exclusao_aviso_email(
+    *, data_exclusao_label: str, link_assinar: str, link_exportar: str,
+) -> tuple[str, str]:
+    """Aviso (72 h antes, no mínimo) de que os dados da conta vencida serão excluídos."""
+    assunto = f"Seus dados no FiscWise serão excluídos em {data_exclusao_label}"
+    inner = f"""<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(assunto)}</h1>
+<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Sua conta no FiscWise está sem assinatura há quase 60 dias e está só para leitura.
+  Como previsto nos Termos de Uso, os dados do escritório serão excluídos
+  automaticamente a partir de <strong>{_html.escape(data_exclusao_label)}</strong>.
+</p>
+<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Serão apagados: clientes, documentos e arquivos enviados, obrigações, contas a
+  receber, notas, guias, simulações e mensagens. Os acessos dos usuários serão
+  desativados. Ficam guardados apenas o nome e o CNPJ/CPF do escritório e o
+  histórico de cobrança, que a lei nos obriga a manter. Depois da exclusão
+  <strong>não há como recuperar</strong> os dados.
+</p>
+<div style="text-align:center;margin:0 0 12px 0;">
+  <a href="{_html.escape(link_assinar, quote=True)}" style="display:inline-block;background-color:{_BRAND};color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">Assinar e manter meus dados</a>
+</div>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Prefere só guardar uma cópia? <a href="{_html.escape(link_exportar, quote=True)}" style="color:{_BRAND};">Exporte seus dados</a> antes dessa data.
+</p>"""
+    return assunto, _base_layout(inner)
+
+
+def render_exclusao_confirmacao_email() -> tuple[str, str]:
+    """Confirmação de que os dados da conta vencida foram excluídos."""
+    assunto = "Seus dados no FiscWise foram excluídos"
+    inner = f"""<h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">{_html.escape(assunto)}</h1>
+<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
+  Conforme avisamos, os dados do seu escritório no FiscWise foram excluídos e os
+  acessos foram desativados. Guardamos apenas o nome e o CNPJ/CPF do escritório
+  e o histórico de cobrança, como a lei exige. Cópias de segurança criptografadas
+  deixam de existir em até 30 dias.
+</p>
+<p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
+  Se quiser voltar a usar o FiscWise, fale com a nossa equipe.
+</p>"""
+    return assunto, _base_layout(inner)
+
+
 def render_portal_magic_link_email(link: str) -> str:
     """HTML com o link de acesso (uso único, 24 h) ao portal do cliente."""
     inner = f"""\

@@ -766,6 +766,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "two_factor_method": getattr(current_user, "two_factor_method", "none"),
         "welcome_tour_seen": current_user.welcome_tour_seen_at is not None,
         "signup_complete": signup_complete(current_user.tenant),
+        "equipe_fiscwise": bool(getattr(current_user, "equipe_fiscwise", False)),
     }
 
 

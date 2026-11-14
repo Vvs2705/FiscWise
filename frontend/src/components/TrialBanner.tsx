@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Clock, Download, Lock } from 'lucide-react';
 import { useTenantInfo } from '@/lib/hooks/useSubscription';
 import { dataOferta, useOferta } from '@/lib/hooks/useBilling';
 import { useAuthStore } from '@/stores/authStore';
-import { ACESSO_EXPIRADO_EVENT, getApiErrorMessage } from '@/lib/api';
+import { ACESSO_EXPIRADO_EVENT, api, getApiErrorMessage } from '@/lib/api';
 import { downloadMyDataExport } from '@/lib/accountExport';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,31 @@ import { cn } from '@/lib/utils';
 const LINK_ASSINAR =
   'inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground ' +
   'hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+/** Resposta de GET /api/v1/account/exclusao (exclusão automática da conta vencida). */
+interface ExclusaoPrevista {
+  exclusao_prevista_em: string | null;
+  avisado_em: string | null;
+}
+
+function useExclusaoPrevista(enabled: boolean) {
+  return useQuery<ExclusaoPrevista>({
+    queryKey: ['account', 'exclusao'],
+    queryFn: async () => (await api.get<ExclusaoPrevista>('/api/v1/account/exclusao')).data,
+    enabled,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** "DD/MM" da exclusão quando faltam 3 dias ou menos; senão null. */
+function exclusaoProxima(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const quando = new Date(iso);
+  if (Number.isNaN(quando.getTime())) return null;
+  const faltaMs = quando.getTime() - Date.now();
+  if (faltaMs > 3 * 24 * 60 * 60 * 1000) return null;
+  return quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+}
 
 function diasRestantesTexto(dias: number): string {
   if (dias <= 0) return 'acaba hoje';
@@ -33,6 +59,9 @@ export function TrialBanner() {
   const [exporting, setExporting] = useState(false);
   // Oferta de reconquista: só o dono, só com a conta vencida.
   const { data: oferta } = useOferta(isOwner && !!tenant?.acesso_expirado);
+  // Exclusão automática: 60 dias depois de vencer, com e-mail pelo menos 72 h antes.
+  const { data: exclusao } = useExclusaoPrevista(isOffice && !!tenant?.acesso_expirado);
+  const exclusaoEm = exclusaoProxima(exclusao?.exclusao_prevista_em);
 
   useEffect(() => {
     if (!isOffice) return;
@@ -65,6 +94,14 @@ export function TrialBanner() {
         <p className="min-w-0 flex-1">
           <strong className="font-semibold">Seu teste acabou.</strong> A conta está só para leitura.{' '}
           {isOwner ? 'Assine para voltar a editar.' : 'Peça ao responsável pelo escritório para assinar um plano.'}
+          {exclusaoEm && (
+            <>
+              {' '}
+              <strong className="font-semibold text-destructive">
+                Seus dados serão excluídos em {exclusaoEm}. Exporte ou assine para manter.
+              </strong>
+            </>
+          )}
           {isOwner && oferta?.ativa && (
             <>
               {' '}

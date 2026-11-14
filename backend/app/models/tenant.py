@@ -115,6 +115,16 @@ class Tenant(Base):
         DateTime(timezone=True), nullable=True,
         comment="When a data deletion request was submitted (LGPD Art. 18)",
     )
+    # Exclusão automática da conta vencida (app/services/exclusao_dados.py):
+    # aviso por e-mail ao menos 72 h antes e data em que os dados foram apagados.
+    exclusao_avisada_em: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="Quando o aviso de exclusão automática foi enviado (e aceito pelo provedor)",
+    )
+    dados_excluidos_em: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="Quando os dados da conta vencida foram excluídos automaticamente",
+    )
 
     # Subscription Management
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(

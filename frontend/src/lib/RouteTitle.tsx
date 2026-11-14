@@ -50,6 +50,8 @@ const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
   ['/caixa-postal-fiscal', 'Caixa Postal Fiscal'],
   ['/procuracoes', 'Procurações'],
   ['/certificados', 'Certificados'],
+  ['/ajustes-fiscais', 'Ajustes fiscais'],
+  ['/equipe/ajustes-fiscais', 'Equipe: ajustes fiscais'],
 
   // Financeiro & Canais
   ['/financeiro', 'Financeiro'],

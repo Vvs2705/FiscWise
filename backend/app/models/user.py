@@ -121,6 +121,12 @@ class User(Base, TenantBase):
         DateTime(timezone=True), nullable=True
     )
 
+    # Equipe FiscWise: analisa as solicitações de ajuste fiscal de todos os
+    # escritórios e promove a regra geral. Marcado só pelo banco (migração/SQL).
+    equipe_fiscwise: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
+
     # ── Two-Factor Authentication (2FA) ──────────────────────────────────────
     # Tokens com iat anterior a este instante são recusados (troca de senha).
     tokens_valid_after: Mapped[Optional[datetime]] = mapped_column(

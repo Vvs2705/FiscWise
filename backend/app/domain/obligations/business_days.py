@@ -114,10 +114,20 @@ def national_holidays(year: int) -> Dict[date, str]:
 
 
 def holidays_for(
-    year: int, uf: Optional[str] = None, municipio_ibge: Optional[str] = None
+    year: int,
+    uf: Optional[str] = None,
+    municipio_ibge: Optional[str] = None,
+    extras: Optional[Dict[date, str]] = None,
 ) -> Dict[date, str]:
-    """Feriados que valem para o local: nacional + UF + município."""
+    """Feriados que valem para o local: nacional + UF + município.
+
+    ``extras``: feriados vindos dos ajustes fiscais (do escritório ou regra
+    geral), já filtrados para a UF/município do cliente.
+    """
     result = dict(national_holidays(year))
+    for d, name in (extras or {}).items():
+        if d.year == year:
+            result.setdefault(d, name)
     extra = []
     if uf:
         extra.extend(STATE_HOLIDAYS.get(uf.upper(), ()))
@@ -129,9 +139,12 @@ def holidays_for(
 
 
 def is_business_day(
-    d: date, uf: Optional[str] = None, municipio_ibge: Optional[str] = None
+    d: date,
+    uf: Optional[str] = None,
+    municipio_ibge: Optional[str] = None,
+    extras: Optional[Dict[date, str]] = None,
 ) -> bool:
-    return d.weekday() < 5 and d not in holidays_for(d.year, uf, municipio_ibge)
+    return d.weekday() < 5 and d not in holidays_for(d.year, uf, municipio_ibge, extras)
 
 
 def adjust_to_business_day(
@@ -139,10 +152,11 @@ def adjust_to_business_day(
     policy: str = ANTICIPATE,
     uf: Optional[str] = None,
     municipio_ibge: Optional[str] = None,
+    extras: Optional[Dict[date, str]] = None,
 ) -> date:
     """Move a data para o dia útil anterior ou seguinte, se ela não for útil."""
     step = timedelta(days=1 if policy == POSTPONE else -1)
-    while not is_business_day(d, uf, municipio_ibge):
+    while not is_business_day(d, uf, municipio_ibge, extras):
         d += step
     return d
 

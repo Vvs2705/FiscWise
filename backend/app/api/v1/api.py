@@ -6,7 +6,7 @@ Aggregates all v1 endpoint routers into a single API router.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias, fiscal_mailbox, monthly_closing, focus, reports, internal, sync, jobs, marketing
+from app.api.v1.endpoints import auth, onboarding, health, operations, diagnostic, admin, portal, partners, company_documents, calculator, das, obligations, subscription, notifications, billing, account, whatsapp, fiscal_monitor, rag_fiscal, developer, invoices, ecac, guias, fiscal_mailbox, monthly_closing, focus, reports, internal, sync, jobs, marketing, ajustes_fiscais
 
 
 # Create main API router for v1
@@ -136,6 +136,10 @@ api_router.include_router(
     rag_fiscal.router,
     tags=["RAG Fiscal"]
 )
+
+# Solicitações de ajuste fiscal (escritório) e análise pela equipe FiscWise
+api_router.include_router(ajustes_fiscais.router)
+api_router.include_router(ajustes_fiscais.router_equipe)
 
 # Include Developer (API Keys + Webhooks) endpoints
 api_router.include_router(

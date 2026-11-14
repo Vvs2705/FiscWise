@@ -53,6 +53,8 @@ const PowersOfAttorneyPage      = lazy(() => import('@/pages/PowersOfAttorneyPag
 const ReportsPage               = lazy(() => import('@/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const PortalDashboardPage       = lazy(() => import('@/pages/PortalDashboardPage').then(m => ({ default: m.PortalDashboardPage })));
 const PortalClientePage         = lazy(() => import('@/pages/PortalClientePage').then(m => ({ default: m.PortalClientePage })));
+const AjustesFiscaisPage        = lazy(() => import('@/pages/AjustesFiscaisPage').then(m => ({ default: m.AjustesFiscaisPage })));
+const EquipeAjustesPage         = lazy(() => import('@/pages/EquipeAjustesPage').then(m => ({ default: m.EquipeAjustesPage })));
 
 // ─── Feature module pages ───────────────────────────────────────────────────
 const InvoicesListPage  = lazy(() => import('@/features/invoices/pages/InvoicesListPage').then(m => ({ default: m.InvoicesListPage })));
@@ -211,6 +213,8 @@ function App() {
                 <Route path="caixa-postal-fiscal"     element={<FiscalMailboxPage />} />
                 <Route path="procuracoes"             element={<PowersOfAttorneyPage />} />
                 <Route path="certificados"            element={<CertificatesPage />} />
+                <Route path="ajustes-fiscais"         element={<AjustesFiscaisPage />} />
+                <Route path="equipe/ajustes-fiscais"  element={<EquipeAjustesPage />} />
 
                 {/* ── Financeiro & Canais ──────────────────────────────── */}
                 <Route path="financeiro"   element={<FinancePage />} />

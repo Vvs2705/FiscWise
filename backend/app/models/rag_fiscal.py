@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    DateTime, ForeignKey, String, Text, func,
+    DateTime, ForeignKey, Integer, String, Text, func,
     UUID as SQLUUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -52,6 +52,11 @@ class RagDocument(Base, TenantBase):
         index=True,
         comment="Categoria: regras_fiscais | manual | faq | procedimento",
     )
+    # Arquivo original (lei, norma, manual) quando o documento veio por upload.
+    file_path: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    file_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    file_mime: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

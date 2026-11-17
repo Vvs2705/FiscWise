@@ -155,6 +155,8 @@ temp/
 *.crt
 certificados/
 certs/
+# Exceção: é código (cofre de certificados), não contém certificado nenhum.
+!backend/app/domain/certificados/
 
 # Test artifacts (local only)
 .coverage

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useInvoices, useIssuers } from '../hooks/useInvoices';
 import { InvoiceStatusBadge } from '../components/InvoiceStatusBadge';
 import { IssuerProfileForm } from '../components/IssuerProfileForm';
+import { EmissoresEmissao } from '../components/EmissoresEmissao';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -66,8 +67,8 @@ export function InvoicesListPage() {
   return (
     <div className="space-y-6">
       <SimulationNotice>
-        A emissão de NFS-e ainda não está conectada à prefeitura. Notas "emitidas" aqui são simuladas
-        e não têm validade fiscal.
+        Notas só têm validade fiscal quando o emissor está com a emissão liberada (certificado A1 conferido e
+        teste aprovado em "Como emitir"). Antes disso, as notas "emitidas" aqui são simuladas.
       </SimulationNotice>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
@@ -188,6 +189,8 @@ export function InvoicesListPage() {
           </div>
         </CardContent>
       </Card>
+
+      {hasIssuer && issuers && <EmissoresEmissao issuers={issuers} />}
 
       {/* Invoices List table */}
       {!hasIssuer && (

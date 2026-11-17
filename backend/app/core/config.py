@@ -186,6 +186,11 @@ class Settings(BaseSettings):
     MERCADO_PAGO_WEBHOOK_SECRET: str = ""
     PAGAMENTOS_GO_LIVE: bool = False
 
+    # Cofre de certificados A1 (app/domain/certificados/cofre.py): chave
+    # AES-256 em base64 (32 bytes). Vazia = envio de certificado desligado (503).
+    # Gerar: python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
+    CERT_ENCRYPTION_KEY: str = ""
+
     # Segredo do webhook de entrada do WhatsApp (header X-Webhook-Secret).
     # Vazio: aceito só em dev; em produção/staging o webhook é rejeitado.
     WHATSAPP_WEBHOOK_SECRET: str = ""
@@ -219,6 +224,16 @@ class Settings(BaseSettings):
     # NFS-e: "mock" | "nacional". Em produção/staging com "mock" emitir/cancelar
     # responde 503 e a nota não muda de status.
     NFSE_PROVIDER: str = "mock"
+    # Padrão nacional (Sefin Nacional): "producao_restrita" (testes) | "producao".
+    NFSE_AMBIENTE: str = "producao_restrita"
+    NFSE_SEFIN_URL_PRODUCAO: str = "https://sefin.nfse.gov.br/SefinNacional"
+    NFSE_SEFIN_URL_RESTRITA: str = "https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional"
+    NFSE_TIMEOUT_SECONDS: float = 30.0
+    # Arquivo de CAs para validar o servidor do governo (vazio = certifi).
+    NFSE_CA_BUNDLE: str = ""
+    # Série da DPS usada pelo FiscWise (1 a 4 dígitos) e versão do aplicativo.
+    NFSE_SERIE_DPS: str = "1"
+    NFSE_VERSAO_APLICATIVO: str = "FiscWise-1.0"
 
     # Fiscal mailbox (e-CAC / DTE) provider: "mock" | "serpro"
     # "serpro" uses the Integra Contador gateway (Caixa Postal) and requires

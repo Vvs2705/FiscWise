@@ -32,6 +32,7 @@ from app.models.rag_fiscal import RagDocument
 from app.models.ajustes_fiscais import FiscalAdjustmentRequest, FiscalCalendarAdjustment
 from app.models.sync import SyncConflict, SyncDevice, SyncEvent
 from app.models.api_webhooks import TenantApiKey, WebhookSubscription, WebhookDeliveryLog
+from app.domain.certificados.models import CertificadoA1
 from app.domain.invoices.models import InvoiceIssuer, Invoice, InvoiceEvent, InvoiceRejection
 from app.domain.ecac.models import EcacProxy, EcacFiscalSituation
 from app.domain.guias.models import TaxGuide
@@ -74,6 +75,7 @@ __all__ = [
     "TenantApiKey",
     "WebhookSubscription",
     "WebhookDeliveryLog",
+    "CertificadoA1",
     "InvoiceIssuer",
     "Invoice",
     "InvoiceEvent",

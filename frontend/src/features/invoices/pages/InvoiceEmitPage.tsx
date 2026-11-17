@@ -1,4 +1,6 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import axios from 'axios';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useInvoice } from '../hooks/useInvoices';
 import { useInvoiceEmission } from '../hooks/useInvoiceEmission';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -8,6 +10,10 @@ import { ArrowLeft, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { SimulationNotice, WarningPanel } from '@/components/ui/OperationalStates';
 import { OFFLINE_EMISSION_NOTICE, isNetworkError, useOfflineEmission } from '../hooks/useOfflineEmission';
+import { useConfigEmissao } from '@/lib/hooks/useCertificados';
+import { pendenciasDoErro } from '@/lib/certificados';
+import { getApiErrorMessage } from '@/lib/api';
+import { PARAM_CONFIGURAR_EMISSOR } from '../components/EmissoresEmissao';
 
 export function InvoiceEmitPage() {
   const { id = '' } = useParams();
@@ -15,6 +21,8 @@ export function InvoiceEmitPage() {
   const { data: invoice, isLoading } = useInvoice(id);
   const emitInvoice = useInvoiceEmission();
   const offline = useOfflineEmission(invoice);
+  const { data: emissao } = useConfigEmissao(invoice?.issuer_id);
+  const [pendenciasRecusa, setPendenciasRecusa] = useState<string[] | null>(null);
 
   const queueEmission = async () => {
     try {
@@ -42,7 +50,14 @@ export function InvoiceEmitPage() {
         await queueEmission();
         return;
       }
-      toast.error('Erro ao solicitar emissão da NFS-e.');
+      // 409: a emissão deste emissor não está liberada (certificado/teste).
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        const lista = pendenciasDoErro((err.response.data as { detail?: unknown } | undefined)?.detail);
+        setPendenciasRecusa(lista.length ? lista : ['A emissão deste emissor ainda não está liberada.']);
+        toast.error('A emissão ainda não está liberada para este emissor.');
+        return;
+      }
+      toast.error(getApiErrorMessage(err, 'Erro ao solicitar emissão da NFS-e.'));
     }
   };
 
@@ -66,14 +81,19 @@ export function InvoiceEmitPage() {
     { name: 'Descrição do serviço inserida', status: invoice.descricao_servico.length > 5 },
   ];
 
-  const canEmit = validations.every((v) => v.status);
+  const emissaoBloqueada = !!emissao && !emissao.emissao_liberada;
+  const pendenciasEmissao = pendenciasRecusa ?? (emissaoBloqueada ? emissao?.pendencias ?? [] : []);
+  const linkConfigurar = `/notas-fiscais?${PARAM_CONFIGURAR_EMISSOR}=${invoice.issuer_id}`;
+  const canEmit = validations.every((v) => v.status) && !emissaoBloqueada;
 
   return (
     <div className="space-y-6">
-      <SimulationNotice>
-        A emissão de NFS-e ainda não está conectada à prefeitura. Notas "emitidas" aqui são simuladas
-        e não têm validade fiscal.
-      </SimulationNotice>
+      {!emissao?.emissao_liberada && (
+        <SimulationNotice>
+          Enquanto o emissor não tiver a emissão liberada (certificado A1 conferido e teste aprovado), as notas
+          "emitidas" aqui são simuladas e não têm validade fiscal.
+        </SimulationNotice>
+      )}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate(`/notas-fiscais/${id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -167,6 +187,23 @@ export function InvoiceEmitPage() {
               </ul>
 
               <div className="border-t border-border/40 pt-4 mt-4 space-y-3">
+                {(emissaoBloqueada || pendenciasRecusa) && (
+                  <WarningPanel variant="warning" title="Emissão ainda não liberada para este emissor">
+                    {pendenciasEmissao.length > 0 && (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground/80">
+                        {pendenciasEmissao.map((p) => (
+                          <li key={p}>{p}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <Link
+                      to={linkConfigurar}
+                      className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+                    >
+                      Configurar certificado e testar emissão
+                    </Link>
+                  </WarningPanel>
+                )}
                 {offline.isOffline && (
                   <WarningPanel title="Sem conexão com a internet" description={OFFLINE_EMISSION_NOTICE} />
                 )}

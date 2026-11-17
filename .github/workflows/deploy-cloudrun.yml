@@ -95,6 +95,18 @@ jobs:
             echo "::error::PAGAMENTOS_GO_LIVE ligado, mas faltam segredos do Mercado Pago:$MP_FALTANDO"
             exit 1
           fi
+          # Opcionais: entram sozinhos quando o segredo existe. CERT_ENCRYPTION_KEY é a
+          # chave do cofre de certificados A1 da NFS-e (sem ela, o envio de
+          # certificados responde 503 e a emissão real fica desligada).
+          for NAME in CERT_ENCRYPTION_KEY; do
+            case ",$SECRETS," in *",$NAME="*) continue ;; esac
+            if gcloud secrets describe "$NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
+              SECRETS="$SECRETS,$NAME=$NAME:latest"
+              echo "Segredo $NAME encontrado: será montado no Cloud Run."
+            else
+              echo "Segredo $NAME não existe (ou sem permissão de ver): recurso segue desligado."
+            fi
+          done
           echo "SECRETS=$SECRETS" >> "$GITHUB_ENV"
 
       - name: Run database migrations (Cloud Run Job)

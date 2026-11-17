@@ -115,10 +115,13 @@ def invoice_emit_key(invoice_id: uuid.UUID) -> str:
 
 
 def get_emission_provider():
-    """Mesmo provedor do POST /invoices/{id}/emit (hoje o de simulação)."""
-    from app.domain.invoices.providers.mock import MockNfseProvider
+    """Mesmo provedor do POST /invoices/{id}/emit (NFSE_PROVIDER: mock | nacional).
 
-    return MockNfseProvider()
+    Em produção com mock a factory recusa (NfseProviderNotConfiguredError): a
+    nota nunca é "emitida" de mentira."""
+    from app.domain.invoices.providers.factory import build_nfse_provider
+
+    return build_nfse_provider()
 
 
 class _TransientGuardProvider:
@@ -127,11 +130,11 @@ class _TransientGuardProvider:
     def __init__(self, inner) -> None:
         self._inner = inner
 
-    async def emit(self, invoice_data: dict) -> dict:
+    async def emit(self, invoice_data: dict, *args, **kwargs) -> dict:
         from app.domain.invoices.providers.base import TransientEmissionError
 
         try:
-            return await self._inner.emit(invoice_data)
+            return await self._inner.emit(invoice_data, *args, **kwargs)
         except TransientEmissionError:
             raise
         except _TRANSIENT_PROVIDER_ERRORS as exc:

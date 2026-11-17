@@ -14,6 +14,53 @@ from app.domain.invoices.events import dispatch_invoice_event
 from app.domain.invoices.providers.base import NfseProvider, TransientEmissionError
 from app.core.audit import audit_log
 
+
+def emissao_exige_certificado() -> bool:
+    """Provider real (não mock): a emissão exige emissor liberado e certificado."""
+    from app.core.config import settings
+    from app.core.integration_mode import normalize_provider
+
+    return normalize_provider(settings.NFSE_PROVIDER) != "mock"
+
+
+async def _material_do_emissor(db, issuer, finalidade: str):
+    """Certificado configurado para o emissor (None quando o provider é mock)."""
+    if not emissao_exige_certificado():
+        return None
+    from app.domain.certificados.cofre import CertificadoIndisponivel, obter_material
+
+    if issuer.certificado_id is None:
+        raise CertificadoIndisponivel(
+            "Emissor sem certificado configurado. Configure a emissão deste cliente."
+        )
+    return await obter_material(db, issuer.certificado_id, finalidade=finalidade)
+
+
+def _dados_da_nota(invoice: "Invoice") -> dict:
+    issuer = invoice.issuer
+    return {
+        "invoice_id": str(invoice.id),
+        "valor_servico": float(invoice.valor_servico),
+        "valor_deducoes": float(invoice.valor_deducoes or 0),
+        "valor_iss": float(invoice.valor_iss) if invoice.valor_iss is not None else None,
+        "descricao_servico": invoice.descricao_servico,
+        "numero": invoice.numero or "000000",
+        "serie": invoice.serie,
+        "competencia": invoice.competencia.isoformat() if invoice.competencia else None,
+        "cnpj_emissor": issuer.cnpj,
+        "inscricao_municipal": issuer.inscricao_municipal,
+        "regime_tributario": issuer.regime_tributario,
+        "municipio_ibge": issuer.municipio_ibge,
+        "cod_servico_lc116": issuer.cod_servico_lc116,
+        "aliquota_iss": float(issuer.aliquota_iss) if issuer.aliquota_iss is not None else None,
+        "retencao_iss": bool(issuer.retencao_iss),
+        "modo_certificado": issuer.modo_certificado,
+        "tomador_nome": invoice.tomador_nome,
+        "tomador_cpf_cnpj": invoice.tomador_cpf_cnpj,
+        "tomador_email": invoice.tomador_email,
+        "tomador_municipio_ibge": invoice.tomador_municipio_ibge,
+    }
+
 class InvoiceService:
     def __init__(self, repo: InvoiceRepository):
         self.repo = repo
@@ -126,6 +173,18 @@ class InvoiceService:
         if invoice.status not in ("draft", "rejected"):
             raise ValueError(f"Cannot emit invoice from status: {invoice.status}")
 
+        if emissao_exige_certificado():
+            # Emissão real só com o emissor liberado (modo + certificado válido
+            # + dados mínimos + teste aprovado): app/domain/certificados/servico.py.
+            from app.domain.certificados.servico import estado_emissao
+
+            estado = await estado_emissao(self.repo.db, invoice.issuer)
+            if not estado["emissao_liberada"]:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Emissão não liberada para esta empresa: " + " ".join(estado["pendencias"]),
+                )
+
         invoice.status = "validating"
         await self.repo.update_invoice(invoice)
         await dispatch_invoice_event(self.repo.db, invoice, "validating")
@@ -147,16 +206,20 @@ class InvoiceService:
         await self.repo.update_invoice(invoice)
         await dispatch_invoice_event(self.repo.db, invoice, "processing")
 
-        # Call provider
-        invoice_data = {
-            "valor_servico": float(invoice.valor_servico),
-            "descricao_servico": invoice.descricao_servico,
-            "numero": invoice.numero or "000000",
-            "cnpj_emissor": invoice.issuer.cnpj,
-        }
-        
         try:
-            res = await provider.emit(invoice_data)
+            material = await _material_do_emissor(self.repo.db, invoice.issuer, "emissao")
+            if material is None:
+                res = await provider.emit(_dados_da_nota(invoice))
+            else:
+                # Padrão nacional: DPS com número próprio, reservado e gravado
+                # ANTES de transmitir (retentativa reaproveita o mesmo número).
+                from app.domain.nfse_nacional.dps import montar_invoice_data
+
+                invoice = await self._reservar_numero_dps(invoice)
+                invoice_data = montar_invoice_data(
+                    invoice, invoice.issuer, numero_dps=invoice.numero_dps, serie_dps=invoice.serie_dps
+                )
+                res = await provider.emit(invoice_data, material)
             status_res = res.get("status")
 
             if status_res == "issued":
@@ -164,7 +227,11 @@ class InvoiceService:
                 invoice.status = "issued"
                 invoice.numero = res.get("numero")
                 invoice.provider_protocol = res.get("protocol")
-                invoice.provider_response = res.get("raw")
+                raw = res.get("raw")
+                if res.get("id_dps") or res.get("avisos"):
+                    raw = {**(raw if isinstance(raw, dict) else {"raw": raw}),
+                           "id_dps": res.get("id_dps"), "avisos": res.get("avisos")}
+                invoice.provider_response = raw
                 invoice.xml_content = res.get("xml")
                 # Nada é enviado ao storage: o XML fica em xml_content e o PDF
                 # (DANFSe) é gerado sob demanda. Não gravar caminhos de arquivos
@@ -184,14 +251,22 @@ class InvoiceService:
                 invoice.status = "rejected"
                 await self.repo.update_invoice(invoice)
                 
-                rejection = InvoiceRejection(
-                    invoice_id=invoice.id,
-                    tenant_id=tenant_id,
-                    codigo_rejeicao=res.get("codigo_rejeicao"),
-                    descricao=res.get("descricao") or "Rejected by municipal server",
-                    raw_response=res.get("raw")
-                )
-                await self.repo.create_rejection(rejection)
+                rejeicoes = res.get("rejeicoes") or [
+                    {"codigo": res.get("codigo_rejeicao"), "descricao": res.get("descricao")}
+                ]
+                for item in rejeicoes:
+                    descricao = item.get("descricao") or "Rejected by municipal server"
+                    if item.get("complemento"):
+                        descricao = f"{descricao} ({item['complemento']})"
+                    await self.repo.create_rejection(
+                        InvoiceRejection(
+                            invoice_id=invoice.id,
+                            tenant_id=tenant_id,
+                            codigo_rejeicao=item.get("codigo"),
+                            descricao=descricao,
+                            raw_response=res.get("raw"),
+                        )
+                    )
                 
                 await dispatch_invoice_event(self.repo.db, invoice, "rejected", {
                     "code": res.get("codigo_rejeicao"),
@@ -237,6 +312,29 @@ class InvoiceService:
 
         return invoice
 
+    async def _reservar_numero_dps(self, invoice: Invoice) -> Invoice:
+        """Reserva o próximo número de DPS do emissor (atômico) e grava na nota.
+
+        Idempotente: nota que já tem número (retentativa) reaproveita o mesmo.
+        """
+        if invoice.numero_dps is not None:
+            return invoice
+        from sqlalchemy import update
+
+        from app.core.config import settings
+
+        numero = (
+            await self.repo.db.execute(
+                update(InvoiceIssuer)
+                .where(InvoiceIssuer.id == invoice.issuer_id)
+                .values(ultimo_numero_dps=InvoiceIssuer.ultimo_numero_dps + 1)
+                .returning(InvoiceIssuer.ultimo_numero_dps)
+            )
+        ).scalar_one()
+        invoice.numero_dps = int(numero)
+        invoice.serie_dps = (getattr(settings, "NFSE_SERIE_DPS", "1") or "1")[:5]
+        return await self.repo.update_invoice(invoice)
+
     async def cancel_invoice(self, invoice_id: uuid.UUID, tenant_id: uuid.UUID, reason: str, provider: NfseProvider) -> Invoice:
         invoice = await self.get_invoice(invoice_id, tenant_id)
 
@@ -249,7 +347,17 @@ class InvoiceService:
 
         # Call provider cancel
         try:
-            res = await provider.cancel(invoice.provider_protocol, reason)
+            material = await _material_do_emissor(self.repo.db, invoice.issuer, "cancelamento")
+            if material is None:
+                res = await provider.cancel(invoice.provider_protocol, reason)
+            else:
+                res = await provider.cancel(
+                    invoice.provider_protocol,
+                    reason,
+                    material,
+                    codigo_motivo="1",
+                    documento_autor=invoice.issuer.cnpj,
+                )
             
             if res.get("status") == "cancelled":
                 invoice.status = "cancelled"

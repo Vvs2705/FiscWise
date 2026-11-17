@@ -30,6 +30,9 @@ class InvoiceIssuerResponse(BaseModel):
     cod_servico_lc116: Optional[str]
     aliquota_iss: Optional[Decimal]
     retencao_iss: bool
+    modo_certificado: Optional[str] = None
+    certificado_id: Optional[uuid.UUID] = None
+    ultimo_teste_ok: Optional[bool] = None
     created_at: datetime
     updated_at: datetime
 

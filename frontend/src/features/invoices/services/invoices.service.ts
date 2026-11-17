@@ -12,6 +12,8 @@ export interface InvoiceIssuerCreate {
 
 export interface InvoiceIssuerResponse extends InvoiceIssuerCreate {
   id: string;
+  /** Cliente do escritório ligado ao emissor, quando houver. */
+  client_id?: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;

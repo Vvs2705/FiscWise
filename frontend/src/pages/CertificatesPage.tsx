@@ -34,6 +34,7 @@ import {
   type CertificateStatus,
 } from '@/lib/hooks/useOperations';
 import { SyncRowMarker } from '@/components/SyncRowMarker';
+import { CofreCertificados } from '@/features/invoices/components/CofreCertificados';
 import { describeClientEmailResult, useCertExpiryWarning } from '@/lib/hooks/useNotifications';
 
 const schema = z.object({
@@ -186,7 +187,7 @@ export function CertificatesPage() {
             Certificados Digitais
           </h1>
           <p className="text-muted-foreground mt-1">
-            Monitore certificados A1 e A3 com alertas de vencimento integrados.
+            Guarde o A1 com segurança para emitir NFS-e e acompanhe o vencimento de todos os certificados.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -200,11 +201,21 @@ export function CertificatesPage() {
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>
           </Button>
-          <Button onClick={() => setOpen(true)} size="sm" className="shadow-token-sm">
+          <Button onClick={() => setOpen(true)} size="sm" variant="outline" className="shadow-token-sm">
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Novo certificado
+            Registrar vencimento
           </Button>
         </div>
+      </div>
+
+      <CofreCertificados />
+
+      <div className="pt-2">
+        <h2 className="text-lg font-semibold text-foreground">Controle de validade</h2>
+        <p className="text-sm text-muted-foreground">
+          Registro de vencimento de qualquer certificado (A1, A3, por sistema), com aviso ao cliente. Não serve para
+          emitir notas: para isso, envie o A1 no cofre acima.
+        </p>
       </div>
 
       {isError && <ErrorState message="Nao foi possivel carregar os certificados." onRetry={() => refetch()} />}

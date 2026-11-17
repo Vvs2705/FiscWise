@@ -7,7 +7,7 @@ no new tables.
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends
@@ -207,6 +207,46 @@ async def get_focus_items(
                 client=client_name,
                 competence=None,
                 deadline=cert.valid_until.isoformat(),
+                risk="medium" if days_left > 7 else "high",
+                status="expiring",
+                primary_label="Renovar certificado",
+                primary_href="/certificados",
+            )
+        )
+
+    # 4b. Certificados A1 do cofre (emissão de NFS-e) vencendo em 30 dias
+    from app.domain.certificados.models import CertificadoA1
+
+    agora_utc = datetime.now(timezone.utc)
+    cofre_rows = await db.execute(
+        select(CertificadoA1, AccountingClient.name)
+        .outerjoin(AccountingClient, AccountingClient.id == CertificadoA1.client_id)
+        .where(
+            and_(
+                CertificadoA1.tenant_id == tenant_id,
+                CertificadoA1.status == "valido",
+                CertificadoA1.valido_ate >= agora_utc,
+                CertificadoA1.valido_ate <= agora_utc + timedelta(days=30),
+            )
+        )
+        .order_by(CertificadoA1.valido_ate.asc())
+        .limit(_SOURCE_LIMIT)
+    )
+    for cert, client_name in cofre_rows.all():
+        fim = cert.valido_ate if cert.valido_ate.tzinfo else cert.valido_ate.replace(tzinfo=timezone.utc)
+        days_left = max((fim.date() - today).days, 0)
+        items.append(
+            _item(
+                id=f"certificado-a1-{cert.id}",
+                group="week",
+                type="certificate",
+                title=(
+                    f"Certificado de emissão de NFS-e vencendo em {days_left} dia"
+                    f"{'s' if days_left != 1 else ''}"
+                ),
+                client=client_name or "Escritório",
+                competence=None,
+                deadline=fim.date().isoformat(),
                 risk="medium" if days_left > 7 else "high",
                 status="expiring",
                 primary_label="Renovar certificado",

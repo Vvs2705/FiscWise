@@ -32,7 +32,7 @@ export function PrivacyPage() {
           <h1 className="text-3xl font-bold">Política de Privacidade</h1>
         </div>
         <p className="mb-1 text-sm text-muted-foreground">
-          Versão 1.3 — Última atualização: 14/11/2026
+          Versão 1.4 — Última atualização: 17/11/2026
         </p>
         <p className="mb-8 text-xs text-muted-foreground">
           Em conformidade com a Lei Geral de Proteção de Dados — <strong>LGPD (Lei 13.709/2018)</strong>
@@ -168,6 +168,13 @@ export function PrivacyPage() {
               autenticação JWT com expiração curta, isolamento de dados por tenant, e controle de
               acesso baseado em papéis (RBAC). Tokens de acesso temporário (ex: portal do cliente)
               são armazenados apenas como hash SHA-256.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Certificados digitais A1 enviados pelo escritório (do próprio escritório ou de seus clientes)
+              ficam guardados criptografados, assim como a senha de cada certificado. Ninguém consegue
+              baixá-los de volta, nem a equipe FiscWise. Eles são usados somente para emitir, consultar e
+              cancelar notas fiscais a pedido do escritório, cada uso fica registrado, e o escritório pode
+              bloqueá-los ou removê-los a qualquer momento.
             </p>
           </section>
 

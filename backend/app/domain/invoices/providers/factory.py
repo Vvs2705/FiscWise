@@ -2,6 +2,8 @@
 
 Regra G2: a nota só fica ``issued`` quando um provider real confirmar. Em
 produção/staging o mock é recusado (503) e a nota continua como está.
+O provider "nacional" fala com a Sefin Nacional no ambiente NFSE_AMBIENTE
+("producao_restrita" por padrão; "producao" só quando homologado).
 """
 
 from app.core.config import settings

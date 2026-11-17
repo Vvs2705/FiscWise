@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, Any, Dict
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, UUID as SQLUUID
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UUID as SQLUUID, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +26,23 @@ class InvoiceIssuer(Base, TenantBase):
     aliquota_iss: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 4), nullable=True)
     retencao_iss: Mapped[bool] = mapped_column(default=False, server_default="false")
 
+    # Como esta empresa emite (app/domain/certificados/servico.py):
+    # 'proprio' = certificado A1 da própria empresa; 'procuracao' = certificado
+    # do escritório + procuração eletrônica da empresa no portal da Receita.
+    # Qualquer mudança zera o teste; a emissão só libera depois de testar.
+    modo_certificado: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    certificado_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("certificados_a1.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    procuracao_confirmada_em: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    ultimo_teste_em: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    ultimo_teste_ok: Mapped[Optional[bool]] = mapped_column(nullable=True)
+    ultimo_teste_mensagem: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Último número de DPS usado por este emissor (série NFSE_SERIE_DPS).
+    ultimo_numero_dps: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
     # Relationships
     client = relationship("AccountingClient", lazy="joined")
 
@@ -34,7 +51,16 @@ class Invoice(Base, TenantBase):
     """NFS-e Invoice record."""
     __tablename__ = "invoices"
     # Cursor do pull offline (docs/arquitetura/OFFLINE_SYNC.md 5.4).
-    __table_args__ = (Index("idx_invoices_tenant_updated_id", "tenant_id", "updated_at", "id"),)
+    __table_args__ = (
+        Index("idx_invoices_tenant_updated_id", "tenant_id", "updated_at", "id"),
+        # Número da DPS: único por emissor + série (o padrão nacional recusa repetido).
+        Index(
+            "uq_invoices_issuer_serie_numero_dps", "issuer_id", "serie_dps", "numero_dps",
+            unique=True,
+            postgresql_where=text("numero_dps IS NOT NULL"),
+            sqlite_where=text("numero_dps IS NOT NULL"),
+        ),
+    )
 
     issuer_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True),
@@ -50,6 +76,10 @@ class Invoice(Base, TenantBase):
     # Statuses: draft | validating | queued | processing | issued | rejected | cancel_requested | cancelled | replaced | failed
     
     numero: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # DPS (padrão nacional): reservado antes de transmitir e reaproveitado nas
+    # retentativas, para nunca gerar duas notas da mesma DPS.
+    numero_dps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    serie_dps: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)
     serie: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)
     competencia: Mapped[date] = mapped_column(Date, nullable=False)
     valor_servico: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)

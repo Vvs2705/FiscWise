@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import type { Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { issuerSchema } from '../schemas/invoice.schema';
 import { useCreateIssuer } from '../hooks/useInvoices';
@@ -32,7 +33,9 @@ export function IssuerProfileForm({ onSuccess }: IssuerProfileFormProps) {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(issuerSchema),
+    // Mesmo contrato de antes do zod 4: o formulário guarda texto e o resolver
+    // entrega o resultado do schema (z.preprocess) sem tipagem própria.
+    resolver: zodResolver(issuerSchema) as unknown as Resolver<FormValues>,
     defaultValues: {
       cnpj: '',
       inscricao_municipal: '',

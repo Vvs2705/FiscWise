@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import type { Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { invoiceSchema } from '../schemas/invoice.schema';
 import { useCreateInvoice, useIssuers } from '../hooks/useInvoices';
@@ -42,7 +43,9 @@ export function InvoiceNewPage() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(invoiceSchema),
+    // Mesmo contrato de antes do zod 4: o formulário guarda texto e o resolver
+    // entrega o resultado do schema (z.preprocess) sem tipagem própria.
+    resolver: zodResolver(invoiceSchema) as unknown as Resolver<FormValues>,
     defaultValues: {
       issuer_id: '',
       client_id: '',

@@ -233,7 +233,7 @@ export function ClientDetailCockpit({ clientId, onClose }: ClientDetailCockpitPr
     reset: resetPartner,
     setValue: setPartnerValue,
     formState: { errors: partnerErrors, isSubmitting: isSavingPartner },
-  } = useForm<PartnerFormValues>({
+  } = useForm<z.input<typeof partnerSchema>, unknown, PartnerFormValues>({
     resolver: zodResolver(partnerSchema),
     defaultValues: { participation_percentage: 0, status: 'active' },
   });

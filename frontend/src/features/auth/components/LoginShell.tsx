@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { COMPANY_CITY, COMPANY_CNPJ } from '@/lib/company';
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
@@ -56,6 +57,13 @@ export function LoginFooter() {
           >
             Vstack Solutions
           </a>
+        </span>
+        <span aria-hidden="true" className="hidden sm:inline">
+          ·
+        </span>
+        {/* Identificação do fornecedor (Decreto 7.962/2013, art. 2º). */}
+        <span className="whitespace-nowrap">
+          CNPJ {COMPANY_CNPJ} · {COMPANY_CITY}
         </span>
         <span aria-hidden="true" className="hidden sm:inline">
           ·

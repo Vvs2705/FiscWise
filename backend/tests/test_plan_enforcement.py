@@ -304,7 +304,7 @@ async def test_onboarding_sem_plano_ganha_teste_do_premium(register_client, test
             await test_db.execute(select(Tenant).where(Tenant.id == tenant_id))
         ).scalar_one()
         assert tenant.plan_slug == "premium"
-        assert tenant.terms_version == "v1.5"
+        assert tenant.terms_version == "v1.6"
 
         sub = (
             await test_db.execute(

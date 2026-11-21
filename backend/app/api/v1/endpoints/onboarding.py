@@ -50,7 +50,9 @@ TRIAL_PLAN_SLUG = "premium"
 # v1.4 (14/11/2026): exclusão automática com pelo menos 72 h de aviso.
 # v1.5 (21/11/2026): DPA (operador), arrependimento CDC, IA e descrição fiel
 # dos recursos (auditoria COMPLIANCE-40).
-TERMS_VERSION = "v1.5"
+# v1.6 (21/11/2026): arrependimento com devolução integral em 7 dias para
+# qualquer contratante (não só consumidor) e endereço da sede.
+TERMS_VERSION = "v1.6"
 
 
 DOCUMENTO_INVALIDO_CODE = "INVALID_DOCUMENT"

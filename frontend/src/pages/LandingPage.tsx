@@ -444,6 +444,10 @@ function PricingSection() {
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             Para cancelar: Plano e assinatura, depois Cancelar assinatura. Sem multa.
           </li>
+          <li className="flex gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            Desistiu em até 7 dias do primeiro pagamento? Devolvemos o valor integral.
+          </li>
         </ul>
       </div>
     </section>

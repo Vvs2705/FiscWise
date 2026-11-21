@@ -8,7 +8,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
+import { COMPANY_ADDRESS, COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
 
 export function TermsPage() {
   return (
@@ -31,7 +31,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.5 (v1.5) — Última atualização: 21/11/2026
+          Versão 1.6 (v1.6) — Última atualização: 21/11/2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -44,7 +44,7 @@ export function TermsPage() {
               Estes termos constituem um contrato juridicamente vinculante entre você e
               <strong> {COMPANY_LEGAL_NAME}</strong>
               , nome comercial do empresário individual inscrito no CNPJ {COMPANY_CNPJ}, com sede
-              em {COMPANY_CITY}.
+              em {COMPANY_ADDRESS}.
             </p>
           </section>
 
@@ -101,14 +101,15 @@ export function TermsPage() {
               antes da exclusão.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Direito de arrependimento: quando o Contratante for consumidor, nos termos do Código de
-              Defesa do Consumidor (art. 49), pode desistir da primeira contratação em até 7 (sete) dias
-              contados do pagamento, pelo e-mail{' '}
+              Arrependimento e devolução em 7 dias: qualquer Contratante, pessoa física ou jurídica, pode
+              desistir da primeira contratação de um plano pago em até 7 (sete) dias contados do pagamento,
+              sem precisar justificar, como prevê o art. 49 do Código de Defesa do Consumidor. Basta cancelar
+              a assinatura no sistema e pedir a devolução pelo e-mail{' '}
               <a href="mailto:juridico@fiscwise.com.br" className="text-primary hover:underline">
                 juridico@fiscwise.com.br
               </a>
-              , com devolução integral do valor pago, pelo mesmo meio de pagamento, via Mercado Pago.
-              Fora dessa hipótese e das ofertas abaixo, o cancelamento encerra a renovação, mas não gera
+              , e o valor pago é devolvido integralmente, pelo mesmo meio de pagamento, via Mercado Pago.
+              Depois desse prazo, o cancelamento encerra a renovação, mas não gera
               devolução proporcional do período já pago.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

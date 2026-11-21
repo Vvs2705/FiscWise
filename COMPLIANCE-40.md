@@ -120,7 +120,6 @@ antes do rebase; a correspondência está na seção 3).
 ## 5. `{{PREENCHER}}` pendentes
 
 - **Razão social** para o rodapé e os textos legais. A empresa é empresário individual, e a razão social de um EI é o nome civil do titular; hoje aparece só o nome fantasia "VStack Solutions" (`frontend/src/lib/company.ts`). *(achado da revisão final)*
-- CEP da sede (endereço Rua Vicente Lisa, 119, Caieiras/SP já aplicado no rodapé e nos textos legais).
 - Contato de plantão para incidentes (`RUNBOOK-INCIDENTE.md`).
 - Nome do encarregado, se quiser nomear uma pessoa (hoje é a própria VStack).
 - Confirmar que `privacidade@fiscwise.com.br` e `juridico@fiscwise.com.br` existem e são lidas.

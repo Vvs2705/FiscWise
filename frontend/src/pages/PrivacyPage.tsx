@@ -1,12 +1,25 @@
 /**
  * PrivacyPage — Política de Privacidade do FiscWise
  * LGPD compliance: public page, no auth required.
- * Covers Art. 18 rights (access, portability, correction, erasure).
+ *
+ * Texto jurídico revisado na auditoria COMPLIANCE-40 (21/11/2026).
+ * Revisar com advogado antes de considerar definitivo.
  */
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
+
+const P = 'mt-2 text-sm leading-relaxed text-muted-foreground';
+const UL = 'mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside';
+
+function Email({ to }: { to: string }) {
+  return (
+    <a href={`mailto:${to}`} className="text-primary hover:underline">
+      {to}
+    </a>
+  );
+}
 
 export function PrivacyPage() {
   return (
@@ -32,7 +45,7 @@ export function PrivacyPage() {
           <h1 className="text-3xl font-bold">Política de Privacidade</h1>
         </div>
         <p className="mb-1 text-sm text-muted-foreground">
-          Versão 1.4 — Última atualização: 17/11/2026
+          Versão 1.5 — Última atualização: 21/11/2026
         </p>
         <p className="mb-8 text-xs text-muted-foreground">
           Em conformidade com a Lei Geral de Proteção de Dados — <strong>LGPD (Lei 13.709/2018)</strong>
@@ -41,188 +54,251 @@ export function PrivacyPage() {
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
 
           <section>
-            <h2 className="text-lg font-semibold">1. Controlador de Dados</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <h2 className="text-lg font-semibold">1. Quem trata os dados</h2>
+            <p className={P}>
               <strong>{COMPANY_LEGAL_NAME}</strong>, nome comercial do empresário individual inscrito
-              no CNPJ {COMPANY_CNPJ}, com sede em {COMPANY_CITY}, é a controladora dos dados pessoais coletados
-              pelo FiscWise. Para questões relacionadas à privacidade, entre em contato com nosso
-              DPO (Encarregado de Proteção de Dados) pelo e-mail{' '}
-              <a href="mailto:privacidade@fiscwise.com.br" className="text-primary hover:underline">
-                privacidade@fiscwise.com.br
-              </a>.
+              no CNPJ {COMPANY_CNPJ}, com sede em {COMPANY_CITY}, oferece o FiscWise e atua em dois papéis
+              diferentes, conforme o dado:
             </p>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold">2. Dados Coletados</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Coletamos os seguintes dados pessoais:
-            </p>
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside">
-              <li><strong>Cadastro:</strong> nome completo, e-mail, telefone, CNPJ/CPF</li>
-              <li><strong>Uso da plataforma:</strong> logs de acesso, endereço IP, dispositivo e navegador</li>
-              <li><strong>Dados de clientes:</strong> informações inseridas pelo escritório sobre seus clientes (dados de terceiros sob responsabilidade do escritório contábil)</li>
-              <li><strong>Dados financeiros:</strong> histórico de pagamentos de honorários (não armazenamos dados de cartão de crédito — o pagamento da assinatura é processado pelo Mercado Pago)</li>
-              <li><strong>Comunicações:</strong> histórico de e-mails e notificações enviadas pelo sistema</li>
+            <ul className={UL}>
+              <li>
+                <strong>Controladora</strong> dos dados de quem usa o sistema: o escritório contratante,
+                seus usuários e o responsável pela assinatura (cadastro, acesso, cobrança e suporte).
+              </li>
+              <li>
+                <strong>Operadora</strong> dos dados que o escritório cadastra sobre os clientes dele
+                (empresas, sócios, responsáveis, documentos, notas e guias). Nesse caso quem decide o que
+                é feito com os dados é o escritório, que é o controlador, e o FiscWise trata os dados
+                somente para prestar o serviço, conforme o{' '}
+                <Link to="/dpa" className="text-primary hover:underline">
+                  Acordo de Tratamento de Dados
+                </Link>
+                . Pedidos de titulares sobre esses dados devem ser feitos ao escritório; se chegarem até
+                nós, repassamos ao escritório.
+              </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">3. Finalidade e Base Legal do Tratamento</h2>
+            <h2 className="text-lg font-semibold">2. Dados coletados e para que servem</h2>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="py-2 pr-4 text-left font-semibold">Dado</th>
                     <th className="py-2 pr-4 text-left font-semibold">Finalidade</th>
-                    <th className="py-2 text-left font-semibold">Base Legal (LGPD)</th>
+                    <th className="py-2 text-left font-semibold">Base legal (LGPD)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-muted-foreground">
                   <tr>
-                    <td className="py-2 pr-4">Prestação do serviço contratado</td>
+                    <td className="py-2 pr-4">Nome, e-mail, telefone, CNPJ/CPF do escritório e dos usuários</td>
+                    <td className="py-2 pr-4">Criar a conta, dar acesso e prestar o serviço contratado</td>
                     <td className="py-2">Art. 7º, V — execução de contrato</td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Faturamento e gestão financeira</td>
-                    <td className="py-2">Art. 7º, V — execução de contrato</td>
+                    <td className="py-2 pr-4">Assinatura, pagamentos e histórico de cobrança</td>
+                    <td className="py-2 pr-4">Cobrar o plano e cumprir obrigações fiscais da {COMPANY_LEGAL_NAME}</td>
+                    <td className="py-2">Art. 7º, V — contrato; Art. 7º, II — obrigação legal</td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Comunicações de segurança e suporte</td>
+                    <td className="py-2 pr-4">Registros de acesso (data, hora, IP), dispositivo e navegador</td>
+                    <td className="py-2 pr-4">Segurança da conta, prevenção a fraude e guarda exigida pelo Marco Civil da Internet</td>
+                    <td className="py-2">Art. 7º, II — obrigação legal; Art. 7º, IX — legítimo interesse</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4">E-mails e notificações enviados pelo sistema</td>
+                    <td className="py-2 pr-4">Avisos de segurança, prazos, cobrança e suporte</td>
+                    <td className="py-2">Art. 7º, V — contrato; Art. 7º, IX — legítimo interesse</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4">Métricas de uso agregadas, sem identificar a pessoa</td>
+                    <td className="py-2 pr-4">Melhorar o produto</td>
                     <td className="py-2">Art. 7º, IX — legítimo interesse</td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Melhorias no produto (analytics anonimizados)</td>
-                    <td className="py-2">Art. 7º, IX — legítimo interesse</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 pr-4">Obrigações fiscais e legais da plataforma</td>
-                    <td className="py-2">Art. 7º, II — cumprimento de obrigação legal</td>
-                  </tr>
-                  <tr>
+                    <td className="py-2 pr-4">E-mail de quem fez o teste grátis e não assinou</td>
                     <td className="py-2 pr-4">
-                      Oferta por tempo limitado a quem fez o teste grátis e não assinou (uma vez por
-                      escritório, com link de descadastro em todo e-mail)
+                      Uma oferta por tempo limitado, uma vez por escritório, com link de descadastro em todo e-mail
                     </td>
                     <td className="py-2">Art. 7º, IX — legítimo interesse (relacionamento existente)</td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Marketing e novidades do produto</td>
-                    <td className="py-2">Art. 7º, I — consentimento (opt-in)</td>
+                    <td className="py-2 pr-4">E-mail para novidades do produto</td>
+                    <td className="py-2 pr-4">Marketing</td>
+                    <td className="py-2">Art. 7º, I — consentimento (opt-in), revogável a qualquer momento</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4">
+                      Dados da carteira do escritório: razão social, CNPJ, CPF, nome, e-mail, telefone e
+                      endereço de sócios e responsáveis, documentos, notas fiscais, guias e certificados digitais
+                    </td>
+                    <td className="py-2 pr-4">
+                      Executar o serviço contábil e fiscal a pedido do escritório (como operadora)
+                    </td>
+                    <td className="py-2">Definida pelo escritório controlador (em regra, art. 7º, II e V)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4">Nome e e-mail de quem acessa o Portal do Cliente</td>
+                    <td className="py-2 pr-4">Dar ao cliente do escritório acesso aos documentos e guias dele</td>
+                    <td className="py-2">Definida pelo escritório controlador (em regra, art. 7º, V)</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <p className={P}>
+              Não tratamos dados pessoais sensíveis (art. 5º, II da LGPD), como dados de saúde, biometria,
+              religião ou opinião política. Não armazenamos dados de cartão de crédito: o pagamento da
+              assinatura é processado pelo Mercado Pago.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">4. Compartilhamento de Dados</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Seus dados são compartilhados apenas com:
+            <h2 className="text-lg font-semibold">3. Inteligência artificial</h2>
+            <p className={P}>
+              A Calculadora Fiscal e o assistente fiscal usam a <strong>OpenAI</strong> (EUA) para gerar
+              respostas. Somente quando você usa esses recursos, enviamos o texto da pergunta e o contexto
+              necessário (por exemplo, trechos de um documento ou números de uma simulação). Antes do envio,
+              CPF e CNPJ são mascarados automaticamente. Pelos termos da API da OpenAI, esse conteúdo não é
+              usado para treinar os modelos dela.
             </p>
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside">
+            <p className={P}>
+              As respostas da IA são apoio, não parecer: podem conter erros e não substituem a análise do
+              profissional contábil responsável. Nenhuma decisão sobre você ou seus clientes é tomada de forma
+              automatizada pelo FiscWise.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">4. Com quem compartilhamos</h2>
+            <p className={P}>
+              Seus dados são compartilhados apenas com os fornecedores abaixo, cada um só com o necessário
+              para a sua função e sob contrato com cláusulas de proteção de dados (DPA):
+            </p>
+            <ul className={UL}>
               <li><strong>Google Cloud Run</strong> — servidor da aplicação (região São Paulo, Brasil)</li>
-              <li><strong>Cloudflare Pages</strong> — hospedagem do site</li>
-              <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos (com DPA)</li>
-              <li><strong>Cloudflare R2</strong> — cópias de segurança do banco de dados, criptografadas</li>
-              <li><strong>Mercado Pago</strong> — processamento dos pagamentos da assinatura (dados mínimos necessários)</li>
-              <li><strong>Resend</strong> — envio de e-mails transacionais (somente e-mail e nome)</li>
+              <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos</li>
+              <li><strong>Cloudflare</strong> — hospedagem do site (Pages), cópias de segurança criptografadas (R2) e métricas de acesso sem cookies (Web Analytics)</li>
+              <li><strong>Mercado Pago</strong> — pagamento da assinatura (dados mínimos necessários)</li>
+              <li><strong>Resend</strong> — envio de e-mails transacionais (nome e e-mail)</li>
               <li><strong>Sentry</strong> — monitoramento de erros técnicos da aplicação</li>
-              <li><strong>Cloudflare Web Analytics</strong> — métricas de acesso agregadas, sem cookies</li>
-              <li><strong>OpenAI</strong> — recursos de inteligência artificial, somente quando você os utiliza</li>
-              <li><strong>Autoridades públicas</strong> — quando exigido por lei ou decisão judicial</li>
+              <li><strong>OpenAI</strong> — recursos de inteligência artificial, somente quando você os usa (ver seção 3)</li>
             </ul>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Não vendemos, alugamos ou comercializamos seus dados pessoais com terceiros.
+            <p className={P}>
+              Quando o escritório usa uma integração com órgãos públicos — como a emissão de NFS-e pelo
+              Portal Nacional ou por prefeituras, consultas à Receita Federal pelo SERPRO ou o envio de
+              mensagens pelo WhatsApp Business (Meta) — os dados necessários para aquela operação são enviados
+              a esse órgão ou fornecedor, a pedido do escritório. Essas integrações só funcionam quando ligadas
+              pelo escritório e algumas ainda estão em implantação.
+            </p>
+            <p className={P}>
+              Também podemos fornecer dados a autoridades públicas quando exigido por lei ou decisão judicial.
+              Não vendemos, alugamos ou comercializamos dados pessoais.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">5. Retenção de Dados</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Dados de conta são mantidos enquanto a conta estiver ativa e por até 5 anos após
-              o encerramento, conforme exigido pela legislação tributária brasileira (RFB).
-              Logs de acesso são retidos por 6 meses. Após os prazos legais, os dados são
-              eliminados ou anonimizados.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Ao fim do teste grátis ou do período pago, sem assinatura, a conta fica somente para
-              leitura e os dados ficam disponíveis por 60 (sessenta) dias para consulta e exportação;
-              depois desse prazo, são excluídos automaticamente, com aviso por e-mail ao responsável
-              pelo escritório com pelo menos 72 (setenta e duas) horas de antecedência. Ficam guardados
-              apenas o nome e o CNPJ/CPF do escritório e o histórico de cobrança, além dos registros que
-              a lei obriga a guardar; os usuários são anonimizados e desativados.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Fazemos cópias de segurança diárias do banco de dados, criptografadas e guardadas por até
-              30 (trinta) dias. Dados excluídos da plataforma podem permanecer nessas cópias até o fim
-              desse prazo, sem uso para nenhuma outra finalidade além da recuperação do serviço em caso
-              de falha.
+            <h2 className="text-lg font-semibold">5. Por quanto tempo guardamos</h2>
+            <ul className={UL}>
+              <li>
+                <strong>Conta ativa:</strong> os dados ficam guardados enquanto houver assinatura ou teste grátis.
+              </li>
+              <li>
+                <strong>Conta vencida:</strong> ao fim do teste grátis ou do período pago, sem assinatura, a conta
+                fica somente para leitura e os dados ficam disponíveis por 60 (sessenta) dias para consulta e
+                exportação. Depois desse prazo, os dados da carteira são excluídos automaticamente, com aviso por
+                e-mail ao responsável pelo escritório pelo menos 72 (setenta e duas) horas antes. Os usuários são
+                anonimizados e desativados.
+              </li>
+              <li>
+                <strong>Registro do escritório e cobrança:</strong> nome, CNPJ/CPF do escritório e o histórico de
+                cobrança continuam guardados depois do encerramento da conta, pelo menos pelo prazo da legislação
+                tributária (5 anos), e servem também para impedir um novo teste grátis no mesmo documento.
+              </li>
+              <li>
+                <strong>Registros de acesso:</strong> 6 (seis) meses, como exige o Marco Civil da Internet
+                (Lei 12.965/2014, art. 15).
+              </li>
+              <li>
+                <strong>Cópias de segurança:</strong> diárias, criptografadas, guardadas por até 30 (trinta) dias.
+                Dados excluídos podem permanecer nelas até o fim desse prazo, sem uso para nenhuma outra
+                finalidade além da recuperação do serviço em caso de falha.
+              </li>
+            </ul>
+            <p className={P}>
+              <strong>Atenção, escritório:</strong> a guarda por 5 anos de livros, notas fiscais, guias e demais
+              documentos fiscais dos seus clientes é obrigação do escritório e dos clientes, não do FiscWise.
+              Antes do fim do prazo de 60 dias, exporte o que precisar manter em{' '}
+              <strong>Configurações → Perfil → Exportar meus dados</strong>.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">6. Segurança</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Adotamos medidas técnicas e organizacionais para proteger seus dados, incluindo:
-              criptografia em trânsito (TLS 1.3), senhas armazenadas com bcrypt (hash unidirecional),
-              autenticação JWT com expiração curta, isolamento de dados por tenant, e controle de
-              acesso baseado em papéis (RBAC). Tokens de acesso temporário (ex: portal do cliente)
-              são armazenados apenas como hash SHA-256.
+            <p className={P}>
+              Adotamos medidas técnicas e organizacionais para proteger os dados, incluindo: criptografia em
+              trânsito (TLS), criptografia do banco e das cópias de segurança, senhas armazenadas com bcrypt
+              (hash unidirecional), autenticação com expiração curta, isolamento de dados por escritório e
+              controle de acesso por papéis. Tokens de acesso temporário (ex.: portal do cliente) são
+              armazenados apenas como hash.
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className={P}>
               Certificados digitais A1 enviados pelo escritório (do próprio escritório ou de seus clientes)
               ficam guardados criptografados, assim como a senha de cada certificado. Ninguém consegue
               baixá-los de volta, nem a equipe FiscWise. Eles são usados somente para emitir, consultar e
               cancelar notas fiscais a pedido do escritório, cada uso fica registrado, e o escritório pode
               bloqueá-los ou removê-los a qualquer momento.
             </p>
+            <p className={P}>
+              Se acontecer um incidente de segurança que possa causar risco ou dano relevante, avisamos a
+              Autoridade Nacional de Proteção de Dados (ANPD), os escritórios afetados e os titulares, nos prazos
+              da regulamentação da ANPD.
+            </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">7. Seus Direitos (LGPD, Art. 18)</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Como titular de dados, você tem os seguintes direitos:
-            </p>
+            <p className={P}>Como titular de dados, você pode pedir:</p>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-              <li><strong>Acesso:</strong> solicitar cópia de todos os dados pessoais que mantemos sobre você</li>
+              <li><strong>Confirmação e acesso:</strong> saber se tratamos seus dados e receber uma cópia</li>
               <li><strong>Correção:</strong> atualizar dados incompletos, inexatos ou desatualizados</li>
-              <li><strong>Anonimização ou bloqueio:</strong> para dados desnecessários ou tratados em desconformidade</li>
+              <li><strong>Anonimização, bloqueio ou eliminação:</strong> de dados desnecessários, excessivos ou tratados em desconformidade</li>
               <li><strong>Portabilidade:</strong> exportar seus dados em formato estruturado</li>
-              <li><strong>Eliminação:</strong> solicitar exclusão dos dados tratados com base em consentimento</li>
-              <li><strong>Revogação de consentimento:</strong> retirar o consentimento a qualquer momento</li>
-              <li><strong>Oposição:</strong> opor-se ao tratamento realizado com base em legítimo interesse</li>
+              <li><strong>Eliminação:</strong> dos dados tratados com base em consentimento</li>
+              <li><strong>Informação sobre compartilhamento:</strong> com quem seus dados são compartilhados</li>
+              <li><strong>Revogação do consentimento</strong> e <strong>oposição</strong> ao tratamento por legítimo interesse</li>
             </ul>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Para exercer esses direitos, acesse <strong>Configurações → Conta</strong> no painel
-              do FiscWise ou envie e-mail para{' '}
-              <a href="mailto:privacidade@fiscwise.com.br" className="text-primary hover:underline">
-                privacidade@fiscwise.com.br
-              </a>. Respondemos em até 15 dias úteis.
+              Para exercer esses direitos, use <strong>Configurações → Perfil → Privacidade e dados</strong> no painel (exportar dados
+              ou pedir exclusão) ou envie e-mail para <Email to="privacidade@fiscwise.com.br" />. Respondemos em
+              até 15 (quinze) dias, como prevê o art. 19 da LGPD. Dados que a lei obriga a guardar só são
+              eliminados depois do prazo legal.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">8. Cookies</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Utilizamos apenas cookies estritamente necessários para funcionamento da autenticação
-              (token JWT em localStorage). Não utilizamos cookies de rastreamento ou publicidade
-              de terceiros.
+            <p className={P}>
+              Não usamos cookies de rastreamento, publicidade ou analytics de terceiros. O login usa apenas
+              armazenamento local do navegador, estritamente necessário para manter você conectado. As métricas
+              de acesso (Cloudflare Web Analytics) não usam cookies nem identificam a pessoa. Por isso não
+              exibimos banner de consentimento de cookies.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">9. Transferência Internacional</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              O servidor da aplicação fica no Brasil (Google Cloud, região São Paulo). Alguns dados
-              podem ser processados fora do Brasil (por exemplo, nos EUA) por provedores como
-              Cloudflare, Supabase, Resend, Sentry e OpenAI. Todas essas transferências são
-              realizadas com garantias contratuais adequadas (DPA — Data Processing Agreements).
+            <p className={P}>
+              O servidor da aplicação fica no Brasil (Google Cloud, região São Paulo). Alguns dados podem ser
+              processados fora do Brasil (por exemplo, nos EUA) por fornecedores como Cloudflare, Supabase,
+              Resend, Sentry e OpenAI. Essas transferências são feitas com cláusulas contratuais de proteção de
+              dados desses fornecedores, como prevê o art. 33 da LGPD.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold">10. Menores de Idade</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className={P}>
               O FiscWise é destinado exclusivamente a profissionais e empresas. Não coletamos
               intencionalmente dados de menores de 18 anos.
             </p>
@@ -230,7 +306,7 @@ export function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold">11. Alterações nesta Política</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className={P}>
               Esta Política de Privacidade pode ser atualizada periodicamente. Notificaremos os
               usuários por e-mail sobre alterações materiais com antecedência mínima de 15 dias.
               A versão vigente sempre estará disponível nesta página com a data de atualização.
@@ -238,14 +314,12 @@ export function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">12. Contato e DPO</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Encarregado de Proteção de Dados (DPO):{' '}
-              <a href="mailto:privacidade@fiscwise.com.br" className="text-primary hover:underline">
-                privacidade@fiscwise.com.br
-              </a>
+            <h2 className="text-lg font-semibold">12. Encarregado (DPO) e contato</h2>
+            <p className={P}>
+              Encarregado de Proteção de Dados: {COMPANY_LEGAL_NAME} —{' '}
+              <Email to="privacidade@fiscwise.com.br" />
               <br />
-              Também aceitamos reclamações à Autoridade Nacional de Proteção de Dados (ANPD):{' '}
+              Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD):{' '}
               <a
                 href="https://www.gov.br/anpd"
                 target="_blank"
@@ -259,11 +333,15 @@ export function PrivacyPage() {
 
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
             <p className="text-xs text-muted-foreground">
-              Consulte também nossos{' '}
+              Consulte também os{' '}
               <Link to="/termos" className="font-medium text-primary hover:underline">
                 Termos de Uso
               </Link>{' '}
-              para informações completas sobre o uso da plataforma FiscWise.
+              e o{' '}
+              <Link to="/dpa" className="font-medium text-primary hover:underline">
+                Acordo de Tratamento de Dados
+              </Link>{' '}
+              do FiscWise.
             </p>
           </div>
         </div>

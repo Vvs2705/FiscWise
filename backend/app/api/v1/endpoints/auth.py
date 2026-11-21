@@ -32,6 +32,7 @@ from typing import Optional, Union
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import campo_cifrado
 from app.core.config import settings
 from app.core.deps import get_db, get_current_user, signup_complete
 from app.core.plan_access import info_teste, resolve_tenant_plan
@@ -199,6 +200,21 @@ class GoogleSignupRequired(BaseModel):
 
 
 # ─── Login ────────────────────────────────────────────────────────────────────
+
+
+def _segredo_totp(user: User) -> Optional[str]:
+    """Segredo TOTP em claro (o banco guarda cifrado; legado em texto puro).
+
+    Valor cifrado que não abre (CERT_ENCRYPTION_KEY trocada) = 2FA quebrado:
+    o login responde 400 "não configurado" em vez de 500.
+    """
+    guardado = getattr(user, "two_factor_secret", None)
+    try:
+        return campo_cifrado.decifrar(guardado, contexto=campo_cifrado.contexto_totp(user.id))
+    except campo_cifrado.CampoIlegivel:
+        logger.error("2FA TOTP ilegível para user=%s (chave do cofre trocada?)", user.id)
+        return None
+
 
 @router.post(
     "/login",
@@ -374,7 +390,11 @@ async def verify_2fa(
     # ── Rate limit check (user_id) ───────────────────────────────────
     auth_rate_limiter.check_otp_user(user_id)
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
 
     if not user or not user.is_active:
@@ -384,7 +404,7 @@ async def verify_2fa(
     otp_code = body.otp_code.strip()
 
     if method == "totp":
-        secret = getattr(user, "two_factor_secret", None)
+        secret = _segredo_totp(user)
         if not secret:
             raise HTTPException(status_code=400, detail="2FA TOTP não configurado corretamente")
         totp = pyotp.TOTP(secret)
@@ -415,6 +435,15 @@ async def verify_2fa(
 
     # OTP válido — reseta contador
     auth_rate_limiter.record_otp_success(user_id)
+
+    # Segredo TOTP legado (texto puro): cifra agora que o login confirmou que
+    # ele está certo. Sem chave do cofre no ambiente, fica como está.
+    legado = getattr(user, "two_factor_secret", None)
+    if method == "totp" and legado and not campo_cifrado.esta_cifrado(legado):
+        novo = campo_cifrado.cifrar(legado, contexto=campo_cifrado.contexto_totp(user.id))
+        if novo != legado:
+            user.two_factor_secret = novo
+            await db.commit()
 
     await log_audit_event(
         db=db,
@@ -635,7 +664,9 @@ async def enable_totp_2fa(
         )
 
     current_user.two_factor_enabled = True
-    current_user.two_factor_secret = body.secret
+    current_user.two_factor_secret = campo_cifrado.cifrar(
+        body.secret, contexto=campo_cifrado.contexto_totp(current_user.id)
+    )
     current_user.two_factor_method = "totp"
     await db.commit()
     await db.refresh(current_user)
@@ -711,7 +742,7 @@ async def disable_2fa(
 
     # If user also wants to validate OTP before disable (optional extra security)
     if body.otp_code and getattr(current_user, "two_factor_method", "totp") == "totp":
-        secret = getattr(current_user, "two_factor_secret", None)
+        secret = _segredo_totp(current_user)
         if secret:
             totp = pyotp.TOTP(secret)
             if not totp.verify(body.otp_code.strip(), valid_window=1):

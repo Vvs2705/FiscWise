@@ -225,11 +225,21 @@ async def desbloquear(db: AsyncSession, cert: CertificadoA1) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def _certificado(db: AsyncSession, cert_id: Optional[uuid.UUID]) -> Optional[CertificadoA1]:
+async def _certificado(
+    db: AsyncSession, cert_id: Optional[uuid.UUID], tenant_id: uuid.UUID
+) -> Optional[CertificadoA1]:
+    # Filtro por escritório no código, além da RLS: o certificado_id vem do
+    # corpo da requisição (PUT /certificados/emissao) e, sem isto, um escritório
+    # conseguiria ligar ao próprio emissor o certificado de outro se o contexto
+    # RLS faltasse.
     if cert_id is None:
         return None
     return (
-        await db.execute(select(CertificadoA1).where(CertificadoA1.id == cert_id))
+        await db.execute(
+            select(CertificadoA1).where(
+                CertificadoA1.id == cert_id, CertificadoA1.tenant_id == tenant_id
+            )
+        )
     ).scalar_one_or_none()
 
 
@@ -278,7 +288,7 @@ def _pendencias_config(
 
 async def estado_emissao(db: AsyncSession, issuer: InvoiceIssuer) -> dict[str, Any]:
     agora = _agora()
-    cert = await _certificado(db, issuer.certificado_id)
+    cert = await _certificado(db, issuer.certificado_id, issuer.tenant_id)
     pendencias = _pendencias_config(issuer, cert, agora)
     if not pendencias:
         if issuer.ultimo_teste_ok is True:
@@ -326,7 +336,7 @@ async def configurar_emissao(
 ) -> None:
     if modo_certificado is not None and modo_certificado not in MODOS:
         raise ErroRegra("Modo inválido: use 'proprio' ou 'procuracao'.", 422)
-    cert = await _certificado(db, certificado_id) if certificado_id else None
+    cert = await _certificado(db, certificado_id, issuer.tenant_id) if certificado_id else None
     if certificado_id and cert is None:
         raise ErroRegra("Certificado não encontrado neste escritório.", 404)
     if cert is not None and modo_certificado == MODO_PROPRIO:
@@ -365,7 +375,7 @@ async def configurar_emissao(
 async def testar_emissao(db: AsyncSession, issuer: InvoiceIssuer, provider: Any = None) -> dict[str, Any]:
     """Testa a conexão com o padrão nacional usando o certificado configurado."""
     agora = _agora()
-    cert = await _certificado(db, issuer.certificado_id)
+    cert = await _certificado(db, issuer.certificado_id, issuer.tenant_id)
     pend = _pendencias_config(issuer, cert, agora)
     if pend:
         raise ErroRegra("Antes de testar: " + " ".join(pend), 409)
@@ -373,7 +383,9 @@ async def testar_emissao(db: AsyncSession, issuer: InvoiceIssuer, provider: Any 
     ok = False
     mensagem = ""
     try:
-        material = await cofre.obter_material(db, cert.id, finalidade="teste_emissao")
+        material = await cofre.obter_material(
+            db, cert.id, tenant_id=issuer.tenant_id, finalidade="teste_emissao"
+        )
         if provider is None:
             from app.domain.invoices.providers.nfse_nacional import NfseNacionalProvider
 

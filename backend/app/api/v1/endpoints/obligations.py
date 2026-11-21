@@ -442,6 +442,9 @@ async def upsert_client_profile(
     """Create or update the fiscal profile for a client."""
     await ensure_feature(db, current_user.tenant_id, FEATURE_OBRIGACOES, current_user.email)
     _require_owner_or_admin(current_user)
+    # Sem isto, o PUT criava no escritório A um perfil apontando para o
+    # cliente de B (a FK não passa pela RLS).
+    await ensure_client_in_tenant(db, current_user.tenant_id, client_id)
 
     result = await db.execute(
         select(ClientObligationProfile).where(

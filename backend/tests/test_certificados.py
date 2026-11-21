@@ -196,7 +196,7 @@ async def test_envio_cifra_e_material_abre(client_with_auth_a, chave_cofre):
     cert = (await db.execute(select(CertificadoA1).where(CertificadoA1.id == uuid.UUID(corpo["id"])))).scalar_one()
     assert cert.pfx_cifrado != pfx and SENHA.encode() not in cert.senha_cifrada
 
-    material = await cofre.obter_material(db, cert.id, finalidade="teste")
+    material = await cofre.obter_material(db, cert.id, tenant_id=cert.tenant_id, finalidade="teste")
     x509.load_pem_x509_certificate(material.cert_pem)
     serialization.load_pem_private_key(material.chave_pem, password=None)
     assert material.documento == CNPJ_A and material.cadeia_pem.startswith(b"-----BEGIN CERTIFICATE")
@@ -238,19 +238,19 @@ async def test_membro_nao_envia_e_outro_escritorio_nao_ve(
 
 
 async def test_bloqueado_e_vencido_nao_entregam_material(client_with_auth_a, chave_cofre):
-    http, _, client_a, db = client_with_auth_a
+    http, user, client_a, db = client_with_auth_a
     cert_id = uuid.UUID(_enviar(http, gerar_pfx(), client_id=client_a.id).json()["id"])
 
     assert http.post(f"/api/v1/certificados/{cert_id}/bloquear", json={"motivo": "teste"}).status_code == 200
     with pytest.raises(cofre.CertificadoIndisponivel, match="bloqueado"):
-        await cofre.obter_material(db, cert_id, finalidade="teste")
+        await cofre.obter_material(db, cert_id, tenant_id=user.tenant_id, finalidade="teste")
 
     assert http.post(f"/api/v1/certificados/{cert_id}/desbloquear").status_code == 200
     cert = (await db.execute(select(CertificadoA1).where(CertificadoA1.id == cert_id))).scalar_one()
     cert.valido_ate = datetime.now(timezone.utc) - timedelta(days=1)
     await db.commit()
     with pytest.raises(cofre.CertificadoIndisponivel, match="venceu"):
-        await cofre.obter_material(db, cert_id, finalidade="teste")
+        await cofre.obter_material(db, cert.id, tenant_id=cert.tenant_id, finalidade="teste")
     assert http.get("/api/v1/certificados").json()[0]["status"] == "vencido"
 
 

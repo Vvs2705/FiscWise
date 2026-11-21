@@ -28,6 +28,14 @@ CNPJ/CPF, que impedem um novo teste no mesmo documento), a assinatura, os
 eventos de cobrança e a oferta (histórico financeiro). Usuários são
 anonimizados e desativados.
 
+Registros de acesso (``audit_events``): ficam por 6 meses depois da exclusão
+(Marco Civil da Internet, art. 15), sem o conteúdo (before/after_data e
+user_agent são apagados na hora; sobram ação, data, IP e papel). A rotina
+diária apaga os de escritórios excluídos com mais de 6 meses.
+
+A mesma exclusão atende ao pedido LGPD do dono (``deletion_requested_at``),
+executada pela equipe em ``POST /admin/lgpd/exclusao`` (nunca automática).
+
 Roda SEM contexto de escritório: com a RLS forçada (migração u7w8forcerls),
 sem contexto as policies liberam tudo, como em qualquer rotina do sistema.
 Cada escritório é uma transação própria; falha num não para os outros.
@@ -55,7 +63,12 @@ ANTECEDENCIA_MINIMA = timedelta(hours=72)
 # (anonimizados à parte, para não quebrar referências).
 TABELAS_MANTIDAS = frozenset({
     "tenants", "tenant_subscriptions", "billing_webhook_events", "retention_offers", "users",
+    "audit_events",  # registros de acesso: 6 meses (RETENCAO_REGISTROS_ACESSO_DIAS)
 })
+
+# Marco Civil da Internet (Lei 12.965/2014), art. 15: registros de acesso a
+# aplicações guardados por 6 meses.
+RETENCAO_REGISTROS_ACESSO_DIAS = 180
 
 
 def exclusao_ativa() -> bool:
@@ -217,6 +230,52 @@ async def _apagar_linhas(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, in
     return contagem
 
 
+async def _limpar_conteudo_auditoria(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Tira o conteúdo dos eventos de auditoria e mantém o registro de acesso."""
+    from sqlalchemy import update
+
+    from app.models.audit import AuditEvent
+
+    res = await db.execute(
+        update(AuditEvent)
+        .where(AuditEvent.tenant_id == tenant_id)
+        .values(before_data=None, after_data=None, user_agent=None)
+    )
+    return int(res.rowcount or 0)
+
+
+async def expurgar_registros_de_acesso(db: AsyncSession, agora: datetime) -> int:
+    """Apaga os eventos de auditoria de escritórios excluídos há mais de 6 meses."""
+    from app.models.audit import AuditEvent
+    from app.models.tenant import Tenant
+
+    limite = agora - timedelta(days=RETENCAO_REGISTROS_ACESSO_DIAS)
+    excluidos = select(Tenant.id).where(
+        Tenant.dados_excluidos_em.is_not(None), Tenant.dados_excluidos_em < limite
+    )
+    res = await db.execute(
+        delete(AuditEvent).where(AuditEvent.tenant_id.in_(excluidos), AuditEvent.created_at < limite)
+    )
+    return int(res.rowcount or 0)
+
+
+async def contar_linhas(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, int]:
+    """Prévia da exclusão: quantas linhas por tabela seriam apagadas."""
+    from sqlalchemy import func
+
+    contagem: dict[str, int] = {}
+    existentes = await _tabelas_existentes(db)
+    for tabela in _tabelas_do_escritorio():
+        if existentes is not None and tabela.name not in existentes:
+            continue
+        n = (
+            await db.execute(select(func.count()).select_from(tabela).where(tabela.c.tenant_id == tenant_id))
+        ).scalar_one()
+        if n:
+            contagem[tabela.name] = int(n)
+    return contagem
+
+
 async def _anonimizar(db: AsyncSession, tenant: Any, usuarios: list, agora: datetime) -> None:
     from app.core.security import get_password_hash
 
@@ -288,6 +347,7 @@ async def excluir(db: AsyncSession, tenant: Any, agora: datetime) -> dict[str, A
         arquivos += await storage.remove_objects(bucket, paths) or 0
 
     linhas = await _apagar_linhas(db, tenant.id)
+    linhas["audit_events_sem_conteudo"] = await _limpar_conteudo_auditoria(db, tenant.id)
     await _anonimizar(db, tenant, usuarios, agora)
     await db.flush()
 
@@ -364,6 +424,14 @@ async def processar(db_factory, agora: Optional[datetime] = None) -> dict[str, i
                 counts["falhas"] += 1
                 logger.error("exclusao_falhou tenant=%s: %s", tenant_id, exc, exc_info=True)
 
+    async with db_factory() as db:
+        try:
+            counts["registros_acesso_expurgados"] = await expurgar_registros_de_acesso(db, agora)
+            await db.commit()
+        except Exception as exc:  # noqa: BLE001
+            await db.rollback()
+            logger.error("expurgo_registros_acesso_falhou: %s", exc, exc_info=True)
+
     logger.info("Exclusão automática de contas vencidas: %s", counts)
     return counts
 
@@ -379,6 +447,7 @@ async def _auditar(db: AsyncSession, tenant_id: uuid.UUID, resumo: dict[str, Any
 
 
 __all__ = [
-    "ANTECEDENCIA_MINIMA", "DIAS_ATE_AVISAR", "DIAS_ATE_EXCLUIR", "data_vencimento",
-    "exclusao_ativa", "exclusao_prevista", "processar",
+    "ANTECEDENCIA_MINIMA", "DIAS_ATE_AVISAR", "DIAS_ATE_EXCLUIR", "RETENCAO_REGISTROS_ACESSO_DIAS",
+    "contar_linhas", "data_vencimento", "excluir", "exclusao_ativa", "exclusao_prevista",
+    "expurgar_registros_de_acesso", "processar",
 ]

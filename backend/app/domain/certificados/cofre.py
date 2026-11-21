@@ -110,7 +110,7 @@ def mensagem_indisponivel(cert: CertificadoA1, agora: datetime) -> str | None:
 
 
 async def obter_material(
-    db: AsyncSession, certificado_id: uuid.UUID, *, finalidade: str
+    db: AsyncSession, certificado_id: uuid.UUID, *, tenant_id: uuid.UUID, finalidade: str
 ) -> MaterialCertificado:
     """Decifra o certificado para uso imediato (emitir, cancelar, consultar, testar).
 
@@ -119,7 +119,9 @@ async def obter_material(
     sem nenhum dado sensível.
     """
     cert = (
-        await db.execute(select(CertificadoA1).where(CertificadoA1.id == certificado_id))
+        await db.execute(select(CertificadoA1).where(
+                CertificadoA1.id == certificado_id, CertificadoA1.tenant_id == tenant_id
+            ))
     ).scalar_one_or_none()
     if cert is None:
         raise CertificadoIndisponivel("Certificado não encontrado. Configure a emissão de novo.")

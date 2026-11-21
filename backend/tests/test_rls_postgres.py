@@ -125,3 +125,30 @@ async def test_rls_isola_escritorios_para_role_sem_bypass():
                 text("DELETE FROM tenants WHERE id IN (:a, :b)"), {"a": ta, "b": tb}
             )
         await admin.dispose()
+
+
+async def test_toda_tabela_com_tenant_id_tem_rls_forcada_e_policy():
+    """Tabela nova com tenant_id sem RLS passaria despercebida no teste acima,
+    que só confere o FORCE das tabelas que já têm RLS. Esta trava pega o
+    esquecimento na migração."""
+    admin = create_async_engine(make_url(os.environ["DATABASE_URL"]))
+    try:
+        async with admin.connect() as c:
+            faltando = (
+                await c.execute(
+                    text(
+                        "SELECT c.relname FROM pg_class c "
+                        "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                        "JOIN information_schema.columns col ON col.table_schema = 'public' "
+                        " AND col.table_name = c.relname AND col.column_name = 'tenant_id' "
+                        "WHERE n.nspname = 'public' AND c.relkind = 'r' AND ("
+                        " NOT c.relrowsecurity OR NOT c.relforcerowsecurity OR NOT EXISTS ("
+                        "  SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' "
+                        "  AND p.tablename = c.relname AND p.policyname = 'tenant_isolation')) "
+                        "ORDER BY 1"
+                    )
+                )
+            ).scalars().all()
+        assert faltando == [], f"tabelas com tenant_id sem RLS/FORCE/policy: {faltando}"
+    finally:
+        await admin.dispose()

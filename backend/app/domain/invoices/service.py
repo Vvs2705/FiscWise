@@ -33,7 +33,9 @@ async def _material_do_emissor(db, issuer, finalidade: str):
         raise CertificadoIndisponivel(
             "Emissor sem certificado configurado. Configure a emissão deste cliente."
         )
-    return await obter_material(db, issuer.certificado_id, finalidade=finalidade)
+    return await obter_material(
+        db, issuer.certificado_id, tenant_id=issuer.tenant_id, finalidade=finalidade
+    )
 
 
 def _dados_da_nota(invoice: "Invoice") -> dict:

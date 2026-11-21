@@ -700,7 +700,10 @@ async def disable_2fa(
     """
     Deactivate 2FA. Requires current password for security.
     """
+    rl_key = f"2fa-disable:{current_user.id}"
+    auth_rate_limiter.check_login_ip(rl_key)
     if not verify_password(body.current_password, current_user.hashed_password):
+        auth_rate_limiter.record_login_failure(rl_key)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Senha atual incorreta",
@@ -891,9 +894,18 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Confere a senha atual com o mesmo limitador do login: um token roubado
+    # não pode testar senhas à vontade para tomar a conta.
+    rl_key = f"chpw:{current_user.id}"
+    auth_rate_limiter.check_login_ip(rl_key)
     if not verify_password(body.current_password, current_user.hashed_password):
+        auth_rate_limiter.record_login_failure(rl_key)
         raise HTTPException(status_code=400, detail="Senha atual incorreta")
-    current_user.hashed_password = get_password_hash(body.new_password)
+    try:
+        current_user.hashed_password = get_password_hash(body.new_password)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="A senha deve ter no máximo 72 bytes.")
+    auth_rate_limiter.record_login_success(rl_key)
     # Derruba sessões abertas com a senha antiga (token roubado deixa de valer);
     # esta sessão recebe um token novo.
     current_user.tokens_valid_after = datetime.now(timezone.utc).replace(microsecond=0)

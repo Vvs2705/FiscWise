@@ -38,12 +38,22 @@ jobs:
           AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
         run: |
           set -euo pipefail
-          FILE="fiscwise-$(date -u +%Y%m%dT%H%MZ).dump.age"
+          STAMP="$(date -u +%Y%m%dT%H%MZ)"
+          FILE="fiscwise-$STAMP.dump.age"
+          PLAIN="$RUNNER_TEMP/fiscwise.dump"
           /usr/lib/postgresql/17/bin/pg_dump "$BACKUP_DATABASE_URL" \
             --format=custom --schema=public --no-owner --no-privileges --enable-row-security \
-            | age -r "$AGE_RECIPIENT" > "$FILE"
+            --file="$PLAIN"
+          # Confere que o arquivo abre no pg_restore e traz os dados das tabelas
+          # antes de cifrar: um dump truncado falha aqui, não no dia da restauração.
+          TABELAS=$(/usr/lib/postgresql/17/bin/pg_restore --list "$PLAIN" | grep -c " TABLE DATA public ")
+          echo "Tabelas com dados no dump: $TABELAS"
+          test "$TABELAS" -ge 40
+          age -r "$AGE_RECIPIENT" -o "$FILE" "$PLAIN"
+          shred -u "$PLAIN" || rm -f "$PLAIN"
           test -s "$FILE"
           echo "FILE=$FILE" >> "$GITHUB_ENV"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
           ls -lh "$FILE"
 
       - name: Upload to Cloudflare R2
@@ -53,4 +63,37 @@ jobs:
           AWS_DEFAULT_REGION: auto
         run: |
           aws s3 cp "$FILE" "s3://${{ vars.R2_BUCKET }}/postgres/$FILE" \
+            --endpoint-url "https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+
+      # Arquivos do Supabase Storage (documentos dos clientes, guias e
+      # comprovantes), pelo endpoint S3 do Supabase. Desligado até existir
+      # vars.SUPABASE_S3_ENDPOINT (passo a passo: DEPLOY.md, seção 11).
+      # Também vai cifrado com age, como o banco.
+      - name: Storage files → R2
+        if: vars.SUPABASE_S3_ENDPOINT != ''
+        env:
+          SUPABASE_S3_ENDPOINT: ${{ vars.SUPABASE_S3_ENDPOINT }}
+          SUPABASE_S3_REGION: ${{ vars.SUPABASE_S3_REGION }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+          AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/storage"
+          mkdir -p "$DIR"
+          for BUCKET in ${{ vars.SUPABASE_BUCKETS || 'documents guides receipts' }}; do
+            AWS_ACCESS_KEY_ID="$SUPABASE_S3_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$SUPABASE_S3_SECRET_ACCESS_KEY" \
+            AWS_DEFAULT_REGION="${SUPABASE_S3_REGION:-us-east-1}" \
+              aws s3 sync "s3://$BUCKET" "$DIR/$BUCKET" --endpoint-url "$SUPABASE_S3_ENDPOINT" --only-show-errors
+          done
+          SFILE="fiscwise-storage-$STAMP.tar.age"
+          tar -C "$DIR" -cf - . | age -r "$AGE_RECIPIENT" > "$SFILE"
+          rm -rf "$DIR"
+          test -s "$SFILE"
+          ls -lh "$SFILE"
+          AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto \
+            aws s3 cp "$SFILE" "s3://${{ vars.R2_BUCKET }}/storage/$SFILE" \
             --endpoint-url "https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"

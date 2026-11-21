@@ -357,15 +357,67 @@ Depois: DNS `api` com proxy laranja, `PUBLIC_URL` e `VITE_API_URL` para
 4. Actions → **Database backup** → Run workflow para testar. Depois roda todo
    dia às 03:00 de Brasília.
 
-O backup cobre o schema `public` (dados do sistema). Os arquivos do Supabase
-Storage ainda não são copiados; isso fica para uma próxima etapa.
+O backup cobre o schema `public` (dados do sistema). Antes de cifrar, o
+workflow confere com `pg_restore --list` que o dump abre e traz os dados de
+pelo menos 40 tabelas; um dump truncado falha ali, e não no dia de restaurar.
 
-Restaurar (num banco descartável, uma vez por mês):
+**Arquivos do Supabase Storage** (documentos dos clientes, guias e
+comprovantes): o mesmo workflow copia os buckets pelo endpoint S3 do Supabase,
+empacota, cifra com a mesma chave `age` e envia para `storage/` no R2. Fica
+desligado até você configurar:
+
+1. Supabase → Storage → S3 Connection: ligar o protocolo S3 e gerar um par de
+   chaves de acesso. Anotar o endpoint (`https://<ref>.supabase.co/storage/v1/s3`)
+   e a região.
+2. GitHub → Variables: `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_REGION` e, se os
+   buckets mudarem, `SUPABASE_BUCKETS` (padrão: `documents guides receipts`).
+   GitHub → Secrets: `SUPABASE_S3_ACCESS_KEY_ID`, `SUPABASE_S3_SECRET_ACCESS_KEY`.
+3. Actions → **Database backup** → Run workflow, e conferir o arquivo
+   `storage/fiscwise-storage-*.tar.age` no bucket.
+
+O que o backup não cobre: o schema `auth` do Supabase (o FiscWise não usa o
+Supabase Auth; usuários e senhas ficam em `public.users`) e os segredos, que
+ficam no Secret Manager. Sem a chave privada do `age` nenhum backup abre:
+guarde-a em dois lugares (cofre de senhas e uma cópia offline).
+
+#### Restaurar (teste mensal, num banco descartável)
 
 ```bash
+# 1. Baixar e abrir
+aws s3 cp "s3://fiscwise-backups/postgres/fiscwise-AAAAMMDDTHHMMZ.dump.age" . \
+  --endpoint-url "https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
 age -d -i fiscwise-backup.key fiscwise-AAAAMMDDTHHMMZ.dump.age > fiscwise.dump
-pg_restore --no-owner --no-privileges -d "postgresql://..." fiscwise.dump
+
+# 2. Restaurar num Postgres vazio (local: docker run -e POSTGRES_PASSWORD=x -p 5433:5432 postgres:17)
+pg_restore --no-owner --no-privileges -d "postgresql://postgres:x@localhost:5433/postgres" fiscwise.dump
+#    Um único erro "schema public already exists" é esperado e pode ser ignorado.
+
+# 3. Conferir
+psql "postgresql://postgres:x@localhost:5433/postgres" -c "SELECT version_num FROM alembic_version" \
+  -c "SELECT count(*) FROM tenants" -c "SELECT count(*) FROM accounting_clients" \
+  -c "SELECT count(*) FROM pg_class WHERE relforcerowsecurity"
 ```
+
+A versão em `alembic_version` deve ser a última migração do deploy daquele
+dia, e a última consulta deve dar o número de tabelas com RLS (47 em
+21/11/2026): as policies e o FORCE voltam junto com o dump. Arquivos:
+`age -d -i fiscwise-backup.key fiscwise-storage-*.tar.age | tar -x -C ./storage`.
+
+#### Restaurar em produção (incidente)
+
+1. Pausar a escrita: Cloud Run → `fiscwise-api` → escalar para 0 instâncias
+   (ou publicar a revisão anterior), para ninguém gravar no banco no meio.
+2. Se o projeto estiver no Supabase Pro, preferir o backup gerenciado do
+   próprio Supabase (Database → Backups), que restaura o projeto inteiro,
+   inclusive o Storage.
+3. Sem o backup do Supabase: criar um projeto novo, restaurar o dump do R2
+   (passo 2 acima) com a URL de conexão dele, subir os arquivos do Storage
+   para os mesmos buckets e trocar `DATABASE_URL`, `SUPABASE_URL` e
+   `SUPABASE_SECRET_KEY` no Secret Manager. Depois `alembic upgrade head`
+   (não deve haver nada a aplicar).
+4. Perda máxima de dados (RPO): até 24 h, o intervalo entre backups.
+   Registrar no RUNBOOK de incidente o que foi perdido e avisar quem foi
+   afetado (LGPD art. 48, se houver dado pessoal envolvido).
 
 ### 12. Monitoramento
 

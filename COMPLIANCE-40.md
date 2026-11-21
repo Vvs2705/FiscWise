@@ -102,9 +102,9 @@ antes do rebase; a correspondência está na seção 3).
 
 | # | O quê | Passo |
 |---|---|---|
-| 1 | Conta criada pelo `create_gisele.py` (OWNER com a mesma senha da sua conta) | Se o script rodou em produção: entrar com `contabil_gisele@…`, trocar a senha ou desativar o usuário, e ligar 2FA nas duas contas |
-| 2 | CSP em modo bloqueante | Conferir no console de produção que não há violação; em `frontend/public/_headers` trocar `Content-Security-Policy-Report-Only` por `Content-Security-Policy` e publicar. Testar o login Google logo depois |
-| 3 | Upgrades major | `zod` 3 → 4 e `react-router-dom` 6 → 7, numa tarefa própria com a suíte e o E2E. Impacto atual baixo (ver relatório de segurança §4) |
+| 1 | ~~Conta criada pelo `create_gisele.py`~~ | **Resolvido (21/11/2026, `380f0d3`):** a migração `z2c3senhaexpirada` expira a senha de toda conta com hash copiado de outra; no próximo login ela é obrigada a criar uma senha nova, diferente da atual, e as sessões abertas dela caem |
+| 2 | ~~CSP em modo bloqueante~~ | **Resolvido (21/11/2026, `d4dd598`):** conferida com o build de produção servido localmente (30 telas, botão do Google, Sentry, API) sem violação. Se algo parar em produção, trocar o nome de volta para `Content-Security-Policy-Report-Only` em `frontend/public/_headers` |
+| 3 | ~~Upgrades major~~ | **Resolvido (21/11/2026, `fe63d5a`, `df58f0e`):** react-router-dom 7.18.6, zod 4.6.7 e @hookform/resolvers 5; `npm audit --omit=dev` sem vulnerabilidades |
 | 4 | ~~Avisar os usuários dos Termos~~ | **Resolvido (21/11/2026):** ainda não há usuários reais, então não há a quem avisar |
 | 5 | ~~Arrependimento para todo cliente B2B~~ | **Resolvido (21/11/2026):** o dono decidiu que vale para todo novo contratante; Termos v1.6. A devolução é feita à mão no Mercado Pago |
 | 6 | Backup do Storage | Supabase → Storage → S3 Connection: gerar chaves. GitHub Variables `SUPABASE_S3_ENDPOINT` e `SUPABASE_S3_REGION`; Secrets `SUPABASE_S3_ACCESS_KEY_ID` e `SUPABASE_S3_SECRET_ACCESS_KEY`. Depois, Actions → Database backup → Run workflow |

@@ -57,6 +57,8 @@ segundo: `git show 7f77852:.claude/settings.local.json > .claude/settings.local.
 
 ## 4. 🔒 Bloqueados (precisam de você)
 
+> **Atualização 21/11/2026:** os itens 1, 2 e 3 abaixo foram resolvidos a pedido do dono (senha expirada na conta com hash copiado, `380f0d3`; CSP bloqueante, `d4dd598`; react-router 7 e zod 4, `fe63d5a` e `df58f0e`). Ver COMPLIANCE-40.md §4.
+
 1. **Conta criada pelo `create_gisele.py`.** Se o script já rodou em produção, a
    conta `contabil_gisele@…` é OWNER com **a mesma senha** da sua conta
    principal. Passo: entrar com ela e trocar a senha (ou desativar esse usuário), e ligar 2FA

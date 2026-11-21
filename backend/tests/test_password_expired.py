@@ -6,6 +6,7 @@ que expira a conta criada com hash copiado de outra.
 """
 
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import select, text
@@ -66,7 +67,10 @@ def _sql_da_migracao() -> str:
 
 
 async def test_migracao_expira_so_a_conta_com_hash_copiado(user_a, user_b, test_db):
+    # Datas explícitas: no mesmo segundo, quem é "a mais antiga" ficaria no acaso.
+    user_a.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     clone = User(
+        created_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
         id=uuid.uuid4(),
         email="clone@firma-a.com",
         hashed_password=user_a.hashed_password,  # hash copiado, como no script antigo

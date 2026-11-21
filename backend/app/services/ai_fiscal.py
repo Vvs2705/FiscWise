@@ -107,7 +107,7 @@ async def classify_fiscal_document(
                 '"competence_month":"YYYY-MM ou null","amount":"numero ou null","due_date":"YYYY-MM-DD ou null",'
                 '"summary":"resumo operacional em uma frase","confidence":0.0,'
                 '"warning":"Resultado estimado. Valide com o responsavel tecnico."}\n\n'
-                f"Nome do arquivo: {file_name}\n"
+                f"Nome do arquivo: {mask_brazilian_tax_ids(file_name)}\n"
                 f"Tipo informado pelo usuario: {declared_document_type or 'nao informado'}\n"
                 f"Conteudo mascarado:\n{masked_text}"
             ),

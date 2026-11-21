@@ -76,3 +76,27 @@ async def test_generate_client_operational_summary_masks_tax_ids(monkeypatch) ->
     assert "123.456.789-09" not in prompt
     assert "[CNPJ_MASCARADO]" in prompt
     assert "[CPF_MASCARADO]" in prompt
+
+
+@pytest.mark.asyncio
+async def test_classify_fiscal_document_masks_tax_ids_in_file_name(monkeypatch) -> None:
+    """O nome do arquivo também vai para a OpenAI: CPF/CNPJ nele sai mascarado."""
+    from app.services.ai_fiscal import classify_fiscal_document
+
+    calls: dict[str, object] = {}
+
+    async def fake_call_openai(messages, max_tokens):
+        calls["messages"] = messages
+        return '{"document_type":"das"}', 10
+
+    monkeypatch.setattr("app.services.ai_fiscal._call_openai", fake_call_openai)
+
+    await classify_fiscal_document(
+        {"type": "text", "content": "Guia DAS competencia 2026-05"},
+        file_name="DAS 123.456.789-09 12.345.678/0001-90.pdf",
+    )
+
+    prompt = calls["messages"][1]["content"]
+    assert "123.456.789-09" not in prompt
+    assert "12.345.678/0001-90" not in prompt
+    assert "[CPF_MASCARADO]" in prompt

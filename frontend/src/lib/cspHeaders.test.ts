@@ -1,9 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import headers from '../../public/_headers?raw';
 
 // O token de sessão fica no localStorage: a CSP bloqueante é a defesa contra XSS.
-const headers = readFileSync(resolve(__dirname, '../../public/_headers'), 'utf8');
 const csp = headers.match(/^\s*Content-Security-Policy: (.*)$/m)?.[1] ?? '';
 
 describe('CSP do Cloudflare Pages', () => {

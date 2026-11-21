@@ -40,7 +40,7 @@ pelo próprio sistema. A maior parte do trabalho foi **corrigir contradições e
 | 23 | Cobranças transparentes | ✅ ATENDE (com lacuna L2) | Recibo do Mercado Pago discrimina a cobrança. Ver L2 sobre a nota fiscal da própria VStack |
 | 24 | Cancelamento | ✅ ATENDE | Botão "Cancelar assinatura" em Configurações → Plano (`SettingsPage.tsx:807`), sem e-mail. **Corrigido texto enganoso** no diálogo: dizia "seus clientes e documentos ficam guardados", sem avisar que são excluídos 60 dias depois |
 | 25 | Arrependimento 7 dias | 🔧 APLICADO | Termos v1.6 (seção 4): **qualquer contratante**, pessoa física ou jurídica, pode desistir da primeira contratação em até 7 dias do pagamento, com devolução integral (decisão do dono, 21/11/2026). Também em `/precos` e na seção de planos da landing |
-| 26 | Identificação do fornecedor | 🔧 APLICADO | Rodapé do app (`LoginShell.tsx`) e de `/precos` mostram CNPJ e endereço (Rua Vicente Lisa, 119, Caieiras/SP), também usados nos Termos, na Política e no DPA (Decreto 7.962/2013). Falta só o CEP |
+| 26 | Identificação do fornecedor | 🔧 APLICADO | Rodapé do app (`LoginShell.tsx`) e de `/precos` mostram CNPJ e endereço (Rua Vicente Lisa, 119, Caieiras/SP), também usados nos Termos, na Política e no DPA (Decreto 7.962/2013). CEP 07749-220 |
 | 27 | Publicidade | 🔧 APLICADO | Os Termos v1.4 diziam "emissão de DAS/DARF", mas o README diz que o sistema **não** gera guias. Corrigido, e os Termos agora avisam que NFS-e, e-CAC, Caixa Postal e WhatsApp dependem de homologação/contrato |
 | 28 | Depoimentos | ✅ ATENDE | A landing é explícita: "sem depoimentos, números ou métricas" (`LandingPage.tsx:29`) |
 | 29 | Licenças | ✅ ATENDE | Sem GPL/AGPL. npm: só MPL-2.0 em dependência de dev (axe-core). Python: `fpdf2` LGPL-3.0 usado sem modificação no servidor, `certifi` MPL-2.0: compatíveis |
@@ -64,7 +64,6 @@ A devolução em si é feita à mão no painel do Mercado Pago, a partir do pedi
 
 ## 5. `{{PREENCHER}}` pendentes
 
-- CEP da sede (o endereço já está em `frontend/src/lib/company.ts`).
 - Telefone/contato de plantão para incidentes (`RUNBOOK-INCIDENTE.md`).
 - Nome da pessoa natural do encarregado, se quiser nomear alguém (hoje é a própria VStack, permitido pela Res. CD/ANPD 18/2024).
 - Confirmar que as caixas `privacidade@fiscwise.com.br` e `juridico@fiscwise.com.br` existem e são lidas.

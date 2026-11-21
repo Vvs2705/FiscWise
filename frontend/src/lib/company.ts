@@ -12,5 +12,5 @@ export const COMPANY_CNPJ: string =
 
 export const COMPANY_CITY = 'Caieiras/SP';
 
-/** Endereço da sede (informado pelo dono em 21/11/2026). CEP ainda não informado. */
-export const COMPANY_ADDRESS = `Rua Vicente Lisa, 119, ${COMPANY_CITY}`;
+/** Endereço da sede (informado pelo dono em 21/11/2026). */
+export const COMPANY_ADDRESS = `Rua Vicente Lisa, 119, ${COMPANY_CITY}, CEP 07749-220`;

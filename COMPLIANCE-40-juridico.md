@@ -39,8 +39,8 @@ pelo próprio sistema. A maior parte do trabalho foi **corrigir contradições e
 | 22 | Transparência de preços | ✅ ATENDE | `/precos` mostra preço, ciclo, limites e como cancelar; preços vêm do banco (`precosHtml.ts`). Nada alterado (TRAVA) |
 | 23 | Cobranças transparentes | ✅ ATENDE (com lacuna L2) | Recibo do Mercado Pago discrimina a cobrança. Ver L2 sobre a nota fiscal da própria VStack |
 | 24 | Cancelamento | ✅ ATENDE | Botão "Cancelar assinatura" em Configurações → Plano (`SettingsPage.tsx:807`), sem e-mail. **Corrigido texto enganoso** no diálogo: dizia "seus clientes e documentos ficam guardados", sem avisar que são excluídos 60 dias depois |
-| 25 | Arrependimento 7 dias | 🔧 APLICADO | Antes só aparecia dentro da cláusula de ofertas. Agora há cláusula geral nos Termos (seção 4) com o mínimo legal: consumidor, 7 dias do pagamento, devolução integral. Estender a todo cliente B2B é decisão comercial (ver 🔒) |
-| 26 | Identificação do fornecedor | 🔧 APLICADO | Rodapé do app (`LoginShell.tsx`) e de `/precos` passam a mostrar CNPJ e cidade (Decreto 7.962/2013). Endereço completo pendente (`{{PREENCHER}}`, seção 5) |
+| 25 | Arrependimento 7 dias | 🔧 APLICADO | Termos v1.6 (seção 4): **qualquer contratante**, pessoa física ou jurídica, pode desistir da primeira contratação em até 7 dias do pagamento, com devolução integral (decisão do dono, 21/11/2026). Também em `/precos` e na seção de planos da landing |
+| 26 | Identificação do fornecedor | 🔧 APLICADO | Rodapé do app (`LoginShell.tsx`) e de `/precos` mostram CNPJ e endereço (Rua Vicente Lisa, 119, Caieiras/SP), também usados nos Termos, na Política e no DPA (Decreto 7.962/2013). Falta só o CEP |
 | 27 | Publicidade | 🔧 APLICADO | Os Termos v1.4 diziam "emissão de DAS/DARF", mas o README diz que o sistema **não** gera guias. Corrigido, e os Termos agora avisam que NFS-e, e-CAC, Caixa Postal e WhatsApp dependem de homologação/contrato |
 | 28 | Depoimentos | ✅ ATENDE | A landing é explícita: "sem depoimentos, números ou métricas" (`LandingPage.tsx:29`) |
 | 29 | Licenças | ✅ ATENDE | Sem GPL/AGPL. npm: só MPL-2.0 em dependência de dev (axe-core). Python: `fpdf2` LGPL-3.0 usado sem modificação no servidor, `certifi` MPL-2.0: compatíveis |
@@ -58,15 +58,13 @@ pelo próprio sistema. A maior parte do trabalho foi **corrigir contradições e
 
 ## 4. 🔒 Bloqueados (precisam do dono)
 
-1. **Avisar os usuários atuais da mudança dos Termos.** A seção 11 dos Termos promete aviso por e-mail com 30 dias de
-   antecedência para alterações materiais (15 dias na política). Enviar o e-mail é ação para fora do projeto. Passo: mandar
-   e-mail aos donos dos escritórios ativos com link para `/termos`, `/privacidade` e `/dpa`, informando a vigência em 21/12/2026.
-2. **Arrependimento para todo cliente.** Hoje a cláusula cobre só o consumidor (mínimo do CDC) e as ofertas. Se quiser
-   devolver em 7 dias para qualquer escritório, é mudança de regra de cobrança: decidir e trocar o parágrafo nos Termos seção 4.
+Nenhum. Decisões do dono em 21/11/2026: não há usuários reais, então não é preciso avisar ninguém da troca dos
+Termos; e o arrependimento com devolução integral em 7 dias vale para todo novo contratante (Termos v1.6).
+A devolução em si é feita à mão no painel do Mercado Pago, a partir do pedido por e-mail.
 
 ## 5. `{{PREENCHER}}` pendentes
 
-- Endereço completo da sede (rua, número, CEP) para o rodapé e os Termos. Hoje só aparece "Caieiras/SP".
+- CEP da sede (o endereço já está em `frontend/src/lib/company.ts`).
 - Telefone/contato de plantão para incidentes (`RUNBOOK-INCIDENTE.md`).
 - Nome da pessoa natural do encarregado, se quiser nomear alguém (hoje é a própria VStack, permitido pela Res. CD/ANPD 18/2024).
 - Confirmar que as caixas `privacidade@fiscwise.com.br` e `juridico@fiscwise.com.br` existem e são lidas.

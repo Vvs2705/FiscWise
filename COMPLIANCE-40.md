@@ -49,11 +49,11 @@ antes do rebase; a correspondência está na seção 3).
 | 18 | Exclusão de dados | 🔧 | Exclusão automática já existia. Faltava: executar o pedido LGPD do dono (`POST /admin/lgpd/exclusao`, com prévia), guardar registros de acesso por 6 meses e incluir os documentos fiscais na exportação | `b5a673f`, `tests/test_exclusao_lgpd.py` |
 | 19 | Retenção | 🔧 | Prazos alinhados ao código (a v1.4 prometia 5 anos e o código apaga em 60 dias) | `fd05c33` |
 | 20 | Contratos com operadores (DPA) | 🔧 | Novo `/dpa` com suboperadores (inclui OpenAI), aviso de incidente em 48 h, devolução e eliminação | `9e62160`, `frontend/src/pages/DpaPage.tsx` |
-| 21 | Termos de uso | 🔧 | v1.5 (`TERMS_VERSION`), recursos descritos como são, DPA incorporado, foro do consumidor | `2f96ce6` |
+| 21 | Termos de uso | 🔧 | v1.6 (`TERMS_VERSION`), recursos descritos como são, DPA incorporado, foro do consumidor | `2f96ce6` |
 | 22 | Transparência de preços | ✅ | `/precos` com preço, ciclo, limites e cancelamento, vindos do banco | `frontend/src/precosHtml.ts` |
 | 23 | Cobranças transparentes | ✅ | Recibo do Mercado Pago discrimina. Ver lacuna sobre a NFS-e da própria VStack | — |
 | 24 | Cancelamento | ✅ + 🔧 | Botão próprio já existia. Corrigido o texto que prometia guardar os dados sem citar a exclusão em 60 dias | `5f12250`, `SettingsPage.tsx` |
-| 25 | Arrependimento 7 dias | 🔧 / 🔒 | Cláusula geral para o consumidor nos Termos. Estender a todo B2B é regra de cobrança (🔒) | `2f96ce6` |
+| 25 | Arrependimento 7 dias | 🔧 | Termos v1.6: qualquer contratante desiste em até 7 dias do primeiro pagamento, com devolução integral (decisão do dono). Também em `/precos` e na landing | `2f96ce6`, PR de ajustes |
 | 26 | Identificação do fornecedor | 🔧 | CNPJ e cidade no rodapé do app e de `/precos`. Faltam endereço e razão social (`{{PREENCHER}}`) | `b6b1147` |
 | 27 | Publicidade | 🔧 | Termos diziam "emissão de DAS/DARF", que o sistema não faz. Corrigido, com aviso das integrações que dependem de homologação | `2f96ce6` |
 | 28 | Depoimentos | ✅ | Landing sem depoimentos nem números | `LandingPage.tsx` |
@@ -70,7 +70,7 @@ antes do rebase; a correspondência está na seção 3).
 | 39 | Pentest | ✅ (parcial) | Coberto por 36 e 37. Pentest ativo não foi feito: `strix-review` não existe aqui e nada roda contra produção | — |
 | 40 | Auditoria formal | ⏭️ | Sem exigência contratual conhecida | — |
 
-**Contagem:** ✅ 14 · 🔧 aplicado (no todo ou em parte) 24 · ➖ 2 · ⏭️ 1 · itens com parte 🔒: 7, 10, 25, 31.
+**Contagem:** ✅ 14 · 🔧 aplicado (no todo ou em parte) 24 · ➖ 2 · ⏭️ 1 · itens com parte 🔒: 7, 10, 31.
 (Itens com "✅ + 🔧" entram como aplicados.)
 
 ## 3. O que foi aplicado
@@ -105,8 +105,8 @@ antes do rebase; a correspondência está na seção 3).
 | 1 | Conta criada pelo `create_gisele.py` (OWNER com a mesma senha da sua conta) | Se o script rodou em produção: entrar com `contabil_gisele@…`, trocar a senha ou desativar o usuário, e ligar 2FA nas duas contas |
 | 2 | CSP em modo bloqueante | Conferir no console de produção que não há violação; em `frontend/public/_headers` trocar `Content-Security-Policy-Report-Only` por `Content-Security-Policy` e publicar. Testar o login Google logo depois |
 | 3 | Upgrades major | `zod` 3 → 4 e `react-router-dom` 6 → 7, numa tarefa própria com a suíte e o E2E. Impacto atual baixo (ver relatório de segurança §4) |
-| 4 | Avisar os usuários dos Termos v1.5 | Os Termos prometem 30 dias de aviso por e-mail. Enviar aos donos dos escritórios ativos o link de `/termos`, `/privacidade` e `/dpa`, com vigência em 21/12/2026 |
-| 5 | Arrependimento para todo cliente B2B | Decisão comercial. Se sim, trocar o parágrafo na seção 4 dos Termos |
+| 4 | ~~Avisar os usuários dos Termos~~ | **Resolvido (21/11/2026):** ainda não há usuários reais, então não há a quem avisar |
+| 5 | ~~Arrependimento para todo cliente B2B~~ | **Resolvido (21/11/2026):** o dono decidiu que vale para todo novo contratante; Termos v1.6. A devolução é feita à mão no Mercado Pago |
 | 6 | Backup do Storage | Supabase → Storage → S3 Connection: gerar chaves. GitHub Variables `SUPABASE_S3_ENDPOINT` e `SUPABASE_S3_REGION`; Secrets `SUPABASE_S3_ACCESS_KEY_ID` e `SUPABASE_S3_SECRET_ACCESS_KEY`. Depois, Actions → Database backup → Run workflow |
 | 7 | Pedidos LGPD pendentes | `SELECT id, name, deletion_requested_at FROM tenants WHERE deletion_requested_at IS NOT NULL AND dados_excluidos_em IS NULL;` e, para cada um, depois de conferir que exportou: `POST /api/v1/admin/lgpd/exclusao` com `{"tenant_id": "...", "confirmar_nome": "<nome exato>"}` (prévia) e de novo com `"executar": true` |
 | 8 | `CERT_ENCRYPTION_KEY` | Confirmar que está no Secret Manager. **Não trocar**: invalida os A1 e os 2FA TOTP cifrados (não há recifragem pronta) |
@@ -120,7 +120,7 @@ antes do rebase; a correspondência está na seção 3).
 ## 5. `{{PREENCHER}}` pendentes
 
 - **Razão social** para o rodapé e os textos legais. A empresa é empresário individual, e a razão social de um EI é o nome civil do titular; hoje aparece só o nome fantasia "VStack Solutions" (`frontend/src/lib/company.ts`). *(achado da revisão final)*
-- Endereço completo da sede (rua, número, CEP); hoje só "Caieiras/SP".
+- CEP da sede (endereço Rua Vicente Lisa, 119, Caieiras/SP já aplicado no rodapé e nos textos legais).
 - Contato de plantão para incidentes (`RUNBOOK-INCIDENTE.md`).
 - Nome do encarregado, se quiser nomear uma pessoa (hoje é a própria VStack).
 - Confirmar que `privacidade@fiscwise.com.br` e `juridico@fiscwise.com.br` existem e são lidas.

@@ -62,7 +62,7 @@ export function LoginFooter() {
           ·
         </span>
         {/* Identificação do fornecedor (Decreto 7.962/2013, art. 2º). */}
-        <span className="whitespace-nowrap">
+        <span>
           CNPJ {COMPANY_CNPJ} · {COMPANY_ADDRESS}
         </span>
         <span aria-hidden="true" className="hidden sm:inline">

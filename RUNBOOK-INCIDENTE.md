@@ -1,60 +1,55 @@
-# RUNBOOK — Incidente de segurança com dados pessoais
+# Runbook de incidente — FiscWise
 
-> Uma página. Gerado na auditoria COMPLIANCE-40 (21/11/2026). Revisar com advogado.
-> Base: LGPD art. 48 e Resolução CD/ANPD nº 15/2024 (Regulamento de Comunicação de Incidente).
+Uma página, para a hora do susto. Detalhes de infraestrutura ficam no
+[DEPLOY.md](DEPLOY.md) (§11 backup, §12 monitoramento). Base legal: LGPD art. 48 e
+Resolução CD/ANPD nº 15/2024. Texto jurídico revisado por IA: revisar com advogado.
 
-**Quem decide:** o dono da VStack Solutions (encarregado: privacidade@fiscwise.com.br).
-**Telefone e contato de plantão:** `{{PREENCHER}}`
+**Encarregado (DPO):** VStack Solutions, privacidade@fiscwise.com.br · **Contato de plantão:** `{{PREENCHER}}`
 
-## 1. Primeira hora: conter
+## 1. Detectar (o que já existe)
 
-1. Confirmar o incidente: alerta do Sentry ou Better Stack, log do Cloud Run, aviso de cliente ou de fornecedor.
-2. Conter sem apagar evidência:
-   - credencial vazada → revogar e trocar (Secret Manager do GCP, Supabase, GitHub, Mercado Pago, Resend, OpenAI);
-   - sessão comprometida → invalidar tokens do usuário (`users.tokens_valid_after`);
-   - certificado A1 exposto → bloquear o certificado no cofre e avisar o escritório para revogar na AC;
-   - falha no código → rollback para a revisão anterior no Cloud Run.
-3. Abrir o registro do incidente (modelo na seção 4) com data e hora em que se soube.
+- **Sentry** (backend `fiscwise-api` e frontend): erro novo chega por e-mail.
+- **Cloud Logging**: log JSON de cada requisição (sem corpo, query string nem
+  tokens, ver `app/core/request_log.py`). Alertas descritos no DEPLOY.md §12.
+- **Avisos de terceiros**: Google Cloud, Supabase, Mercado Pago, Cloudflare,
+  GitHub (secret scanning) e OpenAI mandam e-mail ao dono da conta; escritórios clientes avisam pelo suporte.
 
-## 2. Até 2 dias úteis: avaliar
+## 2. Conter (primeiros 30 minutos, sem apagar evidência)
 
-Responder por escrito:
+| Situação | Ação |
+|---|---|
+| Deploy quebrou ou abriu falha | Cloud Run → serviço `fiscwise-api` → Revisões → mandar 100% do tráfego para a revisão anterior. |
+| Segredo vazou (JWT, Supabase, Mercado Pago, OpenAI, cofre) | Gerar novo valor, criar versão nova no Secret Manager e publicar de novo. Trocar `JWT_SECRET_KEY` desloga todo mundo (esperado). |
+| Certificado A1 de cliente exposto | Bloquear o certificado no cofre e avisar o escritório para revogar na autoridade certificadora. |
+| Conta de usuário comprometida | Redefinir a senha dela (`tokens_valid_after` derruba as sessões abertas) e revisar o `audit_log` do escritório. |
+| Abuso ou ataque de volume | Ligar `RATE_LIMIT_STRICT=true` com Redis, ou regra de bloqueio no Cloudflare. |
+| Dados corrompidos ou apagados | Restaurar o último dump do R2 em um banco **novo** (DEPLOY.md §11), comparar e só então migrar. Nunca restaurar por cima da produção sem cópia. |
+| Cobrança indevida em massa | `PAGAMENTOS_GO_LIVE=false` em `cloudrun.env.yaml` e publicar. |
 
-- Quais dados? Comuns (nome, e-mail, CPF, CNPJ) ou sensíveis? Certificados digitais e senhas? Dados fiscais ou financeiros?
-- Quantos titulares e quantos escritórios? Há menores de idade?
-- O dado estava criptografado e a chave ficou segura?
-- O incidente **pode causar risco ou dano relevante** aos titulares? (art. 5º da Res. 15/2024: dado sensível,
-  financeiro, de autenticação, protegido por sigilo, em larga escala, ou que pode gerar fraude ou discriminação).
+## 3. Registrar (sempre, mesmo sem comunicar; guardar por 5 anos)
 
-Se **não** houver risco relevante: só registrar (seção 4) e guardar por 5 anos. Fim.
+Criar `docs/audit/INCIDENTE-AAAA-MM-DD.md` com: data e hora do incidente e de quando se soube; como foi
+descoberto; dados e titulares afetados (tipo e quantidade, quais escritórios); papel do FiscWise
+(controlador ou operador); avaliação de risco e por quê; medidas com horário; comunicações feitas
+(data, protocolo da ANPD, meio); causa raiz e PR da correção.
 
-## 3. Até 3 dias úteis da ciência: comunicar
+## 4. Avaliar e comunicar
+
+**Há risco ou dano relevante?** Sim, se envolver dado sensível, financeiro, de autenticação (senha,
+certificado), protegido por sigilo (fiscal), muitos titulares, ou puder gerar fraude ou discriminação.
+Dado criptografado com a chave segura, em regra, não. Se não houver risco: só o registro da seção 3.
 
 | Papel do FiscWise | Quem avisa quem | Prazo |
 |---|---|---|
-| **Operador** (dados da carteira do escritório) | FiscWise → **escritório afetado** (e-mail ao dono). O escritório é quem comunica a ANPD e os titulares, com a nossa ajuda | até **48 h** da confirmação (prazo do DPA, `/dpa`) |
-| **Controlador** (dados dos nossos usuários e da cobrança) | FiscWise → **ANPD** pelo formulário de comunicação de incidente no site gov.br/anpd | até **3 dias úteis** |
-| **Controlador** | FiscWise → **titulares afetados**, por e-mail, em linguagem simples | até **3 dias úteis** |
+| **Operador** (dados da carteira dos escritórios) | FiscWise → **escritório afetado**, por e-mail ao dono, com o que se sabe até ali. O escritório (controlador) comunica a ANPD e os titulares dele, com a nossa ajuda | até **48 h** da confirmação (prometido no DPA, `/dpa`) |
+| **Controlador** (usuários do sistema e cobrança) | FiscWise → **ANPD**, pelo formulário de comunicação de incidente em gov.br/anpd | até **3 dias úteis** da ciência |
+| **Controlador** | FiscWise → **titulares afetados**, por e-mail, em linguagem simples | até **3 dias úteis** da ciência |
 
-A comunicação à ANPD e aos titulares deve dizer: o que aconteceu e quando; quais dados e quantos titulares;
-riscos prováveis; medidas tomadas e as que o titular pode tomar (ex.: trocar senha, revogar certificado);
-contato do encarregado. Se faltar informação, comunicar o que se sabe no prazo e **complementar em até 20 dias úteis**.
-
-## 4. Registro (guardar por 5 anos, mesmo sem comunicar)
-
-```
-Data/hora da ciência:            Data/hora do incidente:
-Como foi descoberto:
-Dados e titulares afetados (tipo e quantidade):
-Papel do FiscWise: controlador | operador (escritórios: ...)
-Avaliação de risco e justificativa:
-Medidas de contenção (com horário):
-Comunicação ANPD: data / protocolo        Titulares: data / meio        Escritórios: data
-Causa raiz e correção definitiva (commit/PR):
-```
+A comunicação diz: o que aconteceu e quando; quais dados e quantos titulares; riscos prováveis; o que já
+foi feito e o que a pessoa deve fazer (ex.: trocar a senha, revogar o certificado); contato do encarregado.
+Faltou informação? Comunicar o que se sabe no prazo e **complementar em até 20 dias úteis**.
 
 ## 5. Depois
 
-- Corrigir a causa raiz com teste automatizado, em PR.
-- Se houve restauração, seguir DEPLOY.md seção 11 (backup no R2, chave `age` no cofre).
-- Revisar este runbook se algum passo falhou.
+Corrigir a causa com teste que prove a correção, rodar a revisão de segurança (`security-review`) antes de
+fechar o incidente e ajustar este runbook se algum passo falhou.

@@ -140,9 +140,9 @@ class User(Base, TenantBase):
     )
 
     two_factor_secret: Mapped[Optional[str]] = mapped_column(
-        String(64),
+        String(255),
         nullable=True,
-        comment="Base32 TOTP secret for Google/Microsoft Authenticator"
+        comment="TOTP secret, cifrado (enc:v1:, app/core/campo_cifrado.py); legado em Base32 puro"
     )
 
     two_factor_method: Mapped[str] = mapped_column(

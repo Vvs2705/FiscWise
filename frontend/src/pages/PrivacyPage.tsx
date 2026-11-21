@@ -156,11 +156,30 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold">3. Inteligência artificial</h2>
             <p className={P}>
-              A Calculadora Fiscal e o assistente fiscal usam a <strong>OpenAI</strong> (EUA) para gerar
-              respostas. Somente quando você usa esses recursos, enviamos o texto da pergunta e o contexto
-              necessário (por exemplo, trechos de um documento ou números de uma simulação). Antes do envio,
-              CPF e CNPJ são mascarados automaticamente. Pelos termos da API da OpenAI, esse conteúdo não é
-              usado para treinar os modelos dela.
+              O FiscWise usa a <strong>OpenAI</strong> (EUA) como suboperadora em quatro recursos:
+            </p>
+            <ul className={UL}>
+              <li>
+                <strong>Leitura automática de documentos:</strong> quando um documento é enviado (pelo escritório
+                ou pelo cliente no Portal), o texto extraído dele (até 5.000 caracteres), o nome do arquivo e o
+                tipo informado são enviados para identificar o tipo de documento, a competência, o valor e o
+                vencimento. Isso acontece automaticamente, dentro do saldo mensal de IA do plano;
+              </li>
+              <li>
+                <strong>Resumo operacional do cliente:</strong> dados cadastrais e pendências do cliente, quando o
+                escritório pede o resumo;
+              </li>
+              <li>
+                <strong>Calculadora Fiscal:</strong> os números de cada simulação (faturamento, custos, folha, atividade), sem dados pessoais, nos planos que incluem a recomendação por IA;
+              </li>
+              <li>
+                <strong>Assistente fiscal:</strong> a pergunta digitada e o contexto da conversa.
+              </li>
+            </ul>
+            <p className={P}>
+              Antes de qualquer envio, CPF e CNPJ são mascarados automaticamente. Nomes e outros dados que
+              estiverem no texto do documento não são mascarados. Pelos termos da API da OpenAI, esse conteúdo
+              não é usado para treinar os modelos dela.
             </p>
             <p className={P}>
               As respostas da IA são apoio, não parecer: podem conter erros e não substituem a análise do
@@ -182,7 +201,7 @@ export function PrivacyPage() {
               <li><strong>Mercado Pago</strong> — pagamento da assinatura (dados mínimos necessários)</li>
               <li><strong>Resend</strong> — envio de e-mails transacionais (nome e e-mail)</li>
               <li><strong>Sentry</strong> — monitoramento de erros técnicos da aplicação</li>
-              <li><strong>OpenAI</strong> — recursos de inteligência artificial, somente quando você os usa (ver seção 3)</li>
+              <li><strong>OpenAI</strong> — leitura automática de documentos e recursos de inteligência artificial (ver seção 3)</li>
             </ul>
             <p className={P}>
               Quando o escritório usa uma integração com órgãos públicos — como a emissão de NFS-e pelo

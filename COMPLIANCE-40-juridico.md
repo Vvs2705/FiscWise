@@ -32,7 +32,7 @@ pelo próprio sistema. A maior parte do trabalho foi **corrigir contradições e
 | 18 | Exclusão de dados | ✅ ATENDE | `POST /account/delete` (pedido, `account.py:190`) e exclusão automática de conta vencida com aviso de 72 h (`services/exclusao_dados.py`). Ver lacuna L3 sobre o processamento manual do pedido |
 | 19 | Retenção | 🔧 APLICADO | Prazos por tipo de dado na política. **Corrigida contradição**: a v1.4 dizia "dados de conta por até 5 anos após o encerramento", mas o código apaga a carteira em 60 dias. Agora: carteira 60 dias, registro do escritório e cobrança pelo prazo tributário, logs 6 meses, backups 30 dias |
 | 20 | Contratos com operadores (DPA) | 🔧 APLICADO | Novo **Acordo de Tratamento de Dados** em `/dpa` (`frontend/src/pages/DpaPage.tsx`), incorporado aos Termos (seção 9), com suboperadores, aviso de incidente em 48 h, devolução e eliminação ao fim. Fornecedores (Google, Supabase, Cloudflare, Resend, Sentry, OpenAI, Mercado Pago) listados com referência ao DPA padrão de cada um |
-| 30 | Transparência sobre IA | 🔧 APLICADO | Seção 3 da política: provedor (OpenAI, EUA), quando envia, o que envia, mascaramento de CPF/CNPJ, sem treino, sem decisão automatizada. Termos seção 8: resposta da IA é apoio e deve ser conferida |
+| 30 | Transparência sobre IA | 🔧 APLICADO | Seção 3 da política lista os 4 usos da OpenAI, incluindo a **classificação automática de todo documento enviado** (a v1.4 dizia "só quando você usa", o que era falso), o que vai em cada um, mascaramento de CPF/CNPJ e que nomes não são mascarados. OpenAI listada como suboperadora no DPA. Correção de código: o nome do arquivo ia para a OpenAI sem máscara (`ai_fiscal.py`), agora mascarado, com teste. Termos seção 8: resposta da IA é apoio |
 | 35 | Notificação de incidentes | 🔧 APLICADO | `RUNBOOK-INCIDENTE.md` (1 página) com fluxo ANPD e titulares em 3 dias úteis (Res. CD/ANPD 15/2024) e aviso de operador ao escritório em 48 h. Política seção 6 menciona o compromisso |
 | — | Dados sensíveis | ➖ N/A | Nenhum dado do art. 5º, II no modelo. O DPA proíbe o escritório de cadastrá-los. Certificado A1 e senha (segredo crítico, não dado sensível) já ficam cifrados no cofre |
 | 21 | Termos de uso | 🔧 APLICADO | Já existiam. v1.5: descrição fiel dos recursos, DPA, direito de arrependimento, aviso da IA, ressalva de foro do consumidor. `TERMS_VERSION` passou a `v1.5` (`onboarding.py`) |
@@ -53,6 +53,7 @@ pelo próprio sistema. A maior parte do trabalho foi **corrigir contradições e
 - Prazo LGPD de 15 dias corrigido em 4 lugares; texto de retenção alinhado ao código em 4 lugares.
 - Diálogo de cancelamento sem promessa falsa de guarda dos dados.
 - CNPJ e cidade no rodapé.
+- Nome do arquivo mascarado antes de ir para a OpenAI (`backend/app/services/ai_fiscal.py`, teste em `tests/unit/test_ai_fiscal_documents.py`).
 - Caminhos de menu errados nos textos legais (citavam "Configurações → Conta", que não existe) corrigidos para "Configurações → Perfil".
 
 ## 4. 🔒 Bloqueados (precisam do dono)

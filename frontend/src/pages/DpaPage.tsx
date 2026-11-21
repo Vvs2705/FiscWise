@@ -122,8 +122,9 @@ export function DpaPage() {
               <li><strong>Resend</strong> — envio de e-mails transacionais</li>
               <li><strong>Sentry</strong> — monitoramento de erros técnicos</li>
               <li>
-                <strong>OpenAI</strong> — recursos de inteligência artificial, só quando o usuário os aciona,
-                com CPF e CNPJ mascarados antes do envio
+                <strong>OpenAI</strong> — leitura automática dos documentos enviados (texto extraído, nome do
+                arquivo e tipo), resumo do cliente, Calculadora Fiscal e assistente, com CPF e CNPJ mascarados
+                antes do envio (detalhes na seção 3 da Política de Privacidade)
               </li>
             </ul>
             <p className={P}>

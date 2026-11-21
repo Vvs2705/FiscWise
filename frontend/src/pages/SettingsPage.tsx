@@ -458,11 +458,12 @@ function PrivacyDataCard({ isOwner }: { isOwner: boolean }) {
         <div className="space-y-3 text-sm text-muted-foreground">
           <p>
             A conta <strong className="text-foreground">não é apagada na hora</strong>. O pedido fica registrado e a
-            equipe do FiscWise o analisa em até 15 dias úteis, conforme a LGPD (Art. 18, VI).
+            equipe do FiscWise responde em até 15 dias, conforme a LGPD (Art. 19).
           </p>
           <p>
-            Documentos fiscais podem ser mantidos por até 5 anos por exigência da legislação tributária.
-            Você recebe a confirmação por e-mail quando o envio de e-mails estiver configurado.
+            A guarda dos documentos fiscais dos seus clientes pelo prazo legal é obrigação do escritório:
+            exporte o que precisar antes. O FiscWise mantém só o registro do escritório e o histórico de
+            cobrança, pelo prazo da legislação tributária. Você recebe a confirmação por e-mail quando o envio de e-mails estiver configurado.
           </p>
           <p>Até a conclusão, o acesso continua normal.</p>
         </div>
@@ -962,7 +963,9 @@ function PlanoTab({ tenant }: { tenant: TenantData | null }) {
             . Depois disso a conta fica só para leitura.
           </p>
           <p className="text-muted-foreground">
-            Seus clientes, documentos e histórico ficam guardados. Você pode assinar de novo quando quiser.
+            Seus clientes, documentos e histórico ficam guardados por 60 dias depois disso, para consulta e
+            exportação. Se você não assinar de novo nesse prazo, eles são excluídos, com aviso por e-mail pelo
+            menos 72 horas antes. Você pode assinar de novo quando quiser.
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setConfirmCancel(false)} disabled={cancelSubscription.isPending}>

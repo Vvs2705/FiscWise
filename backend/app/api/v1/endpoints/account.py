@@ -197,7 +197,7 @@ async def request_account_deletion(
 
     This does NOT immediately delete the account. Instead:
     1. Records the deletion request timestamp on the tenant.
-    2. The FiscWise team processes the request within 15 business days.
+    2. The FiscWise team answers within 15 days (LGPD art. 19, II).
     3. An email confirmation is sent (when email provider is configured).
 
     NOTE: Immediate deletion is intentionally deferred because:
@@ -250,12 +250,14 @@ async def request_account_deletion(
         "requested_at": now_utc.isoformat(),
         "message": (
             "Sua solicitação de exclusão de dados foi registrada com sucesso. "
-            "Nossa equipe processará o pedido em até 15 dias úteis, conforme a LGPD. "
+            "Nossa equipe responderá em até 15 dias, conforme a LGPD (art. 19). "
             "Você receberá uma confirmação por e-mail."
         ),
         "lgpd_basis": "LGPD — Art. 18, Inciso VI",
         "note": (
-            "Documentos fiscais podem ser retidos por até 5 anos conforme "
-            "exigência da Receita Federal (legislação tributária brasileira)."
+            "A guarda dos documentos fiscais dos clientes pelo prazo legal é "
+            "obrigação do escritório: exporte-os antes. O FiscWise mantém só o "
+            "registro do escritório e o histórico de cobrança, pelo prazo da "
+            "legislação tributária."
         ),
     }

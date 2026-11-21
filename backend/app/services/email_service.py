@@ -242,7 +242,7 @@ def render_password_reset_email(reset_link: str) -> str:
     return _base_layout(inner)
 
 
-def render_lgpd_deletion_email(deadline_business_days: int = 15) -> str:
+def render_lgpd_deletion_email(deadline_days: int = 15) -> str:
     """HTML confirming receipt of an LGPD data-deletion request."""
     inner = f"""\
 <h1 style="margin:0 0 12px 0;font-size:18px;color:{_INK};">Solicitação de exclusão recebida</h1>
@@ -251,11 +251,14 @@ def render_lgpd_deletion_email(deadline_business_days: int = 15) -> str:
   Proteção de Dados (LGPD — Art. 18, Inciso VI).
 </p>
 <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:{_MUTED};">
-  Nossa equipe processará o pedido em até <strong style="color:{_INK};">{deadline_business_days} dias úteis</strong>.
+  Nossa equipe responderá em até <strong style="color:{_INK};">{deadline_days} dias</strong>,
+  como prevê a LGPD (art. 19).
 </p>
 <p style="margin:0;font-size:13px;line-height:1.6;color:{_MUTED};">
-  Observação: documentos fiscais podem ser retidos por até <strong style="color:{_INK};">5 anos</strong>,
-  conforme exigência da Receita Federal (legislação tributária brasileira).
+  Observação: a guarda dos documentos fiscais dos seus clientes pelo prazo legal
+  (<strong style="color:{_INK};">5 anos</strong>) é obrigação do escritório. Exporte-os antes em
+  Configurações → Perfil → Exportar meus dados. O FiscWise mantém só o registro do escritório e o
+  histórico de cobrança, pelo prazo da legislação tributária.
 </p>"""
     return _base_layout(inner)
 

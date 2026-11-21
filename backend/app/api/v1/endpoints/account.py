@@ -55,6 +55,12 @@ def _linha(obj) -> dict:
 
 def _modelos_exportados():
     """Dados do escritório, por tabela (o nome vira a chave no JSON)."""
+    from app.domain.certificados.models import CertificadoA1
+    from app.domain.ecac.models import EcacProxy
+    from app.domain.fiscal_mailbox.models import FiscalMailboxMessage
+    from app.domain.guias.models import TaxGuide
+    from app.domain.invoices.models import Invoice, InvoiceEvent, InvoiceIssuer, InvoiceRejection
+    from app.domain.monthly_closing.models import MonthlyClosing
     from app.models.calculator import CalculatorSimulation, FiscalAssistantMessage, TaxScenario
     from app.models.fiscal_monitor import FiscalNFe
     from app.models.obligation import ClientObligationProfile, DocumentChecklistItem, ObligationInstance
@@ -79,6 +85,19 @@ def _modelos_exportados():
         ("simulacoes_calculadora", CalculatorSimulation),
         ("cenarios_tributarios", TaxScenario),
         ("mensagens_assistente", FiscalAssistantMessage),
+        # Documentos fiscais: a guarda por 5 anos (CTN arts. 173 e 195) é do
+        # escritório e dos clientes; a exportação tem que entregá-los antes da
+        # exclusão (services/exclusao_dados). O XML da NFS-e vai em xml_content.
+        ("emissores_nfse", InvoiceIssuer),
+        ("notas_fiscais_emitidas", Invoice),
+        ("eventos_notas_fiscais", InvoiceEvent),
+        ("rejeicoes_notas_fiscais", InvoiceRejection),
+        ("guias_de_impostos", TaxGuide),
+        ("fechamentos_mensais", MonthlyClosing),
+        ("procuracoes_ecac", EcacProxy),
+        ("caixa_postal_fiscal", FiscalMailboxMessage),
+        # Só metadados: arquivo e senha cifrados ficam fora (regex acima).
+        ("certificados_a1", CertificadoA1),
     ]
 
 
@@ -256,8 +275,9 @@ async def request_account_deletion(
         "lgpd_basis": "LGPD — Art. 18, Inciso VI",
         "note": (
             "A guarda dos documentos fiscais dos clientes pelo prazo legal é "
-            "obrigação do escritório: exporte-os antes. O FiscWise mantém só o "
-            "registro do escritório e o histórico de cobrança, pelo prazo da "
-            "legislação tributária."
+            "obrigação do escritório: exporte-os antes (Configurações > Perfil). "
+            "O FiscWise mantém só o registro do escritório, o histórico de cobrança, "
+            "pelo prazo da legislação tributária, e os registros de acesso exigidos "
+            "pelo Marco Civil (6 meses)."
         ),
     }

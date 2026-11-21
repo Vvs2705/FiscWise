@@ -148,3 +148,71 @@ async def get_tenant_by_email(
         "plan_slug": tenant.plan_slug,
         "subscription_status": tenant.subscription_status.value,
     }
+
+
+# ---------------------------------------------------------------------------
+# LGPD: executar o pedido de exclusão do dono (POST /account/delete)
+# ---------------------------------------------------------------------------
+
+class ExclusaoLgpdRequest(PydanticBaseModel):
+    tenant_id: str
+    # Nome do escritório digitado de novo: evita apagar o escritório errado.
+    confirmar_nome: str
+    # False (padrão) = só a prévia, com a contagem por tabela.
+    executar: bool = False
+
+
+@router.post("/lgpd/exclusao", summary="Admin: executa o pedido LGPD de exclusão de um escritório")
+async def executar_exclusao_lgpd(
+    body: ExclusaoLgpdRequest,
+    request: Request,
+    token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exclui os dados de um escritório que pediu exclusão (LGPD art. 18, VI).
+
+    Mesma exclusão da rotina de contas vencidas (services/exclusao_dados):
+    apaga linhas e arquivos do escritório, anonimiza os usuários, mantém o
+    histórico de cobrança e os registros de acesso por 6 meses.
+
+    Só vale para escritório com `deletion_requested_at` (pedido feito pelo
+    dono). Sem `executar=true` devolve só a prévia. Não tem volta: antes de
+    executar, confirme que o escritório exportou o que precisa guardar.
+    """
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    from app.services import exclusao_dados
+
+    try:
+        tenant_id = _uuid.UUID(body.tenant_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="tenant_id inválido")
+    tenant = (await db.execute(sa_select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Escritório não encontrado")
+    if tenant.deletion_requested_at is None:
+        raise HTTPException(status_code=409, detail="Este escritório não pediu exclusão.")
+    if tenant.dados_excluidos_em is not None:
+        return {"status": "ja_excluido", "excluido_em": tenant.dados_excluidos_em.isoformat()}
+    if body.confirmar_nome.strip() != (tenant.name or "").strip():
+        raise HTTPException(status_code=400, detail="O nome digitado não confere com o do escritório.")
+
+    if not body.executar:
+        return {
+            "status": "previa",
+            "tenant_id": str(tenant.id),
+            "pedido_em": tenant.deletion_requested_at.isoformat(),
+            "linhas_por_tabela": await exclusao_dados.contar_linhas(db, tenant.id),
+        }
+
+    resumo = await exclusao_dados.excluir(db, tenant, datetime.now(timezone.utc))
+    await db.commit()
+    logger.warning("[ADMIN] exclusao_lgpd tenant=%s ip=%s resumo=%s", tenant.id, _get_client_ip(request), resumo)
+    from app.services.audit import log_audit_event
+
+    await log_audit_event(
+        db=db, tenant_id=tenant.id, action="lgpd.exclusao_a_pedido", entity_type="tenant",
+        entity_id=tenant.id, actor_role="admin", after_data=resumo,
+    )
+    return {"status": "excluido", "tenant_id": str(tenant.id), "resumo": resumo}

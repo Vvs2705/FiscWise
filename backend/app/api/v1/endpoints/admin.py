@@ -17,6 +17,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select as sa_select
 
+from app.core.auth_rate_limiter import get_client_ip
 from app.core.deps import get_db
 from app.models.tenant import Tenant
 from app.models.user import User as UserModel
@@ -31,10 +32,10 @@ security = HTTPBearer(auto_error=False)
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    # Mesmo IP confiável do limitador de login (última entrada do
+    # X-Forwarded-For, que o Cloud Run acrescenta): a primeira é escolhida
+    # pelo cliente e deixava forjar o IP registrado nos alertas de admin.
+    return get_client_ip(request)
 
 
 async def verify_admin_token(

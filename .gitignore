@@ -219,3 +219,6 @@ COMO-FAZER*.md
 
 # Wheels soltos (instalação offline local) nunca entram no repo
 *.whl
+
+# Permissões locais do Claude Code (por máquina, não versionar)
+.claude/settings.local.json

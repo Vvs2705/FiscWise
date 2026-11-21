@@ -157,7 +157,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <OfflineProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <RouteTitle />
           <Suspense fallback={<PageLoader />}>
             <Routes>

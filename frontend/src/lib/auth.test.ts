@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   documentoValido,
   formatarDocumento,
+  isMfaChallenge,
+  isPasswordExpired,
   mensagemErroDocumento,
+  passwordExpiredPath,
   newPasswordError,
   somenteDigitos,
 } from './auth';
@@ -47,5 +50,21 @@ describe('CNPJ/CPF do cadastro (um teste grátis por documento)', () => {
     expect(mensagemErroDocumento('INVALID_DOCUMENT')).toMatch(/inválido/);
     expect(mensagemErroDocumento('DOCUMENT_ALREADY_USED')).toMatch(/já tem uma conta/);
     expect(mensagemErroDocumento('EMAIL_ALREADY_EXISTS')).toBeNull();
+  });
+});
+
+describe('senha expirada no login', () => {
+  const expirada = { status: 'password_expired' as const, reset_token: 'a.b+c/d', message: 'Sua senha expirou.' };
+
+  it('reconhece a resposta e não a confunde com o 2FA', () => {
+    expect(isPasswordExpired(expirada)).toBe(true);
+    expect(isMfaChallenge(expirada)).toBe(false);
+  });
+
+  it('leva para a troca obrigatória com o token codificado', () => {
+    const url = new URL(passwordExpiredPath(expirada), 'https://x.test');
+    expect(url.pathname).toBe('/redefinir-senha');
+    expect(url.searchParams.get('token')).toBe('a.b+c/d');
+    expect(url.searchParams.get('expirada')).toBe('1');
   });
 });

@@ -165,6 +165,19 @@ class MfaChallengeResponse(BaseModel):
     message: str
 
 
+class PasswordExpiredResponse(BaseModel):
+    """Senha expirada: não entra; o site leva para /redefinir-senha com este token."""
+    status: str = "password_expired"
+    reset_token: str
+    message: str = "Sua senha expirou. Crie uma senha nova para continuar."
+
+
+def _password_expired_response(user: User) -> PasswordExpiredResponse:
+    return PasswordExpiredResponse(
+        reset_token=create_password_reset_token(str(user.id), user.hashed_password)
+    )
+
+
 class Verify2FARequest(BaseModel):
     mfa_token: str = Field(..., description="Short-lived token received from login step")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
@@ -219,13 +232,13 @@ def _segredo_totp(user: User) -> Optional[str]:
 @router.post(
     "/login",
     summary="User Login",
-    response_model=Union[AuthResponse, MfaChallengeResponse],
+    response_model=Union[AuthResponse, MfaChallengeResponse, PasswordExpiredResponse],
 )
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
-) -> Union[AuthResponse, MfaChallengeResponse]:
+) -> Union[AuthResponse, MfaChallengeResponse, PasswordExpiredResponse]:
     """
     OAuth2 compatible token login endpoint.
 
@@ -273,6 +286,11 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Conta inativa. Entre em contato com o suporte.",
         )
+
+    # ── Senha expirada: troca obrigatória antes de qualquer acesso ────────────
+    if getattr(user, "password_expired", False):
+        auth_rate_limiter.record_login_success(client_ip)
+        return _password_expired_response(user)
 
     # ── 2FA gate ──────────────────────────────────────────────────────────────
     if getattr(user, "two_factor_enabled", False):
@@ -460,12 +478,12 @@ async def verify_2fa(
 
 # ─── Google OAuth ─────────────────────────────────────────────────────────────
 
-@router.post("/google", response_model=Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired], summary="Google OAuth Login")
+@router.post("/google", response_model=Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired, PasswordExpiredResponse], summary="Google OAuth Login")
 async def google_auth(
     body: GoogleAuthRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired]:
+) -> Union[AuthResponse, MfaChallengeResponse, GoogleSignupRequired, PasswordExpiredResponse]:
     """
     Login via Google OAuth.
 
@@ -514,6 +532,9 @@ async def google_auth(
     if existing_user:
         if not existing_user.is_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Conta inativa.")
+
+        if getattr(existing_user, "password_expired", False):
+            return _password_expired_response(existing_user)
 
         # ── 2FA gate ──────────────────────────────────────────────────────────
         if getattr(existing_user, "two_factor_enabled", False):
@@ -937,6 +958,7 @@ async def change_password(
     except ValueError:
         raise HTTPException(status_code=400, detail="A senha deve ter no máximo 72 bytes.")
     auth_rate_limiter.record_login_success(rl_key)
+    current_user.password_expired = False
     # Derruba sessões abertas com a senha antiga (token roubado deixa de valer);
     # esta sessão recebe um token novo.
     current_user.tokens_valid_after = datetime.now(timezone.utc).replace(microsecond=0)
@@ -1066,6 +1088,12 @@ async def confirm_password_reset(
     if user is None or not user.is_active or not password_reset_token_matches_user(payload, user):
         raise _invalid()
 
+    if user.password_expired and verify_password(body.new_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A senha nova precisa ser diferente da senha expirada.",
+        )
+
     try:
         new_hash = get_password_hash(body.new_password)
     except ValueError:
@@ -1075,6 +1103,7 @@ async def confirm_password_reset(
         )
 
     user.hashed_password = new_hash
+    user.password_expired = False
     # Derruba todas as sessões abertas (inclusive de quem tinha a senha antiga).
     user.tokens_valid_after = datetime.now(timezone.utc).replace(microsecond=0)
     await db.commit()

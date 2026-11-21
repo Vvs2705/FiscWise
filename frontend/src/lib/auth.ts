@@ -54,8 +54,24 @@ export interface GoogleSignupRequired {
   full_name?: string | null;
 }
 
-export type LoginResult = AuthResponse | MfaChallenge;
+/** Senha expirada: não entra; o site leva para a troca obrigatória de senha. */
+export interface PasswordExpired {
+  status: 'password_expired';
+  reset_token: string;
+  message: string;
+}
+
+export type LoginResult = AuthResponse | MfaChallenge | PasswordExpired;
 export type GoogleLoginResult = LoginResult | GoogleSignupRequired;
+
+export function isPasswordExpired(r: GoogleLoginResult): r is PasswordExpired {
+  return (r as PasswordExpired).status === 'password_expired';
+}
+
+/** Endereço da tela de troca obrigatória (a mesma da redefinição de senha). */
+export function passwordExpiredPath(r: PasswordExpired): string {
+  return `/redefinir-senha?${new URLSearchParams({ token: r.reset_token, expirada: '1' }).toString()}`;
+}
 
 export function isMfaChallenge(r: GoogleLoginResult): r is MfaChallenge {
   return (r as MfaChallenge).status === 'requires_2fa';
@@ -202,8 +218,8 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 
   const data = response.data;
 
-  // If 2FA is required, return the challenge — do NOT store tokens yet
-  if (isMfaChallenge(data)) {
+  // If 2FA is required (or the password expired), do NOT store tokens
+  if (isMfaChallenge(data) || isPasswordExpired(data)) {
     return data;
   }
 
@@ -267,7 +283,7 @@ export async function loginWithGoogle(credential: string): Promise<GoogleLoginRe
   const response = await api.post<GoogleLoginResult>('/api/v1/auth/google', { credential });
   const data = response.data;
 
-  if (isMfaChallenge(data) || isGoogleSignupRequired(data)) {
+  if (isMfaChallenge(data) || isGoogleSignupRequired(data) || isPasswordExpired(data)) {
     return data;
   }
 

@@ -29,6 +29,7 @@ type FormValues = z.infer<typeof schema>;
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
+  const expirada = params.get('expirada') === '1';
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +59,13 @@ export function ResetPasswordPage() {
 
         <div className="rounded-[24px] border border-border bg-card p-6 text-card-foreground shadow-token sm:p-8">
           <div className="mb-6 space-y-1.5">
-            <h1 className="text-2xl font-bold tracking-[-0.02em]">Criar nova senha</h1>
+            <h1 className="text-2xl font-bold tracking-[-0.02em]">
+              {expirada ? 'Sua senha expirou' : 'Criar nova senha'}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Ao salvar, todas as sessões abertas da sua conta serão encerradas.
+              {expirada
+                ? 'Para continuar, crie uma senha nova, diferente da atual. Depois é só entrar com ela.'
+                : 'Ao salvar, todas as sessões abertas da sua conta serão encerradas.'}
             </p>
           </div>
 

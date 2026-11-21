@@ -7,6 +7,8 @@ import {
   registerWithGoogle as authRegisterWithGoogle,
   isMfaChallenge,
   isGoogleSignupRequired,
+  isPasswordExpired,
+  passwordExpiredPath,
   saveGoogleSignup,
   type GoogleRegisterData,
   type LoginCredentials,
@@ -80,6 +82,11 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const result = await authLogin(credentials);
+      if (isPasswordExpired(result)) {
+        toast(result.message, { icon: '🔑' });
+        navigate(passwordExpiredPath(result));
+        return;
+      }
       if (isMfaChallenge(result)) {
         // Signal the UI to show the 2FA OTP screen
         setMfaChallenge(result);
@@ -119,6 +126,11 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const result = await authLoginWithGoogle(credential);
+      if (isPasswordExpired(result)) {
+        toast(result.message, { icon: '🔑' });
+        navigate(passwordExpiredPath(result));
+        return;
+      }
       if (isMfaChallenge(result)) {
         setMfaChallenge(result);
         toast(result.message, { icon: '🔐' });

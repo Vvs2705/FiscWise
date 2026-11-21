@@ -1,6 +1,9 @@
 /**
  * TermsPage — Termos de Uso do FiscWise
  * LGPD compliance: public page, no auth required.
+ *
+ * Texto jurídico revisado na auditoria COMPLIANCE-40 (21/11/2026).
+ * Revisar com advogado antes de considerar definitivo.
  */
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -28,7 +31,7 @@ export function TermsPage() {
       <main className="mx-auto max-w-3xl px-4 py-10 pb-20">
         <h1 className="mb-2 text-3xl font-bold">Termos de Uso</h1>
         <p className="mb-8 text-sm text-muted-foreground">
-          Versão 1.4 (v1.4) — Última atualização: 14/11/2026
+          Versão 1.5 (v1.5) — Última atualização: 21/11/2026
         </p>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
@@ -49,9 +52,17 @@ export function TermsPage() {
             <h2 className="text-lg font-semibold">2. Descrição do Serviço</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               O FiscWise é uma plataforma SaaS de gestão contábil e fiscal voltada a escritórios
-              de contabilidade brasileiros. O serviço inclui funcionalidades de gestão de clientes,
-              controle de documentos, agenda de prazos fiscais, emissão de DAS/DARF, gestão de
-              certificados digitais e relatórios financeiros.
+              de contabilidade brasileiros. O serviço inclui gestão da carteira de clientes, controle de
+              documentos, calendário de obrigações e prazos fiscais, registro e conciliação de guias
+              (DAS/DARF/GPS/ISS), cofre de certificados digitais, portal do cliente, fechamento mensal,
+              relatórios financeiros e recursos de apoio com inteligência artificial.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              O FiscWise <strong>não gera</strong> guias nos sistemas da Receita Federal. Integrações com
+              órgãos públicos (emissão de NFS-e, e-CAC/SERPRO, Caixa Postal) e com o WhatsApp Business
+              dependem de credenciamento, contrato ou homologação junto a terceiros e só funcionam quando
+              estiverem disponíveis e ativadas para o escritório. A página de cada recurso informa se ele já
+              está disponível.
             </p>
           </section>
 
@@ -85,7 +96,20 @@ export function TermsPage() {
               automaticamente, com aviso por e-mail ao responsável pelo escritório com pelo menos 72
               (setenta e duas) horas de antecedência. Ficam guardados apenas o nome e o CNPJ/CPF do
               escritório e o histórico de cobrança, além dos registros que a legislação obriga a guardar.
-              Quem assinar um plano antes da data informada mantém todos os dados.
+              Quem assinar um plano antes da data informada mantém todos os dados. A guarda dos documentos
+              fiscais dos clientes pelo prazo legal é responsabilidade do escritório, que deve exportá-los
+              antes da exclusão.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Direito de arrependimento: quando o Contratante for consumidor, nos termos do Código de
+              Defesa do Consumidor (art. 49), pode desistir da primeira contratação em até 7 (sete) dias
+              contados do pagamento, pelo e-mail{' '}
+              <a href="mailto:juridico@fiscwise.com.br" className="text-primary hover:underline">
+                juridico@fiscwise.com.br
+              </a>
+              , com devolução integral do valor pago, pelo mesmo meio de pagamento, via Mercado Pago.
+              Fora dessa hipótese e das ofertas abaixo, o cancelamento encerra a renovação, mas não gera
+              devolução proporcional do período já pago.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Ofertas promocionais: o FiscWise pode enviar, a quem fez o teste grátis e não assinou, uma
@@ -166,8 +190,11 @@ export function TermsPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               O FiscWise não se responsabiliza por decisões fiscais ou contábeis tomadas com base nas
               informações da plataforma. A responsabilidade técnica e legal pelos atos contábeis
-              permanece com o profissional habilitado. Em nenhuma hipótese nossa responsabilidade
-              excederá o valor pago pelo Usuário nos últimos 3 meses.
+              permanece com o profissional habilitado. Os cálculos, simulações e respostas geradas por
+              inteligência artificial são apoio à decisão, podem conter erros e devem ser conferidos pelo
+              profissional antes de qualquer uso. Em nenhuma hipótese nossa responsabilidade excederá o
+              valor pago pelo Usuário nos últimos 3 meses, salvo nos casos em que a lei não permita essa
+              limitação.
             </p>
           </section>
 
@@ -181,6 +208,15 @@ export function TermsPage() {
               </Link>{' '}
               para detalhes sobre coleta, uso, retenção e seus direitos como titular de dados.
             </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Sobre os dados que o escritório cadastra a respeito dos seus clientes, o escritório é o
+              controlador e o FiscWise é o operador. Ao aceitar estes Termos, o Contratante também aceita o{' '}
+              <Link to="/dpa" className="text-primary hover:underline">
+                Acordo de Tratamento de Dados
+              </Link>
+              , que faz parte deste contrato. O escritório declara ter base legal para cadastrar esses dados
+              no FiscWise e para informar seus clientes sobre esse tratamento.
+            </p>
           </section>
 
           <section>
@@ -188,7 +224,7 @@ export function TermsPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               O FiscWise pode suspender ou encerrar sua conta em caso de violação destes termos,
               inadimplência ou determinação judicial. O Usuário pode solicitar o encerramento a
-              qualquer momento em <strong>Configurações → Conta → Solicitar exclusão de dados</strong>.
+              qualquer momento em <strong>Configurações → Perfil → Solicitar exclusão da conta</strong>.
             </p>
           </section>
 
@@ -206,7 +242,8 @@ export function TermsPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Estes termos são regidos pela legislação brasileira. Fica eleito o foro da comarca
               de {COMPANY_CITY} para dirimir quaisquer controvérsias, com renúncia a qualquer outro,
-              por mais privilegiado que seja.
+              por mais privilegiado que seja, ressalvado o foro do domicílio do Contratante quando ele
+              for consumidor, nos termos do Código de Defesa do Consumidor.
             </p>
           </section>
 

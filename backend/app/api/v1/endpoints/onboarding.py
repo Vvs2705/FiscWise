@@ -48,7 +48,9 @@ TRIAL_PLAN_SLUG = "premium"
 # plano Gratuito.
 # v1.3 (13/11/2026): cláusula das ofertas promocionais depois do teste.
 # v1.4 (14/11/2026): exclusão automática com pelo menos 72 h de aviso.
-TERMS_VERSION = "v1.4"
+# v1.5 (21/11/2026): DPA (operador), arrependimento CDC, IA e descrição fiel
+# dos recursos (auditoria COMPLIANCE-40).
+TERMS_VERSION = "v1.5"
 
 
 DOCUMENTO_INVALIDO_CODE = "INVALID_DOCUMENT"

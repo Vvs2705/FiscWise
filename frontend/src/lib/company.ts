@@ -11,3 +11,6 @@ export const COMPANY_CNPJ: string =
   String(import.meta.env.VITE_COMPANY_CNPJ ?? '').trim() || '40.204.602/0001-85';
 
 export const COMPANY_CITY = 'Caieiras/SP';
+
+/** Endereço da sede (informado pelo dono em 21/11/2026). CEP ainda não informado. */
+export const COMPANY_ADDRESS = `Rua Vicente Lisa, 119, ${COMPANY_CITY}`;

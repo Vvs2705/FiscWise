@@ -8,7 +8,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
+import { COMPANY_ADDRESS, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
 
 const P = 'mt-2 text-sm leading-relaxed text-muted-foreground';
 const UL = 'mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside';
@@ -57,7 +57,7 @@ export function PrivacyPage() {
             <h2 className="text-lg font-semibold">1. Quem trata os dados</h2>
             <p className={P}>
               <strong>{COMPANY_LEGAL_NAME}</strong>, nome comercial do empresário individual inscrito
-              no CNPJ {COMPANY_CNPJ}, com sede em {COMPANY_CITY}, oferece o FiscWise e atua em dois papéis
+              no CNPJ {COMPANY_CNPJ}, com sede em {COMPANY_ADDRESS}, oferece o FiscWise e atua em dois papéis
               diferentes, conforme o dado:
             </p>
             <ul className={UL}>

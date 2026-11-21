@@ -11,7 +11,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileLock2 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { COMPANY_CITY, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
+import { COMPANY_ADDRESS, COMPANY_CNPJ, COMPANY_LEGAL_NAME } from '@/lib/company';
 
 const P = 'mt-2 text-sm leading-relaxed text-muted-foreground';
 const UL = 'mt-2 space-y-1 text-sm text-muted-foreground list-disc list-inside';
@@ -50,7 +50,7 @@ export function DpaPage() {
             <p className={P}>
               Este acordo vale entre o escritório contratante do FiscWise (<strong>Controlador</strong>) e{' '}
               <strong>{COMPANY_LEGAL_NAME}</strong>, nome comercial do empresário individual inscrito no CNPJ{' '}
-              {COMPANY_CNPJ}, com sede em {COMPANY_CITY} (<strong>Operador</strong>). Ele se aplica aos dados
+              {COMPANY_CNPJ}, com sede em {COMPANY_ADDRESS} (<strong>Operador</strong>). Ele se aplica aos dados
               pessoais que o Controlador cadastra ou envia ao FiscWise sobre os clientes dele, sócios,
               responsáveis, funcionários e usuários do Portal do Cliente (os <strong>Dados da Carteira</strong>).
               O aceite dos Termos de Uso no cadastro vale como aceite deste acordo.

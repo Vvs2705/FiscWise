@@ -38,6 +38,7 @@ const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(
 const ResetPasswordPage  = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const TermsPage        = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const DpaPage          = lazy(() => import('@/pages/DpaPage').then(m => ({ default: m.DpaPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
 const MinicursoPage    = lazy(() => import('@/pages/MinicursoPage').then(m => ({ default: m.MinicursoPage })));
 const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
@@ -170,6 +171,7 @@ function App() {
               <Route path="/concluir-cadastro" element={<CompleteSignupPage />} />
               <Route path="/termos"      element={<TermsPage />} />
               <Route path="/privacidade" element={<PrivacyPage />} />
+              <Route path="/dpa"         element={<DpaPage />} />
               <Route path="/404"         element={<NotFoundPage />} />
 
               {/* Portal do cliente final (role client) — fora do layout da equipe */}

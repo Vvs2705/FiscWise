@@ -26,6 +26,7 @@ const ROUTE_TITLES: ReadonlyArray<readonly [string, string]> = [
   ['/portal/dashboard', 'Meu Portal'],
   ['/termos', 'Termos de Uso'],
   ['/privacidade', 'Privacidade'],
+  ['/dpa', 'Acordo de Tratamento de Dados'],
 
   // Operação diária
   ['/painel', 'Painel'],
@@ -87,6 +88,7 @@ const PUBLIC_META: Readonly<Record<string, string>> = {
   '/register': 'Crie a conta do seu escritório no FiscWise: carteira de clientes, obrigações fiscais e prazos, documentos, guias e fechamento mensal em um só lugar, feito para o contador.',
   '/termos': 'Termos de uso do FiscWise, sistema de gestão contábil da Vstack Solutions.',
   '/privacidade': 'Política de privacidade do FiscWise: como tratamos dados pessoais conforme a LGPD.',
+  '/dpa': 'Acordo de tratamento de dados do FiscWise: como tratamos os dados da carteira do escritório contábil, como operador, conforme a LGPD.',
 };
 
 function upsertMeta(selector: string, create: () => HTMLElement): HTMLElement {

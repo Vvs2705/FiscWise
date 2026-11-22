@@ -18,6 +18,7 @@ import {
   Settings,
   RefreshCw,
   ChevronDown,
+  Wallet,
   GraduationCap,
   CreditCard,
   Scale,
@@ -40,61 +41,71 @@ type NavItem = {
   icon: React.ElementType;
   badge?: string;
   badgeVariant?: 'danger' | 'warning' | 'primary';
+  /** Uso menos frequente: fica recolhido atrás de "Mais" (sempre visível no menu de ícones). */
+  rare?: boolean;
 };
 
 type NavGroup = {
   label: string;
   items: NavItem[];
-  collapsible?: boolean;
 };
 
+/*
+ * Menu por tarefa (6 grupos). Nenhuma rota foi removida: só agrupamento,
+ * ordem e rótulo. Itens `rare` ficam recolhidos em "Mais"; o grupo abre sozinho
+ * quando a rota ativa está entre eles.
+ */
 const navGroups: NavGroup[] = [
   {
-    label: 'Operação diária',
+    label: 'Hoje',
     items: [
       { name: 'Painel',        href: '/painel',    icon: LayoutDashboard },
       { name: 'Foco de hoje',  href: '/foco',      icon: Target },
     ],
   },
   {
-    label: 'Gestão',
+    label: 'Clientes',
     items: [
-      { name: 'Clientes',          href: '/clientes',         icon: UsersRound },
-      { name: 'Fechamento mensal', href: '/fechamento',       icon: CalendarCheck2 },
-      { name: 'Obrigações',        href: '/obrigacoes',       icon: ListChecks },
-      { name: 'Documentos',        href: '/documentos',       icon: FolderKanban },
+      { name: 'Clientes',          href: '/clientes',     icon: UsersRound },
+      { name: 'Documentos',        href: '/documentos',   icon: FolderKanban },
+      { name: 'Portal do cliente', href: '/portal',       icon: Globe },
+      { name: 'Certificados',      href: '/certificados', icon: Fingerprint },
+      { name: 'Procurações',       href: '/procuracoes',  icon: FileText, rare: true },
+      { name: 'WhatsApp',          href: '/whatsapp',     icon: MessageSquare, rare: true },
     ],
   },
   {
-    label: 'Fiscal',
+    label: 'Notas e obrigações',
     items: [
-      { name: 'Notas fiscais',       href: '/notas-fiscais',      icon: FileText },
-      { name: 'Central e-CAC',       href: '/ecac',               icon: ShieldCheck },
-      { name: 'Guias e pagamentos',  href: '/guias',              icon: Coins },
-      { name: 'Caixa postal fiscal', href: '/caixa-postal-fiscal',icon: Mail },
-      { name: 'Procurações',         href: '/procuracoes',        icon: FileText },
-      { name: 'Certificados',        href: '/certificados',       icon: Fingerprint },
-      { name: 'Ajustes fiscais',     href: '/ajustes-fiscais',    icon: Scale },
+      { name: 'Obrigações',          href: '/obrigacoes',       icon: ListChecks },
+      { name: 'Fechamento mensal',   href: '/fechamento',       icon: CalendarCheck2 },
+      { name: 'Notas fiscais',       href: '/notas-fiscais',    icon: ReceiptText },
+      { name: 'Guias e pagamentos',  href: '/guias',            icon: Coins },
+      { name: 'Central e-CAC',       href: '/ecac',             icon: ShieldCheck, rare: true },
+      { name: 'Caixa postal fiscal', href: '/caixa-postal-fiscal', icon: Mail, rare: true },
+      { name: 'Ajustes fiscais',     href: '/ajustes-fiscais',  icon: Scale, rare: true },
+    ],
+  },
+  {
+    label: 'Financeiro',
+    items: [
+      { name: 'Financeiro', href: '/financeiro', icon: Wallet },
+      { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Aprender',
+    items: [
+      { name: 'Minicurso',            href: '/minicurso',                           icon: GraduationCap },
       { name: 'Base de conhecimento', href: '/configuracoes?aba=base_conhecimento', icon: Library },
     ],
   },
   {
-    label: 'Financeiro & Canais',
+    label: 'Conta e sistema',
     items: [
-      { name: 'Financeiro',      href: '/financeiro', icon: ReceiptText },
-      { name: 'WhatsApp',        href: '/whatsapp',   icon: MessageSquare },
-      { name: 'Portal do cliente', href: '/portal',   icon: Globe },
-      { name: 'Relatórios',      href: '/relatorios', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'Sistema',
-    collapsible: true,
-    items: [
-      { name: 'Minicurso',      href: '/minicurso',     icon: GraduationCap },
-      { name: 'Plano e assinatura', href: '/assinatura', icon: CreditCard },
-      { name: 'Configurações',  href: '/configuracoes', icon: Settings },
-      { name: 'Sincronização',  href: '/sincronizacao', icon: RefreshCw },
+      { name: 'Configurações',      href: '/configuracoes', icon: Settings },
+      { name: 'Plano e assinatura', href: '/assinatura',    icon: CreditCard },
+      { name: 'Sincronização',      href: '/sincronizacao', icon: RefreshCw, rare: true },
     ],
   },
 ];
@@ -107,7 +118,8 @@ const BADGE_CLASSES = {
 
 export function Sidebar() {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Escolha manual de abrir/fechar "Mais" por grupo; sem escolha, abre só se a rota ativa estiver lá.
+  const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
 
   // Badge real do "Foco de Hoje": itens urgentes (críticos + de hoje).
   const { data: focusItems } = useQuery({
@@ -142,7 +154,7 @@ export function Sidebar() {
   const { data: equipeFiscwise } = useEquipeFiscwise(isOffice);
   const grupos: NavGroup[] = equipeFiscwise
     ? navGroups.map((g) =>
-        g.label === 'Sistema'
+        g.label === 'Conta e sistema'
           ? {
               ...g,
               items: [
@@ -154,8 +166,8 @@ export function Sidebar() {
       )
     : navGroups;
 
-  const toggleGroup = (label: string) =>
-    setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
+  const toggleMore = (label: string, current: boolean) =>
+    setMoreOpen((prev) => ({ ...prev, [label]: !current }));
 
   return (
     <aside
@@ -181,92 +193,106 @@ export function Sidebar() {
       {/* Nav */}
       <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-2 py-3">
         {grupos.map((group) => {
-          const isCollapsed = collapsed[group.label];
+          const main = group.items.filter((i) => !i.rare);
+          const more = group.items.filter((i) => i.rare);
+          const hasActiveMore = more.some((i) => isActive(i.href));
+          const open = moreOpen[group.label] ?? hasActiveMore;
+          const moreId = `nav-more-${group.label.replace(/\s+/g, '-').toLowerCase()}`;
+
+          const renderItem = (item: NavItem) => {
+            const active = isActive(item.href);
+            const lockedByPlan = outOfPlan(item.href);
+            const badge =
+              item.href === '/foco' && focusCount > 0
+                ? String(focusCount)
+                : lockedByPlan
+                  ? 'Plano'
+                  : item.badge;
+            const badgeVariant =
+              item.href === '/foco' ? 'danger' : lockedByPlan ? 'warning' : item.badgeVariant;
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                aria-label={item.name}
+                data-tour={`nav-${item.href}`}
+                aria-current={active ? 'page' : undefined}
+                title={lockedByPlan ? `${item.name} (fora do seu plano)` : item.name}
+                className={cn(
+                  'group relative flex h-10 items-center justify-center gap-3 rounded-md px-2.5 text-sm font-medium md:h-9 md:justify-start',
+                  'transition-colors duration-150 ease-out',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
+                  active
+                    ? 'bg-sidebar-active-bg text-sidebar-active-fg'
+                    : 'text-sidebar-muted hover:bg-sidebar-hover-bg hover:text-sidebar-foreground',
+                )}
+              >
+                <item.icon
+                  aria-hidden="true"
+                  className={cn(
+                    'h-[18px] w-[18px] shrink-0',
+                    active ? 'text-sidebar-active-fg' : 'text-sidebar-muted group-hover:text-sidebar-foreground',
+                  )}
+                />
+                <span className="hidden flex-1 truncate md:inline">{item.name}</span>
+
+                {/* Badge */}
+                {badge && (
+                  <span
+                    className={cn(
+                      'hidden h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums md:flex',
+                      active && 'bg-white/20 text-white',
+                      BADGE_CLASSES[badgeVariant ?? 'primary'],
+                    )}
+                  >
+                    {badge}
+                  </span>
+                )}
+
+                {/* Tooltip mobile */}
+                <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md group-hover:block group-focus-visible:block md:hidden">
+                  {item.name}
+                  {badge && (
+                    <span className={cn('ml-1.5 rounded-full px-1 text-[11px] tabular-nums', BADGE_CLASSES[badgeVariant ?? 'primary'])}>
+                      {badge}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            );
+          };
+
           return (
-            <div key={group.label} className="mb-2 last:mb-0">
-              {/* Group header */}
-              <div className="mb-1 hidden h-6 items-center justify-between px-2.5 md:flex">
-                <p className="truncate text-[11px] font-medium text-sidebar-muted">
-                  {group.label}
-                </p>
-                {group.collapsible && (
+            <div key={group.label} role="group" aria-label={group.label} className="mb-3 last:mb-0">
+              {/* Rótulo do grupo (só com o menu largo; no menu de ícones vira um filete) */}
+              <p className="mb-1 hidden h-6 items-center truncate px-2.5 text-[11px] font-medium text-sidebar-muted md:flex">
+                {group.label}
+              </p>
+              <div aria-hidden="true" className="mx-2 mb-2 h-px bg-sidebar-border md:hidden" />
+
+              {main.map(renderItem)}
+
+              {more.length > 0 && (
+                <>
                   <button
-                    onClick={() => toggleGroup(group.label)}
-                    className="flex h-6 w-6 items-center justify-center rounded-sm text-sidebar-muted transition-colors duration-150 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    aria-label={isCollapsed ? `Expandir ${group.label}` : `Recolher ${group.label}`}
-                    aria-expanded={!isCollapsed}
+                    type="button"
+                    onClick={() => toggleMore(group.label, open)}
+                    aria-expanded={open}
+                    aria-controls={moreId}
+                    className="hidden h-8 w-full items-center gap-3 rounded-md px-2.5 text-xs font-medium text-sidebar-muted transition-colors duration-150 hover:bg-sidebar-hover-bg hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:flex"
                   >
                     <ChevronDown
-                      className={cn('h-3.5 w-3.5 transition-transform duration-150', isCollapsed && '-rotate-90')}
+                      aria-hidden="true"
+                      className={cn('h-[18px] w-[18px] shrink-0 transition-transform duration-150', !open && '-rotate-90')}
                     />
+                    <span className="flex-1 truncate text-left">{open ? 'Menos' : `Mais ${more.length}`}</span>
                   </button>
-                )}
-              </div>
-
-              {/* Items */}
-              {(!group.collapsible || !isCollapsed) &&
-                group.items.map((item) => {
-                  const active = isActive(item.href);
-                  const lockedByPlan = outOfPlan(item.href);
-                  const badge =
-                    item.href === '/foco' && focusCount > 0
-                      ? String(focusCount)
-                      : lockedByPlan
-                        ? 'Plano'
-                        : item.badge;
-                  const badgeVariant =
-                    item.href === '/foco' ? 'danger' : lockedByPlan ? 'warning' : item.badgeVariant;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      aria-label={item.name}
-                      data-tour={`nav-${item.href}`}
-                      aria-current={active ? 'page' : undefined}
-                      title={lockedByPlan ? `${item.name} (fora do seu plano)` : item.name}
-                      className={cn(
-                        'group relative flex h-10 items-center justify-center gap-3 rounded-md px-2.5 text-sm font-medium md:h-9 md:justify-start',
-                        'transition-colors duration-150 ease-out',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
-                        active
-                          ? 'bg-sidebar-active-bg text-sidebar-active-fg'
-                          : 'text-sidebar-muted hover:bg-sidebar-hover-bg hover:text-sidebar-foreground',
-                      )}
-                    >
-                      <item.icon
-                        aria-hidden="true"
-                        className={cn(
-                          'h-[18px] w-[18px] shrink-0',
-                          active ? 'text-sidebar-active-fg' : 'text-sidebar-muted group-hover:text-sidebar-foreground',
-                        )}
-                      />
-                      <span className="hidden flex-1 truncate md:inline">{item.name}</span>
-
-                      {/* Badge */}
-                      {badge && (
-                        <span
-                          className={cn(
-                            'hidden h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums md:flex',
-                            active && 'bg-white/20 text-white',
-                            BADGE_CLASSES[badgeVariant ?? 'primary'],
-                          )}
-                        >
-                          {badge}
-                        </span>
-                      )}
-
-                      {/* Tooltip mobile */}
-                      <span className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md group-hover:block group-focus-visible:block md:hidden">
-                        {item.name}
-                        {badge && (
-                          <span className={cn('ml-1.5 rounded-full px-1 text-[11px] tabular-nums', BADGE_CLASSES[badgeVariant ?? 'primary'])}>
-                            {badge}
-                          </span>
-                        )}
-                      </span>
-                    </Link>
-                  );
-                })}
+                  {/* Menu de ícones (< md): sem recolher, para nenhuma rota ficar inacessível. */}
+                  <div id={moreId} className={cn(!open && 'hidden max-md:block')}>
+                    {more.map(renderItem)}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}

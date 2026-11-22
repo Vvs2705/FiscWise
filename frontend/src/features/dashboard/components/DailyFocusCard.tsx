@@ -60,7 +60,7 @@ export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocus
             >
               <div className="flex items-center justify-between gap-4">
                 <p className="text-sm font-medium text-inherit">{item.label}</p>
-                <span className="text-lg font-semibold text-foreground">{item.value}</span>
+                <span className="font-mono text-lg font-medium tabular-nums text-foreground">{item.value}</span>
               </div>
             </div>
           ))
@@ -76,7 +76,7 @@ export function DailyFocusCard({ focusItems, totalCount, isLoading, onStartFocus
           <button
             type="button"
             onClick={onStartFocusMode}
-            className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0"
+            className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-xs font-bold text-primary-foreground transition-[background-color,transform] duration-100 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Iniciar Modo Foco ({totalCount} pendências)
           </button>

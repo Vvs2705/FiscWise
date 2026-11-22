@@ -197,6 +197,8 @@ function LoginForm({
     }
   };
 
+  const hasGoogle = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+
   return (
     <div className={FORM_COLUMN_CLASS}>
       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -204,34 +206,7 @@ function LoginForm({
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">Acesse seus clientes, prazos e documentos.</p>
 
-      {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-        <>
-          <div className={cn('mt-8', isLoading && 'pointer-events-none opacity-50')}>
-            <GoogleLogin
-              onSuccess={(res) => {
-                if (res.credential) loginWithGoogle(res.credential);
-              }}
-              onError={() => {}}
-              width="100%"
-              text="signin_with"
-              shape="rectangular"
-              logo_alignment="left"
-            />
-          </div>
-
-          <div className="mt-6 flex items-center gap-3" role="separator">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">ou com e-mail</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-        </>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className={cn('space-y-4', import.meta.env.VITE_GOOGLE_CLIENT_ID ? 'mt-6' : 'mt-8')}
-        noValidate
-      >
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium text-foreground">
             E-mail
@@ -246,24 +221,16 @@ function LoginForm({
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isLoading}
+            invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
             className="h-11"
           />
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-3">
-            <label htmlFor="password" className="text-sm font-medium text-foreground">
-              Senha
-            </label>
-            {resetAvailable && (
-              <Link
-                to="/esqueci-senha"
-                className="rounded-md text-xs font-medium text-muted-foreground transition-colors duration-150 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Esqueci minha senha
-              </Link>
-            )}
-          </div>
+          <label htmlFor="password" className="text-sm font-medium text-foreground">
+            Senha
+          </label>
           <div className="relative">
             <Input
               id="password"
@@ -274,6 +241,8 @@ function LoginForm({
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              invalid={!!error}
+              aria-describedby={error ? 'login-error' : undefined}
               className="h-11 pr-11"
             />
             <button
@@ -295,6 +264,7 @@ function LoginForm({
 
         {/* Região viva sempre montada; sem erro, anula o espaçamento do form. */}
         <p
+          id="login-error"
           aria-live="polite"
           role="status"
           className={cn('text-sm text-destructive', !error && '-mt-4')}
@@ -314,7 +284,50 @@ function LoginForm({
         </Button>
       </form>
 
-      <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+      {resetAvailable && (
+        <p className="mt-3 text-center">
+          <Link
+            to="/esqueci-senha"
+            className="inline-flex h-10 items-center rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Esqueci minha senha
+          </Link>
+        </p>
+      )}
+
+      {hasGoogle && (
+        <>
+          <div className="mt-4 flex items-center gap-3" role="separator">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">ou</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className={cn('mt-4', isLoading && 'pointer-events-none opacity-50')}>
+            <GoogleLogin
+              onSuccess={(res) => {
+                if (res.credential) loginWithGoogle(res.credential);
+              }}
+              onError={() => {}}
+              width="100%"
+              text="signin_with"
+              shape="rectangular"
+              logo_alignment="left"
+            />
+          </div>
+        </>
+      )}
+
+      <p className="mt-6 border-t border-border pt-5 text-center text-sm text-muted-foreground">
+        Ainda não tem conta?{' '}
+        <Link
+          to="/register"
+          className="rounded-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          Teste grátis por 14 dias
+        </Link>
+      </p>
+
+      <p className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <LockKeyhole className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         Acesso protegido com verificação em 2 etapas
       </p>
@@ -329,23 +342,29 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <LoginTopBar />
-
-      <main className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 content-start gap-10 px-4 pb-6 pt-6 sm:px-6 sm:pt-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:content-stretch lg:gap-16 lg:px-10 lg:py-5 xl:py-6 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] xl:gap-24">
-        <div className="w-full max-w-[440px] lg:self-center">
-          {mfaChallenge ? (
-            <TwoFAScreen
-              method={mfaChallenge.two_factor_method}
-              message={mfaChallenge.message}
-              mfaToken={mfaChallenge.mfa_token}
-              onVerify={verify2FA}
-              onBack={cancelMfa}
-              isLoading={isLoading}
-            />
-          ) : (
-            <LoginForm login={login} loginWithGoogle={loginWithGoogle} isLoading={isLoading} />
-          )}
-        </div>
+      <main className="grid flex-1 grid-cols-1 lg:grid-cols-2">
+        {/* Coluna do formulário: marca, título, subtítulo, campos, ações */}
+        <section className="flex flex-col px-4 sm:px-6 lg:px-12">
+          <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
+            <LoginTopBar />
+            <div className="flex flex-1 items-start py-8 lg:items-center lg:py-10">
+              <div className="w-full">
+                {mfaChallenge ? (
+                  <TwoFAScreen
+                    method={mfaChallenge.two_factor_method}
+                    message={mfaChallenge.message}
+                    mfaToken={mfaChallenge.mfa_token}
+                    onVerify={verify2FA}
+                    onBack={cancelMfa}
+                    isLoading={isLoading}
+                  />
+                ) : (
+                  <LoginForm login={login} loginWithGoogle={loginWithGoogle} isLoading={isLoading} />
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <LoginPitch />
       </main>

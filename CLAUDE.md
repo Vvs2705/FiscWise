@@ -1,3 +1,6 @@
+@ESTADO.md
+Leia primeiro: estado atual do projeto; atualize ao terminar um trabalho.
+
 # CLAUDE.md — FiscWise
 
 ## Regra permanente — centralizar, nunca espalhar

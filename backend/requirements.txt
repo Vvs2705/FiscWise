@@ -21,7 +21,7 @@ python-jose[cryptography]==3.5.0
 # which was removed).  We call bcrypt directly in app/core/security.py.
 bcrypt>=4.0.0
 python-multipart==0.0.32
-google-auth==2.29.0
+google-auth==2.62.2
 requests==2.34.2
 # Two-Factor Authentication (TOTP / Google Authenticator)
 pyotp==2.9.0

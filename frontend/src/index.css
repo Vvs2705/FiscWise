@@ -217,6 +217,27 @@
     animation: fade-in-up 0.25s cubic-bezier(0.2, 0, 0, 1) both;
   }
 
+  /* Prova do produto no login: cascata (60 ms por passo via --i) e barra que enche.
+     Só opacity/transform, uma vez. O estado final é o estilo normal do elemento. */
+  @keyframes proof-enter {
+    from { opacity: 0; transform: translateY(8px); }
+  }
+
+  @keyframes proof-fill {
+    from { transform: scaleX(0); }
+  }
+
+  .proof-enter {
+    animation: proof-enter 0.4s cubic-bezier(0.2, 0, 0, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms + 80ms);
+  }
+
+  .proof-fill {
+    transform: scaleX(var(--p, 1));
+    animation: proof-fill 0.9s cubic-bezier(0.2, 0, 0, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms + 80ms);
+  }
+
   /* Skeleton: um único mecanismo (shimmer); estático com reduced-motion */
   .skeleton {
     background-color: hsl(var(--muted));
@@ -265,6 +286,12 @@
   .skeleton {
     animation: none !important;
     background-image: none !important;
+  }
+
+  /* Sem atraso de cascata: o conteúdo já aparece no estado final */
+  .proof-enter,
+  .proof-fill {
+    animation: none !important;
   }
 }
 

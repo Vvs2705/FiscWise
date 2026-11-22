@@ -137,7 +137,7 @@ Tokens em `frontend/src/lib/motion.ts` e utilitários em `index.css`.
 | `enter` | 250 ms | `cubic-bezier(0.2, 0, 0, 1)` | entrada de página/card (`fade + 6px`) |
 
 Regras:
-- Entrada de página: fade + translateY(6px), 250 ms, uma vez. Sem stagger acima de 4 itens, e com passo de 40 ms.
+- Entrada de página: fade + translateY(6px), 250 ms, uma vez. Sem stagger acima de 4 itens, e com passo de 40 ms (a vitrine do login usa 60 ms por ser peça de apresentação).
 - Nada de `scale` em hover. Pressionar = `active:scale-[0.98]` apenas em botões.
 - Loop permitido só em spinner e skeleton.
 - Animar só `opacity` e `transform`. Nunca `height`, `box-shadow`, `filter`.
@@ -184,7 +184,7 @@ Objetivo: em 5 segundos o visitante entende o que é, para quem é e o benefíci
   linha de segurança abaixo do botão).
 - Direita (≥ lg): painel claro quente com o posicionamento e "Como funciona" em
   3 passos. Abaixo de lg vira versão compacta embaixo do formulário.
-- Nada de métricas inventadas, radar ou gráficos decorativos.
+- Nada de métricas inventadas, radar ou gráficos decorativos **dentro do produto** (telas com dados do cliente). Exceção decidida pelo dono em 2026-11-22: login, landing e material de venda podem mostrar **dados de exemplo** para atrair clientes enquanto não há uso real, sempre com o selo "Exemplo ilustrativo". Trocar por capturas reais quando houver clientes usando.
 - Texto oficial vem de `docs/marketing/` (Frente D). Sem preços na tela de login.
 - Só CSS. Sem framer-motion, sem animação em loop, sem imagem pesada. Entrada única de 200 ms.
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { dateBR, moneyBRL, useDashboardOverview, useProductivityOverview } from '@/lib/hooks/useOperations';
-import { DashboardHero } from '@/features/dashboard/components/DashboardHero';
+import { DashboardHero, QuickActions } from '@/features/dashboard/components/DashboardHero';
 import { DailyFocusCard } from '@/features/dashboard/components/DailyFocusCard';
 import { MetricsGrid } from '@/features/dashboard/components/MetricsGrid';
 import { ClientAttentionList } from '@/features/dashboard/components/ClientAttentionList';
@@ -248,6 +248,18 @@ export function DashboardPage() {
     return { score, factors };
   }, [data, prod]);
 
+  // Frase-resumo do topo: pendências e prazos primeiro.
+  const summary = useMemo(() => {
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const overdue = data?.overdue_deadlines ?? 0;
+    const docs = prod?.docs_awaiting_approval ?? 0;
+    const parts: string[] = [];
+    if (todaysDeadlines.length > 0) parts.push(`${plural(todaysDeadlines.length, 'obrigação vence', 'obrigações vencem')} hoje`);
+    if (overdue > 0) parts.push(plural(overdue, 'obrigação em atraso', 'obrigações em atraso'));
+    if (docs > 0) parts.push(`${plural(docs, 'documento', 'documentos')} para conferir`);
+    return parts.length > 0 ? `${parts.join(' · ')}.` : 'Nada urgente agora. Acompanhe a semana abaixo.';
+  }, [data?.overdue_deadlines, prod?.docs_awaiting_approval, todaysDeadlines.length]);
+
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long' });
   const currentYear = new Date().getFullYear();
 
@@ -259,14 +271,20 @@ export function DashboardPage() {
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="mx-auto max-w-[1400px] space-y-6 p-5 md:p-8"
+        className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8"
       >
-        {/* Hero Section */}
+        {/* 1. O que fazer agora: resumo do dia */}
         <motion.div variants={fadeIn}>
-          <DashboardHero isError={isError} onStartFocusMode={() => setIsModoFocoOpen(true)} />
+          <DashboardHero
+            isError={isError}
+            isLoading={isLoading}
+            summary={summary}
+            hasPending={totalFocusCount > 0}
+            onStartFocusMode={() => setIsModoFocoOpen(true)}
+          />
         </motion.div>
 
-        {/* Daily Focus + Metrics Grid */}
+        {/* 2. Prazos e pendências: foco do dia + agenda da semana */}
         <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
           <motion.div variants={fadeIn} id="tour-focus">
             <DailyFocusCard
@@ -277,51 +295,52 @@ export function DashboardPage() {
             />
           </motion.div>
 
-          <motion.div variants={fadeIn}>
-            <MetricsGrid metrics={metrics} />
+          <motion.div variants={fadeIn} id="tour-deadlines">
+            <FiscalWeekTimeline timeline={weekTimeline} isLoading={isLoading} />
           </motion.div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          {/* Left Column */}
-          <motion.div variants={staggerContainer} className="space-y-6">
-            <motion.div variants={fadeIn} id="tour-attention">
-              <ClientAttentionList clients={attentionClients} isLoading={isLoading} />
-            </motion.div>
-
-            <motion.div variants={fadeIn} id="tour-deadlines">
-              <FiscalWeekTimeline timeline={weekTimeline} isLoading={isLoading} />
-            </motion.div>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <motion.div variants={fadeIn} id="tour-attention">
+            <ClientAttentionList clients={attentionClients} isLoading={isLoading} />
           </motion.div>
 
-          {/* Right Column */}
-          <motion.div variants={staggerContainer} className="space-y-6">
-            <motion.div variants={fadeIn}>
-              <PendingDocumentsCard
-                documents={pendingDocuments}
-                totalPending={prod?.docs_awaiting_approval ?? 0}
-                isLoading={isLoading}
-              />
-            </motion.div>
+          <motion.div variants={fadeIn}>
+            <PendingDocumentsCard
+              documents={pendingDocuments}
+              totalPending={prod?.docs_awaiting_approval ?? 0}
+              isLoading={isLoading}
+            />
+          </motion.div>
+        </div>
 
-            <motion.div variants={fadeIn}>
-              <MonthlyClosingCard
-                month={currentMonth}
-                year={currentYear}
-                stats={closingStats}
-                isLoading={isLoading}
-              />
-            </motion.div>
+        {/* 3. Ações */}
+        <motion.div variants={fadeIn}>
+          <QuickActions />
+        </motion.div>
 
-            <motion.div variants={fadeIn} id="tour-risk">
-              <PortfolioRiskCard
-                score={portfolioRisk.score}
-                factors={portfolioRisk.factors}
-                isLoading={isLoading}
-                onStartFocusMode={() => setIsModoFocoOpen(true)}
-              />
-            </motion.div>
+        {/* 4. Números da carteira */}
+        <motion.div variants={fadeIn}>
+          <MetricsGrid metrics={metrics} />
+        </motion.div>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <motion.div variants={fadeIn}>
+            <MonthlyClosingCard
+              month={currentMonth}
+              year={currentYear}
+              stats={closingStats}
+              isLoading={isLoading}
+            />
+          </motion.div>
+
+          <motion.div variants={fadeIn} id="tour-risk">
+            <PortfolioRiskCard
+              score={portfolioRisk.score}
+              factors={portfolioRisk.factors}
+              isLoading={isLoading}
+              onStartFocusMode={() => setIsModoFocoOpen(true)}
+            />
           </motion.div>
         </div>
       </motion.div>

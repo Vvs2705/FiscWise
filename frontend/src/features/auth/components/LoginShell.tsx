@@ -11,31 +11,14 @@ export function LoginLogo({ size = 28 }: { size?: number }) {
   return <Logo variant="full" theme="auto" size={size} />;
 }
 
-/** Barra superior do login: marca (link para a página inicial) e cadastro. */
+/** Topo da coluna do formulário: marca (link para a página inicial) e tema. O cadastro fica abaixo do botão Entrar. */
 export function LoginTopBar() {
   return (
-    <header className="w-full lg:border-b lg:border-border">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
-        <Link to="/" aria-label="FiscWise, página inicial" className={`shrink-0 rounded-md ${FOCUS_RING}`}>
-          <LoginLogo />
-        </Link>
-
-        <div className="flex items-center gap-2 text-sm sm:gap-3">
-          <ThemeToggle />
-          <span className="hidden text-muted-foreground sm:inline">Ainda não tem conta?</span>
-          <Link
-            to="/register"
-            className={[
-              'inline-flex h-10 select-none items-center justify-center whitespace-nowrap rounded-md px-3 font-medium sm:px-4',
-              'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
-              'transition-[background-color,transform] duration-100 ease-out active:scale-[0.98]',
-              FOCUS_RING,
-            ].join(' ')}
-          >
-            Teste grátis por 14 dias
-          </Link>
-        </div>
-      </div>
+    <header className="flex h-16 w-full shrink-0 items-center justify-between gap-4">
+      <Link to="/" aria-label="FiscWise, página inicial" className={`shrink-0 rounded-md ${FOCUS_RING}`}>
+        <LoginLogo />
+      </Link>
+      <ThemeToggle />
     </header>
   );
 }

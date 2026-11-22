@@ -15,7 +15,6 @@ import {
   MessageSquare,
   Globe,
   BarChart3,
-  BookOpen,
   Settings,
   RefreshCw,
   ChevronDown,
@@ -93,7 +92,6 @@ const navGroups: NavGroup[] = [
     collapsible: true,
     items: [
       { name: 'Minicurso',      href: '/minicurso',     icon: GraduationCap },
-      { name: 'Aprender',       href: '/aprender',      icon: BookOpen },
       { name: 'Plano e assinatura', href: '/assinatura', icon: CreditCard },
       { name: 'Configurações',  href: '/configuracoes', icon: Settings },
       { name: 'Sincronização',  href: '/sincronizacao', icon: RefreshCw },

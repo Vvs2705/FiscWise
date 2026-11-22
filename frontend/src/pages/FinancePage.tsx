@@ -235,9 +235,9 @@ export function FinancePage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/aprender')}
+            onClick={() => navigate('/minicurso')}
             className="h-9 border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 gap-1.5"
-            title="Aprender sobre esta tela"
+            title="Guia desta tela"
           >
             <BookOpen className="h-4 w-4" />
             <span>Guia</span>

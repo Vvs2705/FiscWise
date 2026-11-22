@@ -336,18 +336,6 @@ export const PAGE_GUIDES: PageGuide[] = [
     ],
   },
   {
-    path: '/aprender',
-    title: 'Aprender',
-    summary: 'Checklist de ativação do escritório, guias rápidos, perguntas frequentes e tours guiados.',
-    tasks: [
-      {
-        title: 'Deixar o escritório pronto',
-        steps: ['Siga o "Checklist de ativação" e clique no botão de cada etapa que ainda falta.'],
-      },
-    ],
-    lessonId: 'primeiros-passos',
-  },
-  {
     path: '/minicurso',
     title: 'Minicurso FiscWise',
     summary: 'Aulas curtas em vídeo, narradas e com legenda, mostrando cada tarefa sendo feita na tela, do começo ao fim.',

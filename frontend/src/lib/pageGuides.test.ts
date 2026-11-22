@@ -6,7 +6,7 @@ import { LESSONS, getLesson } from './minicurso';
 const APP_ROUTES = [
   '/painel', '/foco', '/clientes', '/fechamento', '/obrigacoes', '/documentos', '/notas-fiscais', '/ecac',
   '/guias', '/caixa-postal-fiscal', '/procuracoes', '/certificados', '/financeiro', '/whatsapp', '/portal',
-  '/relatorios', '/aprender', '/minicurso', '/configuracoes', '/sincronizacao', '/calculadora',
+  '/relatorios', '/minicurso', '/configuracoes', '/sincronizacao', '/calculadora',
 ];
 
 describe('guias por página', () => {

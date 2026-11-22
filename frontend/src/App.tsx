@@ -41,7 +41,6 @@ const PrivacyPage      = lazy(() => import('@/pages/PrivacyPage').then(m => ({ d
 const DpaPage          = lazy(() => import('@/pages/DpaPage').then(m => ({ default: m.DpaPage })));
 const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'));
 const MinicursoPage    = lazy(() => import('@/pages/MinicursoPage').then(m => ({ default: m.MinicursoPage })));
-const LearningPage     = lazy(() => import('@/pages/LearningPage').then(m => ({ default: m.LearningPage })));
 const SyncPage          = lazy(() => import('@/pages/SyncPage').then(m => ({ default: m.SyncPage })));
 const WhatsAppInboxPage = lazy(() => import('@/pages/WhatsAppInboxPage').then(m => ({ default: m.WhatsAppInboxPage })));
 
@@ -225,7 +224,7 @@ function App() {
                 <Route path="relatorios"   element={<ReportsPage />} />
 
                 {/* ── Sistema ──────────────────────────────────────────── */}
-                <Route path="aprender"     element={<LearningPage />} />
+                <Route path="aprender"     element={<Navigate to="/minicurso" replace />} />
                 <Route path="minicurso"    element={<MinicursoPage />} />
                 <Route path="configuracoes" element={<SettingsPage />} />
                 <Route path="sincronizacao" element={<SyncPage />} />

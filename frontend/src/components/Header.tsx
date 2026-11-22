@@ -29,7 +29,6 @@ const sectionTitles: ReadonlyArray<readonly [string, string]> = [
   ['/whatsapp', 'WhatsApp'],
   ['/portal', 'Portal do cliente'],
   ['/relatorios', 'Relatórios'],
-  ['/aprender', 'Aprender'],
   ['/minicurso', 'Minicurso FiscWise'],
   ['/configuracoes', 'Configurações'],
   ['/sincronizacao', 'Sincronização'],

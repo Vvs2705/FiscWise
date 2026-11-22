@@ -202,7 +202,6 @@ const OFFICE_ROUTES = [
   '/whatsapp',
   '/portal',
   '/relatorios',
-  '/aprender',
   '/minicurso',
   '/configuracoes',
   '/configuracoes?aba=plano',
